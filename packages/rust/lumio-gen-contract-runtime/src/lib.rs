@@ -24,11 +24,14 @@ pub fn hash_chain_verify(prev: &Hash256, payload: &[u8], expected: &Hash256) -> 
     if got.0 == expected.0 { Ok(()) } else { Err(ChainBreak::Mismatch) }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BufferFull;
+
 pub struct BoundedBuffer { inner: Vec<u8>, cap: usize }
 impl BoundedBuffer {
     pub fn new(cap: usize) -> Self { Self { inner: Vec::new(), cap } }
-    pub fn push(&mut self, byte: u8) -> Result<(), ()> {
-        if self.inner.len() >= self.cap { return Err(()); }
+    pub fn push(&mut self, byte: u8) -> Result<(), BufferFull> {
+        if self.inner.len() >= self.cap { return Err(BufferFull); }
         self.inner.push(byte); Ok(())
     }
     pub fn as_slice(&self) -> &[u8] { &self.inner }
