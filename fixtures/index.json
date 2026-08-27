@@ -71,6 +71,23 @@
     { "id": "result/valid", "schema": "contract-result", "file": "valid/contract-result.json", "expected": "valid" },
     { "id": "result/negative", "schema": "contract-result", "file": "invalid/contract-result-negative.json", "expected": "invalid", "reason": "failure count cannot be negative" },
     { "id": "mod/reserved", "schema": "mod-manifest", "file": "valid/mod-manifest-reserved.json", "expected": "valid" },
-    { "id": "mod/native-library", "schema": "mod-manifest", "file": "invalid/mod-manifest-native.json", "expected": "invalid", "reason": "V1 Mod boundary cannot load native libraries" }
+    { "id": "mod/native-library", "schema": "mod-manifest", "file": "invalid/mod-manifest-native.json", "expected": "invalid", "reason": "V1 Mod boundary cannot load native libraries" },
+    { "id": "world/authority-ready", "schema": "voxel-world-port", "file": "valid/voxel-world-port.json", "expected": "valid" },
+    { "id": "world/bad-role", "schema": "voxel-world-port", "file": "invalid/voxel-world-port-bad-role.json", "expected": "invalid", "reason": "a voxel world role must be Authority or Replica" },
+    { "id": "chunk/negative-coord", "schema": "voxel-chunk-page", "file": "valid/voxel-chunk-page.json", "expected": "valid" },
+    { "id": "chunk/coord-overflow", "schema": "voxel-chunk-page", "file": "invalid/voxel-chunk-page-coord-overflow.json", "expected": "invalid", "reason": "a chunk coordinate must stay inside the frozen i32 wire range" },
+    { "id": "chunk/page-bad-hash", "schema": "voxel-chunk-page", "file": "invalid/voxel-chunk-page-bad-hash.json", "expected": "invalid", "reason": "a page hash must be a SHA-256 digest" },
+    { "id": "voxelrev/stamp", "schema": "voxel-revision-stamp", "file": "valid/voxel-revision-stamp.json", "expected": "valid" },
+    { "id": "voxelrev/negative-chunk-revision", "schema": "voxel-revision-stamp", "file": "invalid/voxel-revision-stamp-negative.json", "expected": "invalid", "reason": "a chunk revision cannot be negative" },
+    { "id": "query/multi-chunk-bound", "schema": "voxel-query", "file": "valid/voxel-query-bound.json", "expected": "valid" },
+    { "id": "query/continuation-unbound", "schema": "voxel-query", "file": "invalid/voxel-query-continuation-unbound.json", "expected": "invalid", "reason": "a continuation must stay bound to the WorldRevision fixed at begin" },
+    { "id": "mutation/receipt-applied", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-receipt-applied.json", "expected": "valid" },
+    { "id": "mutation/receipt-duplicate", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-receipt-duplicate.json", "expected": "valid" },
+    { "id": "mutation/receipt-aborted-revision-conflict", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-receipt-aborted-conflict.json", "expected": "valid" },
+    { "id": "mutation/status-lost-result", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-status-lost-result.json", "expected": "valid" },
+    { "id": "mutation/status-result-pruned", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-status-pruned.json", "expected": "valid" },
+    { "id": "mutation/receipt-global-commit-intent", "schema": "voxel-mutation-receipt", "file": "invalid/voxel-mutation-receipt-commit-intent.json", "expected": "invalid", "reason": "a voxel participant must not own the global CommitIntent state" },
+    { "id": "mutation/receipt-applied-missing-result", "schema": "voxel-mutation-receipt", "file": "invalid/voxel-mutation-receipt-applied-missing-result.json", "expected": "invalid", "reason": "an Applied receipt must retain the original result revisions" },
+    { "id": "txn/crash-between-markers", "schema": "cross-world-txn", "file": "valid/cross-world-txn-indeterminate.json", "expected": "valid" }
   ]
 }

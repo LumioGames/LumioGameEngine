@@ -48,7 +48,12 @@
         { "id": "InvalidHandle", "numeric": 1029, "status": "Active", "since": "V1" },
         { "id": "HandleDoubleRelease", "numeric": 1030, "status": "Active", "since": "V1" },
         { "id": "MessagePermissionDenied", "numeric": 1031, "status": "Active", "since": "V1" },
-        { "id": "StaleConnectionGeneration", "numeric": 1032, "status": "Active", "since": "V1" }
+        { "id": "StaleConnectionGeneration", "numeric": 1032, "status": "Active", "since": "V1" },
+        { "id": "ChunkUnavailable", "numeric": 1033, "status": "Active", "since": "V1" },
+        { "id": "TargetRevisionUnavailable", "numeric": 1034, "status": "Active", "since": "V1" },
+        { "id": "BudgetExceeded", "numeric": 1035, "status": "Active", "since": "V1" },
+        { "id": "QueueFull", "numeric": 1036, "status": "Active", "since": "V1" },
+        { "id": "CoordinateOutOfBounds", "numeric": 1037, "status": "Active", "since": "V1" }
       ]
     },
     {
@@ -57,7 +62,11 @@
       "values": [
         { "id": "Native", "numeric": 1, "status": "Active", "since": "V1" },
         { "id": "HybridCLR", "numeric": 2, "status": "Reserved", "since": "V1" },
-        { "id": "ReferenceVoxel", "numeric": 3, "status": "Active", "since": "V1" }
+        { "id": "ReferenceVoxel", "numeric": 3, "status": "Active", "since": "V1" },
+        { "id": "VoxelSnapshot", "numeric": 4, "status": "Active", "since": "V1" },
+        { "id": "VoxelStreaming", "numeric": 5, "status": "Active", "since": "V1" },
+        { "id": "VoxelSpatial", "numeric": 6, "status": "Active", "since": "V1" },
+        { "id": "VoxelMeshCollision", "numeric": 7, "status": "Active", "since": "V1" }
       ]
     },
     {

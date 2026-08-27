@@ -1,0 +1,16 @@
+{
+  "sessionId": "session-001",
+  "txnId": "txn-place-0003",
+  "tickId": 43,
+  "commandId": "cmd-0003",
+  "state": "Indeterminate",
+  "expectedGameRevision": 18,
+  "expectedVoxelRevision": 24,
+  "chunkRevisionSet": { "chunk-0-0": 9 },
+  "deadlineTick": 52,
+  "preparedVoxelToken": "voxel-reservation-0003",
+  "commitOrder": ["VoxelCommit", "EcsCommandBufferCommit"],
+  "commitIntentPersisted": true,
+  "participantMarkers": { "voxelCommit": true, "ecsCommandBufferCommit": false },
+  "resultRevisionVector": null
+}

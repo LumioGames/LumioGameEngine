@@ -1,0 +1,13 @@
+{
+  "queryId": "query-aoi-0002",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "consistency": "ExplicitRevision",
+  "requestedWorldRevision": 24,
+  "boundWorldRevision": 24,
+  "points": [{ "x": -1, "y": 64, "z": 5 }],
+  "limits": { "maxResults": 16, "maxBatchBytes": 4096, "deadlineTick": 48 },
+  "status": "Pending",
+  "chunkStatuses": [{ "chunkId": "c:-1:0:0", "presence": "Pending" }],
+  "continuation": { "token": "query-aoi-0002-c1" }
+}

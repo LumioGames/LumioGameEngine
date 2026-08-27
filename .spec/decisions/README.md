@@ -38,5 +38,7 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-021](ADR-021-client-authority-update.md) | 客户端权威更新单一 Runtime 事务 | Accepted |
 | [ADR-022](ADR-022-protocol-permission-gate.md) | 生成的 Protocol/Permission 门与字段集 | Accepted |
 | [ADR-023](ADR-023-generated-contract-artifact.md) | 生成契约 Artifact 发布方与零实现依赖 | Accepted |
+| [ADR-024](ADR-024-voxel-p0-contract-set.md) | Voxel P0 公共契约集（World/Port、Chunk/Page、Revision Stamp、Query 一致性） | Accepted |
+| [ADR-025](ADR-025-voxel-participant-receipt-durability.md) | Voxel participant receipt 耐久与 pruning handshake（扩展 ADR-003） | Accepted |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。

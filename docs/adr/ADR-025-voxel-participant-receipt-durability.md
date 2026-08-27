@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-025-voxel-participant-receipt-durability.md

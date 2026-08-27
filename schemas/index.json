@@ -26,6 +26,11 @@
     { "id": "core-engine-manifest", "file": "core-engine-manifest.schema.json", "priority": "P0", "owner": "CoreEngine" },
     { "id": "signature-envelope", "file": "signature-envelope.schema.json", "priority": "P0", "owner": "CoreEngine" },
     { "id": "verified-package-descriptor", "file": "verified-package-descriptor.schema.json", "priority": "P0", "owner": "CoreEngine" },
+    { "id": "voxel-world-port", "file": "voxel-world-port.schema.json", "priority": "P0", "owner": "VoxelEngine" },
+    { "id": "voxel-chunk-page", "file": "voxel-chunk-page.schema.json", "priority": "P0", "owner": "VoxelEngine" },
+    { "id": "voxel-revision-stamp", "file": "voxel-revision-stamp.schema.json", "priority": "P0", "owner": "VoxelEngine" },
+    { "id": "voxel-query", "file": "voxel-query.schema.json", "priority": "P0", "owner": "VoxelEngine" },
+    { "id": "voxel-mutation-receipt", "file": "voxel-mutation-receipt.schema.json", "priority": "P0", "owner": "VoxelEngine" },
     { "id": "migration-manifest", "file": "migration-manifest.schema.json", "priority": "P1", "owner": "Game" },
     { "id": "contract-result", "file": "contract-result.schema.json", "priority": "P1", "owner": "Architecture" },
     { "id": "mod-manifest", "file": "mod-manifest.schema.json", "priority": "P2", "owner": "Game" }

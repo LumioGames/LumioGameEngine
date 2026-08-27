@@ -93,6 +93,48 @@
         "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" }
       },
       "additionalProperties": false
+    },
+    "voxelChunkCoord": {
+      "type": "object",
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "y": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "z": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "additionalProperties": false
+    },
+    "voxelBlockCoord": {
+      "type": "object",
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        "y": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        "z": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+      },
+      "additionalProperties": false
+    },
+    "voxelChunkId": {
+      "type": "string",
+      "pattern": "^c:(0|-?[1-9][0-9]{0,9}):(0|-?[1-9][0-9]{0,9}):(0|-?[1-9][0-9]{0,9})$"
+    },
+    "voxelBlockValue": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "voxelContext": {
+      "type": "object",
+      "required": ["contextId", "generation"],
+      "properties": {
+        "contextId": { "$ref": "common.schema.json#/$defs/id" },
+        "generation": { "$ref": "common.schema.json#/$defs/revision" }
+      },
+      "additionalProperties": false
+    },
+    "voxelChunkRevisionSet": {
+      "type": "object",
+      "additionalProperties": { "$ref": "common.schema.json#/$defs/revision" }
     }
   }
 }
