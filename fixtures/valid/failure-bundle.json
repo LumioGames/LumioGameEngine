@@ -3,6 +3,7 @@
   "reasonCode": "CRASH_BETWEEN_COMMITS",
   "createdAt": "2026-08-27T01:12:00Z",
   "correlation": {
+    "scope": "Txn",
     "productId": "A",
     "gameReleaseId": "A-1.1.0",
     "releasePoolId": "pool-a-1.1",

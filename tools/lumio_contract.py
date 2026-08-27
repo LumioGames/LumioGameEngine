@@ -249,6 +249,40 @@ def structural_errors(value: Any, schema: Any, schema_file: Path, resolver: Sche
         return fallback_validate(value, schema, resolver, schema_file, schema)
 
 
+_SCOPE_REQUIRED_IDS = {
+    "Process": (),
+    "Release": ("releasePoolId",),
+    "Session": ("sessionId",),
+    "World": ("worldId", "tickId"),
+    "Txn": ("txnId", "worldId", "tickId"),
+}
+
+_SCOPE_FORBIDDEN_IDS = {
+    "Process": ("sessionId", "worldId", "tickId", "txnId"),
+    "Release": ("sessionId", "worldId", "tickId", "txnId"),
+    "Session": ("worldId", "tickId", "txnId"),
+    "World": ("txnId",),
+    "Txn": (),
+}
+
+
+def correlation_scope_errors(correlation: Any) -> List[str]:
+    """Enforce ADR-011 scope tiers: IDs may not be fabricated below their scope."""
+    errors: List[str] = []
+    if not isinstance(correlation, dict):
+        return errors
+    scope = correlation.get("scope")
+    if scope not in _SCOPE_REQUIRED_IDS:
+        return errors
+    for field in _SCOPE_REQUIRED_IDS[scope]:
+        if field not in correlation:
+            errors.append("{} scope requires correlation field {!r}".format(scope, field))
+    for field in _SCOPE_FORBIDDEN_IDS[scope]:
+        if field in correlation:
+            errors.append("{} scope must not fabricate correlation field {!r}".format(scope, field))
+    return errors
+
+
 def semantic_errors(schema_id: str, value: Any) -> List[str]:
     errors: List[str] = []
 
@@ -323,6 +357,11 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             errors.append("Graceful maintenance requires DrainAndKick")
         if value.get("broadcastCode") != "MaintenanceKick":
             errors.append("maintenance must broadcast MaintenanceKick")
+        grace = value.get("graceDeadlineSeconds")
+        if mode == "Forced" and grace != 0:
+            errors.append("Forced maintenance requires graceDeadlineSeconds 0")
+        if mode == "Graceful" and isinstance(grace, int) and grace < 1:
+            errors.append("Graceful maintenance requires a positive grace window")
 
     elif schema_id == "snapshot-header":
         if value.get("compression") == "None" and "payload" in value:
@@ -355,8 +394,11 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         durability = value.get("durability")
         if category in ("Audit", "TxnJournal", "CommandLog") and durability not in ("Durable", "EmergencySync"):
             errors.append("{} events cannot use BestEffort durability".format(category))
+        if durability == "EmergencySync" and value.get("severity") not in ("Error", "Fatal"):
+            errors.append("EmergencySync durability is reserved for Error/Fatal severity")
         if category == "FailureBundle" and not value.get("correlation", {}).get("snapshotId"):
             errors.append("FailureBundle event requires SnapshotId correlation")
+        errors.extend(correlation_scope_errors(value.get("correlation")))
 
     elif schema_id == "processor-descriptor":
         read_set = set(value.get("readSet", []))
@@ -370,6 +412,7 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         names = [artifact.get("name") for artifact in value.get("artifacts", [])]
         if len(names) != len(set(names)):
             errors.append("FailureBundle artifact names must be unique")
+        errors.extend(correlation_scope_errors(value.get("correlation")))
 
     elif schema_id == "id-registry":
         namespace_names = [namespace.get("namespace") for namespace in value.get("namespaces", [])]
@@ -449,15 +492,15 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
 def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     schema_index = load_json(SCHEMA_INDEX)
     fixture_index = load_json(FIXTURE_INDEX)
-    if schema_index.get("baselineId") != "LGE-V1.0-2026-08-27" or fixture_index.get("baselineId") != "LGE-V1.0-2026-08-27":
-        raise ContractError("schema and fixture registries must use baseline LGE-V1.0-2026-08-27")
+    if schema_index.get("baselineId") != "LGE-V1.1-2026-08-27" or fixture_index.get("baselineId") != "LGE-V1.1-2026-08-27":
+        raise ContractError("schema and fixture registries must use baseline LGE-V1.1-2026-08-27")
     if schema_index.get("schemaSetVersion") != 1 or fixture_index.get("fixtureSetVersion") != 1:
         raise ContractError("unsupported schema or fixture registry version")
     if not ID_REGISTRY_FILE.is_file():
         raise ContractError("ID Registry is missing: {}".format(ID_REGISTRY_FILE))
     id_registry = load_json(ID_REGISTRY_FILE)
-    if id_registry.get("baselineId") != "LGE-V1.0-2026-08-27":
-        raise ContractError("ID Registry must use baseline LGE-V1.0-2026-08-27")
+    if id_registry.get("baselineId") != "LGE-V1.1-2026-08-27":
+        raise ContractError("ID Registry must use baseline LGE-V1.1-2026-08-27")
     resolver = SchemaResolver()
     registry_schema_path = SCHEMA_DIR / "schemas-index.json"
     registry_schema = load_json(registry_schema_path)
@@ -562,7 +605,7 @@ def command_validate(selected: Optional[str], json_output: bool = False) -> int:
     if json_output:
         print(json.dumps({
             "resultVersion": 1,
-            "baselineId": "LGE-V1.0-2026-08-27",
+            "baselineId": "LGE-V1.1-2026-08-27",
             "command": "validate",
             "passed": failures == 0,
             "validated": len(targets),

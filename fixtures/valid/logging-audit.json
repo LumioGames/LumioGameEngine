@@ -4,6 +4,7 @@
   "severity": "Info",
   "timestamp": "2026-08-27T01:11:00Z",
   "correlation": {
+    "scope": "Txn",
     "productId": "A",
     "gameReleaseId": "A-1.1.0",
     "releasePoolId": "pool-a-1.1",

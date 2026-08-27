@@ -1,6 +1,6 @@
 {
   "schemaSetVersion": 1,
-  "baselineId": "LGE-V1.0-2026-08-27",
+  "baselineId": "LGE-V1.1-2026-08-27",
   "schemas": [
     { "id": "session-revision-vector", "file": "session-revision-vector.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "cross-world-txn", "file": "cross-world-txn.schema.json", "priority": "P0", "owner": "GameRuntime" },

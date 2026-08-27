@@ -4,9 +4,9 @@
 
 ## 版本与状态
 
-- **Baseline**：`LGE-V1.0-2026-08-27`
+- **Baseline**：`LGE-V1.1-2026-08-27`
 - **状态**：Implementation Baseline
-- **规范正文**：[`docs/architecture/LumioGameEngine_Architecture_v1.0.md`](docs/architecture/LumioGameEngine_Architecture_v1.0.md)
+- **规范正文**：[`docs/architecture/LumioGameEngine_Architecture_v1.1.md`](docs/architecture/LumioGameEngine_Architecture_v1.1.md)
 - **ADR 索引**：[`docs/architecture/ADR_INDEX.md`](docs/architecture/ADR_INDEX.md)
 - **ADR 正文**：[`docs/adr/README.md`](docs/adr/README.md)
 - **待确认决策**：[`docs/architecture/DECISIONS_PENDING.md`](docs/architecture/DECISIONS_PENDING.md)
@@ -16,7 +16,7 @@
 - **契约工具**：[`tools/README.md`](tools/README.md)
 - **最终评审合并稿**：[`docs/reviews/LumioGameEngine_V3_Architecture_Review_Final_2026-08-27.md`](docs/reviews/LumioGameEngine_V3_Architecture_Review_Final_2026-08-27.md)
 
-本仓库是架构、状态机、Schema、依赖图和变更规则的事实源，不拥有任何运行中的 World、连接或 Gameplay 状态。七个实现仓库可以保留同版本镜像，但不能独立修改共享基线；改变基线必须通过 ADR、更新 BaselineId 和同步检查。ADR 索引中的“Draft”表示方向已写明、正在 Architecture Gate 验证，不表示 v1.0 的公共方向仍未裁决。
+本仓库是架构、状态机、Schema、依赖图和变更规则的事实源，不拥有任何运行中的 World、连接或 Gameplay 状态。七个实现仓库可以保留同版本镜像，但不能独立修改共享基线；改变基线必须通过 ADR、更新 BaselineId 和同步检查。ADR 已随 `LGE-V1.1-2026-08-27` 转为 Accepted（ADR-015 保持 Reserved）；Accepted 后不可改写，只能由新 ADR 取代。尚未裁决的实现选型见 `docs/architecture/DECISIONS_PENDING.md`。
 
 ## 负责范围
 

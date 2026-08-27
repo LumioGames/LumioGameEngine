@@ -2,7 +2,7 @@
 
 - **Status**: Reserved (P2; not loaded by V1)
 - **Owner**: `LumioGame` (content policy), Runtime/Host (sandbox contract)
-- **Baseline**: `LGE-V1.0-2026-08-27`
+- **Baseline**: `LGE-V1.1-2026-08-27`
 
 ## Context
 

@@ -1,6 +1,6 @@
 # Decisions Pending Before Foundation
 
-These are implementation choices that are intentionally **not** frozen by `LGE-V1.0-2026-08-27`. The documented defaults keep the v1.0 ownership, state machines and compatibility boundary intact. Confirming a value records it in the relevant ADR/Manifest; changing a wire field, Schema, state or compatibility rule requires a new BaselineId.
+These are implementation choices that are intentionally **not** frozen by `LGE-V1.1-2026-08-27`. The documented defaults keep the v1.0 ownership, state machines and compatibility boundary intact. Confirming a value records it in the relevant ADR/Manifest; changing a wire field, Schema, state or compatibility rule requires a new BaselineId.
 
 | ID | Question | Temporary default | Why it matters | Baseline impact |
 | --- | --- | --- | --- | --- |
@@ -12,6 +12,9 @@ These are implementation choices that are intentionally **not** frozen by `LGE-V
 | D-006 | What are `MobileLocal` memory/startup budgets and HybridCLR policy? | Run a measured spike; do not make Server HybridCLR or deep mobile optimization a V1 prerequisite. | Determines package layout, AOT metadata and whether LocalEmbedded is feasible on target devices. | Capability/manifest update only unless loading or persistence semantics change. |
 | D-007 | Should V1 later accept N/N-1 Release compatibility? | No; exact `ProductId + GameReleaseId` matching and forced update path. | Compatibility windows multiply Mapping, migration and security test matrices. | Opening a window requires a new ADR, handshake rules and fixtures. |
 | D-008 | Which external log sink and retention/PII policy? | File + console adapters first; external sink and retention are deployment choices. | Changes queue sizing, redaction, audit evidence and operational cost. | Event Schema remains stable; sink contract and policy are versioned separately. |
+| D-009 | RPC/Message dispatch contract (MessageId namespace, RPC envelope, generated dispatch)? | Not frozen. The V1 wire surface is limited to the replication envelope MessageTypes; the server `protocol-dispatch` boundary stays blocked and no repository may invent a dispatch wire format. | Determines client/server dispatch codegen, protocol epoch and the Game RPC payload surface. | Freezing requires a new ADR, Schema, fixtures and a new BaselineId. |
+| D-010 | Control-plane command transport and desired-state store? | Signed command drop (file/CLI) verified in-process plus an external process supervisor; fencing tokens per ADR-012. No in-process cluster controller. | Determines ops security model, replacement automation and fencing enforcement. | Transport choice is deployment-level; changing command Schema or fencing semantics requires a new BaselineId. |
+| D-011 | Auth wire credential/ticket schema (issuance, rotation, anti-replay window)? | Not frozen. Only the behavior contract is fixed: every handshake passes anti-replay validation before session admission; no public wire format exists yet. | Determines credential issuance infrastructure and the security review surface. | Freezing requires a new ADR, Schema and fixtures; implementations must not invent a wire format before that. |
 
 ## Confirmation Record
 

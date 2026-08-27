@@ -5,7 +5,7 @@
   "required": ["catalogVersion", "baselineId", "generatedAt", "entries"],
   "properties": {
     "catalogVersion": { "type": "integer", "minimum": 1 },
-    "baselineId": { "type": "string", "const": "LGE-V1.0-2026-08-27" },
+    "baselineId": { "type": "string", "const": "LGE-V1.1-2026-08-27" },
     "generatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
     "entries": {
       "type": "array",

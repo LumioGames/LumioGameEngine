@@ -4,7 +4,7 @@
   "gameReleaseId": "A-1.1.0",
   "mode": "Forced",
   "issuedAt": "2026-08-27T03:00:00Z",
-  "deadlineTick": 13000,
+  "graceDeadlineSeconds": 0,
   "reason": "Invalid command",
   "operator": "ops-01",
   "action": "StopInputAndKick",

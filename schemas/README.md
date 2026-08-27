@@ -1,6 +1,6 @@
 # Contract Schemas
 
-This directory is the versioned contract input for the `LGE-V1.0-2026-08-27` baseline.
+This directory is the versioned contract input for the `LGE-V1.1-2026-08-27` baseline.
 
 `index.json` is the registry. A schema entry names its stable contract id, file, owning repository and implementation priority. JSON Schema files use Draft 2020-12 and may reference definitions in `common.schema.json`.
 

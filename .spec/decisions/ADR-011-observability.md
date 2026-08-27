@@ -1,8 +1,8 @@
 # ADR-011: Logging, Metrics, Trace, Audit and Failure Bundle
 
-- **Status**: Draft for Architecture Gate
+- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioServer`/`LumioClient` Host adapters; all repositories emit domain events
-- **Baseline**: `LGE-V1.0-2026-08-27`
+- **Baseline**: `LGE-V1.1-2026-08-27`
 
 ## Context
 
@@ -10,13 +10,17 @@ Multi-threaded asynchronous logs can reorder or disappear, while audit, transact
 
 ## Decision
 
-Rust and C# use mature logging frameworks behind adapters and emit one Lumio Event Schema. Diagnostic events use bounded asynchronous queues and may be sampled. Audit, TxnJournal and CommandLog use independent durable queues; saturation stops admission or enters maintenance rather than silently losing records. Error/Fatal has synchronous emergency fallback. Metrics, Trace and Failure Bundle remain separate products with shared correlation fields.
+Rust and C# use mature logging frameworks behind adapters and emit one Lumio Event Schema. Diagnostic events use bounded asynchronous queues and may be sampled. Audit, TxnJournal and CommandLog use independent durable queues with distinct owners: the Host observability component owns the Audit queue, its sinks and Failure Bundle assembly; the Host persistence component owns WAL, TxnJournal and CommandLog. The two owners may share low-level IO primitives but never share queue state or acknowledgment paths. Saturation of a durable queue stops admission or enters maintenance rather than silently losing records. Error/Fatal has synchronous emergency fallback; `EmergencySync` durability is reserved for Error/Fatal severity. Metrics, Trace and Failure Bundle remain separate products with shared correlation fields.
 
-Every event carries ProductId, GameReleaseId, ReleasePoolId when known, SessionId, WorldId, TickId, TraceId, ProducerId and per-producer EventSeq; Txn/Snapshot/Entity fields are added when applicable. Global cross-thread order is not promised; per-producer sequence plus Tick is the reconstruction contract.
+Durable categories return explicit durable acknowledgments. An orchestration step that requires persisted evidence — for example the maintenance persist step — must wait for the persistence commit acknowledgment and the Audit durable acknowledgment as two independent completions; neither implies the other.
+
+Every event declares `correlation.scope`, the deepest identity tier the event legitimately possesses: `Process`, `Release`, `Session`, `World` or `Txn`. Base fields (ProductId, GameReleaseId, TraceId, ProducerId, per-producer EventSeq) are always required. SessionId, WorldId/TickId and TxnId are required only at their scope and must not be fabricated for events that occur before those objects exist, such as process startup, manifest validation or authentication rejects; Snapshot/Entity fields are added when applicable. Global cross-thread order is not promised; per-producer sequence plus Tick is the reconstruction contract.
+
+Failure Bundle assembly has one owner, the Host observability component. Evidence providers continuously publish immutable evidence snapshots or references during normal operation; the assembler reads those published snapshots and never calls back into a faulted or destroyed module at assembly time. A provider that is missing or exceeds its budget yields a partial bundle that records the missing providers. The crash path writes a crash-safe minimal evidence set that is completed on next start.
 
 ## Contract
 
-`logging-event.schema.json` defines category, severity, durability and correlation. Failure Bundle references a verified Manifest, Snapshot and artifact hashes.
+`logging-event.schema.json` defines category, severity, mandatory durability and scoped correlation. Failure Bundle references a verified Manifest, Snapshot and artifact hashes.
 
 ## Failure semantics
 
@@ -32,4 +36,4 @@ Adding optional event fields is compatible; changing correlation names, category
 
 ## Verification
 
-Run audit, queue-full, sink-failure, multi-thread ordering, emergency-fallback and Failure Bundle replay tests with the logging fixture pair.
+Run audit, queue-full, sink-failure, multi-thread ordering, emergency-fallback and Failure Bundle replay tests with the logging fixtures, including the startup-phase and auth-reject positive fixtures and the missing-durability and fabricated-scope failure fixtures.

@@ -1,8 +1,8 @@
 # ADR-003: CrossWorldTxnV1, Revision and SnapshotCut
 
-- **Status**: Draft for Architecture Gate
+- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (Coordinator), `LumioVoxelEngine` and Runtime (participants)
-- **Baseline**: `LGE-V1.0-2026-08-27`
+- **Baseline**: `LGE-V1.1-2026-08-27`
 
 ## Context
 

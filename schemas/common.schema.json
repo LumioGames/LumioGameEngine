@@ -42,15 +42,15 @@
     "correlation": {
       "type": "object",
       "required": [
+        "scope",
         "productId",
         "gameReleaseId",
-        "sessionId",
-        "worldId",
-        "tickId",
         "traceId",
+        "producerId",
         "eventSeq"
       ],
       "properties": {
+        "scope": { "type": "string", "enum": ["Process", "Release", "Session", "World", "Txn"] },
         "productId": { "$ref": "common.schema.json#/$defs/productId" },
         "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
         "releasePoolId": { "$ref": "common.schema.json#/$defs/id" },

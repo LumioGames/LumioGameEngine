@@ -1,8 +1,8 @@
 # ADR-010: Persistence, Canonical Serialization and Config Snapshots
 
-- **Status**: Draft for Architecture Gate
+- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (format contract), `LumioVoxelEngine`/`LumioGame` (domain schemas), `LumioServer` (host durability)
-- **Baseline**: `LGE-V1.0-2026-08-27`
+- **Baseline**: `LGE-V1.1-2026-08-27`
 
 ## Context
 

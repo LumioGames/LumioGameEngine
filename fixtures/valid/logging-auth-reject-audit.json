@@ -1,0 +1,19 @@
+{
+  "eventId": "event-audit-auth-0001",
+  "category": "Audit",
+  "severity": "Warn",
+  "timestamp": "2026-08-27T00:10:00Z",
+  "correlation": {
+    "scope": "Release",
+    "productId": "A",
+    "gameReleaseId": "A-1.1.0",
+    "releasePoolId": "pool-a-1.1",
+    "traceId": "trace-auth-reject-0001",
+    "producerId": "server-auth",
+    "eventSeq": 42
+  },
+  "message": "Handshake rejected before session creation: replayed credential",
+  "fields": { "errorCode": "ReleaseMismatch" },
+  "durability": "Durable",
+  "redaction": "Applied"
+}

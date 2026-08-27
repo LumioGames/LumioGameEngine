@@ -1,8 +1,8 @@
 # ADR-014: Unity, HybridCLR and Platform Capability
 
-- **Status**: Draft for Architecture Gate
+- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioClient` (platform adapter), `LumioGameRuntime` (capability contract)
-- **Baseline**: `LGE-V1.0-2026-08-27`
+- **Baseline**: `LGE-V1.1-2026-08-27`
 
 ## Context
 

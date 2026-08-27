@@ -1,8 +1,8 @@
 # ADR-004: Entity Identity, Tombstones and Ownership Revision
 
-- **Status**: Draft for Architecture Gate
+- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime`
-- **Baseline**: `LGE-V1.0-2026-08-27`
+- **Baseline**: `LGE-V1.1-2026-08-27`
 
 ## Context
 

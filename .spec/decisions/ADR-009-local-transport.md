@@ -1,8 +1,8 @@
 # ADR-009: Local Transport Fidelity and Fault Injection
 
-- **Status**: Draft for Architecture Gate
+- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioClient`/`LumioServer` adapters, `LumioGameRuntime` protocol semantics
-- **Baseline**: `LGE-V1.0-2026-08-27`
+- **Baseline**: `LGE-V1.1-2026-08-27`
 
 ## Context
 

@@ -1,6 +1,6 @@
 {
   "registryVersion": 1,
-  "baselineId": "LGE-V1.0-2026-08-27",
+  "baselineId": "LGE-V1.1-2026-08-27",
   "namespaces": [
     {
       "namespace": "MessageType",
@@ -20,7 +20,9 @@
         { "id": "RevisionConflict", "numeric": 1001, "status": "Active", "since": "V1" },
         { "id": "MaintenanceKick", "numeric": 1002, "status": "Active", "since": "V1" },
         { "id": "ReleaseMismatch", "numeric": 1003, "status": "Active", "since": "V1" },
-        { "id": "NativeAbiMismatch", "numeric": 1004, "status": "Active", "since": "V1" }
+        { "id": "NativeAbiMismatch", "numeric": 1004, "status": "Active", "since": "V1" },
+        { "id": "StaleEpoch", "numeric": 1005, "status": "Active", "since": "V1" },
+        { "id": "FencingTokenStale", "numeric": 1006, "status": "Active", "since": "V1" }
       ]
     },
     {
@@ -30,6 +32,15 @@
         { "id": "Native", "numeric": 1, "status": "Active", "since": "V1" },
         { "id": "HybridCLR", "numeric": 2, "status": "Reserved", "since": "V1" },
         { "id": "ReferenceVoxel", "numeric": 3, "status": "Active", "since": "V1" }
+      ]
+    },
+    {
+      "namespace": "FaultClass",
+      "owner": "GameRuntime",
+      "values": [
+        { "id": "SessionLocalProven", "numeric": 1, "status": "Active", "since": "V1" },
+        { "id": "SlotStateUnproven", "numeric": 2, "status": "Active", "since": "V1" },
+        { "id": "ProcessFault", "numeric": 3, "status": "Active", "since": "V1" }
       ]
     }
   ]

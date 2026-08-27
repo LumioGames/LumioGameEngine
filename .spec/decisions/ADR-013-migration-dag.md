@@ -1,8 +1,8 @@
 # ADR-013: Migration DAG, Staging and Atomic Activation
 
-- **Status**: Draft for Architecture Gate
+- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGame` (Game semantics), `LumioVoxelEngine` (Voxel semantics), `LumioServer` (orchestration)
-- **Baseline**: `LGE-V1.0-2026-08-27`
+- **Baseline**: `LGE-V1.1-2026-08-27`
 
 ## Context
 

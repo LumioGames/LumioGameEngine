@@ -3,6 +3,7 @@
   "reasonCode": "SNAPSHOT_CORRUPTION",
   "createdAt": "2026-08-27T03:22:00Z",
   "correlation": {
+    "scope": "World",
     "productId": "A",
     "gameReleaseId": "A-1.1.0",
     "sessionId": "session-001",

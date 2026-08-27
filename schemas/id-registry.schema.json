@@ -5,7 +5,7 @@
   "required": ["registryVersion", "baselineId", "namespaces"],
   "properties": {
     "registryVersion": { "type": "integer", "const": 1 },
-    "baselineId": { "type": "string", "const": "LGE-V1.0-2026-08-27" },
+    "baselineId": { "type": "string", "const": "LGE-V1.1-2026-08-27" },
     "namespaces": {
       "type": "array",
       "minItems": 1,

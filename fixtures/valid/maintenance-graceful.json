@@ -5,7 +5,7 @@
   "releasePoolId": "pool-boe-2.1",
   "mode": "Graceful",
   "issuedAt": "2026-08-27T02:00:00Z",
-  "deadlineTick": 12000,
+  "graceDeadlineSeconds": 900,
   "reason": "Scheduled content update",
   "operator": "ops-01",
   "action": "DrainAndKick",
