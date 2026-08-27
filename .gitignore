@@ -9,3 +9,6 @@ node_modules/
 *.log
 .env
 .env.*
+packages/rust/target/
+packages/csharp/**/bin/
+packages/csharp/**/obj/

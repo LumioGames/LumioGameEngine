@@ -356,17 +356,27 @@ _SESSION_REVISION_FIELDS = (
     "configRevision",
     "schemaEpoch",
 )
-_ABILITY_TRANSITIONS = {
-    "Requested": {"Activated", "Rejected", "Cancelled", "RolledBack"},
-    "Activated": {"Executing", "Rejected", "Cancelled", "RolledBack"},
-    "Executing": {"Completed", "Expired", "Cancelled", "RolledBack"},
-}
-_ABILITY_TERMINAL = {"Completed", "Rejected", "Cancelled", "Expired", "RolledBack"}
-_EFFECT_TRANSITIONS = {
-    "Pending": {"Active", "Rejected", "RolledBack"},
-    "Active": {"Expired", "Removed", "RolledBack"},
-}
-_EFFECT_TERMINAL = {"Expired", "Removed", "Rejected", "RolledBack"}
+
+
+def _transition_table(path: Path) -> Dict[str, set]:
+    """Derive a from→{to} map from an ADR-038 descriptor fixture (single source)."""
+    document = load_json(path)
+    table: Dict[str, set] = {}
+    for item in document.get("transitions") or []:
+        table.setdefault(str(item.get("from")), set()).add(item.get("to"))
+    return table
+
+
+def _terminal_states(path: Path) -> set:
+    return set(load_json(path).get("terminalStates") or [])
+
+
+_ABILITY_FIXTURE = FIXTURE_DIR / "valid" / "state-machine-gas-ability.json"
+_EFFECT_FIXTURE = FIXTURE_DIR / "valid" / "state-machine-gas-effect.json"
+_ABILITY_TRANSITIONS = _transition_table(_ABILITY_FIXTURE)
+_ABILITY_TERMINAL = _terminal_states(_ABILITY_FIXTURE)
+_EFFECT_TRANSITIONS = _transition_table(_EFFECT_FIXTURE)
+_EFFECT_TERMINAL = _terminal_states(_EFFECT_FIXTURE)
 _CONFIG_INT_BOUNDS = {
     "i32": (-2147483648, 2147483647),
     "i64": (-9223372036854775808, 9223372036854775807),
@@ -1330,6 +1340,74 @@ def command_hash(path_text: str) -> int:
     return 0
 
 
+def command_generate(out: str) -> int:
+    """Publish six kinds × Rust/C# and prove two-run outputHash stability."""
+    import shutil
+    import tempfile
+
+    tools_dir = str(Path(__file__).resolve().parent)
+    if tools_dir not in sys.path:
+        sys.path.insert(0, tools_dir)
+    from lumio_generate import generate  # type: ignore
+
+    out_dir = Path(out)
+    if not out_dir.is_absolute():
+        out_dir = ROOT / out
+
+    tmp_root = Path(tempfile.mkdtemp(prefix="lumio-gen-"))
+    try:
+        first = generate(ROOT, tmp_root / "a")
+        second = generate(ROOT, tmp_root / "b")
+        by_a = {item["artifactId"]: item for item in first["artifacts"]}
+        by_b = {item["artifactId"]: item for item in second["artifacts"]}
+        if set(by_a) != set(by_b):
+            print("error: artifact set drifted between generate runs", file=sys.stderr)
+            return 1
+        mismatches = []
+        for artifact_id, item in sorted(by_a.items()):
+            other = by_b[artifact_id]
+            for field in ("outputHash", "compilerHash", "inputHash", "baselineId", "schemaEpoch"):
+                if item.get(field) != other.get(field):
+                    mismatches.append("{}:{}".format(artifact_id, field))
+        if mismatches:
+            print("error: unstable generate {}".format(mismatches), file=sys.stderr)
+            return 1
+        if out_dir.exists():
+            shutil.rmtree(out_dir)
+        shutil.copytree(tmp_root / "a", out_dir)
+        index = first
+    except RuntimeError as exc:
+        print("error: {}".format(exc), file=sys.stderr)
+        return 1
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+    schema_file = SCHEMA_DIR / "generated-contract-artifact.schema.json"
+    schema = load_json(schema_file)
+    resolver = SchemaResolver()
+    failures = 0
+    for path in sorted((out_dir / "descriptors").glob("*.json")):
+        document = load_json(path)
+        errors = structural_errors(document, schema, schema_file, resolver)
+        errors.extend(semantic_errors("generated-contract-artifact", document))
+        if errors:
+            failures += 1
+            print("FAIL {}: {}".format(path.name, "; ".join(errors)))
+        else:
+            print("PASS descriptor {}".format(path.name))
+    if failures:
+        return 1
+    if len(index["artifacts"]) != 12:
+        print("error: expected 12 artifacts, got {}".format(len(index["artifacts"])), file=sys.stderr)
+        return 1
+    print("generated {} artifacts under {}".format(len(index["artifacts"]), out_dir))
+    print("compilerHash {}".format(index["compilerHash"]))
+    print("inputHash {}".format(index["inputHash"]))
+    print("stateMachines {}".format(",".join(index["stateMachineIds"])))
+    print("stable outputHash: yes")
+    return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1340,6 +1418,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     canonical_parser.add_argument("file")
     hash_parser = subparsers.add_parser("hash", help="print SHA-256 for a file")
     hash_parser.add_argument("file")
+    generate_parser = subparsers.add_parser("generate", help="publish V1.4 generated contract artifacts")
+    generate_parser.add_argument("--out", default="packages", help="output directory (default: packages)")
     args = parser.parse_args(argv)
     try:
         if args.command == "validate":
@@ -1348,6 +1428,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return command_canonical(args.file)
         if args.command == "hash":
             return command_hash(args.file)
+        if args.command == "generate":
+            return command_generate(args.out)
     except (ContractError, OSError) as exc:
         print("error: {}".format(exc), file=sys.stderr)
         return 2

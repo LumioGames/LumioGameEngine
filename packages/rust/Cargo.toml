@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+    "lumio-gen-protocol-permission-validator",
+    "lumio-gen-mapping-table",
+    "lumio-gen-canonical-serializer",
+    "lumio-gen-language-binding",
+    "lumio-gen-contract-types",
+    "lumio-gen-contract-runtime"
+]

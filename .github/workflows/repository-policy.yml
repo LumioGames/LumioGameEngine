@@ -48,5 +48,37 @@ jobs:
         run: |
           python3 --version
           python3 -m pip install --disable-pip-version-check -r requirements-dev.txt
-          python3 -m py_compile tools/lumio_contract.py
+          python3 -m py_compile tools/lumio_contract.py tools/lumio_generate.py
           python3 tools/lumio_contract.py validate
+      - name: Publish generated artifacts and prove outputHash stability
+        run: |
+          python3 tools/lumio_contract.py generate --out /tmp/lge-packages
+          python3 - <<'PY'
+          import json, sys
+          from pathlib import Path
+          committed = json.loads(Path("packages/index.json").read_text(encoding="utf-8"))
+          fresh = json.loads(Path("/tmp/lge-packages/index.json").read_text(encoding="utf-8"))
+          a = {item["artifactId"]: item["outputHash"] for item in committed["artifacts"]}
+          b = {item["artifactId"]: item["outputHash"] for item in fresh["artifacts"]}
+          if a != b:
+              print("committed packages/ outputHash drifted from generate", file=sys.stderr)
+              print("committed", a, file=sys.stderr)
+              print("fresh", b, file=sys.stderr)
+              sys.exit(1)
+          if committed.get("compilerHash") != fresh.get("compilerHash"):
+              print("compilerHash drifted; regenerate packages/", file=sys.stderr)
+              sys.exit(1)
+          print("packages/ matches generate: {} artifacts".format(len(a)))
+          PY
+      - uses: dtolnay/rust-toolchain@1.98.0
+      - name: ContractRuntime cargo check and tree
+        run: |
+          cargo check --manifest-path packages/rust/Cargo.toml --offline || cargo check --manifest-path packages/rust/Cargo.toml
+          cargo tree --manifest-path packages/rust/Cargo.toml -p lumio-gen-contract-runtime
+      - name: C# packages have no Native / PInvoke / implementation PackageReference
+        run: |
+          if grep -RniE 'AllowUnsafeBlocks>true|DllImport|PInvoke|NativeLibrary|PackageReference' packages/csharp | grep -viE 'ImplicitUsings|DisableImplicitNuGetFallbackFolder|no Native'; then
+            echo "C# generated packages contain Native or package references" >&2
+            exit 1
+          fi
+          test -f packages/csharp/Lumio.Gen.ContractRuntime/ContractRuntime.cs

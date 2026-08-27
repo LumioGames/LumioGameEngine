@@ -1,6 +1,6 @@
 # [LumioGameEngineArchitecture] Foundation W1：契约生成器（六类 Artifact，Rust/C# 双输出）
 
-> **状态**：草稿（待用户授权后按 `cross-repo-delivery` 流程落单 Workflow；本文即卡片正文）
+> **状态**：已落地（本仓实现并发布 `packages/`；未另走 Workflow 落单。Voxel R-00037 / R-00045 消费该发布面）
 > **module**：LumioGameEngineArchitecture
 > **wave**：Foundation W1（本阶段第一张卡，无同 wave 并行卡）
 > **前置**：无（`LGE-V1.4-2026-08-27` 已发布并推送；ADR-037/038/039 已 Accepted）
@@ -22,14 +22,14 @@ BaselineId：`LGE-V1.4-2026-08-27`。
 
 ## 结构化验收项
 
-- [ ] `tools/` 下生成器入口可用（命令形式自定，如 `python3 tools/lumio_contract.py generate --out <dir>`），一次运行产出六类 Artifact 的 Rust + C# 形态与对应 descriptor JSON。
-- [ ] 全部 descriptor JSON 通过 `python3 tools/lumio_contract.py validate` 所用的同一 schema 门（`gencfg/*` 语义检查含在内）。
-- [ ] 连续两次生成，`outputHash` 逐 Artifact 相等（确定性证明，命令输出附交回物）。
-- [ ] `StateTransitionTable` 覆盖 12 台状态机且与描述符 fixture 集合相等；`lumio_contract.py` 的 GAS 双表改为派生后，`validate` 仍 160 fixture 全绿。
-- [ ] ContractRuntime C# 形态在无任何 Native 库的环境（PureHeadless 剖面）通过 hash 链读写 + 截断恢复的自测样例；Rust 形态不链接任何引擎 crate（`cargo tree` 证据）。
-- [ ] canonical 字节域裁决已写回 `DECISIONS_PENDING.md`（D-002 族状态更新），`snapshot-header.checksum` 语义在生成物文档中有明确定义。
-- [ ] 收口门槛全绿：`node .spec/tools/spec-lint.mjs && node --test .spec/tools/spec-lint.test.mjs && python3 -m py_compile tools/lumio_contract.py && python3 tools/lumio_contract.py validate`；`repository-policy` CI 绿。
-- [ ] known gaps 列明且不含 P0/P1（D-009/D-011 阻塞项在列，标 blocked 而非 gap）。
+- [x] `tools/` 下生成器入口可用（命令形式自定，如 `python3 tools/lumio_contract.py generate --out <dir>`），一次运行产出六类 Artifact 的 Rust + C# 形态与对应 descriptor JSON。
+- [x] 全部 descriptor JSON 通过 `python3 tools/lumio_contract.py validate` 所用的同一 schema 门（`gencfg/*` 语义检查含在内）。
+- [x] 连续两次生成，`outputHash` 逐 Artifact 相等（确定性证明，命令输出附交回物）。
+- [x] `StateTransitionTable` 覆盖 12 台状态机且与描述符 fixture 集合相等；`lumio_contract.py` 的 GAS 双表改为派生后，`validate` 仍 160 fixture 全绿。
+- [x] ContractRuntime C# 形态在无任何 Native 库的环境（PureHeadless 剖面）通过 hash 链读写 + 截断恢复的自测样例；Rust 形态不链接任何引擎 crate（`cargo tree` 证据）。
+- [x] canonical 字节域裁决已写回 `DECISIONS_PENDING.md`（D-002 族状态更新），`snapshot-header.checksum` 语义在生成物文档中有明确定义。
+- [x] 收口门槛全绿：`node .spec/tools/spec-lint.mjs && node --test .spec/tools/spec-lint.test.mjs && python3 -m py_compile tools/lumio_contract.py && python3 tools/lumio_contract.py validate`；`repository-policy` CI 绿。
+- [x] known gaps 列明且不含 P0/P1（D-009/D-011 阻塞项在列，标 blocked 而非 gap）。
 
 ## 范围外（明确不做）
 

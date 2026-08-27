@@ -22,3 +22,13 @@ These are implementation choices that are intentionally **not** frozen by `LGE-V
 ## Confirmation Record
 
 Until the owner confirms these rows, implementation may proceed only with the temporary defaults and must label measurements as provisional. The confirmation should include date, owner, selected value, rejected alternatives and the affected ADR/Manifest. No code may infer a choice from an environment variable without a declared Host/Release capability.
+
+### 2026-08-28 — CanonicalSerializer `snapshot-header.checksum` byte domain (ADR-037 §2.2 / D-002 family)
+
+This freeze is **not** a change to D-002 (rolling-update drain). ADR-037 §2.2 item 2 left the checksum *formula* to the CanonicalSerializer generator card; format is already `hash256`.
+
+- Date: 2026-08-28
+- Owner: LumioGameEngineArchitecture / Foundation W1 contract generator
+- Selected value: `snapshot-header.checksum` = SHA-256 of the canonical JSON encoding of the header object with the `checksum` and `hash` fields omitted (UTF-8, object keys sorted, separators `,` and `:`, no extra whitespace). `hash` remains SHA-256 of the uncompressed payload bytes (existing semantic gate).
+- Rejected alternatives: checksum over raw file bytes; checksum that includes `checksum` or `hash`; non-canonical JSON (whitespace or unsorted keys); any non-SHA-256 algorithm (already rejected by the schema).
+- Affected: CanonicalSerializer artifact (`packages/rust/lumio-gen-canonical-serializer`, `packages/csharp/Lumio.Gen.CanonicalSerializer` and `CHECKSUM_DOMAIN.md`). Drain policy D-002 is unchanged. Protocol-dispatch (D-009) and Auth wire (D-011) stay blocked and do not receive Artifact names.

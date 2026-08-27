@@ -35,7 +35,10 @@ python3 -m pip install -r requirements-dev.txt
 python3 tools/lumio_contract.py validate
 python3 tools/lumio_contract.py validate --fixture txn/committed
 python3 tools/lumio_contract.py validate --json > contract-result.json
+python3 tools/lumio_contract.py generate --out packages
 ```
+
+Published V1.4 artifacts live under [`packages/`](packages/): six kinds × Rust/C#, each with a schema-valid descriptor five-tuple (`baselineId`, `schemaEpoch`, `compilerHash`, `inputHash`, `outputHash`) and `implementationDependencies=[]`. Implementation repositories consume those packages by path or hash-locked copy; they must not vendor a rewritten Schema or depend on `tools/` itself.
 
 实现仓库在接入代码前，必须为自己的领域 Schema 增加至少一份正向和一份失败 Fixture，并记录 Compiler/Input/Output Hash。具体 Transport、Codec、压缩、日志 Sink、存储后端和耐久级别仍按 ADR-006/009/010/011/012 的选型门评审，不在公共 Schema 中提前绑定供应商。
 
