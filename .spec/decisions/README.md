@@ -2,7 +2,7 @@
 
 用 ADR(Architecture Decision Record)记录决策:为什么这样调度、为什么定这种结构、为什么划这条边界。**本目录是全仓决策记录的唯一落点**——功能内决策与框架级决策都记这里,feature 文档只描述设计现状,不留决策记录。
 
-> 当前尚无本仓本地 ADR。跨仓公共语义的决策只在 `LumioGameEngineArchitecture` 维护；本目录仅记录 CoreEngine 内部实现决策，并从 `0001` 开始编号。
+> 跨仓公共语义的决策只在 `LumioGameEngineArchitecture` 维护；本目录仅记录 CoreEngine 内部实现决策，并从 `0001` 开始编号。
 
 ## 怎么写一条 ADR
 
@@ -28,4 +28,6 @@
 
 | 编号 | 决策 | 状态 |
 |------|------|------|
-| —    | (空;从 0001 开始) | — |
+| [0001](0001-build-orchestration-boundary.md) | composition 只产不可变 BuildPlan，platform 是唯一构建执行入口 | 生效 |
+| [0002](0002-supply-chain-domain-split.md) | signing 内部按四个安全域分拆，运行时只发布 runtime-verifier | 生效 |
+| [0003](0003-observation-validation-planes.md) | diagnostics 收窄为观测适配平面，smoke 定位为验证平面 | 生效 |

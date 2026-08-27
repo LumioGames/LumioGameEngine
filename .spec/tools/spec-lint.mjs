@@ -21,6 +21,12 @@
  *  9. 任务卡 frontmatter:.spec/tasks/ 根目录每张卡(README 除外)必须有 frontmatter,
  *     且只允许 status 字段,枚举 pending / in_progress / completed(契约见 tasks/README.md);
  *     子目录不校验。
+ * 10. 模块与镜像链接可达:modules/** 与 docs/architecture/** 下全部 .md 的相对链接
+ *     必须指向存在的文件(与第 4 项同规则;目录不存在时跳过)。
+ * 11. 模块 README 必备章节:modules/<模块>/README.md 必须包含「负责什么 / 明确不负责什么 /
+ *     输入与输出 / 依赖关系 / 生命周期与失败行为 / 验收范围 / 相关文档」(约定见 modules/README.md)。
+ * 12. 术语禁则:根 README.md 与 modules/** 禁止出现「Manifest Hash」「Package Hash」等混用术语
+ *     (剥代码块后检查;规范术语表见 modules/README.md)。
  */
 import { readFileSync, readdirSync, existsSync, statSync, lstatSync, realpathSync } from 'node:fs'
 import { join, dirname, basename, resolve, relative } from 'node:path'
@@ -232,6 +238,48 @@ if (existsSync(tasksDir)) {
     if (!TASK_STATUS_ENUM.has(fm.status)) {
       err(p, `status「${fm.status ?? ''}」不在枚举(${[...TASK_STATUS_ENUM].join(' / ')})`)
     }
+  }
+}
+
+// ── 10. 模块与架构镜像链接可达(modules/** + docs/architecture/**) ─────────
+const modulesDir = join(ROOT, 'modules')
+const moduleScanFiles = [
+  ...walk(modulesDir, (p) => p.endsWith('.md')),
+  ...walk(join(ROOT, 'docs', 'architecture'), (p) => p.endsWith('.md')),
+]
+for (const file of moduleScanFiles) {
+  for (const link of mdLinks(file)) {
+    const target = resolve(dirname(file), link)
+    if (!existsSync(target)) err(file, `悬空链接:${link}`)
+  }
+}
+
+// ── 11. 模块 README 必备章节(约定见 modules/README.md「README 约定」) ─────
+const MODULE_SECTIONS = ['负责什么', '明确不负责什么', '输入与输出', '依赖关系', '生命周期与失败行为', '验收范围', '相关文档']
+if (existsSync(modulesDir)) {
+  for (const name of readdirSync(modulesDir)) {
+    const dir = join(modulesDir, name)
+    if (!statSync(dir).isDirectory()) continue
+    const readme = join(dir, 'README.md')
+    if (!existsSync(readme)) { err(readme, '模块缺少 README.md'); continue }
+    const text = readFileSync(readme, 'utf8')
+    for (const section of MODULE_SECTIONS) {
+      if (!new RegExp(`^##\\s+${section}\\s*$`, 'm').test(text)) {
+        err(readme, `缺少必备章节「## ${section}」(约定见 modules/README.md)`)
+      }
+    }
+  }
+}
+
+// ── 12. 术语禁则(根 README.md + modules/**;规范术语表见 modules/README.md) ─
+const BANNED_TERMS = ['Manifest Hash', 'Package Hash']
+const termScanFiles = [join(ROOT, 'README.md'), ...walk(modulesDir, (p) => p.endsWith('.md'))].filter((p) => existsSync(p))
+for (const file of termScanFiles) {
+  const stripped = readFileSync(file, 'utf8')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`\n]*`/g, '')
+  for (const term of BANNED_TERMS) {
+    if (stripped.includes(term)) err(file, `禁用术语「${term}」——使用 modules/README.md 术语表中的规范术语`)
   }
 }
 

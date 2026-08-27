@@ -11,12 +11,19 @@
 ## 明确不负责什么
 
 - 不在本仓手写第二套 ABI、P/Invoke 布局或领域绑定语义。
+- 不自行冻结公共 ABI 语义：函数 Slot、Calling Convention、Handle/Buffer 契约由架构源 ABI Schema 定义（见 ADR-017），本模块只做生成与校验。
 - 不拥有 VoxelWorld、ECS、Gameplay、Session 或 Runtime 生命周期。
 
 ## 输入与输出
 
-- 输入：架构源发布的 Native/Voxel Schema 和 `composition` 产物。
+- 输入：架构源发布的 ABI Schema、NativeCore/VoxelEngine 源 Schema 和 `composition` 的 BuildPlan/Source Lock。
 - 输出：只读的 Root Header、Managed Contract、绑定元数据和 ABI 兼容报告。
+
+## 依赖关系
+
+- 消费：架构源 ABI Schema、NativeCore/VoxelEngine 源 Schema、`composition::BuildPlan`。
+- 被消费：`platform`（编译输入）、`manifest`（ABI 描述）、`loader`（RootApiTable 契约）、`smoke`（Layout Fixture）。
+- 生成物只读，不可手改；上层不得重新生成布局。
 
 ## 生命周期与失败行为
 
@@ -24,9 +31,9 @@
 
 ## 验收范围
 
-覆盖 ABI Layout、符号导出、跨语言调用、内存归属、失效 Handle、错误转换和负向兼容 Fixture。
+覆盖 ABI Layout（结构大小、偏移、Calling Convention 跨 Rust/C/C# 一致）、符号导出、跨语言调用、内存归属、失效 Handle、错误转换和负向兼容 Fixture。
 
 ## 相关文档
 
 - [模块索引](../README.md)
-- [架构基线镜像](../../docs/architecture/LumioGameEngine_Architecture_v1.0.md)
+- [架构基线镜像](../../docs/architecture/LumioGameEngine_Architecture_v1.1.md)

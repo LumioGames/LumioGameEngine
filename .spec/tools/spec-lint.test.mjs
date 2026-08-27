@@ -161,3 +161,35 @@ test('软链接缺失被抓', () => {
   assert.equal(code, 1)
   assert.match(output, /软链接缺失/)
 })
+
+const MODULE_SECTIONS = ['负责什么', '明确不负责什么', '输入与输出', '依赖关系', '生命周期与失败行为', '验收范围', '相关文档']
+
+test('模块 README 缺必备章节被抓', () => {
+  const { code, output } = lint(fixture({
+    'modules/demo/README.md': '# demo\n\n## 负责什么\n\n- x\n',
+  }))
+  assert.equal(code, 1)
+  assert.match(output, /缺少必备章节「## 明确不负责什么」/)
+})
+
+test('模块文档悬空链接被抓', () => {
+  const { code, output } = lint(fixture({
+    'modules/README.md': '# 模块\n\n[坏链接](missing/README.md)\n',
+  }))
+  assert.equal(code, 1)
+  assert.match(output, /悬空链接:missing\/README\.md/)
+})
+
+test('禁用术语被抓(剥代码块后)', () => {
+  const { code, output } = lint(fixture({
+    'README.md': '# 根\n\n本包的 Manifest Hash 是 X\n',
+  }))
+  assert.equal(code, 1)
+  assert.match(output, /禁用术语「Manifest Hash」/)
+})
+
+test('代码块内术语不误报,合法模块 README 全绿', () => {
+  const body = `# demo\n\n禁用 \`Manifest Hash\` 的说明。\n\n${MODULE_SECTIONS.map((s) => `## ${s}\n\n- ok\n`).join('\n')}`
+  const { code, output } = lint(fixture({ 'modules/demo/README.md': body }))
+  assert.equal(code, 0, output)
+})
