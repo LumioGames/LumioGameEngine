@@ -15,13 +15,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate LumioAgent specification
+        run: |
+          node .spec/tools/spec-lint.mjs
+          node --test .spec/tools/spec-lint.test.mjs
       - name: Validate repository boundary documentation
         run: |
           test -s README.md
           test -s LICENSE
-          test -s docs/architecture/LumioGameEngine_Architecture_v0.3.md
+          test -s .gitattributes
+          grep -q '^\*\.md text eol=lf$' .gitattributes
+          test -s docs/architecture/LumioGameEngine_Architecture_v1.0.md
           grep -q '^## 职责$' README.md
           grep -q '^## 明确不负责什么$' README.md
           grep -q '^## Source / Compile-Time Dependencies$' README.md
           grep -q '^## Headless Test Surface$' README.md
-          grep -q '^# LumioGameEngine V3 (v0.3)' docs/architecture/LumioGameEngine_Architecture_v0.3.md
+          grep -q '^# LumioGameEngine V3 (v1.0)' docs/architecture/LumioGameEngine_Architecture_v1.0.md
+          grep -q 'LGE-V1.0-2026-08-27' README.md
+          grep -q 'LGE-V1.0-2026-08-27' docs/architecture/LumioGameEngine_Architecture_v1.0.md
+          grep -q '^## 子模块' README.md
+          grep -q '^## 当前阶段与开发节奏$' README.md
+          test -s docs/architecture/.baseline.sha256
+          sha256sum -c docs/architecture/.baseline.sha256
