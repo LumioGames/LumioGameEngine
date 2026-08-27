@@ -7,6 +7,11 @@ description: 架构仓主会话向七个实现仓提需求、按 wave 派活、�
 
 把架构文档的子模块地图变成 Workflow 需求卡，按 wave 派子 Agent 到各实现仓并行开发，核验交回物后自动流转，阶段级用集成卡聚合验收。本技能只定义**跨仓协作机制**；单仓内怎么开发以目标仓自己的 `.spec/` 为准，Workflow API 怎么调以 `workflow-planning` / `workflow-ops` 技能为准，此处不复述。
 
+## 前置条件
+
+- Workflow Agent 插件已安装（`workflow-setup` / `workflow-planning` / `workflow-ops` 技能可用），本仓 `.workflow` 已绑定 lumiogamesengine 项目，凭证经环境变量解析可用（未绑定先走 `workflow-setup`）。
+- 七个实现仓在本机 `~/LumioGames/<仓名>`，各仓 `repository-policy` CI 可用。
+
 ## 角色与真值
 
 - **总调度 = 本架构仓主会话**。只有总调度持有 Workflow 凭证并读写 Workflow（单一写入方）；派出的子 Agent 不碰 token，一切状态经会话内交回物回报。
