@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-032-durable-recovery-records.md

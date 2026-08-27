@@ -1,0 +1,29 @@
+{
+  "failureId": "failure-bootstrap-0001",
+  "reasonCode": "PRE_SNAPSHOT_FAULT",
+  "incidentKind": "Simulation",
+  "createdAt": "2026-08-27T01:05:00Z",
+  "correlation": {
+    "scope": "Session",
+    "productId": "A",
+    "gameReleaseId": "A-1.1.0",
+    "releasePoolId": "pool-a-1.1",
+    "sessionId": "session-boot-001",
+    "traceId": "trace-failure-boot-0001",
+    "producerId": "recovery-agent",
+    "eventSeq": 1
+  },
+  "manifestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "noSnapshotReason": "PreFirstSnapshot",
+  "bootstrapPhase": "SessionCreate",
+  "lastKnownManifest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "artifacts": [
+    {
+      "name": "loader-log",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "size": 256
+    }
+  ],
+  "reproducible": false,
+  "redacted": true
+}

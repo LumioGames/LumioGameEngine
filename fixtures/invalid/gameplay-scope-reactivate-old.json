@@ -1,0 +1,12 @@
+{
+  "sessionId": "session-001",
+  "oldGeneration": 3,
+  "newGeneration": 4,
+  "stage": "OldQuiescing",
+  "oldScope": "OldQuiescing",
+  "newScope": "NewActive",
+  "switchCommitted": true,
+  "failurePhase": "AfterSwitch",
+  "recovery": "SessionFaultedFromSnapshot",
+  "reactivatedOldScope": true
+}

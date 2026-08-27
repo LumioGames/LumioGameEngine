@@ -2,7 +2,7 @@
 
 本目录是全仓公共架构与框架决策的唯一落点。`docs/adr` 只保留兼容入口与指向本目录的文件级软链接；`docs/architecture/ADR_INDEX.md` 只保留入口指针。
 
-ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至 ADR-023 随 `LGE-V1.2-2026-08-27` 接受。`Accepted` 后不可改写，只能由新 ADR 取代并在双方记录取代关系。`ADR-015` 保持 `Reserved`，因为 Mod 是 P2。尚未批准的实现选型和运维默认值不进入 ADR，统一记录在 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)。
+ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至 ADR-023 随 `LGE-V1.2-2026-08-27` 接受；ADR-026 至 ADR-034 随 `LGE-V1.3-2026-08-27` 接受并 refine 既有 Accepted ADR。`Accepted` 后不可改写，只能由新 ADR 取代并在双方记录取代关系。`ADR-015` 保持 `Reserved`，因为 Mod 是 P2。尚未批准的实现选型和运维默认值不进入 ADR，统一记录在 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)。
 
 ## 写作与变更契约
 
@@ -40,5 +40,14 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-023](ADR-023-generated-contract-artifact.md) | 生成契约 Artifact 发布方与零实现依赖 | Accepted |
 | [ADR-024](ADR-024-voxel-p0-contract-set.md) | Voxel P0 公共契约集（World/Port、Chunk/Page、Revision Stamp、Query 一致性） | Accepted |
 | [ADR-025](ADR-025-voxel-participant-receipt-durability.md) | Voxel participant receipt 耐久与 pruning handshake（扩展 ADR-003） | Accepted |
+| [ADR-026](ADR-026-crossworld-commandbuffer-markers.md) | CommandBuffer 状态机与参与者枚举标记（refine ADR-003） | Accepted |
+| [ADR-027](ADR-027-tick-fail-stop.md) | Tick Fail-stop 与 13 相契约矩阵（refine ADR-002） | Accepted |
+| [ADR-028](ADR-028-replication-typed-bodies.md) | Replication typed body 与 MessageType 三方一致（refine ADR-005） | Accepted |
+| [ADR-029](ADR-029-entity-namespace-required.md) | Entity namespace 必填与域约束（refine ADR-004） | Accepted |
+| [ADR-030](ADR-030-processor-structural-commands.md) | mayEmitStructuralCommands 与自重叠合法（refine ADR-002） | Accepted |
+| [ADR-031](ADR-031-gas-lifecycle.md) | GAS Ability/Effect 通用状态机（refine ADR-008） | Accepted |
+| [ADR-032](ADR-032-durable-recovery-records.md) | TxnJournal/CommandLog/WAL 恢复记录（refine ADR-010/011） | Accepted |
+| [ADR-033](ADR-033-config-typed-columns.md) | Config typed columns 动态校验（refine ADR-010） | Accepted |
+| [ADR-034](ADR-034-hot-reload-dual-scope.md) | Hot Reload 双 Scope 原子激活（refine ADR-013） | Accepted |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。

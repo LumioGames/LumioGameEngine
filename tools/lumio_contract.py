@@ -283,6 +283,212 @@ def correlation_scope_errors(correlation: Any) -> List[str]:
     return errors
 
 
+_CURRENT_BASELINE = "LGE-V1.3-2026-08-27"
+_GENESIS_HASH = "0" * 64
+_TICK_PHASES = [
+    "IngressCapture",
+    "DecodeAndCanonicalize",
+    "ApplyInputs",
+    "ProcessorPlan",
+    "CrossWorldPrepare",
+    "NativeJobBarrier",
+    "CommitDecision",
+    "VoxelCommit",
+    "EcsCommandBufferCommit",
+    "GasAndEventFinalize",
+    "ReplicationProjection",
+    "SnapshotHashMetrics",
+    "EgressPublish",
+]
+_BUSINESS_PROCESSOR_PHASES = {
+    "ApplyInputs",
+    "ProcessorPlan",
+    "CrossWorldPrepare",
+    "CommitDecision",
+    "GasAndEventFinalize",
+}
+_BUSINESS_ABORT_REASONS = {
+    "RevisionConflict",
+    "PermissionDenied",
+    "InsufficientResource",
+    "ValidationFailed",
+}
+_REPLICATION_MESSAGE_TYPES = [
+    "Handshake",
+    "FullSnapshot",
+    "BaselineAck",
+    "Delta",
+    "DeltaAck",
+    "ResyncRequest",
+    "MaintenanceKick",
+    "Error",
+]
+_REPLICATION_BODY_REQUIRED = {
+    "Handshake": ("role",),
+    "FullSnapshot": ("snapshotId", "tickId", "sessionRevisionVector", "schemaEpoch", "mappingSetHash"),
+    "BaselineAck": ("snapshotId", "confirmedRevision"),
+    "Delta": ("baseSnapshotId", "fromRevision", "toRevision", "mappingSetHash", "confirmationSequence", "tombstones"),
+    "DeltaAck": ("confirmationSequence", "toRevision"),
+    "ResyncRequest": ("resyncReason",),
+    "MaintenanceKick": ("reasonCode",),
+    "Error": ("errorClass", "reasonCode"),
+}
+_SESSION_REVISION_FIELDS = (
+    "tickId",
+    "gameRevision",
+    "voxelWorldRevision",
+    "chunkRevisionSet",
+    "replicationRevision",
+    "configRevision",
+    "schemaEpoch",
+)
+_ABILITY_TRANSITIONS = {
+    "Requested": {"Activated", "Rejected", "Cancelled", "RolledBack"},
+    "Activated": {"Executing", "Rejected", "Cancelled", "RolledBack"},
+    "Executing": {"Completed", "Expired", "Cancelled", "RolledBack"},
+}
+_ABILITY_TERMINAL = {"Completed", "Rejected", "Cancelled", "Expired", "RolledBack"}
+_EFFECT_TRANSITIONS = {
+    "Pending": {"Active", "Rejected", "RolledBack"},
+    "Active": {"Expired", "Removed", "RolledBack"},
+}
+_EFFECT_TERMINAL = {"Expired", "Removed", "Rejected", "RolledBack"}
+_CONFIG_INT_BOUNDS = {
+    "i32": (-2147483648, 2147483647),
+    "i64": (-9223372036854775808, 9223372036854775807),
+    "u32": (0, 4294967295),
+    "u64": (0, 18446744073709551615),
+}
+
+
+def recovery_record_checksum(value: Any) -> str:
+    material = "{}:{}:{}:{}:{}".format(
+        value.get("recordVersion"),
+        value.get("recordSeq"),
+        value.get("previousHash"),
+        value.get("payloadHash"),
+        value.get("length"),
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def recovery_record_errors(value: Any) -> List[str]:
+    errors: List[str] = []
+    if not isinstance(value, dict):
+        return errors
+    previous = value.get("previousHash")
+    seq = value.get("recordSeq")
+    if seq == 0 and previous != _GENESIS_HASH:
+        errors.append("the first recovery record must use a genesis previousHash")
+    if isinstance(seq, int) and seq > 0 and previous == _GENESIS_HASH:
+        errors.append("a non-genesis recovery record cannot continue a broken previousHash chain")
+    if value.get("checksum") != recovery_record_checksum(value):
+        errors.append("recovery record checksum does not match the hash chain")
+    return errors
+
+
+def config_cell_errors(column: Any, raw: Any, row_key: Any, known_keys: set) -> List[str]:
+    errors: List[str] = []
+    name = column.get("name")
+    declared = column.get("type")
+    value = raw
+    if value is None and "defaultValue" in column and not column.get("required"):
+        value = column.get("defaultValue")
+    if value is None:
+        return errors
+
+    def out_of_range(number: Any) -> bool:
+        if "minimum" in column and number < column["minimum"]:
+            return True
+        if "maximum" in column and number > column["maximum"]:
+            return True
+        return False
+
+    if declared == "bool":
+        if not isinstance(value, bool):
+            errors.append("row {} column {} must be bool".format(row_key, name))
+    elif declared in _CONFIG_INT_BOUNDS:
+        if not isinstance(value, int) or isinstance(value, bool):
+            errors.append("row {} column {} must be {}".format(row_key, name, declared))
+        else:
+            low, high = _CONFIG_INT_BOUNDS[declared]
+            if value < low or value > high or out_of_range(value):
+                errors.append("row {} column {} is out of range".format(row_key, name))
+    elif declared in ("f32", "f64"):
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            errors.append("row {} column {} must be {}".format(row_key, name, declared))
+        elif out_of_range(value):
+            errors.append("row {} column {} is out of range".format(row_key, name))
+    elif declared == "string":
+        if not isinstance(value, str):
+            errors.append("row {} column {} must be string".format(row_key, name))
+    elif declared == "enum":
+        allowed = column.get("enumValues") or []
+        if value not in allowed:
+            errors.append("row {} column {} is not in enumValues".format(row_key, name))
+    elif declared == "ref":
+        if not isinstance(value, str):
+            errors.append("row {} column {} must be a ref id".format(row_key, name))
+        elif value not in known_keys:
+            errors.append("row {} column {} missing ref {}".format(row_key, name, value))
+        if not column.get("refTarget"):
+            errors.append("ref column {} requires refTarget".format(name))
+    return errors
+
+
+def replication_body_errors(message_type: Any, body: Any) -> List[str]:
+    errors: List[str] = []
+    if not isinstance(body, dict):
+        return ["typed replication body is required"]
+    required = _REPLICATION_BODY_REQUIRED.get(message_type, ())
+    missing = [field for field in required if field not in body]
+    if missing:
+        errors.append("{} body requires {}".format(message_type, ", ".join(missing)))
+    if message_type == "FullSnapshot":
+        vector = body.get("sessionRevisionVector")
+        if not isinstance(vector, dict) or any(field not in vector for field in _SESSION_REVISION_FIELDS):
+            errors.append("FullSnapshot requires a complete SessionRevisionVector")
+    if message_type == "Delta":
+        if "fromRevision" in body and "toRevision" in body and body.get("toRevision", 0) < body.get("fromRevision", 0):
+            errors.append("Delta ToRevision cannot precede FromRevision")
+        if body.get("gapDetected") and not body.get("resyncReason"):
+            errors.append("a detected Delta gap must carry a Resync reason")
+    if message_type == "ResyncRequest" and not body.get("resyncReason"):
+        errors.append("ResyncRequest requires a reason")
+    if message_type == "Error" and body.get("errorClass") not in ("Retryable", "Rejectable", "Fatal"):
+        errors.append("Error body requires one of Retryable, Rejectable or Fatal")
+    return errors
+
+
+def message_type_consistency_errors(
+    schemas: Dict[str, Dict[str, Any]],
+    fixtures: Dict[str, Dict[str, Any]],
+    id_registry: Any,
+) -> List[str]:
+    schema = schemas.get("replication-envelope", {}).get("document", {})
+    schema_types = set(((schema.get("properties") or {}).get("messageType") or {}).get("enum") or [])
+    registry_types = set()
+    for namespace in id_registry.get("namespaces", []):
+        if namespace.get("namespace") == "MessageType":
+            registry_types = {item.get("id") for item in namespace.get("values", [])}
+    used_registered = set()
+    for fixture in fixtures.values():
+        if fixture["meta"].get("schema") != "replication-envelope":
+            continue
+        message_type = fixture["document"].get("messageType")
+        if isinstance(message_type, str) and message_type in registry_types:
+            used_registered.add(message_type)
+    errors: List[str] = []
+    if schema_types != set(_REPLICATION_MESSAGE_TYPES):
+        errors.append("replication-envelope messageType enum must match the frozen V1 set")
+    if schema_types != registry_types:
+        errors.append("MessageType Schema enum and ID Registry must be identical")
+    missing = registry_types - used_registered
+    if missing:
+        errors.append("registered MessageType values are unused by fixtures: {}".format(sorted(missing)))
+    return errors
+
+
 def semantic_errors(schema_id: str, value: Any) -> List[str]:
     errors: List[str] = []
 
@@ -291,54 +497,83 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             errors.append("commit order must be VoxelCommit then EcsCommandBufferCommit")
         state = value.get("state")
         markers = value.get("participantMarkers", {})
+        voxel_marker = markers.get("voxelCommit")
+        ecs_marker = markers.get("ecsCommandBufferCommit")
+        intent = value.get("commitIntentPersisted")
+        buffer_state = value.get("commandBufferState")
+        apply_result = value.get("ecsApplyResult")
+        abort_reason = value.get("abortReason")
+        if intent is True and abort_reason in _BUSINESS_ABORT_REASONS:
+            errors.append("CommitIntent persistence forbids a later business-level reject")
         if state == "Committed":
-            if value.get("commitIntentPersisted") is not True:
+            if intent is not True:
                 errors.append("Committed transaction requires persisted CommitIntent")
-            if markers.get("voxelCommit") is not True or markers.get("ecsCommandBufferCommit") is not True:
-                errors.append("Committed transaction requires both participant markers")
+            if voxel_marker != "Applied" or ecs_marker != "Applied":
+                errors.append("Committed transaction requires both participant markers Applied")
+            if buffer_state != "Applied":
+                errors.append("Committed transaction requires CommandBuffer Applied")
+            if apply_result not in ("Applied", "AlreadyApplied"):
+                errors.append("Committed transaction requires ECS Apply Applied or AlreadyApplied")
             if value.get("resultRevisionVector") is None:
                 errors.append("Committed transaction requires ResultRevisionVector")
         elif state == "Aborted":
-            if markers.get("voxelCommit") or markers.get("ecsCommandBufferCommit"):
-                errors.append("Aborted transaction cannot report a committed participant")
-            if value.get("abortReason") == "RevisionConflict":
+            if intent is True:
+                errors.append("Aborted transaction cannot persist CommitIntent")
+            if voxel_marker not in (None, "NotStarted") or ecs_marker not in (None, "NotStarted"):
+                errors.append("Aborted transaction cannot report a started participant")
+            if buffer_state == "Applied":
+                errors.append("Aborted transaction cannot report CommandBuffer Applied")
+            if abort_reason == "RevisionConflict":
                 if value.get("observedGameRevision") == value.get("expectedGameRevision") and value.get("observedVoxelRevision") == value.get("expectedVoxelRevision"):
                     errors.append("RevisionConflict requires an observed revision mismatch")
-        elif state == "CommitIntent" and value.get("commitIntentPersisted") is not True:
-            errors.append("CommitIntent state requires persisted CommitIntent")
+        elif state == "Expired":
+            if intent is True:
+                errors.append("Expired transaction cannot persist CommitIntent")
+            if abort_reason != "DeadlineExceeded":
+                errors.append("Expired transaction requires DeadlineExceeded")
+        elif state == "CommitIntent":
+            if intent is not True:
+                errors.append("CommitIntent state requires persisted CommitIntent")
+            if buffer_state != "Prepared":
+                errors.append("CommitIntent requires CommandBuffer Prepared")
         elif state == "Indeterminate":
-            if value.get("commitIntentPersisted") is not True:
+            if intent is not True:
                 errors.append("Indeterminate transaction requires persisted CommitIntent")
-            if sum(1 for marker in markers.values() if marker) != 1:
-                errors.append("Indeterminate transaction must have exactly one participant marker")
+            if apply_result not in ("Indeterminate", "Faulted", "Applied", "AlreadyApplied"):
+                errors.append("Indeterminate Apply must be Applied, AlreadyApplied, Indeterminate or Faulted")
+            if voxel_marker == "Applied" and ecs_marker == "Applied":
+                errors.append("Indeterminate transaction cannot have both markers Applied")
+            if voxel_marker not in ("Unknown", "Applied", "Failed", "NotStarted") or ecs_marker not in ("Unknown", "Applied", "Failed", "NotStarted"):
+                errors.append("Indeterminate transaction requires enum participant markers")
         if value.get("tickId", 0) > value.get("deadlineTick", 0):
             errors.append("transaction TickId cannot exceed DeadlineTick")
 
     elif schema_id == "replication-envelope":
         message_type = value.get("messageType")
+        if message_type not in _REPLICATION_MESSAGE_TYPES:
+            errors.append("messageType {} is not registered".format(message_type))
         if message_type == "FullSnapshot" and value.get("reliability") != "Reliable":
             errors.append("FullSnapshot must use Reliable delivery")
-        if message_type == "Delta":
-            if "baseSnapshotId" not in value or "fromRevision" not in value or "toRevision" not in value:
-                errors.append("Delta requires a baseline and revision range")
-            elif value.get("toRevision", 0) < value.get("fromRevision", 0):
-                errors.append("Delta ToRevision cannot precede FromRevision")
-            if value.get("gapDetected") and not value.get("resyncReason"):
-                errors.append("a detected Delta gap must carry a Resync reason")
-        if message_type == "ResyncRequest" and not value.get("resyncReason"):
-            errors.append("ResyncRequest requires a reason")
+        errors.extend(replication_body_errors(message_type, value.get("body")))
 
     elif schema_id == "entity-identity":
         lifecycle = value.get("lifecycle")
+        namespace = value.get("namespace")
+        domain = str(value.get("authorityDomain", ""))
         if lifecycle == "Alive" and "tombstoneUntilRevision" in value:
             errors.append("Alive entity cannot retain a tombstone horizon")
         if lifecycle == "Tombstoned" and "tombstoneUntilRevision" not in value:
             errors.append("Tombstoned entity requires a tombstone horizon")
-        if value.get("namespace") == "Provisional":
-            if not str(value.get("authorityDomain", "")).startswith("client-"):
+        if namespace == "Provisional":
+            if not domain.startswith("client-"):
                 errors.append("Provisional entity must use the client provisional authority domain")
             if value.get("remappedFrom") == value.get("netEntityId"):
                 errors.append("provisional remapping must change the NetEntityId")
+        elif namespace == "Authoritative" and domain.startswith("client-"):
+            errors.append("Authoritative entity cannot use a provisional authority domain")
+        elif namespace == "Replay":
+            if "sourceRevision" not in value or "sourceReleaseId" not in value:
+                errors.append("Replay entity that retains the original id requires sourceRevision and sourceReleaseId")
 
     elif schema_id == "release-manifest":
         if value.get("compatibilityPolicy") == "ExactRelease" and value.get("serverReleaseId") != value.get("clientReleaseId"):
@@ -381,14 +616,25 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         keys = [row.get("key") for row in value.get("rows", [])]
         if len(keys) != len(set(keys)):
             errors.append("config table row keys must be unique")
-        columns = [column.get("name") for column in value.get("columns", [])]
+        column_defs = value.get("columns", [])
+        columns = [column.get("name") for column in column_defs]
         if len(columns) != len(set(columns)):
             errors.append("config table column names must be unique")
-        required_columns = {column.get("name") for column in value.get("columns", []) if column.get("required")}
+        known_columns = {column.get("name"): column for column in column_defs}
+        required_columns = {column.get("name") for column in column_defs if column.get("required")}
+        known_keys = {key for key in keys if isinstance(key, str)}
         for row in value.get("rows", []):
-            missing = required_columns.difference(row.get("values", {}).keys())
+            values = row.get("values", {})
+            missing = required_columns.difference(values.keys())
             if missing:
                 errors.append("row {} is missing required columns {}".format(row.get("key"), sorted(missing)))
+            unknown = set(values.keys()) - set(known_columns)
+            if unknown:
+                errors.append("row {} has unknown columns {}".format(row.get("key"), sorted(unknown)))
+            for name, cell in values.items():
+                column = known_columns.get(name)
+                if column:
+                    errors.extend(config_cell_errors(column, cell, row.get("key"), known_keys))
         if value.get("activation") == "ProductionSignedSwitch" and not value.get("signature"):
             errors.append("production config activation requires a signature")
 
@@ -404,20 +650,19 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         errors.extend(correlation_scope_errors(value.get("correlation")))
 
     elif schema_id == "processor-descriptor":
-        read_set = set(value.get("readSet", []))
-        write_set = set(value.get("writeSet", []))
-        if value.get("determinismClass") == "Stable" and read_set.intersection(write_set):
-            errors.append("Stable processor cannot read and write the same resource")
-        if value.get("structuralWrites") and value.get("phase") != "EcsCommandBufferCommit":
-            errors.append("structural writes are only committed in EcsCommandBufferCommit")
+        if value.get("mayEmitStructuralCommands") and value.get("phase") not in _BUSINESS_PROCESSOR_PHASES:
+            errors.append("mayEmitStructuralCommands is only legal on a business phase")
 
     elif schema_id == "failure-bundle":
         names = [artifact.get("name") for artifact in value.get("artifacts", [])]
         if len(names) != len(set(names)):
             errors.append("FailureBundle artifact names must be unique")
         incident_kind = value.get("incidentKind")
-        if incident_kind == "Simulation" and not value.get("snapshotId"):
-            errors.append("a Simulation incident must reference a snapshot")
+        if incident_kind == "Simulation":
+            has_snapshot = bool(value.get("snapshotId"))
+            has_pre_snapshot = bool(value.get("noSnapshotReason") and value.get("bootstrapPhase") and (value.get("lastKnownRevision") or value.get("lastKnownManifest")))
+            if not has_snapshot and not has_pre_snapshot:
+                errors.append("a Simulation incident must reference a snapshot or a pre-snapshot bootstrap attestation")
         if incident_kind in ("CoreEngineLoad", "SupplyChain") and "coreEngine" not in value:
             errors.append("a {} incident requires the coreEngine block".format(incident_kind))
         errors.extend(correlation_scope_errors(value.get("correlation")))
@@ -608,21 +853,86 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         if forbidden != {"LumioClient", "LumioGame"}:
             errors.append("generated artifacts must forbid LumioClient and LumioGame implementation dependents")
 
+    elif schema_id == "tick-phase-contract":
+        if value.get("tickModel") != "FailStop":
+            errors.append("V1 Tick model must be FailStop")
+        if value.get("commitPoint") != "GasAndEventFinalize":
+            errors.append("the unique Tick Commit Point is GasAndEventFinalize")
+        phases = value.get("phases") or []
+        names = [phase.get("phase") for phase in phases]
+        if names != _TICK_PHASES:
+            errors.append("the Tick phase matrix must list the 13 phases in order")
+        commit_flags = [phase for phase in phases if phase.get("isAuthoritativeCommitPoint")]
+        if len(commit_flags) != 1 or commit_flags[0].get("phase") != "GasAndEventFinalize":
+            errors.append("exactly one phase may be the authoritative Commit Point")
+        for phase in phases:
+            if phase.get("phase") == "GasAndEventFinalize":
+                if phase.get("visibleToLaterPhases") != "AfterCommit":
+                    errors.append("the Commit Point must publish AfterCommit visibility")
+            elif phase.get("isAuthoritativeCommitPoint"):
+                errors.append("only GasAndEventFinalize may set the Commit Point flag")
+            elif phase.get("phase") in _TICK_PHASES and _TICK_PHASES.index(phase.get("phase")) < _TICK_PHASES.index("GasAndEventFinalize"):
+                if phase.get("visibleToLaterPhases") != "WithinTickPrivate":
+                    errors.append("{} cannot be visible after commit".format(phase.get("phase")))
+
+    elif schema_id == "gas-lifecycle":
+        machine = value.get("machine")
+        source = value.get("fromState")
+        dest = value.get("toState")
+        if machine == "Ability":
+            allowed = _ABILITY_TRANSITIONS.get(source, set())
+            if dest not in allowed:
+                errors.append("illegal Ability transition {} -> {}".format(source, dest))
+            if dest in _ABILITY_TERMINAL and value.get("handleValid") is not False:
+                errors.append("a terminal Ability state invalidates the Handle")
+        elif machine == "Effect":
+            event = value.get("event")
+            if event in ("Stack", "Duration", "Refresh"):
+                if source != "Active" or dest != "Active":
+                    errors.append("Stack/Duration/Refresh are Active-internal events, not states")
+            else:
+                allowed = _EFFECT_TRANSITIONS.get(source, set())
+                if dest not in allowed:
+                    errors.append("illegal Effect transition {} -> {}".format(source, dest))
+            if dest in _EFFECT_TERMINAL and value.get("handleValid") is not False:
+                errors.append("a terminal Effect state invalidates the Handle")
+
+    elif schema_id in ("txn-journal-record", "command-log-record", "wal-record-envelope"):
+        errors.extend(recovery_record_errors(value))
+        if schema_id == "wal-record-envelope":
+            inner = value.get("inner")
+            if not isinstance(inner, dict):
+                errors.append("WAL envelope requires an inner recovery record")
+            elif value.get("innerKind") == "TxnJournal" and not inner.get("txnId"):
+                errors.append("TxnJournal WAL inner requires txnId")
+            elif value.get("innerKind") == "CommandLog" and not inner.get("commandId"):
+                errors.append("CommandLog WAL inner requires commandId")
+
+    elif schema_id == "gameplay-scope-activation":
+        if value.get("reactivatedOldScope") is True:
+            errors.append("a quiesced or unloaded old Scope cannot be reactivated")
+        if value.get("failurePhase") == "AfterSwitch" and value.get("recovery") != "SessionFaultedFromSnapshot":
+            errors.append("post-BarrierSwitch failure must Fault the Session from Snapshot")
+        if value.get("failurePhase") == "BeforeSwitch" and value.get("recovery") != "KeepOldActive":
+            errors.append("pre-BarrierSwitch failure must keep OldActive and discard NewStaging")
+        if value.get("stage") in ("OldQuiescing", "OldUnloaded") and value.get("switchCommitted") is not True:
+            errors.append("OldQuiescing/OldUnloaded require a committed BarrierSwitch")
+
     return errors
 
 
 def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     schema_index = load_json(SCHEMA_INDEX)
     fixture_index = load_json(FIXTURE_INDEX)
-    if schema_index.get("baselineId") != "LGE-V1.2-2026-08-27" or fixture_index.get("baselineId") != "LGE-V1.2-2026-08-27":
-        raise ContractError("schema and fixture registries must use baseline LGE-V1.2-2026-08-27")
+    if schema_index.get("baselineId") != _CURRENT_BASELINE or fixture_index.get("baselineId") != _CURRENT_BASELINE:
+        raise ContractError("schema and fixture registries must use baseline {}".format(_CURRENT_BASELINE))
     if schema_index.get("schemaSetVersion") != 1 or fixture_index.get("fixtureSetVersion") != 1:
         raise ContractError("unsupported schema or fixture registry version")
     if not ID_REGISTRY_FILE.is_file():
         raise ContractError("ID Registry is missing: {}".format(ID_REGISTRY_FILE))
     id_registry = load_json(ID_REGISTRY_FILE)
-    if id_registry.get("baselineId") != "LGE-V1.2-2026-08-27":
-        raise ContractError("ID Registry must use baseline LGE-V1.2-2026-08-27")
+    if id_registry.get("baselineId") != _CURRENT_BASELINE:
+        raise ContractError("ID Registry must use baseline {}".format(_CURRENT_BASELINE))
     resolver = SchemaResolver()
     registry_schema_path = SCHEMA_DIR / "schemas-index.json"
     registry_schema = load_json(registry_schema_path)
@@ -679,6 +989,9 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
             raise ContractError("P0 schema {} has no positive fixture".format(schema_id))
         if not any(item.get("expected") == "invalid" for item in covered):
             raise ContractError("P0 schema {} has no failure fixture".format(schema_id))
+    consistency = message_type_consistency_errors(schemas, fixtures, id_registry)
+    if consistency:
+        raise ContractError("; ".join(consistency))
     return schemas, fixtures
 
 
@@ -727,7 +1040,7 @@ def command_validate(selected: Optional[str], json_output: bool = False) -> int:
     if json_output:
         print(json.dumps({
             "resultVersion": 1,
-            "baselineId": "LGE-V1.2-2026-08-27",
+            "baselineId": _CURRENT_BASELINE,
             "command": "validate",
             "passed": failures == 0,
             "validated": len(targets),

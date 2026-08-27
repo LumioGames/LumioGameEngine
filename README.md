@@ -4,9 +4,9 @@
 
 ## 版本与状态
 
-- **Baseline**：`LGE-V1.2-2026-08-27`
+- **Baseline**：`LGE-V1.3-2026-08-27`
 - **状态**：Implementation Baseline
-- **规范正文**：[`docs/architecture/LumioGameEngine_Architecture_v1.2.md`](docs/architecture/LumioGameEngine_Architecture_v1.2.md)
+- **规范正文**：[`docs/architecture/LumioGameEngine_Architecture_v1.3.md`](docs/architecture/LumioGameEngine_Architecture_v1.3.md)
 - **ADR 索引**：[`docs/architecture/ADR_INDEX.md`](docs/architecture/ADR_INDEX.md)
 - **ADR 正文**：[`docs/adr/README.md`](docs/adr/README.md)
 - **待确认决策**：[`docs/architecture/DECISIONS_PENDING.md`](docs/architecture/DECISIONS_PENDING.md)
@@ -16,7 +16,7 @@
 - **契约工具**：[`tools/README.md`](tools/README.md)
 - **最终评审合并稿**：[`docs/reviews/LumioGameEngine_V3_Architecture_Review_Final_2026-08-27.md`](docs/reviews/LumioGameEngine_V3_Architecture_Review_Final_2026-08-27.md)
 
-本仓库是架构、状态机、Schema、依赖图和变更规则的事实源，不拥有任何运行中的 World、连接或 Gameplay 状态。七个实现仓库可以保留同版本镜像，但不能独立修改共享基线；改变基线必须通过 ADR、更新 BaselineId 和同步检查。现行基线为 `LGE-V1.2-2026-08-27`；Accepted ADR 不可改写，只能由新 ADR 取代（ADR-015 保持 Reserved）。尚未裁决的实现选型见 `docs/architecture/DECISIONS_PENDING.md`。
+本仓库是架构、状态机、Schema、依赖图和变更规则的事实源，不拥有任何运行中的 World、连接或 Gameplay 状态。七个实现仓库可以保留同版本镜像，但不能独立修改共享基线；改变基线必须通过 ADR、更新 BaselineId 和同步检查。现行基线为 `LGE-V1.3-2026-08-27`；Accepted ADR 不可改写，只能由新 ADR 取代（ADR-015 保持 Reserved）。尚未裁决的实现选型见 `docs/architecture/DECISIONS_PENDING.md`。
 
 ## 负责范围
 
@@ -28,7 +28,7 @@
 
 ## Architecture Gate 产物
 
-当前基线已经有可执行的第一批公共契约：`schemas/index.json` 注册 24 个 P0 Schema（含客户端权威更新事务、Protocol/Permission 门与生成契约 Artifact）、2 个 P1 Schema 和 1 个 P2 Mod 预留；`ids/index.json` 维护版本化 ID Namespace（含 ErrorCode 1007–1032）；`fixtures/index.json` 注册 70 个正向/失败样例；`tools/lumio_contract.py validate` 在本地和 CI 中执行结构与关键语义校验。它们是生成器、Serializer、ABI Header、Binding 和各仓库测试的输入，不是运行时库。
+当前基线已经有可执行的公共契约：`schemas/index.json` 注册 35 个 P0 Schema（含 Tick 相矩阵、GAS 生命周期、恢复记录、Replication typed body 与双 Scope 激活）、2 个 P1 Schema 和 1 个 P2 Mod 预留；`ids/index.json` 维护版本化 ID Namespace（含 MessageType `BaselineAck`/`DeltaAck`/`Error`）；`fixtures/index.json` 注册 120 个正向/失败样例；`tools/lumio_contract.py validate` 在本地和 CI 中执行结构与关键语义校验。它们是生成器、Serializer、ABI Header、Binding 和各仓库测试的输入，不是运行时库。
 
 ```text
 python3 -m pip install -r requirements-dev.txt

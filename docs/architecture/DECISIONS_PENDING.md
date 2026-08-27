@@ -1,6 +1,6 @@
 # Decisions Pending Before Foundation
 
-These are implementation choices that are intentionally **not** frozen by `LGE-V1.2-2026-08-27`. The documented defaults keep the published ownership, state machines and compatibility boundary intact. Confirming a value records it in the relevant ADR/Manifest; changing a wire field, Schema, state or compatibility rule requires a new BaselineId. ADR-022 freezes the generated Active-message permission field set without resolving D-009.
+These are implementation choices that are intentionally **not** frozen by `LGE-V1.3-2026-08-27`. The documented defaults keep the published ownership, state machines and compatibility boundary intact. Confirming a value records it in the relevant ADR/Manifest; changing a wire field, Schema, state or compatibility rule requires a new BaselineId. ADR-022 freezes the generated Active-message permission field set without resolving D-009.
 
 | ID | Question | Temporary default | Why it matters | Baseline impact |
 | --- | --- | --- | --- | --- |

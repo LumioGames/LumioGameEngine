@@ -3,6 +3,7 @@
 - **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (Coordinator), `LumioVoxelEngine` and Runtime (participants)
 - **Baseline**: `LGE-V1.1-2026-08-27`
+- **Refined by**: [ADR-026](ADR-026-crossworld-commandbuffer-markers.md)
 
 ## Context
 

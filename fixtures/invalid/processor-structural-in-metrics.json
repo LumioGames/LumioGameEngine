@@ -1,0 +1,21 @@
+{
+  "processorId": "metrics-structural",
+  "role": "Server",
+  "phase": "SnapshotHashMetrics",
+  "query": "Entity",
+  "readSet": [
+    "Metrics"
+  ],
+  "writeSet": [
+    "Metrics"
+  ],
+  "mayEmitStructuralCommands": true,
+  "before": [],
+  "after": [],
+  "determinismClass": "Stable",
+  "budget": {
+    "maxMicros": 50,
+    "maxCommands": 0
+  },
+  "diagnosticName": "Runtime.Metrics.Structural"
+}

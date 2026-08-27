@@ -3,6 +3,7 @@
 - **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (semantics), `LumioServer`/`LumioClient` (transport adapters)
 - **Baseline**: `LGE-V1.1-2026-08-27`
+- **Refined by**: [ADR-028](ADR-028-replication-typed-bodies.md)
 
 ## Context
 

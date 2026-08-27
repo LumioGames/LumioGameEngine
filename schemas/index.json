@@ -1,6 +1,6 @@
 {
   "schemaSetVersion": 1,
-  "baselineId": "LGE-V1.2-2026-08-27",
+  "baselineId": "LGE-V1.3-2026-08-27",
   "schemas": [
     { "id": "session-revision-vector", "file": "session-revision-vector.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "cross-world-txn", "file": "cross-world-txn.schema.json", "priority": "P0", "owner": "GameRuntime" },
@@ -31,6 +31,12 @@
     { "id": "voxel-revision-stamp", "file": "voxel-revision-stamp.schema.json", "priority": "P0", "owner": "VoxelEngine" },
     { "id": "voxel-query", "file": "voxel-query.schema.json", "priority": "P0", "owner": "VoxelEngine" },
     { "id": "voxel-mutation-receipt", "file": "voxel-mutation-receipt.schema.json", "priority": "P0", "owner": "VoxelEngine" },
+    { "id": "tick-phase-contract", "file": "tick-phase-contract.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "gas-lifecycle", "file": "gas-lifecycle.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "txn-journal-record", "file": "txn-journal-record.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "command-log-record", "file": "command-log-record.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "wal-record-envelope", "file": "wal-record-envelope.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "gameplay-scope-activation", "file": "gameplay-scope-activation.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "migration-manifest", "file": "migration-manifest.schema.json", "priority": "P1", "owner": "Game" },
     { "id": "contract-result", "file": "contract-result.schema.json", "priority": "P1", "owner": "Architecture" },
     { "id": "mod-manifest", "file": "mod-manifest.schema.json", "priority": "P2", "owner": "Game" }

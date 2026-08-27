@@ -3,6 +3,7 @@
 - **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (framework), `LumioGame` (content)
 - **Baseline**: `LGE-V1.1-2026-08-27`
+- **Refined by**: [ADR-031](ADR-031-gas-lifecycle.md)
 
 ## Context
 

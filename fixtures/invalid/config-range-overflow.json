@@ -1,0 +1,25 @@
+{
+  "tableId": "build-costs",
+  "schemaVersion": 1,
+  "configRevision": 5,
+  "generatedAt": "2026-08-27T03:22:00Z",
+  "sourceHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "columns": [
+    {
+      "name": "cost",
+      "type": "u32",
+      "required": true,
+      "minimum": 0,
+      "maximum": 10
+    }
+  ],
+  "rows": [
+    {
+      "key": "stone",
+      "values": {
+        "cost": 99
+      }
+    }
+  ],
+  "activation": "DevelopmentHotLoad"
+}

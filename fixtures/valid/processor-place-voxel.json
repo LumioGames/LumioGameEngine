@@ -3,12 +3,23 @@
   "role": "Server",
   "phase": "CrossWorldPrepare",
   "query": "BuildPermissionAuthority & InventoryAuthority",
-  "readSet": ["BuildPermissionAuthority", "InventoryAuthority", "VoxelQueryPort"],
-  "writeSet": ["PlaceVoxelTxnCommand"],
-  "structuralWrites": false,
+  "readSet": [
+    "BuildPermissionAuthority",
+    "InventoryAuthority",
+    "VoxelQueryPort"
+  ],
+  "writeSet": [
+    "PlaceVoxelTxnCommand"
+  ],
+  "mayEmitStructuralCommands": true,
   "before": [],
-  "after": ["input-normalizer"],
+  "after": [
+    "input-normalizer"
+  ],
   "determinismClass": "Stable",
-  "budget": { "maxMicros": 500, "maxCommands": 64 },
+  "budget": {
+    "maxMicros": 500,
+    "maxCommands": 64
+  },
   "diagnosticName": "Gameplay.PlaceVoxel.Prepare"
 }

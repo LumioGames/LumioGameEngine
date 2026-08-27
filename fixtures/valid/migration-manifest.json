@@ -32,7 +32,10 @@
     {
       "nodeId": "release-index-v2",
       "owner": "Tooling",
-      "dependsOn": ["game-state-v2", "voxel-world-v2"],
+      "dependsOn": [
+        "game-state-v2",
+        "voxel-world-v2"
+      ],
       "inputSchema": "SessionSnapshotV2",
       "outputSchema": "SessionSnapshotV2",
       "inputHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
@@ -40,5 +43,16 @@
       "toolVersion": "1.1.0",
       "idempotent": true
     }
-  ]
+  ],
+  "scopeActivation": {
+    "sessionId": "session-001",
+    "oldGeneration": 3,
+    "newGeneration": 4,
+    "stage": "OldUnloaded",
+    "oldScope": "OldUnloaded",
+    "newScope": "NewActive",
+    "switchCommitted": true,
+    "recovery": "KeepOldActive",
+    "reactivatedOldScope": false
+  }
 }

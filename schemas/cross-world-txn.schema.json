@@ -8,6 +8,7 @@
     "tickId",
     "commandId",
     "state",
+    "commandBufferState",
     "expectedGameRevision",
     "expectedVoxelRevision",
     "deadlineTick",
@@ -22,7 +23,15 @@
     "predictionKey": { "$ref": "common.schema.json#/$defs/id" },
     "state": {
       "type": "string",
-      "enum": ["Created", "Prepared", "CommitIntent", "Committed", "Aborted", "Indeterminate"]
+      "enum": ["Created", "Prepared", "CommitIntent", "Committed", "Aborted", "Expired", "Indeterminate"]
+    },
+    "commandBufferState": {
+      "type": "string",
+      "enum": ["Open", "Sealed", "Merged", "Prepared", "Applied"]
+    },
+    "ecsApplyResult": {
+      "type": "string",
+      "enum": ["Applied", "AlreadyApplied", "Indeterminate", "Faulted"]
     },
     "expectedGameRevision": { "$ref": "common.schema.json#/$defs/revision" },
     "expectedVoxelRevision": { "$ref": "common.schema.json#/$defs/revision" },
@@ -44,8 +53,8 @@
       "type": "object",
       "required": ["voxelCommit", "ecsCommandBufferCommit"],
       "properties": {
-        "voxelCommit": { "type": "boolean" },
-        "ecsCommandBufferCommit": { "type": "boolean" }
+        "voxelCommit": { "type": "string", "enum": ["NotStarted", "Unknown", "Applied", "Failed"] },
+        "ecsCommandBufferCommit": { "type": "string", "enum": ["NotStarted", "Unknown", "Applied", "Failed"] }
       },
       "additionalProperties": false
     },

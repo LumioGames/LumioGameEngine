@@ -3,6 +3,7 @@
 - **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime`
 - **Baseline**: `LGE-V1.1-2026-08-27`
+- **Refined by**: [ADR-029](ADR-029-entity-namespace-required.md)
 
 ## Context
 

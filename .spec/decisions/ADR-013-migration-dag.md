@@ -3,6 +3,7 @@
 - **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGame` (Game semantics), `LumioVoxelEngine` (Voxel semantics), `LumioServer` (orchestration)
 - **Baseline**: `LGE-V1.1-2026-08-27`
+- **Refined by**: [ADR-034](ADR-034-hot-reload-dual-scope.md)
 
 ## Context
 

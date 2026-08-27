@@ -3,14 +3,25 @@
   "txnId": "txn-place-0003",
   "tickId": 43,
   "commandId": "cmd-0003",
+  "predictionKey": "prediction-0003",
   "state": "Indeterminate",
+  "commandBufferState": "Prepared",
   "expectedGameRevision": 18,
   "expectedVoxelRevision": 24,
-  "chunkRevisionSet": { "chunk-0-0": 9 },
+  "chunkRevisionSet": {
+    "chunk-0-0": 9
+  },
   "deadlineTick": 52,
+  "commitOrder": [
+    "VoxelCommit",
+    "EcsCommandBufferCommit"
+  ],
+  "participantMarkers": {
+    "voxelCommit": "Applied",
+    "ecsCommandBufferCommit": "Unknown"
+  },
   "preparedVoxelToken": "voxel-reservation-0003",
-  "commitOrder": ["VoxelCommit", "EcsCommandBufferCommit"],
   "commitIntentPersisted": true,
-  "participantMarkers": { "voxelCommit": true, "ecsCommandBufferCommit": false },
+  "ecsApplyResult": "Indeterminate",
   "resultRevisionVector": null
 }

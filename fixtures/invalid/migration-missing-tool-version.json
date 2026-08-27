@@ -17,5 +17,16 @@
       "outputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "idempotent": true
     }
-  ]
+  ],
+  "scopeActivation": {
+    "sessionId": "session-001",
+    "oldGeneration": 3,
+    "newGeneration": 4,
+    "stage": "OldUnloaded",
+    "oldScope": "OldUnloaded",
+    "newScope": "NewActive",
+    "switchCommitted": true,
+    "recovery": "KeepOldActive",
+    "reactivatedOldScope": false
+  }
 }

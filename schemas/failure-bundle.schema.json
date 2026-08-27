@@ -11,6 +11,10 @@
     "correlation": { "$ref": "common.schema.json#/$defs/correlation" },
     "manifestHash": { "$ref": "common.schema.json#/$defs/hash256" },
     "snapshotId": { "$ref": "common.schema.json#/$defs/id" },
+    "noSnapshotReason": { "type": "string", "enum": ["PreFirstSnapshot", "BootstrapFault", "LoaderFailed"] },
+    "bootstrapPhase": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "lastKnownRevision": { "$ref": "common.schema.json#/$defs/sessionRevisionVector" },
+    "lastKnownManifest": { "$ref": "common.schema.json#/$defs/hash256" },
     "coreEngine": {
       "type": "object",
       "required": ["packageIdentity", "loaderState", "errorCode"],

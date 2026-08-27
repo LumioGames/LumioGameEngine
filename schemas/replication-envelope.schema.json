@@ -13,7 +13,8 @@
     "reliability",
     "integrity",
     "traceId",
-    "payload"
+    "transportPolicy",
+    "body"
   ],
   "properties": {
     "protocolVersion": { "type": "integer", "minimum": 1 },
@@ -24,7 +25,16 @@
     "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
     "messageType": {
       "type": "string",
-      "enum": ["Handshake", "FullSnapshot", "BaselineAck", "Delta", "DeltaAck", "ResyncRequest", "MaintenanceKick", "Error"]
+      "enum": [
+        "Handshake",
+        "FullSnapshot",
+        "BaselineAck",
+        "Delta",
+        "DeltaAck",
+        "ResyncRequest",
+        "MaintenanceKick",
+        "Error"
+      ]
     },
     "reliability": { "type": "string", "enum": ["Reliable", "Unreliable"] },
     "integrity": {
@@ -37,14 +47,19 @@
       "additionalProperties": false
     },
     "traceId": { "$ref": "common.schema.json#/$defs/id" },
-    "snapshotId": { "$ref": "common.schema.json#/$defs/id" },
-    "baseSnapshotId": { "$ref": "common.schema.json#/$defs/id" },
-    "fromRevision": { "$ref": "common.schema.json#/$defs/revision" },
-    "toRevision": { "$ref": "common.schema.json#/$defs/revision" },
-    "baselineAck": { "type": "boolean" },
-    "gapDetected": { "type": "boolean" },
-    "resyncReason": { "type": "string", "enum": ["Gap", "UnknownBaseline", "RevisionTooOld", "SchemaMismatch", "TombstoneConflict", "HistoryUnavailable"] },
-    "payload": { "type": ["object", "array", "string", "number", "boolean", "null"] }
+    "transportPolicy": {
+      "type": "object",
+      "required": ["maxMessageBytes", "maxFragmentBytes", "antiReplayWindow", "authBinding", "errorClass"],
+      "properties": {
+        "maxMessageBytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+        "maxFragmentBytes": { "type": "integer", "minimum": 1, "maximum": 65536 },
+        "antiReplayWindow": { "type": "integer", "minimum": 1 },
+        "authBinding": { "type": "string", "enum": ["SessionAdmission", "ConnectionGeneration"] },
+        "errorClass": { "type": "string", "enum": ["Retryable", "Rejectable", "Fatal"] }
+      },
+      "additionalProperties": false
+    },
+    "body": { "type": "object" }
   },
   "additionalProperties": false
 }
