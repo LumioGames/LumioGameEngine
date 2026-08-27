@@ -1,6 +1,6 @@
 # Decisions Pending Before Foundation
 
-These are implementation choices that are intentionally **not** frozen by `LGE-V1.1-2026-08-27`. The documented defaults keep the v1.0 ownership, state machines and compatibility boundary intact. Confirming a value records it in the relevant ADR/Manifest; changing a wire field, Schema, state or compatibility rule requires a new BaselineId.
+These are implementation choices that are intentionally **not** frozen by `LGE-V1.2-2026-08-27`. The documented defaults keep the published ownership, state machines and compatibility boundary intact. Confirming a value records it in the relevant ADR/Manifest; changing a wire field, Schema, state or compatibility rule requires a new BaselineId. ADR-022 freezes the generated Active-message permission field set without resolving D-009.
 
 | ID | Question | Temporary default | Why it matters | Baseline impact |
 | --- | --- | --- | --- | --- |
@@ -15,6 +15,7 @@ These are implementation choices that are intentionally **not** frozen by `LGE-V
 | D-009 | RPC/Message dispatch contract (MessageId namespace, RPC envelope, generated dispatch)? | Not frozen. The V1 wire surface is limited to the replication envelope MessageTypes; the server `protocol-dispatch` boundary stays blocked and no repository may invent a dispatch wire format. | Determines client/server dispatch codegen, protocol epoch and the Game RPC payload surface. | Freezing requires a new ADR, Schema, fixtures and a new BaselineId. |
 | D-010 | Control-plane command transport and desired-state store? | Signed command drop (file/CLI) verified in-process plus an external process supervisor; fencing tokens per ADR-012. No in-process cluster controller. | Determines ops security model, replacement automation and fencing enforcement. | Transport choice is deployment-level; changing command Schema or fencing semantics requires a new BaselineId. |
 | D-011 | Auth wire credential/ticket schema (issuance, rotation, anti-replay window)? | Not frozen. Only the behavior contract is fixed: every handshake passes anti-replay validation before session admission; no public wire format exists yet. | Determines credential issuance infrastructure and the security review surface. | Freezing requires a new ADR, Schema and fixtures; implementations must not invent a wire format before that. |
+| D-012 | Session Resume Token for reconnect? | Not provided in V1. A new connection generation repeats channel authentication and a full Handshake; in-connection Resync does not re-handshake. | A token would bind generation/Release, multiply the auth review surface and overlap D-011. | Adding a token requires a new ADR, Schema, fixtures and a new BaselineId. |
 
 ## Confirmation Record
 

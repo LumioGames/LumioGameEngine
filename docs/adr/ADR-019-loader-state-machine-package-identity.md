@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-019-loader-state-machine-package-identity.md

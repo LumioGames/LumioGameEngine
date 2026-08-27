@@ -11,6 +11,13 @@
   "voxelSchema": "VoxelSchemaV1",
   "voxelMigration": "VoxelMigrationV1",
   "configContentHash": "5555555555555555555555555555555555555555555555555555555555555555",
+  "coreEnginePackage": {
+    "packageId": "coreengine-linux-server-x86_64",
+    "manifestDigest": "9999999999999999999999999999999999999999999999999999999999999999",
+    "artifactSetDigest": "7777777777777777777777777777777777777777777777777777777777777777",
+    "abiIdentity": "NativeManagedAbiV1",
+    "targetProfileDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
   "signature": { "algorithm": "Ed25519", "keyId": "release-key-1", "value": "sig-boe-2.1-placeholder-00000000000000000000000000000000" },
   "sbom": { "format": "SPDX", "digest": "6666666666666666666666666666666666666666666666666666666666666666", "dependencyCount": 38 },
   "capabilities": ["Native", "Server", "Client"],

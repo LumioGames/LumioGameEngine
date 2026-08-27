@@ -2,7 +2,7 @@
 
 本目录是全仓公共架构与框架决策的唯一落点。`docs/adr` 只保留兼容入口与指向本目录的文件级软链接；`docs/architecture/ADR_INDEX.md` 只保留入口指针。
 
-全部 ADR 已随 `LGE-V1.1-2026-08-27` 基线转为 `Accepted`（Architecture Gate 整改后接受，2026-08-27）；`Accepted` 后不可改写，只能由新 ADR 取代并在双方记录取代关系。`ADR-015` 保持 `Reserved`，因为 Mod 是 P2。尚未批准的实现选型和运维默认值不进入 ADR，统一记录在 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)。
+ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至 ADR-023 随 `LGE-V1.2-2026-08-27` 接受。`Accepted` 后不可改写，只能由新 ADR 取代并在双方记录取代关系。`ADR-015` 保持 `Reserved`，因为 Mod 是 P2。尚未批准的实现选型和运维默认值不进入 ADR，统一记录在 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)。
 
 ## 写作与变更契约
 
@@ -31,5 +31,12 @@
 | [ADR-014](ADR-014-platform-capability.md) | Unity/HybridCLR Platform Capability | Accepted |
 | [ADR-015](ADR-015-mod-extension-boundary.md) | P2 Mod SDK Extension Boundary | Reserved |
 | [ADR-016](ADR-016-benchmark-workload.md) | Benchmark Workload、TickBudget、Hardware Profile | Accepted |
+| [ADR-017](ADR-017-root-abi-generatable-contract.md) | Root ABI 可生成契约粒度（Slot/签名/Handle/Buffer/ErrorDetail） | Accepted |
+| [ADR-018](ADR-018-coreengine-manifest-canonicalization.md) | CoreEngineManifestBody 规范化与分离式 SignatureEnvelope | Accepted |
+| [ADR-019](ADR-019-loader-state-machine-package-identity.md) | Loader 状态机、PackageIdentity 与单进程锁定 | Accepted |
+| [ADR-020](ADR-020-target-profile-orthogonalization.md) | TargetProfile / PackagingProfile / LoadBackend 正交化 | Accepted |
+| [ADR-021](ADR-021-client-authority-update.md) | 客户端权威更新单一 Runtime 事务 | Accepted |
+| [ADR-022](ADR-022-protocol-permission-gate.md) | 生成的 Protocol/Permission 门与字段集 | Accepted |
+| [ADR-023](ADR-023-generated-contract-artifact.md) | 生成契约 Artifact 发布方与零实现依赖 | Accepted |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。

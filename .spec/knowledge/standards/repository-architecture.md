@@ -10,8 +10,8 @@ metadata:
 
 ## 唯一事实源
 
-- 本仓是 LumioGameEngine V3 架构、状态机、公共契约、依赖图和变更规则的唯一来源；当前基线为 `LGE-V1.1-2026-08-27`。
-- 规范正文是 [`LumioGameEngine_Architecture_v1.1.md`](../../../docs/architecture/LumioGameEngine_Architecture_v1.1.md)，公共决策唯一入口是 [`.spec/decisions/`](../../decisions/README.md)。
+- 本仓是 LumioGameEngine V3 架构、状态机、公共契约、依赖图和变更规则的唯一来源；当前基线为 `LGE-V1.2-2026-08-27`。
+- 规范正文是 [`LumioGameEngine_Architecture_v1.2.md`](../../../docs/architecture/LumioGameEngine_Architecture_v1.2.md)，公共决策唯一入口是 [`.spec/decisions/`](../../decisions/README.md)。
 - [`schemas/`](../../../schemas/README.md)、[`ids/`](../../../ids/README.md)、[`fixtures/`](../../../fixtures/README.md) 与 [`tools/lumio_contract.py`](../../../tools/README.md) 共同组成可执行 Architecture Gate。
 - 七个实现仓可以保留同 Baseline/Hash 的只读镜像，但不得独立修改共享公共语义。
 

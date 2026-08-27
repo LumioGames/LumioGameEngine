@@ -16,13 +16,16 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["nodeId", "owner", "dependsOn", "inputSchema", "outputSchema", "idempotent"],
+        "required": ["nodeId", "owner", "dependsOn", "inputSchema", "outputSchema", "inputHash", "outputHash", "toolVersion", "idempotent"],
         "properties": {
           "nodeId": { "$ref": "common.schema.json#/$defs/id" },
           "owner": { "type": "string", "enum": ["Game", "VoxelEngine", "Runtime", "Tooling"] },
           "dependsOn": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" }, "uniqueItems": true },
           "inputSchema": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{1,127}$" },
           "outputSchema": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{1,127}$" },
+          "inputHash": { "$ref": "common.schema.json#/$defs/hash256" },
+          "outputHash": { "$ref": "common.schema.json#/$defs/hash256" },
+          "toolVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
           "idempotent": { "type": "boolean" }
         },
         "additionalProperties": false

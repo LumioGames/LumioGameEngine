@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/core-engine-manifest.schema.json",
+  "type": "object",
+  "required": [
+    "manifestSchemaVersion",
+    "packageId",
+    "packageVersion",
+    "architectureBaselineId",
+    "sourceLock",
+    "buildPlanDigest",
+    "toolchain",
+    "featureSet",
+    "targetProfileId",
+    "targetProfileDigest",
+    "abiIdentity",
+    "capabilitySet",
+    "artifactIndexDigest",
+    "artifactSetDigest",
+    "evidenceSet",
+    "generator"
+  ],
+  "properties": {
+    "manifestSchemaVersion": { "type": "integer", "minimum": 1 },
+    "packageId": { "$ref": "common.schema.json#/$defs/id" },
+    "packageVersion": { "$ref": "common.schema.json#/$defs/releaseId" },
+    "architectureBaselineId": { "type": "string", "pattern": "^LGE-V[0-9]+\\.[0-9]+-[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "sourceLock": {
+      "type": "object",
+      "required": ["nativeCoreCommit", "voxelEngineCommit", "sourceTreeDigest"],
+      "properties": {
+        "nativeCoreCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "voxelEngineCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "sourceTreeDigest": { "$ref": "common.schema.json#/$defs/hash256" }
+      },
+      "additionalProperties": false
+    },
+    "buildPlanDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+    "toolchain": {
+      "type": "object",
+      "required": ["compiler", "compilerVersion"],
+      "properties": {
+        "compiler": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$" },
+        "compilerVersion": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+        "linkerVersion": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+        "sdkVersion": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" }
+      },
+      "additionalProperties": false
+    },
+    "featureSet": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "uniqueItems": true
+    },
+    "targetProfileId": { "$ref": "common.schema.json#/$defs/id" },
+    "targetProfileDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+    "abiIdentity": { "type": "string", "pattern": "^NativeManagedAbiV[0-9]+$" },
+    "capabilitySet": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "uniqueItems": true
+    },
+    "artifactIndexDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+    "artifactSetDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+    "evidenceSet": {
+      "type": "object",
+      "required": ["sbom", "license", "provenance"],
+      "properties": {
+        "sbom": { "$ref": "#/$defs/evidenceRef" },
+        "license": { "$ref": "#/$defs/evidenceRef" },
+        "provenance": { "$ref": "#/$defs/evidenceRef" }
+      },
+      "additionalProperties": false
+    },
+    "generator": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$" },
+        "version": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "evidenceRef": {
+      "type": "object",
+      "required": ["format", "digest"],
+      "properties": {
+        "format": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9.-]{1,31}$" },
+        "digest": { "$ref": "common.schema.json#/$defs/hash256" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

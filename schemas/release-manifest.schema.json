@@ -14,6 +14,7 @@
     "networkProtocol",
     "voxelSchema",
     "configContentHash",
+    "coreEnginePackage",
     "signature",
     "sbom",
     "capabilities",
@@ -32,6 +33,20 @@
     "voxelSchema": { "type": "string", "pattern": "^VoxelSchemaV[0-9]+$" },
     "voxelMigration": { "type": "string", "pattern": "^VoxelMigrationV[0-9]+$" },
     "configContentHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "coreEnginePackage": {
+      "type": "object",
+      "required": ["packageId", "manifestDigest", "artifactSetDigest", "abiIdentity", "targetProfileDigest"],
+      "properties": {
+        "packageId": { "$ref": "common.schema.json#/$defs/id" },
+        "manifestDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "artifactSetDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "abiIdentity": { "type": "string", "pattern": "^NativeManagedAbiV[0-9]+$" },
+        "targetProfileDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "capabilitySetDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "signatureEnvelopeDigest": { "$ref": "common.schema.json#/$defs/hash256" }
+      },
+      "additionalProperties": false
+    },
     "signature": {
       "type": "object",
       "required": ["algorithm", "keyId", "value"],

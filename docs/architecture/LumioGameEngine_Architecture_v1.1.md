@@ -103,6 +103,7 @@ ReleaseCatalog
 | Client ReplicaWorld | Client + GameRuntime | Server 只保存 Replication Context。 |
 | Gameplay 规则与迁移 | Game | Framework 做结构校验和资源限制。 |
 | Native 加载与 ABI | CoreEngine | NativeCore/VoxelEngine 提供源契约。 |
+| CoreEngine 包身份、签名与运行时验证 | CoreEngine（`manifest`/`signing`） | 运行时只部署 runtime-verifier；Loader 只消费 VerifiedPackageDescriptor；Failure Bundle 装配归 Host。 |
 
 ## 3. Session、World 与生命周期
 
@@ -328,10 +329,16 @@ LocalEmbedded 必须复用同一 Schema、Serializer、Envelope、权限校验�
 - Rust 捕获 panic，Managed Entry 捕获 Exception，统一转换为稳定 Error Code。
 - Simulation Owner Thread 是唯一 Managed Tick 入口；Native Worker 不回调 Hot Gameplay。
 - Managed 调用期间不得持有可能阻塞的 Rust 锁；取消、超时和世界销毁后的异步结果必须有明确定义。
+- ABI Schema 是可生成契约（ADR-017）：每个 API Table 声明有序函数 Slot（`slotIndex` 从 0 连续，`functionCount` 与 Slot 数相等，追加是唯一演进方式），每个 Slot 声明符号名、typed 参数与返回类型（封闭 `typeRef` 语法）；`callingConvention`、`entrySymbol`、`symbolPrefix` 显式必填；Handle 生命周期（Index+Generation 编码、Generation Bump 失效、double-destroy 稳定错误）、Buffer 契约（Ptr+Len+Capacity、too-small 返回所需大小）与错误详情生命周期（检索方式、生存期）都在 Schema 中声明；`panicBoundary`、`exceptionBoundary`、`threading`、`loadPolicy` 必填。
 
 ### 8.2 Loader
 
-CoreEngine 统一打包并在一个进程内只加载一套 Native 组合。Loader Registry 拒绝第二版本、符号冲突、ABI/Capability 不匹配和重复释放；平台使用静态或动态链接的方式必须在 Manifest 中唯一声明。
+CoreEngine 统一打包并在一个进程内只加载一套 Native 组合（ADR-019）：
+
+- **PackageIdentity** = Manifest Digest + Artifact Set Digest + ABI Identity + TargetProfile Digest + Capability Set Digest。首次成功加载后进程锁定该身份；任何不同身份（包括"兼容升级"）一律以稳定错误 `PackageIdentityConflict` 拒绝，重复请求相同身份返回既有 Lease。
+- Loader 只消费运行时 Verifier 输出的 **VerifiedPackageDescriptor**，不消费离线/CI 验证结论；预检针对实际打开的文件句柄复核 Digest，封闭验证与映射之间的 TOCTOU 窗口。
+- 状态机：`Uninitialized → Preflighting → Verified → Binding → ApiReady → Leased`，关闭时 `Quiescing → Released`；Lease 前任何失败进入 `FailedRolledBack`（部分映射回滚、进程仍可用、报稳定错误）。V1 不做物理卸载（No-Physical-Unload，V2 重审）。
+- 符号缺失/冲突、ABI/Capability 不匹配、重复释放等全部映射到 ID Registry 注册的稳定 ErrorCode（1007–1030 家族）；平台加载方式由 TargetProfile 的 `loadBackend` 唯一声明。
 
 ## 9. GAS Framework
 
@@ -352,6 +359,8 @@ ClockProfile, FaultProfile, PlatformProfile
 提供命名 Preset：`PureHeadless`、`NativeHeadless`、`LocalEmbedded`、`LocalSplitProcess`、`RemoteDS`、`MobileLocal`。Gameplay 只读取 Role、Capability 和 Port，不读取 `IsOffline`/`IsLocal`。
 
 目标平台为 Linux/Windows Server、Desktop Client、iOS/Android Unity Client。所有 Unity Client 可使用 HybridCLR；HybridCLR 通过 Platform Capability、签名、Hash 和 Release 校验接入。Server 默认 CoreCLR，Server HybridCLR 只是后续兼容性验证，不是 V1 硬依赖。
+
+CoreEngine 包的目标环境由三个正交轴描述（ADR-020）：**TargetProfile**（OS、Arch、ABI Runtime、最低 OS 版本、工具链三元组，由 `targetProfileId` 标识并以 Digest 锁定）、**LoadBackend**（`DynamicLibrary`/`StaticLink`/`NoNative`）与 **PackagingProfile**（`LooseFiles`/`Archive`/`EmbeddedInApp`）。iOS 类目标声明 `StaticLink`；`PureHeadless` 声明 `NoNative`，走无 Loader 路径——它是独立的加载后端，不是统一 Loader 的一种模式。Loader 拒绝 TargetProfile Digest 与宿主不符的包（`TargetProfileMismatch`）；`NoNative` 宿主拒绝任何含 `NativeLibrary` 产物的包。
 
 ## 11. 持久化、序列化与配置
 
@@ -390,13 +399,13 @@ Rust 和 C# 使用各自成熟、经过维护的日志框架，通过 Adapter �
 | Metrics/Trace | 性能和调用链 | 可采样，但保留聚合指标。 |
 | Failure Bundle | 失败重建 | 必须可下载、校验和重放。 |
 
-每个事件声明 `correlation.scope`（`Process`/`Release`/`Session`/`World`/`Txn`），表示事件合法持有的最深身份层级。基础字段 `ProductId、GameReleaseId、TraceId、ProducerId、EventSeq` 恒必填；`SessionId`、`WorldId/TickId`、`TxnId` 只在对应作用域必填，进程启动、Manifest 校验、认证拒绝等早期事件不得伪造尚不存在的 ID。`ReleasePoolId、MaintenanceId、WorldSlotId、NetEntityId、PredictionKey、SnapshotId` 等在适用时附加。异步 Sink 不承诺跨线程的实时全局顺序，但必须保留每个 Producer 的 `EventSeq` 和 Tick 关联以便重建；日志不能替代 Txn Journal 或 Command Log。网络时间戳和队列状态进入 Diagnostic Hash，不进入权威 Simulation Hash。
+每个事件声明 `correlation.scope`（`Process`/`Release`/`Session`/`World`/`Txn`），表示事件合法持有的最深身份层级。基础字段 `ProductId、GameReleaseId、TraceId、ProducerId、EventSeq` 恒必填；`SessionId`、`WorldId/TickId`、`TxnId` 只在对应作用域必填，进程启动、Manifest 校验、认证拒绝等早期事件不得伪造尚不存在的 ID。Failure Bundle 声明 `incidentKind`（`Simulation`/`CoreEngineLoad`/`SupplyChain`/`BuildValidation`）：`Simulation` 事件必须引用 SnapshotId；`CoreEngineLoad`/`SupplyChain` 事件必须携带 `coreEngine` 块（PackageIdentity、Loader 状态、ErrorCode、Trust 决策）且作用域为 `Process`——加载期失败发生在任何 Session/World 存在之前，SnapshotId 对其改为不适用而非必填。`ReleasePoolId、MaintenanceId、WorldSlotId、NetEntityId、PredictionKey、SnapshotId` 等在适用时附加。异步 Sink 不承诺跨线程的实时全局顺序，但必须保留每个 Producer 的 `EventSeq` 和 Tick 关联以便重建；日志不能替代 Txn Journal 或 Command Log。网络时间戳和队列状态进入 Diagnostic Hash，不进入权威 Simulation Hash。
 
 ## 13. Release、版本共存与更新
 
 ### 13.1 发布身份
 
-`ReleaseManifest` 至少包含 `ProductId、GameReleaseId、ManifestHash、Server/Client Assembly Hash、Gameplay Contract Hash、Runtime API、CoreEngine ABI/Capability、Network/Replication Protocol、Voxel Schema/Migration、Config/Content Hash、Signature、SBOM`。
+`ReleaseManifest` 至少包含 `ProductId、GameReleaseId、ManifestHash、Server/Client Assembly Hash、Gameplay Contract Hash、Runtime API、CoreEngine ABI/Capability、Network/Replication Protocol、Voxel Schema/Migration、Config/Content Hash、Signature、SBOM`，以及对 CoreEngine 包的精确引用 `CoreEnginePackage`（`PackageId + Manifest Digest + Artifact Set Digest + ABI Identity + TargetProfile Digest`；其 `abiIdentity` 必须与 `CoreEngine ABI` 声明一致，语义由 Fixture 强制）。CoreEngine 包自身的身份、规范化 ManifestBody 与分离式 SignatureEnvelope 见 ADR-018。
 
 `ReleaseCatalog` 是签名、版本化的产品/版本/Artifact/Capability/路由清单，路由键至少为 `ProductId + GameReleaseId`，并记录 Pool 状态、Endpoint 和兼容判定。A 1.1 与 BOE 2.1 可以同时在线，但每个进程/Runtime 实例只加载一个 Release；同一 Session 精确匹配并固定 Release。V1 默认不接受跨 Release 连接，N/N-1 窗口只能通过后续 ADR 显式启用。
 
@@ -481,8 +490,8 @@ Scenario 声明 `RequiredCapabilities`，Host 声明 `ProvidedCapabilities`；CL
 | 仓库 | 首批子模块 | 后续子模块 |
 | --- | --- | --- |
 | NativeCore | `contract-types`、`error`、`capability`、`handle`、`memory`、`job`、`kernel-context`、`spatial`、`native-core-ffi`（原 `abi` 拆分为 `contract-types` 类型叶子与 `native-core-ffi` 导出门面，新增 `kernel-context` 生命周期根） | SIMD、`codec`（纯字节压缩/校验/diff，待批准）、`diagnostics`（待批准）、更多 Kernel。 |
-| VoxelEngine | `world`、`chunk`、`revision`、`mutation`、`snapshot`、`streaming` | AOI/Collision 优化、迁移工具。 |
-| CoreEngine | `composition`、`root-abi`、`loader`、`manifest`、`signing`、`platform` | 多平台发布和供应链自动化。 |
+| VoxelEngine | `world`、`chunk`、`revision`、`query`、`mutation`、`snapshot`、`streaming` | AOI/Collision 优化、迁移工具。 |
+| CoreEngine | `composition`、`root-abi`、`loader`、`manifest`、`signing`（内部分四域：evidence-generator/signer-tool/runtime-verifier/trust-policy，运行时发布包只含 runtime-verifier 与只读 Trust Metadata）、`platform`；另有两个横切平面：`diagnostics`（观测适配——只拥有事件契约与 Host 注入 Sink 的 Adapter，队列/持久化/Failure Bundle 装配归 Host）、`smoke`（验证平面——各阶段契约/集成验证门，非生产模块，不进入发布包也不进入生产依赖图） | 多平台发布和供应链自动化。 |
 | GameRuntime | `ecs`、`simulation`、`coordination`、`replication`、`gas`、`persistence`、`config`、`observability`、`hot-reload` | 并行存储、复杂 GAS、性能优化。 |
 | Server | `process`、`host-runtime`、`host-profiles`、`observability`、`transport`、`auth`、`session`、`pacing`、`coreclr-host`、`persistence-host`、`world-slot`、`release-agent`、`maintenance-agent`、`control-plane-adapter` | `protocol-dispatch`（待 RPC/Message 公共契约冻结）、多 Slot、RemoteDS、自动扩缩。 |
 | Client | `connection`、`handshake`、`replica`、`prediction`、`input`、`unity-adapter`、`hybridclr-adapter`、`bot` | 移动端优化、更多 Renderer。 |

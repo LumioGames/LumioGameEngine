@@ -347,6 +347,9 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         release = str(value.get("gameReleaseId", ""))
         if product and release and not release.startswith(product + "-"):
             errors.append("GameReleaseId must be namespaced by ProductId")
+        core_engine = value.get("coreEnginePackage")
+        if isinstance(core_engine, dict) and core_engine.get("abiIdentity") != value.get("coreEngineAbi"):
+            errors.append("coreEnginePackage.abiIdentity must equal coreEngineAbi")
 
     elif schema_id == "maintenance-command":
         mode = value.get("mode")
@@ -412,7 +415,48 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         names = [artifact.get("name") for artifact in value.get("artifacts", [])]
         if len(names) != len(set(names)):
             errors.append("FailureBundle artifact names must be unique")
+        incident_kind = value.get("incidentKind")
+        if incident_kind == "Simulation" and not value.get("snapshotId"):
+            errors.append("a Simulation incident must reference a snapshot")
+        if incident_kind in ("CoreEngineLoad", "SupplyChain") and "coreEngine" not in value:
+            errors.append("a {} incident requires the coreEngine block".format(incident_kind))
         errors.extend(correlation_scope_errors(value.get("correlation")))
+
+    elif schema_id == "native-managed-abi":
+        for table in value.get("apiTable", []):
+            slots = table.get("slots", [])
+            if table.get("functionCount") != len(slots):
+                errors.append("api table {} functionCount must equal the number of slots".format(table.get("name")))
+            indexes = [slot.get("slotIndex") for slot in slots]
+            if indexes != list(range(len(slots))):
+                errors.append("api table {} slot indexes must be contiguous from 0".format(table.get("name")))
+            slot_names = [slot.get("name") for slot in slots]
+            if len(slot_names) != len(set(slot_names)):
+                errors.append("api table {} slot names must be unique".format(table.get("name")))
+
+    elif schema_id == "artifact-index":
+        paths = [entry.get("path") for entry in value.get("entries", [])]
+        if len(paths) != len(set(paths)):
+            errors.append("artifact paths must be unique within an index")
+
+    elif schema_id == "core-engine-manifest":
+        if "Native" not in value.get("capabilitySet", []):
+            errors.append("a CoreEngine NativeLibrary package must declare the Native capability")
+
+    elif schema_id == "signature-envelope":
+        if value.get("trustDomain") == "Production" and str(value.get("keyId", "")).startswith("test-"):
+            errors.append("a Production trust domain cannot use a test key")
+
+    elif schema_id == "verified-package-descriptor":
+        checks = value.get("checks", {})
+        check_names = ("manifestDigestVerified", "artifactDigestsVerified", "signatureVerified", "trustPolicyVerified")
+        if value.get("trustDecision") == "Trusted":
+            if not all(checks.get(name) is True for name in check_names):
+                errors.append("a Trusted decision requires every verification check to pass")
+            if value.get("rejectReason"):
+                errors.append("a Trusted decision cannot carry a reject reason")
+        if value.get("trustDecision") == "Rejected" and not value.get("rejectReason"):
+            errors.append("a Rejected decision must carry a reject reason")
 
     elif schema_id == "id-registry":
         namespace_names = [namespace.get("namespace") for namespace in value.get("namespaces", [])]
@@ -486,21 +530,99 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         if value.get("lifecycle") not in ("Reserved",):
             errors.append("third-party Mods remain Reserved in V1")
 
+    elif schema_id == "client-authority-update":
+        canonical_order = [
+            "ValidateBaselineAndRevision",
+            "RestoreConfirmedPredictionFrame",
+            "ApplyAuthoritativeEcsGasVoxel",
+            "DropConfirmedCommands",
+            "ReplayUnconfirmedInOrder",
+            "EmitPresentationDiff",
+        ]
+        if value.get("stepOrder") != canonical_order:
+            errors.append("authority update stepOrder must match Architecture §7.2")
+        results = value.get("stepResults", {})
+        all_steps = all(results.get(key) is True for key in (
+            "validateBaselineAndRevision",
+            "restoreConfirmedPredictionFrame",
+            "applyAuthoritativeEcsGasVoxel",
+            "dropConfirmedCommands",
+            "replayUnconfirmedInOrder",
+            "emitPresentationDiff",
+        ))
+        visibility = (
+            value.get("visibleSideEffects"),
+            value.get("ackAllowed"),
+            value.get("baselineAdvanced"),
+            value.get("confirmedPointAdvanced"),
+        )
+        state = value.get("state")
+        if state == "Committed":
+            if not all_steps:
+                errors.append("Committed authority update requires every step to succeed")
+            if visibility != (True, True, True, True):
+                errors.append("Committed authority update is the only state that may expose side effects, Ack, Baseline or Confirmed Point")
+            if value.get("resultRevisionVector") is None:
+                errors.append("Committed authority update requires ResultRevisionVector")
+            if value.get("faultClass"):
+                errors.append("Committed authority update cannot carry a FaultClass")
+        else:
+            if any(visibility):
+                errors.append("non-Committed authority update must have zero visible side effects and must not Ack or advance Baseline/Confirmed Point")
+            if not value.get("faultClass"):
+                errors.append("non-Committed authority update requires a FaultClass attestation")
+            if state == "Aborted" and value.get("faultClass") != "SessionLocalProven":
+                errors.append("Aborted authority update must attest SessionLocalProven")
+            if state == "Indeterminate" and value.get("faultClass") not in ("SlotStateUnproven", "ProcessFault"):
+                errors.append("Indeterminate authority update must attest SlotStateUnproven or ProcessFault")
+
+    elif schema_id == "protocol-permission-gate":
+        admitted_claims = set(value.get("admittedClaims") or [])
+        extra_claims = [claim for claim in value.get("claims") or [] if claim not in admitted_claims]
+        matched = (
+            value.get("sessionId") == value.get("admittedSessionId")
+            and value.get("productId") == value.get("admittedProductId")
+            and value.get("gameReleaseId") == value.get("admittedGameReleaseId")
+            and value.get("role") == value.get("admittedRole")
+            and not extra_claims
+            and value.get("connectionGeneration") == value.get("admittedConnectionGeneration")
+        )
+        if value.get("verdict") == "Accept":
+            if not matched:
+                errors.append("Accept requires Session, Release, Role, Claims and Connection Generation to match admission")
+            if extra_claims:
+                errors.append("Accept cannot include claims outside admission")
+            if value.get("rejectReason"):
+                errors.append("Accept cannot carry a rejectReason")
+        elif value.get("verdict") == "Reject":
+            if not value.get("rejectReason"):
+                errors.append("Reject requires a rejectReason")
+            if value.get("connectionGeneration") != value.get("admittedConnectionGeneration"):
+                if value.get("rejectReason") != "StaleConnectionGeneration":
+                    errors.append("a Connection Generation mismatch must use StaleConnectionGeneration")
+
+    elif schema_id == "generated-contract-artifact":
+        if value.get("implementationDependencies"):
+            errors.append("generated contract artifacts must not depend on implementation projects")
+        forbidden = set(value.get("forbiddenDependents") or [])
+        if forbidden != {"LumioClient", "LumioGame"}:
+            errors.append("generated artifacts must forbid LumioClient and LumioGame implementation dependents")
+
     return errors
 
 
 def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     schema_index = load_json(SCHEMA_INDEX)
     fixture_index = load_json(FIXTURE_INDEX)
-    if schema_index.get("baselineId") != "LGE-V1.1-2026-08-27" or fixture_index.get("baselineId") != "LGE-V1.1-2026-08-27":
-        raise ContractError("schema and fixture registries must use baseline LGE-V1.1-2026-08-27")
+    if schema_index.get("baselineId") != "LGE-V1.2-2026-08-27" or fixture_index.get("baselineId") != "LGE-V1.2-2026-08-27":
+        raise ContractError("schema and fixture registries must use baseline LGE-V1.2-2026-08-27")
     if schema_index.get("schemaSetVersion") != 1 or fixture_index.get("fixtureSetVersion") != 1:
         raise ContractError("unsupported schema or fixture registry version")
     if not ID_REGISTRY_FILE.is_file():
         raise ContractError("ID Registry is missing: {}".format(ID_REGISTRY_FILE))
     id_registry = load_json(ID_REGISTRY_FILE)
-    if id_registry.get("baselineId") != "LGE-V1.1-2026-08-27":
-        raise ContractError("ID Registry must use baseline LGE-V1.1-2026-08-27")
+    if id_registry.get("baselineId") != "LGE-V1.2-2026-08-27":
+        raise ContractError("ID Registry must use baseline LGE-V1.2-2026-08-27")
     resolver = SchemaResolver()
     registry_schema_path = SCHEMA_DIR / "schemas-index.json"
     registry_schema = load_json(registry_schema_path)
@@ -605,7 +727,7 @@ def command_validate(selected: Optional[str], json_output: bool = False) -> int:
     if json_output:
         print(json.dumps({
             "resultVersion": 1,
-            "baselineId": "LGE-V1.1-2026-08-27",
+            "baselineId": "LGE-V1.2-2026-08-27",
             "command": "validate",
             "passed": failures == 0,
             "validated": len(targets),

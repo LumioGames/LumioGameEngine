@@ -1,0 +1,20 @@
+{
+  "sessionId": "session-001",
+  "productId": "A",
+  "gameReleaseId": "A-1.1",
+  "messageId": "Delta",
+  "role": "Client",
+  "claims": ["play", "replicate"],
+  "connectionGeneration": 3,
+  "antiReplay": {
+    "connectionScopeOwner": "ConnectionLayer",
+    "sessionScopeOwner": "ClientReplicaSession"
+  },
+  "admittedSessionId": "session-001",
+  "admittedProductId": "A",
+  "admittedGameReleaseId": "A-1.1",
+  "admittedRole": "Client",
+  "admittedClaims": ["play", "replicate", "chat"],
+  "admittedConnectionGeneration": 3,
+  "verdict": "Accept"
+}

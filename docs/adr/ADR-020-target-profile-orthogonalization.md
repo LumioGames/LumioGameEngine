@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-020-target-profile-orthogonalization.md

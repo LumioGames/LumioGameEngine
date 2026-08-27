@@ -1,10 +1,13 @@
 {
   "schemaSetVersion": 1,
-  "baselineId": "LGE-V1.1-2026-08-27",
+  "baselineId": "LGE-V1.2-2026-08-27",
   "schemas": [
     { "id": "session-revision-vector", "file": "session-revision-vector.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "cross-world-txn", "file": "cross-world-txn.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "replication-envelope", "file": "replication-envelope.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "client-authority-update", "file": "client-authority-update.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "protocol-permission-gate", "file": "protocol-permission-gate.schema.json", "priority": "P0", "owner": "Architecture" },
+    { "id": "generated-contract-artifact", "file": "generated-contract-artifact.schema.json", "priority": "P0", "owner": "Architecture" },
     { "id": "entity-identity", "file": "entity-identity.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "native-managed-abi", "file": "native-managed-abi.schema.json", "priority": "P0", "owner": "CoreEngine" },
     { "id": "release-manifest", "file": "release-manifest.schema.json", "priority": "P0", "owner": "Game" },
@@ -18,6 +21,11 @@
     { "id": "replication-mapping", "file": "replication-mapping.schema.json", "priority": "P0", "owner": "Game" },
     { "id": "host-capability", "file": "host-capability.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "id-registry", "file": "id-registry.schema.json", "priority": "P0", "owner": "Architecture" },
+    { "id": "target-profile", "file": "target-profile.schema.json", "priority": "P0", "owner": "CoreEngine" },
+    { "id": "artifact-index", "file": "artifact-index.schema.json", "priority": "P0", "owner": "CoreEngine" },
+    { "id": "core-engine-manifest", "file": "core-engine-manifest.schema.json", "priority": "P0", "owner": "CoreEngine" },
+    { "id": "signature-envelope", "file": "signature-envelope.schema.json", "priority": "P0", "owner": "CoreEngine" },
+    { "id": "verified-package-descriptor", "file": "verified-package-descriptor.schema.json", "priority": "P0", "owner": "CoreEngine" },
     { "id": "migration-manifest", "file": "migration-manifest.schema.json", "priority": "P1", "owner": "Game" },
     { "id": "contract-result", "file": "contract-result.schema.json", "priority": "P1", "owner": "Architecture" },
     { "id": "mod-manifest", "file": "mod-manifest.schema.json", "priority": "P2", "owner": "Game" }

@@ -9,7 +9,7 @@
 
 `LumioGameEngineArchitecture` 是 LumioGameEngine V3 的唯一架构源、公共契约目录和七个实现仓库的基线，主要资产是 Markdown、JSON Schema/Fixture/ID Registry 与 Python 契约校验工具。
 
-- 当前 Implementation Baseline 是 `LGE-V1.0-2026-08-27`；本仓拥有架构、状态机、公共 Schema、依赖图、ADR 和变更规则，不拥有运行时实现状态。
+- 当前 Implementation Baseline 是 `LGE-V1.2-2026-08-27`；本仓拥有架构、状态机、公共 Schema、依赖图、ADR 和变更规则，不拥有运行时实现状态。
 - 公共语义变更必须按 ADR -> Schema/ID -> 正向与失败 Fixture -> README/Baseline -> 七仓镜像的顺序完成。
 - 开工前先读 [`repository-architecture.md`](knowledge/standards/repository-architecture.md)；规范入口见根 [`README.md`](../README.md)，决策入口见 [`decisions/README.md`](decisions/README.md)。
 

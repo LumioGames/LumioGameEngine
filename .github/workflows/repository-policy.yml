@@ -25,7 +25,7 @@ jobs:
           test -s LICENSE
           test -s .gitattributes
           grep -q '^\*\.md text eol=lf$' .gitattributes
-          test -s docs/architecture/LumioGameEngine_Architecture_v1.1.md
+          test -s docs/architecture/LumioGameEngine_Architecture_v1.2.md
           test -s docs/architecture/ADR_INDEX.md
           test -s docs/reviews/LumioGameEngine_V3_Architecture_Review_Final_2026-08-27.md
           test -s schemas/index.json
@@ -33,15 +33,15 @@ jobs:
           test -s ids/index.json
           test -s tools/lumio_contract.py
           test -s requirements-dev.txt
-          grep -q '^# LumioGameEngine V3 (v1.1)' docs/architecture/LumioGameEngine_Architecture_v1.1.md
-          grep -q 'LGE-V1.1-2026-08-27' docs/architecture/LumioGameEngine_Architecture_v1.1.md
-          grep -q 'LGE-V1.1-2026-08-27' README.md
+          grep -q '^# LumioGameEngine V3 (v1.2)' docs/architecture/LumioGameEngine_Architecture_v1.2.md
+          grep -q 'LGE-V1.2-2026-08-27' docs/architecture/LumioGameEngine_Architecture_v1.2.md
+          grep -q 'LGE-V1.2-2026-08-27' README.md
       - name: Check required sections and baseline
         run: |
-          grep -q '^## 12. 日志、Metrics、Trace 与审计$' docs/architecture/LumioGameEngine_Architecture_v1.1.md
-          grep -q '^## 11. 持久化、序列化与配置$' docs/architecture/LumioGameEngine_Architecture_v1.1.md
-          grep -q '^## 13. Release、版本共存与更新$' docs/architecture/LumioGameEngine_Architecture_v1.1.md
-          grep -q '^## 14. 安全、供应链与 P2 预留$' docs/architecture/LumioGameEngine_Architecture_v1.1.md
+          grep -q '^## 12. 日志、Metrics、Trace 与审计$' docs/architecture/LumioGameEngine_Architecture_v1.2.md
+          grep -q '^## 11. 持久化、序列化与配置$' docs/architecture/LumioGameEngine_Architecture_v1.2.md
+          grep -q '^## 13. Release、版本共存与更新$' docs/architecture/LumioGameEngine_Architecture_v1.2.md
+          grep -q '^## 14. 安全、供应链与 P2 预留$' docs/architecture/LumioGameEngine_Architecture_v1.2.md
           test -s docs/architecture/.baseline.sha256
           sha256sum -c docs/architecture/.baseline.sha256
       - name: Validate executable contract registry and fixtures

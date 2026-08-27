@@ -7,8 +7,38 @@
   "staging": "ImmutableSourceCopy",
   "activation": "AtomicPointer",
   "nodes": [
-    { "nodeId": "game-state-v2", "owner": "Game", "dependsOn": [], "inputSchema": "GameSnapshotV1", "outputSchema": "GameSnapshotV2", "idempotent": true },
-    { "nodeId": "voxel-world-v2", "owner": "VoxelEngine", "dependsOn": [], "inputSchema": "VoxelSnapshotV1", "outputSchema": "VoxelSnapshotV2", "idempotent": true },
-    { "nodeId": "release-index-v2", "owner": "Tooling", "dependsOn": ["game-state-v2", "voxel-world-v2"], "inputSchema": "SessionSnapshotV2", "outputSchema": "SessionSnapshotV2", "idempotent": true }
+    {
+      "nodeId": "game-state-v2",
+      "owner": "Game",
+      "dependsOn": [],
+      "inputSchema": "GameSnapshotV1",
+      "outputSchema": "GameSnapshotV2",
+      "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "outputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "toolVersion": "1.1.0",
+      "idempotent": true
+    },
+    {
+      "nodeId": "voxel-world-v2",
+      "owner": "VoxelEngine",
+      "dependsOn": [],
+      "inputSchema": "VoxelSnapshotV1",
+      "outputSchema": "VoxelSnapshotV2",
+      "inputHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "outputHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "toolVersion": "1.1.0",
+      "idempotent": true
+    },
+    {
+      "nodeId": "release-index-v2",
+      "owner": "Tooling",
+      "dependsOn": ["game-state-v2", "voxel-world-v2"],
+      "inputSchema": "SessionSnapshotV2",
+      "outputSchema": "SessionSnapshotV2",
+      "inputHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "outputHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "toolVersion": "1.1.0",
+      "idempotent": true
+    }
   ]
 }

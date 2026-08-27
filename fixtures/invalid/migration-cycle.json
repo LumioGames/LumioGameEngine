@@ -7,7 +7,27 @@
   "staging": "ImmutableSourceCopy",
   "activation": "AtomicPointer",
   "nodes": [
-    { "nodeId": "a", "owner": "Game", "dependsOn": ["b"], "inputSchema": "S1", "outputSchema": "S2", "idempotent": true },
-    { "nodeId": "b", "owner": "VoxelEngine", "dependsOn": ["a"], "inputSchema": "S2", "outputSchema": "S3", "idempotent": true }
+    {
+      "nodeId": "a",
+      "owner": "Game",
+      "dependsOn": ["b"],
+      "inputSchema": "S1",
+      "outputSchema": "S2",
+      "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "outputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "toolVersion": "1.0.0",
+      "idempotent": true
+    },
+    {
+      "nodeId": "b",
+      "owner": "VoxelEngine",
+      "dependsOn": ["a"],
+      "inputSchema": "S2",
+      "outputSchema": "S3",
+      "inputHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "outputHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "toolVersion": "1.0.0",
+      "idempotent": true
+    }
   ]
 }

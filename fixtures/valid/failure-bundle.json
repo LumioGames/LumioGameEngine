@@ -1,6 +1,7 @@
 {
   "failureId": "failure-txn-crash-0001",
   "reasonCode": "CRASH_BETWEEN_COMMITS",
+  "incidentKind": "Simulation",
   "createdAt": "2026-08-27T01:12:00Z",
   "correlation": {
     "scope": "Txn",
