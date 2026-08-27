@@ -1,0 +1,9 @@
+{
+  "preset": "LocalEmbedded",
+  "roomMode": "Singleplayer",
+  "roles": ["Server", "Client"],
+  "capabilities": ["InMemoryTransport", "Native", "DeterministicClock", "ReferenceVoxel"],
+  "platformProfile": "DesktopDev",
+  "faultProfile": "NoFault",
+  "requiredCapabilities": ["InMemoryTransport", "DeterministicClock"]
+}

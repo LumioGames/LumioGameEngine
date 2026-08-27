@@ -1,0 +1,14 @@
+{
+  "maintenanceId": "maint-20260827-002",
+  "productId": "BOE",
+  "gameReleaseId": "BOE-2.1.0",
+  "releasePoolId": "pool-boe-2.1",
+  "mode": "Graceful",
+  "issuedAt": "2026-08-27T02:00:00Z",
+  "graceDeadlineSeconds": 900,
+  "reason": "Scheduled content update",
+  "operator": "ops-01",
+  "action": "DrainAndKick",
+  "broadcastCode": "MaintenanceKick",
+  "targetSessionIds": []
+}

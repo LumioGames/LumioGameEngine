@@ -1,0 +1,20 @@
+{
+  "descriptorVersion": 1,
+  "packageIdentity": {
+    "manifestDigest": "9999999999999999999999999999999999999999999999999999999999999999",
+    "artifactSetDigest": "7777777777777777777777777777777777777777777777777777777777777777",
+    "abiIdentity": "NativeManagedAbiV1",
+    "targetProfileDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "capabilitySetDigest": "abababababababababababababababababababababababababababababababab"
+  },
+  "trustDecision": "Trusted",
+  "trustDomain": "Test",
+  "verifierVersion": "0.1.0",
+  "verifiedAt": "2026-08-27T02:05:00Z",
+  "checks": {
+    "manifestDigestVerified": true,
+    "artifactDigestsVerified": true,
+    "signatureVerified": true,
+    "trustPolicyVerified": true
+  }
+}

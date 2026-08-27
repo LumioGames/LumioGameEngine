@@ -1,0 +1,17 @@
+{
+  "eventId": "event-audit-invalid-scope",
+  "category": "Audit",
+  "severity": "Info",
+  "timestamp": "2026-08-27T03:26:00Z",
+  "correlation": {
+    "scope": "Process",
+    "productId": "A",
+    "gameReleaseId": "A-1.1.0",
+    "sessionId": "session-001",
+    "traceId": "trace-audit-fabricated-scope",
+    "producerId": "server-process",
+    "eventSeq": 10
+  },
+  "message": "Process-scope event fabricates a session correlation id",
+  "durability": "Durable"
+}

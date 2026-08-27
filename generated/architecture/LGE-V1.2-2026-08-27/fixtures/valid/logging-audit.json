@@ -1,0 +1,28 @@
+{
+  "eventId": "event-audit-0001",
+  "category": "Audit",
+  "severity": "Info",
+  "timestamp": "2026-08-27T01:11:00Z",
+  "correlation": {
+    "scope": "Txn",
+    "productId": "A",
+    "gameReleaseId": "A-1.1.0",
+    "releasePoolId": "pool-a-1.1",
+    "maintenanceId": "maint-20260827-001",
+    "sessionId": "session-001",
+    "worldId": "world-001",
+    "worldSlotId": "slot-001",
+    "tickId": 42,
+    "txnId": "txn-place-0001",
+    "netEntityId": "00000000000000010000000000000001",
+    "predictionKey": "prediction-0001",
+    "snapshotId": "snapshot-100",
+    "traceId": "trace-audit-0001",
+    "producerId": "server-host",
+    "eventSeq": 101
+  },
+  "message": "Cross-world transaction committed",
+  "fields": { "action": "PlaceVoxel", "durabilityClass": "durable" },
+  "durability": "Durable",
+  "redaction": "Applied"
+}

@@ -1,0 +1,15 @@
+{
+  "maintenanceId": "maint-20260827-001",
+  "productId": "A",
+  "gameReleaseId": "A-1.1.0",
+  "releasePoolId": "pool-a-1.1",
+  "mode": "Forced",
+  "issuedAt": "2026-08-27T01:00:00Z",
+  "graceDeadlineSeconds": 0,
+  "fencingToken": "fence-pool-a-0001",
+  "reason": "Security patch",
+  "operator": "ops-01",
+  "action": "StopInputAndKick",
+  "broadcastCode": "MaintenanceKick",
+  "targetSessionIds": ["session-001", "session-002"]
+}

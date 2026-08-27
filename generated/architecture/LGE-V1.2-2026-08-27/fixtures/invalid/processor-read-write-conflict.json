@@ -1,0 +1,14 @@
+{
+  "processorId": "bad-processor",
+  "role": "Server",
+  "phase": "ProcessorPlan",
+  "query": "Entity",
+  "readSet": ["Inventory"],
+  "writeSet": ["Inventory"],
+  "structuralWrites": false,
+  "before": [],
+  "after": [],
+  "determinismClass": "Stable",
+  "budget": { "maxMicros": 100, "maxCommands": 1 },
+  "diagnosticName": "Bad.Processor"
+}

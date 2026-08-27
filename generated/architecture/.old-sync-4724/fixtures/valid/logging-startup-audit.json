@@ -1,0 +1,18 @@
+{
+  "eventId": "event-audit-startup-0001",
+  "category": "Audit",
+  "severity": "Info",
+  "timestamp": "2026-08-27T00:00:03Z",
+  "correlation": {
+    "scope": "Process",
+    "productId": "A",
+    "gameReleaseId": "A-1.1.0",
+    "traceId": "trace-startup-0001",
+    "producerId": "server-process",
+    "eventSeq": 1
+  },
+  "message": "Configuration snapshot compiled and activated at process start",
+  "fields": { "configRevision": 7 },
+  "durability": "Durable",
+  "redaction": "None"
+}

@@ -1,0 +1,29 @@
+{
+  "failureId": "failure-txn-crash-0001",
+  "reasonCode": "CRASH_BETWEEN_COMMITS",
+  "incidentKind": "Simulation",
+  "createdAt": "2026-08-27T01:12:00Z",
+  "correlation": {
+    "scope": "Txn",
+    "productId": "A",
+    "gameReleaseId": "A-1.1.0",
+    "releasePoolId": "pool-a-1.1",
+    "sessionId": "session-001",
+    "worldId": "world-001",
+    "worldSlotId": "slot-001",
+    "tickId": 42,
+    "txnId": "txn-place-0001",
+    "traceId": "trace-failure-0001",
+    "producerId": "recovery-agent",
+    "eventSeq": 1
+  },
+  "manifestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "snapshotId": "snapshot-100",
+  "artifacts": [
+    { "name": "txn-journal", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "size": 512 },
+    { "name": "command-log", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "size": 1024 }
+  ],
+  "reproducible": true,
+  "replayCommand": "lumio test replay --failure failure-txn-crash-0001",
+  "redacted": true
+}

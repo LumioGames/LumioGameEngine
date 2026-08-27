@@ -1,0 +1,17 @@
+{
+  "tableId": "build-costs",
+  "schemaVersion": 1,
+  "configRevision": 5,
+  "generatedAt": "2026-08-27T03:20:00Z",
+  "sourceHash": "9e83762b53c79cb1ce53b1b4d3880379f4c658e8c2e8afe1d187d930c15e7d52",
+  "columns": [
+    { "name": "blockType", "type": "string", "required": true },
+    { "name": "cost", "type": "u32", "required": true }
+  ],
+  "rows": [
+    { "key": "stone", "values": { "blockType": "stone", "cost": 1 } },
+    { "key": "stone", "values": { "blockType": "stone", "cost": 9 } }
+  ],
+  "activation": "ProductionSignedSwitch",
+  "signature": "config-signature-placeholder-00000000000000000000000000000000"
+}

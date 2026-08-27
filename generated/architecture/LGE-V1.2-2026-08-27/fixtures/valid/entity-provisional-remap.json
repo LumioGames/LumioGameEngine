@@ -1,0 +1,11 @@
+{
+  "netEntityId": "ffffffffffffffff0000000000000001",
+  "authorityDomain": "client-provisional",
+  "worldEpoch": 7,
+  "sequence": 2,
+  "generation": 1,
+  "localEntityId": "4:1",
+  "namespace": "Provisional",
+  "lifecycle": "Alive",
+  "remappedFrom": "ffffffffffffffff0000000000000002"
+}

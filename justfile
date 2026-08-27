@@ -43,6 +43,20 @@ tool-lock:
 nextest:
     cargo nextest run --workspace --profile ci --config-file nextest.toml
 
+# ── 架构契约镜像（LCE-P0-002）─────────────────────────────────────────────
+
+# 从锁定的架构源提交重建只读镜像（architecture.lock.json 为唯一真值，规格 §3.4/§3.5）。
+# 内容一律经 git 从 pin commit 提取，绝不读源仓工作区与 docs/architecture/；
+# 源仓定位：LUMIO_ARCHITECTURE_REPO 环境变量或同级 ../LumioGameEngineArchitecture。
+# lock 更新须显式 `bash tools/sync-architecture.sh --update-lock` 且单独 PR。
+sync-contracts:
+    bash tools/sync-architecture.sh
+
+# 校验镜像与 architecture.lock.json 完全一致（逐文件 SHA-256、缺失/漂移/未登记文件清单；
+# 输入仅本仓 lock 与镜像，不触架构源仓，也不读 docs/architecture/）。
+check-contracts:
+    bash tools/verify-architecture-lock.sh
+
 # ── 垂直切片命令（转发到 crate CLI；当前全部 blocked，见各 CLI 守卫） ────────
 
 # 断言只接受 P0 profile。

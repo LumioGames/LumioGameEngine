@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/client-authority-update.schema.json",
+  "type": "object",
+  "required": [
+    "sessionId",
+    "txnId",
+    "tickId",
+    "updateKind",
+    "stepOrder",
+    "stepResults",
+    "state",
+    "visibleSideEffects",
+    "ackAllowed",
+    "baselineAdvanced",
+    "confirmedPointAdvanced"
+  ],
+  "properties": {
+    "sessionId": { "$ref": "common.schema.json#/$defs/id" },
+    "txnId": { "$ref": "common.schema.json#/$defs/id" },
+    "tickId": { "$ref": "common.schema.json#/$defs/tickId" },
+    "updateKind": { "type": "string", "enum": ["FullSnapshot", "Delta", "Resync"] },
+    "stepOrder": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "string",
+        "enum": [
+          "ValidateBaselineAndRevision",
+          "RestoreConfirmedPredictionFrame",
+          "ApplyAuthoritativeEcsGasVoxel",
+          "DropConfirmedCommands",
+          "ReplayUnconfirmedInOrder",
+          "EmitPresentationDiff"
+        ]
+      }
+    },
+    "stepResults": {
+      "type": "object",
+      "required": [
+        "validateBaselineAndRevision",
+        "restoreConfirmedPredictionFrame",
+        "applyAuthoritativeEcsGasVoxel",
+        "dropConfirmedCommands",
+        "replayUnconfirmedInOrder",
+        "emitPresentationDiff"
+      ],
+      "properties": {
+        "validateBaselineAndRevision": { "type": "boolean" },
+        "restoreConfirmedPredictionFrame": { "type": "boolean" },
+        "applyAuthoritativeEcsGasVoxel": { "type": "boolean" },
+        "dropConfirmedCommands": { "type": "boolean" },
+        "replayUnconfirmedInOrder": { "type": "boolean" },
+        "emitPresentationDiff": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "state": { "type": "string", "enum": ["Committed", "Aborted", "Indeterminate"] },
+    "visibleSideEffects": { "type": "boolean" },
+    "ackAllowed": { "type": "boolean" },
+    "baselineAdvanced": { "type": "boolean" },
+    "confirmedPointAdvanced": { "type": "boolean" },
+    "faultClass": {
+      "type": "string",
+      "enum": ["SessionLocalProven", "SlotStateUnproven", "ProcessFault"]
+    },
+    "resultRevisionVector": {
+      "anyOf": [
+        { "$ref": "common.schema.json#/$defs/sessionRevisionVector" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
