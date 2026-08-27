@@ -31,3 +31,4 @@
 | [0001](0001-build-orchestration-boundary.md) | composition 只产不可变 BuildPlan，platform 是唯一构建执行入口 | 生效 |
 | [0002](0002-supply-chain-domain-split.md) | signing 内部按四个安全域分拆，运行时只发布 runtime-verifier | 生效 |
 | [0003](0003-observation-validation-planes.md) | diagnostics 收窄为观测适配平面，smoke 定位为验证平面 | 生效 |
+| [0004](0004-workspace-runtime-boundary.md) | 固定单 Cargo workspace 15 crate，运行时发布闭包按规格 §3.7 白名单冻结 | 生效 |
