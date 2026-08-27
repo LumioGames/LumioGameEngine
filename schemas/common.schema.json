@@ -134,7 +134,10 @@
     },
     "voxelChunkRevisionSet": {
       "type": "object",
-      "additionalProperties": { "$ref": "common.schema.json#/$defs/revision" }
+      "patternProperties": {
+        "^c:(0|-?[1-9][0-9]{0,9}):(0|-?[1-9][0-9]{0,9}):(0|-?[1-9][0-9]{0,9})$": { "$ref": "common.schema.json#/$defs/revision" }
+      },
+      "additionalProperties": false
     }
   }
 }

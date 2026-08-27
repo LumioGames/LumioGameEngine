@@ -121,6 +121,26 @@
     { "id": "wal/envelope", "schema": "wal-record-envelope", "file": "valid/wal-record-envelope.json", "expected": "valid" },
     { "id": "wal/checksum-mismatch", "schema": "wal-record-envelope", "file": "invalid/wal-record-checksum-mismatch.json", "expected": "invalid", "reason": "WAL checksum must match the hash chain" },
     { "id": "scope/barrier-switch", "schema": "gameplay-scope-activation", "file": "valid/gameplay-scope-activation.json", "expected": "valid" },
-    { "id": "scope/reactivate-old", "schema": "gameplay-scope-activation", "file": "invalid/gameplay-scope-reactivate-old.json", "expected": "invalid", "reason": "an unloaded old Scope cannot be reactivated" }
+    { "id": "scope/reactivate-old", "schema": "gameplay-scope-activation", "file": "invalid/gameplay-scope-reactivate-old.json", "expected": "invalid", "reason": "an unloaded old Scope cannot be reactivated" },
+    { "id": "voxelsnap/capture-ready-pinned", "schema": "voxel-snapshot-payload", "file": "valid/voxel-snapshot-capture-ready.json", "expected": "valid" },
+    { "id": "voxelsnap/full-cut-projection", "schema": "voxel-snapshot-payload", "file": "valid/voxel-snapshot-payload-full.json", "expected": "valid" },
+    { "id": "voxelsnap/partial-aoi-subset", "schema": "voxel-snapshot-payload", "file": "valid/voxel-snapshot-payload-partial.json", "expected": "valid" },
+    { "id": "voxelsnap/diff-base-target-round-trip", "schema": "voxel-snapshot-payload", "file": "valid/voxel-snapshot-diff.json", "expected": "valid" },
+    { "id": "voxelsnap/capture-pin-expired-ready", "schema": "voxel-snapshot-payload", "file": "invalid/voxel-snapshot-capture-pin-expired-ready.json", "expected": "invalid", "reason": "a capture whose snapshot pin has expired must not claim Ready" },
+    { "id": "voxelsnap/payload-bad-hash", "schema": "voxel-snapshot-payload", "file": "invalid/voxel-snapshot-payload-bad-hash.json", "expected": "invalid", "reason": "a canonical voxel payload hash must be a SHA-256 digest" },
+    { "id": "voxelsnap/diff-no-advance", "schema": "voxel-snapshot-payload", "file": "invalid/voxel-snapshot-diff-no-advance.json", "expected": "invalid", "reason": "a diff must strictly advance from its base world revision" },
+    { "id": "voxeldur/ack-snapshot-point", "schema": "voxel-durability-ack", "file": "valid/voxel-durability-ack-snapshot-point.json", "expected": "valid" },
+    { "id": "voxeldur/ack-wal-point", "schema": "voxel-durability-ack", "file": "valid/voxel-durability-ack-wal-point.json", "expected": "valid" },
+    { "id": "voxeldur/residency-all-resident", "schema": "voxel-durability-ack", "file": "valid/voxel-residency-all-resident.json", "expected": "valid" },
+    { "id": "voxeldur/fence-dirty-covered-evict", "schema": "voxel-durability-ack", "file": "valid/voxel-eviction-fence-covered-evict.json", "expected": "valid" },
+    { "id": "voxeldur/fence-dirty-uncovered-deny", "schema": "voxel-durability-ack", "file": "valid/voxel-eviction-fence-uncovered-deny.json", "expected": "valid" },
+    { "id": "voxeldur/fence-dirty-uncovered-evict", "schema": "voxel-durability-ack", "file": "invalid/voxel-eviction-fence-uncovered-evict.json", "expected": "invalid", "reason": "a Dirty chunk without an acknowledged durability point must not be evicted" },
+    { "id": "voxeldur/ack-missing-durability-point", "schema": "voxel-durability-ack", "file": "invalid/voxel-durability-ack-missing-point.json", "expected": "invalid", "reason": "a durability acknowledgment must carry a snapshot or WAL durability point" },
+    { "id": "voxeldur/fence-all-resident-evict", "schema": "voxel-durability-ack", "file": "invalid/voxel-eviction-fence-all-resident-evict.json", "expected": "invalid", "reason": "an AllResident residency mode disables chunk eviction" },
+    { "id": "voxelrev/legacy-chunk-key", "schema": "voxel-revision-stamp", "file": "invalid/voxel-revision-stamp-legacy-chunk-key.json", "expected": "invalid", "reason": "a voxel chunk-keyed map must use the canonical ChunkId key format" },
+    { "id": "mutation/status-pruned-with-result", "schema": "voxel-mutation-receipt", "file": "invalid/voxel-mutation-status-pruned-with-result.json", "expected": "invalid", "reason": "a ResultPruned status response never carries result revisions" },
+    { "id": "mutation/status-applied-missing-result", "schema": "voxel-mutation-receipt", "file": "invalid/voxel-mutation-status-applied-missing-result.json", "expected": "invalid", "reason": "an Applied status response must re-serve the original result revisions" },
+    { "id": "txn/intent-persisted-no-markers", "schema": "cross-world-txn", "file": "valid/cross-world-txn-crash-window.json", "expected": "valid" },
+    { "id": "query/target-revision-unavailable", "schema": "voxel-query", "file": "valid/voxel-query-revision-unavailable.json", "expected": "valid" }
   ]
 }

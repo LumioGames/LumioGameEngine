@@ -1,0 +1,10 @@
+{
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "tickId": 42,
+  "worldRevision": 24,
+  "chunkRevisionSet": {
+    "chunk-0-0": 9
+  },
+  "schemaEpoch": 1
+}

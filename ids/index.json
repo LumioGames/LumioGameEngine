@@ -56,7 +56,9 @@
         { "id": "TargetRevisionUnavailable", "numeric": 1034, "status": "Active", "since": "V1" },
         { "id": "BudgetExceeded", "numeric": 1035, "status": "Active", "since": "V1" },
         { "id": "QueueFull", "numeric": 1036, "status": "Active", "since": "V1" },
-        { "id": "CoordinateOutOfBounds", "numeric": 1037, "status": "Active", "since": "V1" }
+        { "id": "CoordinateOutOfBounds", "numeric": 1037, "status": "Active", "since": "V1" },
+        { "id": "DirtyChunkNotDurable", "numeric": 1038, "status": "Active", "since": "V1" },
+        { "id": "SnapshotBaseMismatch", "numeric": 1039, "status": "Active", "since": "V1" }
       ]
     },
     {
@@ -69,7 +71,9 @@
         { "id": "VoxelSnapshot", "numeric": 4, "status": "Active", "since": "V1" },
         { "id": "VoxelStreaming", "numeric": 5, "status": "Active", "since": "V1" },
         { "id": "VoxelSpatial", "numeric": 6, "status": "Active", "since": "V1" },
-        { "id": "VoxelMeshCollision", "numeric": 7, "status": "Active", "since": "V1" }
+        { "id": "VoxelMeshCollision", "numeric": 7, "status": "Active", "since": "V1" },
+        { "id": "VoxelAllResident", "numeric": 8, "status": "Active", "since": "V1" },
+        { "id": "VoxelVolatileChunks", "numeric": 9, "status": "Active", "since": "V1" }
       ]
     },
     {

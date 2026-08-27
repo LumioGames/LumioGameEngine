@@ -30,7 +30,7 @@ Out-of-range coordinates fail structurally (`CoordinateOutOfBounds` at the port)
 
 ## Alternatives
 
-Freezing concrete chunk dimensions and page sizes was rejected: VOX-D-001/002 keep numeric profiles open, so the contract freezes wire widths and envelopes only (see `DECISIONS_PENDING.md` D-012). Deriving ChunkId implicitly per repository was rejected because chunk-keyed revision maps need one canonical string key. Allowing continuations to re-acquire the latest revision was rejected: it would make multi-batch reads internally inconsistent and mask lost pins.
+Freezing concrete chunk dimensions and page sizes was rejected: VOX-D-001/002 keep numeric profiles open, so the contract freezes wire widths and envelopes only (see `DECISIONS_PENDING.md` D-013). Deriving ChunkId implicitly per repository was rejected because chunk-keyed revision maps need one canonical string key. Allowing continuations to re-acquire the latest revision was rejected: it would make multi-batch reads internally inconsistent and mask lost pins.
 
 ## Compatibility and migration
 

@@ -37,6 +37,8 @@
     { "id": "command-log-record", "file": "command-log-record.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "wal-record-envelope", "file": "wal-record-envelope.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "gameplay-scope-activation", "file": "gameplay-scope-activation.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "voxel-snapshot-payload", "file": "voxel-snapshot-payload.schema.json", "priority": "P1", "owner": "VoxelEngine" },
+    { "id": "voxel-durability-ack", "file": "voxel-durability-ack.schema.json", "priority": "P1", "owner": "VoxelEngine" },
     { "id": "migration-manifest", "file": "migration-manifest.schema.json", "priority": "P1", "owner": "Game" },
     { "id": "contract-result", "file": "contract-result.schema.json", "priority": "P1", "owner": "Architecture" },
     { "id": "mod-manifest", "file": "mod-manifest.schema.json", "priority": "P2", "owner": "Game" }

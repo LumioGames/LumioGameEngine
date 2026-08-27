@@ -91,11 +91,26 @@
             {
               "properties": { "statusResult": { "enum": ["Unknown", "ResultPruned"] } },
               "required": ["statusResult", "pruneHorizonTick"],
-              "not": { "required": ["resultWorldRevision"] }
+              "not": {
+                "anyOf": [
+                  { "required": ["resultWorldRevision"] },
+                  { "required": ["resultChunkRevisionSet"] },
+                  { "required": ["appliedAtTick"] },
+                  { "required": ["abortReason"] }
+                ]
+              }
             },
             {
-              "properties": { "statusResult": { "enum": ["Prepared", "Applied", "Aborted"] } },
+              "properties": { "statusResult": { "const": "Prepared" } },
               "required": ["statusResult"]
+            },
+            {
+              "properties": { "statusResult": { "const": "Applied" } },
+              "required": ["statusResult", "resultWorldRevision", "resultChunkRevisionSet", "appliedAtTick"]
+            },
+            {
+              "properties": { "statusResult": { "const": "Aborted" } },
+              "required": ["statusResult", "abortReason"]
             }
           ]
         }

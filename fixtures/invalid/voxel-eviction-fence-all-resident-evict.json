@@ -1,0 +1,9 @@
+{
+  "kind": "EvictionFence",
+  "worldId": "world-local-embedded-01",
+  "context": { "contextId": "wctx-local-01", "generation": 1 },
+  "chunkId": "c:0:0:0",
+  "chunkState": "Ready",
+  "mode": "AllResident",
+  "decision": "Evict"
+}

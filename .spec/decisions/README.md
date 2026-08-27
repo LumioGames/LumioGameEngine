@@ -49,5 +49,7 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-032](ADR-032-durable-recovery-records.md) | TxnJournal/CommandLog/WAL 恢复记录（refine ADR-010/011） | Accepted |
 | [ADR-033](ADR-033-config-typed-columns.md) | Config typed columns 动态校验（refine ADR-010） | Accepted |
 | [ADR-034](ADR-034-hot-reload-dual-scope.md) | Hot Reload 双 Scope 原子激活（refine ADR-013） | Accepted |
+| [ADR-035](ADR-035-voxel-snapshot-payload.md) | Voxel Snapshot/Diff payload 与 Canonical Capture（载荷≠Envelope、Cut 投影、Pin 栅栏） | Accepted |
+| [ADR-036](ADR-036-voxel-streaming-durability-ack.md) | Voxel Streaming DurabilityAck、驻留模式与驱逐栅栏（DS 默认不逐出 Dirty） | Accepted |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。

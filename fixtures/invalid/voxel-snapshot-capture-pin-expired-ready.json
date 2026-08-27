@@ -1,0 +1,16 @@
+{
+  "kind": "CaptureStatus",
+  "captureId": "cap-srv-arena-0008",
+  "captureState": "Ready",
+  "pinState": "Expired",
+  "cutProjection": {
+    "worldId": "world-srv-arena-01",
+    "context": { "contextId": "wctx-srv-01", "generation": 4 },
+    "tickId": 48,
+    "worldRevision": 24,
+    "chunkRevisionSet": { "c:-1:0:0": 7, "c:0:0:0": 9 },
+    "schemaEpoch": 1
+  },
+  "payloadLength": 33344,
+  "payloadHash": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4"
+}
