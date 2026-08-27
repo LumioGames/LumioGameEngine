@@ -39,6 +39,93 @@
       "minLength": 1,
       "maxLength": 4096
     },
+    "abiIdentity": {
+      "type": "string",
+      "pattern": "^NativeManagedAbiV[0-9]+$"
+    },
+    "packageIdentity": {
+      "type": "object",
+      "required": ["manifestDigest", "artifactSetDigest", "abiIdentity", "targetProfileDigest", "capabilitySetDigest"],
+      "properties": {
+        "manifestDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "artifactSetDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "abiIdentity": { "$ref": "common.schema.json#/$defs/abiIdentity" },
+        "targetProfileDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "capabilitySetDigest": { "$ref": "common.schema.json#/$defs/hash256" }
+      },
+      "additionalProperties": false
+    },
+    "signatureAlgorithm": {
+      "type": "string",
+      "enum": ["Ed25519", "ECDSA-P256"]
+    },
+    "signatureValue": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 4096
+    },
+    "signatureBlock": {
+      "type": "object",
+      "required": ["algorithm", "keyId", "signature"],
+      "properties": {
+        "algorithm": { "$ref": "common.schema.json#/$defs/signatureAlgorithm" },
+        "keyId": { "$ref": "common.schema.json#/$defs/id" },
+        "signature": { "$ref": "common.schema.json#/$defs/signatureValue" }
+      },
+      "additionalProperties": false
+    },
+    "trustDomain": {
+      "type": "string",
+      "enum": ["Production", "Staging", "Test"]
+    },
+    "compressionCodec": {
+      "type": "string",
+      "enum": ["None", "Zstd", "Lz4"]
+    },
+    "recoveryRecordChain": {
+      "type": "object",
+      "required": ["recordVersion", "recordSeq", "previousHash", "payloadHash", "length", "checksum"],
+      "properties": {
+        "recordVersion": { "type": "integer", "minimum": 1 },
+        "recordSeq": { "$ref": "common.schema.json#/$defs/revision" },
+        "previousHash": { "$ref": "common.schema.json#/$defs/hash256" },
+        "payloadHash": { "$ref": "common.schema.json#/$defs/hash256" },
+        "length": { "type": "integer", "minimum": 0 },
+        "checksum": { "$ref": "common.schema.json#/$defs/hash256" }
+      }
+    },
+    "recoveryCommitFields": {
+      "type": "object",
+      "required": ["commitState", "durabilityState"],
+      "properties": {
+        "commitState": { "type": "string", "enum": ["Pending", "Committed", "Aborted"] },
+        "durabilityState": { "type": "string", "enum": ["Buffered", "Durable"] }
+      }
+    },
+    "sessionReleaseTriple": {
+      "type": "object",
+      "required": ["sessionId", "productId", "gameReleaseId"],
+      "properties": {
+        "sessionId": { "$ref": "common.schema.json#/$defs/id" },
+        "productId": { "$ref": "common.schema.json#/$defs/productId" },
+        "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" }
+      }
+    },
+    "stateTransitionEvent": {
+      "type": "object",
+      "required": ["machine", "instanceId", "fromState", "toState", "event"],
+      "properties": {
+        "machine": { "$ref": "common.schema.json#/$defs/id" },
+        "instanceId": { "$ref": "common.schema.json#/$defs/id" },
+        "fromState": { "$ref": "common.schema.json#/$defs/stateName" },
+        "toState": { "$ref": "common.schema.json#/$defs/stateName" },
+        "event": { "$ref": "common.schema.json#/$defs/id" }
+      }
+    },
+    "stateName": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]{0,63}$"
+    },
     "correlation": {
       "type": "object",
       "required": [
@@ -84,10 +171,7 @@
         "tickId": { "$ref": "common.schema.json#/$defs/tickId" },
         "gameRevision": { "$ref": "common.schema.json#/$defs/revision" },
         "voxelWorldRevision": { "$ref": "common.schema.json#/$defs/revision" },
-        "chunkRevisionSet": {
-          "type": "object",
-          "additionalProperties": { "$ref": "common.schema.json#/$defs/revision" }
-        },
+        "chunkRevisionSet": { "$ref": "common.schema.json#/$defs/voxelChunkRevisionSet" },
         "replicationRevision": { "$ref": "common.schema.json#/$defs/revision" },
         "configRevision": { "$ref": "common.schema.json#/$defs/revision" },
         "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" }

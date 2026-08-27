@@ -5,7 +5,7 @@
   "required": ["schemaSetVersion", "baselineId", "schemas"],
   "properties": {
     "schemaSetVersion": { "type": "integer", "const": 1 },
-    "baselineId": { "type": "string", "const": "LGE-V1.3-2026-08-27" },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
     "schemas": {
       "type": "array",
       "minItems": 1,

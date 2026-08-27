@@ -35,10 +35,7 @@
     },
     "expectedGameRevision": { "$ref": "common.schema.json#/$defs/revision" },
     "expectedVoxelRevision": { "$ref": "common.schema.json#/$defs/revision" },
-    "chunkRevisionSet": {
-      "type": "object",
-      "additionalProperties": { "$ref": "common.schema.json#/$defs/revision" }
-    },
+    "chunkRevisionSet": { "$ref": "common.schema.json#/$defs/voxelChunkRevisionSet" },
     "deadlineTick": { "$ref": "common.schema.json#/$defs/tickId" },
     "preparedGameDelta": { "type": ["object", "null"] },
     "preparedVoxelToken": { "type": ["string", "null"], "maxLength": 256 },

@@ -2,6 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/protocol-permission-gate.schema.json",
   "type": "object",
+  "allOf": [
+    { "$ref": "common.schema.json#/$defs/sessionReleaseTriple" }
+  ],
   "required": [
     "sessionId",
     "productId",
@@ -56,7 +59,7 @@
       "enum": [
         "SessionMismatch",
         "ReleaseMismatch",
-        "MessageNotPermitted",
+        "MessagePermissionDenied",
         "RoleMismatch",
         "ClaimNotGranted",
         "StaleConnectionGeneration",

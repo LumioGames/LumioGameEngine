@@ -2,7 +2,7 @@
 
 本目录是全仓公共架构与框架决策的唯一落点。`docs/adr` 只保留兼容入口与指向本目录的文件级软链接；`docs/architecture/ADR_INDEX.md` 只保留入口指针。
 
-ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至 ADR-023 随 `LGE-V1.2-2026-08-27` 接受；ADR-026 至 ADR-034 随 `LGE-V1.3-2026-08-27` 接受并 refine 既有 Accepted ADR。`Accepted` 后不可改写，只能由新 ADR 取代并在双方记录取代关系。`ADR-015` 保持 `Reserved`，因为 Mod 是 P2。尚未批准的实现选型和运维默认值不进入 ADR，统一记录在 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)。
+ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至 ADR-023 随 `LGE-V1.2-2026-08-27` 接受；ADR-026 至 ADR-034 随 `LGE-V1.3-2026-08-27` 接受并 refine 既有 Accepted ADR；ADR-024/025/035/036（voxel 族 additive 波次）与 ADR-037 至 ADR-039 随 `LGE-V1.4-2026-08-27` 正式入基线。`Accepted` 后不可改写，只能由新 ADR 取代并在双方记录取代关系。`ADR-015` 保持 `Reserved`，因为 Mod 是 P2。尚未批准的实现选型和运维默认值不进入 ADR，统一记录在 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)。
 
 ## 写作与变更契约
 
@@ -51,5 +51,8 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-034](ADR-034-hot-reload-dual-scope.md) | Hot Reload 双 Scope 原子激活（refine ADR-013） | Accepted |
 | [ADR-035](ADR-035-voxel-snapshot-payload.md) | Voxel Snapshot/Diff payload 与 Canonical Capture（载荷≠Envelope、Cut 投影、Pin 栅栏） | Accepted |
 | [ADR-036](ADR-036-voxel-streaming-durability-ack.md) | Voxel Streaming DurabilityAck、驻留模式与驱逐栅栏（DS 默认不逐出 Dirty） | Accepted |
+| [ADR-037](ADR-037-contract-common-primitives.md) | 契约公共原语归一（$defs 下沉、缺陷修复、词汇冻结） | Accepted |
+| [ADR-038](ADR-038-state-machine-descriptor.md) | 状态机描述符契约（12 机冻结注册表与一致性门） | Accepted |
+| [ADR-039](ADR-039-contract-runtime-artifact.md) | ContractRuntime Artifact 类别（refine ADR-023） | Accepted |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。

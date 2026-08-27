@@ -5,21 +5,10 @@
   "required": ["descriptorVersion", "packageIdentity", "trustDecision", "trustDomain", "verifierVersion", "verifiedAt", "checks"],
   "properties": {
     "descriptorVersion": { "type": "integer", "minimum": 1 },
-    "packageIdentity": {
-      "type": "object",
-      "required": ["manifestDigest", "artifactSetDigest", "abiIdentity", "targetProfileDigest", "capabilitySetDigest"],
-      "properties": {
-        "manifestDigest": { "$ref": "common.schema.json#/$defs/hash256" },
-        "artifactSetDigest": { "$ref": "common.schema.json#/$defs/hash256" },
-        "abiIdentity": { "type": "string", "pattern": "^NativeManagedAbiV[0-9]+$" },
-        "targetProfileDigest": { "$ref": "common.schema.json#/$defs/hash256" },
-        "capabilitySetDigest": { "$ref": "common.schema.json#/$defs/hash256" }
-      },
-      "additionalProperties": false
-    },
+    "packageIdentity": { "$ref": "common.schema.json#/$defs/packageIdentity" },
     "trustDecision": { "type": "string", "enum": ["Trusted", "Rejected"] },
     "rejectReason": { "$ref": "common.schema.json#/$defs/id" },
-    "trustDomain": { "type": "string", "enum": ["Production", "Staging", "Test"] },
+    "trustDomain": { "$ref": "common.schema.json#/$defs/trustDomain" },
     "verifierVersion": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
     "verifiedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
     "checks": {

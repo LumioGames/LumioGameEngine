@@ -1,6 +1,6 @@
 # ADR-025: Voxel Participant Receipt Durability and Pruning Handshake
 
-- **Status**: Accepted (additive to Implementation Baseline `LGE-V1.2-2026-08-27`, accepted 2026-08-27; ships with the next BaselineId cut by the owner)
+- **Status**: Accepted (accepted 2026-08-27 additive to `LGE-V1.2-2026-08-27`; formally entered Implementation Baseline `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioVoxelEngine` (participant), `LumioGameRuntime` (coordinator journal)
 - **Baseline**: `LGE-V1.2-2026-08-27` line
 - **Relation**: Extends [ADR-003](ADR-003-cross-world-txn.md) with the participant-side receipt durability, status protocol and retention handshake. ADR-003 stays Accepted and unchanged: global states, the `VoxelCommit -> EcsCommandBufferCommit` order, CommitIntent-before-first-write and Indeterminate resolution are not modified here.

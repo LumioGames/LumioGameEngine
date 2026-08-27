@@ -1,0 +1,32 @@
+{
+  "machineId": "CoreEngineLoader",
+  "owner": "GameRuntime",
+  "sourceAdr": "ADR-019",
+  "initialState": "Uninitialized",
+  "states": [
+    "Uninitialized",
+    "Preflighting",
+    "Verified",
+    "Binding",
+    "ApiReady",
+    "Leased",
+    "Quiescing",
+    "Released",
+    "FailedRolledBack"
+  ],
+  "terminalStates": ["Released", "FailedRolledBack"],
+  "transitions": [
+    { "from": "Uninitialized", "to": "Preflighting", "event": "BeginPreflight" },
+    { "from": "Preflighting", "to": "Verified", "event": "TrustVerified" },
+    { "from": "Verified", "to": "Binding", "event": "BindSymbols" },
+    { "from": "Binding", "to": "ApiReady", "event": "ApiTableBound" },
+    { "from": "ApiReady", "to": "Leased", "event": "Lease" },
+    { "from": "Leased", "to": "Quiescing", "event": "Quiesce" },
+    { "from": "Quiescing", "to": "Released", "event": "Release" },
+    { "from": "Preflighting", "to": "FailedRolledBack", "event": "PreLeaseFailure" },
+    { "from": "Verified", "to": "FailedRolledBack", "event": "PreLeaseFailure" },
+    { "from": "Binding", "to": "FailedRolledBack", "event": "PreLeaseFailure" },
+    { "from": "ApiReady", "to": "FailedRolledBack", "event": "PreLeaseFailure" }
+  ],
+  "notes": "Native core engine package loader. Every pre-lease failure rolls back to the previous verified package; the state names must stay equal to failure-bundle.coreEngine.loaderState."
+}

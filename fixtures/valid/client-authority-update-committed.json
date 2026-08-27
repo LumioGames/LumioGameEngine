@@ -28,7 +28,7 @@
     "tickId": 42,
     "gameRevision": 18,
     "voxelWorldRevision": 24,
-    "chunkRevisionSet": { "chunk-0-0": 9 },
+    "chunkRevisionSet": { "c:0:0:0": 9 },
     "replicationRevision": 13,
     "configRevision": 4,
     "schemaEpoch": 1

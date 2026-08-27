@@ -2,6 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/wal-record-envelope.schema.json",
   "type": "object",
+  "allOf": [
+    { "$ref": "common.schema.json#/$defs/recoveryRecordChain" }
+  ],
   "required": ["recordVersion", "recordSeq", "innerKind", "previousHash", "payloadHash", "length", "checksum", "inner"],
   "properties": {
     "recordVersion": { "type": "integer", "minimum": 1 },

@@ -4,9 +4,9 @@
 
 ## 版本与状态
 
-- **Baseline**：`LGE-V1.3-2026-08-27`
+- **Baseline**：`LGE-V1.4-2026-08-27`
 - **状态**：Implementation Baseline
-- **规范正文**：[`docs/architecture/LumioGameEngine_Architecture_v1.3.md`](docs/architecture/LumioGameEngine_Architecture_v1.3.md)
+- **规范正文**：[`docs/architecture/LumioGameEngine_Architecture_v1.4.md`](docs/architecture/LumioGameEngine_Architecture_v1.4.md)
 - **ADR 索引**：[`docs/architecture/ADR_INDEX.md`](docs/architecture/ADR_INDEX.md)
 - **ADR 正文**：[`docs/adr/README.md`](docs/adr/README.md)
 - **待确认决策**：[`docs/architecture/DECISIONS_PENDING.md`](docs/architecture/DECISIONS_PENDING.md)
@@ -16,7 +16,7 @@
 - **契约工具**：[`tools/README.md`](tools/README.md)
 - **最终评审合并稿**：[`docs/reviews/LumioGameEngine_V3_Architecture_Review_Final_2026-08-27.md`](docs/reviews/LumioGameEngine_V3_Architecture_Review_Final_2026-08-27.md)
 
-本仓库是架构、状态机、Schema、依赖图和变更规则的事实源，不拥有任何运行中的 World、连接或 Gameplay 状态。七个实现仓库可以保留同版本镜像，但不能独立修改共享基线；改变基线必须通过 ADR、更新 BaselineId 和同步检查。现行基线为 `LGE-V1.3-2026-08-27`；Accepted ADR 不可改写，只能由新 ADR 取代（ADR-015 保持 Reserved）。尚未裁决的实现选型见 `docs/architecture/DECISIONS_PENDING.md`。
+本仓库是架构、状态机、Schema、依赖图和变更规则的事实源，不拥有任何运行中的 World、连接或 Gameplay 状态。七个实现仓库可以保留同版本镜像，但不能独立修改共享基线；改变基线必须通过 ADR、更新 BaselineId 和同步检查。现行基线为 `LGE-V1.4-2026-08-27`；Accepted ADR 不可改写，只能由新 ADR 取代（ADR-015 保持 Reserved）。尚未裁决的实现选型见 `docs/architecture/DECISIONS_PENDING.md`。
 
 ## 负责范围
 
@@ -28,7 +28,7 @@
 
 ## Architecture Gate 产物
 
-当前基线已经有可执行的公共契约：`schemas/index.json` 注册 35 个 P0 Schema（含 Tick 相矩阵、GAS 生命周期、恢复记录、Replication typed body 与双 Scope 激活）、2 个 P1 Schema 和 1 个 P2 Mod 预留；`ids/index.json` 维护版本化 ID Namespace（含 MessageType `BaselineAck`/`DeltaAck`/`Error`）；`fixtures/index.json` 注册 120 个正向/失败样例；`tools/lumio_contract.py validate` 在本地和 CI 中执行结构与关键语义校验。它们是生成器、Serializer、ABI Header、Binding 和各仓库测试的输入，不是运行时库。
+当前基线已经有可执行的公共契约：`schemas/index.json` 注册 36 个 P0 Schema（含 Tick 相矩阵、GAS 生命周期、恢复记录、Replication typed body、双 Scope 激活与状态机描述符）、4 个 P1 Schema（含 Voxel Snapshot/Diff 载荷与 DurabilityAck）和 1 个 P2 Mod 预留；`ids/index.json` 维护版本化 ID Namespace（含 MessageType `BaselineAck`/`DeltaAck`/`Error` 与 Gate 拒绝错误码 1040–1043）；`fixtures/index.json` 注册 160 个正向/失败样例（含 12 个状态机描述符实例）；`tools/lumio_contract.py validate` 在本地和 CI 中执行结构与关键语义校验，`common.schema.json` 承载 ADR-037 下沉的公共 `$defs`。它们是生成器、Serializer、ABI Header、Binding 和各仓库测试的输入，不是运行时库。
 
 ```text
 python3 -m pip install -r requirements-dev.txt
@@ -56,7 +56,7 @@ python3 tools/lumio_contract.py validate --json > contract-result.json
 
 ## 仓库使用规则
 
-1. 实现仓库只能引用已发布的 Baseline、Schema 和 Artifact，不依赖本仓库的运行时代码。
+1. 实现仓库只能引用已发布的 Baseline、Schema 和 Artifact，不依赖本仓库的运行时代码。「已发布 Artifact」包含 ContractRuntime 支持库（纯 Rust crate / 纯 C# assembly，按 BaselineId 版本化）；「本仓运行时代码」指 `tools/` 下的校验与生成工具本体，后者永不被实现仓引用（ADR-039）。
 2. 共享文档镜像必须保持 `BaselineId` 和内容 Hash 一致。
 3. 新增公共字段、状态、错误码或依赖方向必须先添加 ADR 和失败语义。
 4. P2 表示“实现可以后置”，不表示“架构可以删除”；P2 能力必须有所有者、接口位置和兼容策略。

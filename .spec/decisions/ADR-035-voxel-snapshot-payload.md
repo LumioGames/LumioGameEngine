@@ -1,6 +1,6 @@
 # ADR-035: Voxel Snapshot/Diff Payload and Canonical Capture Semantics
 
-- **Status**: Accepted (additive to Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27; ships with the next BaselineId cut by the owner)
+- **Status**: Accepted (accepted 2026-08-27 additive to `LGE-V1.3-2026-08-27`; formally entered Implementation Baseline `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioVoxelEngine` (payload producer/consumer), `LumioGameRuntime` (SnapshotCut coordinator), Architecture (registry)
 - **Baseline**: `LGE-V1.3-2026-08-27` line
 - **Relation**: Consumes the voxel types frozen by [ADR-024](ADR-024-voxel-p0-contract-set.md) (`voxelChunkId`, `voxelContext`, `voxel-revision-stamp`, page envelope). The payload defined here is carried by the `snapshot-header` envelope of [ADR-010](ADR-010-persistence-config.md) and captures the SnapshotCut consistency of [ADR-003](ADR-003-cross-world-txn.md); it supersedes none of them. The write-side durability handshake for the same pages is [ADR-036](ADR-036-voxel-streaming-durability-ack.md).

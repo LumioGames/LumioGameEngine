@@ -5,7 +5,7 @@
   "required": ["resultVersion", "baselineId", "command", "passed", "validated", "failures"],
   "properties": {
     "resultVersion": { "type": "integer", "const": 1 },
-    "baselineId": { "type": "string", "const": "LGE-V1.3-2026-08-27" },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
     "command": { "type": "string", "enum": ["validate", "canonical", "hash"] },
     "passed": { "type": "boolean" },
     "validated": { "type": "integer", "minimum": 0 },

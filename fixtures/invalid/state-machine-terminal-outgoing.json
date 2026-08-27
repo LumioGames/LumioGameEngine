@@ -1,0 +1,13 @@
+{
+  "machineId": "ExampleTerminalOutgoing",
+  "owner": "Architecture",
+  "sourceAdr": "ADR-038",
+  "initialState": "Open",
+  "states": ["Open", "Closed"],
+  "terminalStates": ["Closed"],
+  "transitions": [
+    { "from": "Open", "to": "Closed", "event": "Close" },
+    { "from": "Closed", "to": "Open", "event": "Reopen" }
+  ],
+  "notes": "Invalid: a terminal state owns an outgoing transition."
+}

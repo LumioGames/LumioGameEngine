@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/state-machine-descriptor.schema.json",
+  "description": "Machine-readable descriptor for every architecture-frozen state machine (ADR-038). The descriptor registry is the single generatable source for transition tables: states, initial state, terminal states, explicit transitions, the anyActiveTo fault idiom (an implicit edge from every non-terminal state) and state-internal self events. Where a domain schema also carries the state enum, the contract tool enforces set equality between that enum and the registered descriptor.",
+  "type": "object",
+  "required": ["machineId", "owner", "sourceAdr", "initialState", "states", "terminalStates", "transitions"],
+  "$defs": {
+    "transition": {
+      "type": "object",
+      "required": ["from", "to", "event"],
+      "properties": {
+        "from": { "$ref": "common.schema.json#/$defs/stateName" },
+        "to": { "$ref": "common.schema.json#/$defs/stateName" },
+        "event": { "$ref": "common.schema.json#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "selfEvent": {
+      "type": "object",
+      "required": ["state", "event"],
+      "properties": {
+        "state": { "$ref": "common.schema.json#/$defs/stateName" },
+        "event": { "$ref": "common.schema.json#/$defs/id" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "machineId": { "$ref": "common.schema.json#/$defs/id" },
+    "owner": {
+      "type": "string",
+      "enum": ["Architecture", "GameRuntime", "CoreEngine", "VoxelEngine", "Server", "Client", "Game"]
+    },
+    "sourceAdr": { "type": "string", "pattern": "^ADR-[0-9]{3}$" },
+    "initialState": { "$ref": "common.schema.json#/$defs/stateName" },
+    "states": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "common.schema.json#/$defs/stateName" }
+    },
+    "terminalStates": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "common.schema.json#/$defs/stateName" }
+    },
+    "anyActiveTo": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "common.schema.json#/$defs/stateName" }
+    },
+    "transitions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/transition" }
+    },
+    "selfEvents": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/selfEvent" }
+    },
+    "notes": { "type": "string", "minLength": 1, "maxLength": 1024 }
+  },
+  "additionalProperties": false
+}

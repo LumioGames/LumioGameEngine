@@ -23,11 +23,12 @@
         "MappingTable",
         "CanonicalSerializer",
         "LanguageBinding",
-        "ContractTypes"
+        "ContractTypes",
+        "ContractRuntime"
       ]
     },
     "publisher": { "type": "string", "enum": ["LumioGameEngineArchitecture"] },
-    "baselineId": { "type": "string", "const": "LGE-V1.3-2026-08-27" },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
     "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" },
     "compilerHash": { "$ref": "common.schema.json#/$defs/hash256" },
     "inputHash": { "$ref": "common.schema.json#/$defs/hash256" },

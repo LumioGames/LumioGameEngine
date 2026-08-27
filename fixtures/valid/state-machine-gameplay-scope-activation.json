@@ -1,0 +1,22 @@
+{
+  "machineId": "GameplayScopeActivation",
+  "owner": "GameRuntime",
+  "sourceAdr": "ADR-034",
+  "initialState": "OldActiveNewStaging",
+  "states": [
+    "OldActiveNewStaging",
+    "NewValidated",
+    "BarrierSwitch",
+    "OldQuiescing",
+    "OldUnloaded"
+  ],
+  "terminalStates": ["OldUnloaded"],
+  "transitions": [
+    { "from": "OldActiveNewStaging", "to": "NewValidated", "event": "ValidationPassed" },
+    { "from": "NewValidated", "to": "BarrierSwitch", "event": "CommitSwitch" },
+    { "from": "NewValidated", "to": "OldActiveNewStaging", "event": "NewScopeDiscarded" },
+    { "from": "BarrierSwitch", "to": "OldQuiescing", "event": "SwitchApplied" },
+    { "from": "OldQuiescing", "to": "OldUnloaded", "event": "OldScopeUnloaded" }
+  ],
+  "notes": "Dual-scope hot reload per ADR-034. Failure before BarrierSwitch discards the staged scope and keeps the old one serving; failure after the switch is session fail-stop, not a stage."
+}

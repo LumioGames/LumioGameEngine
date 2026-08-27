@@ -1,6 +1,6 @@
 # ADR-036: Voxel Streaming Durability Acknowledgment, Residency Modes and the Eviction Fence
 
-- **Status**: Accepted (additive to Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27; ships with the next BaselineId cut by the owner)
+- **Status**: Accepted (accepted 2026-08-27 additive to `LGE-V1.3-2026-08-27`; formally entered Implementation Baseline `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioVoxelEngine` (world/streaming state), Host/`LumioGameRuntime` (persistence orchestration and acknowledgment issuer)
 - **Baseline**: `LGE-V1.3-2026-08-27` line
 - **Relation**: Completes the write-side durability loop opened by [ADR-024](ADR-024-voxel-p0-contract-set.md) (`applyDurabilityAck` port method, `Dirty`/`Evicting` chunk states) and [ADR-025](ADR-025-voxel-participant-receipt-durability.md) (receipts co-durable with world state). Consumes the snapshot durability points of [ADR-035](ADR-035-voxel-snapshot-payload.md) and the WAL record identity of [ADR-032](ADR-032-durable-recovery-records.md); supersedes none of them.

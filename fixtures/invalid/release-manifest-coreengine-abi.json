@@ -16,9 +16,10 @@
     "manifestDigest": "9999999999999999999999999999999999999999999999999999999999999999",
     "artifactSetDigest": "7777777777777777777777777777777777777777777777777777777777777777",
     "abiIdentity": "NativeManagedAbiV2",
-    "targetProfileDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    "targetProfileDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "capabilitySetDigest": "abababababababababababababababababababababababababababababababab"
   },
-  "signature": { "algorithm": "Ed25519", "keyId": "release-key-1", "value": "sig-abi-mismatch-placeholder-00000000000000000000000000000000" },
+  "signature": { "algorithm": "Ed25519", "keyId": "release-key-1", "signature": "sig-abi-mismatch-placeholder-00000000000000000000000000000000" },
   "sbom": { "format": "CycloneDX", "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "dependencyCount": 42 },
   "capabilities": ["Native", "Server", "Client"],
   "compatibilityPolicy": "ExactRelease",

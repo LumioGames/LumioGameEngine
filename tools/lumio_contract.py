@@ -132,7 +132,10 @@ def fallback_validate(
     if "$ref" in schema:
         try:
             target, target_file = resolver.resolve(str(schema["$ref"]), current_file, current_schema)
-            errors.extend(fallback_validate(value, target, resolver, target_file, target, path))
+            # Local references inside the resolved target must resolve against
+            # the target *document*, not against the resolved fragment.
+            target_root = resolver.load(target_file) if target_file.is_file() else current_schema
+            errors.extend(fallback_validate(value, target, resolver, target_file, target_root, path))
         except (ContractError, KeyError, IndexError, ValueError) as exc:
             errors.append("{}: unresolved $ref {} ({})".format(path, schema["$ref"], exc))
 
@@ -203,11 +206,22 @@ def fallback_validate(
             if key not in value:
                 errors.append("{}: missing required property {!r}".format(path, key))
         properties = schema.get("properties", {})
+        pattern_properties = schema.get("patternProperties", {})
         additional = schema.get("additionalProperties", True)
         for key, item in value.items():
-            if key in properties:
+            matched = key in properties
+            if matched:
                 errors.extend(fallback_validate(item, properties[key], resolver, current_file, current_schema, _path(path, key)))
-            elif additional is False:
+            for key_pattern, key_schema in pattern_properties.items():
+                try:
+                    if re.search(str(key_pattern), key) is not None:
+                        matched = True
+                        errors.extend(fallback_validate(item, key_schema, resolver, current_file, current_schema, _path(path, key)))
+                except re.error as exc:
+                    errors.append("{}: invalid schema key pattern: {}".format(path, exc))
+            if matched:
+                continue
+            if additional is False:
                 errors.append("{}: unexpected property {!r}".format(path, key))
             elif isinstance(additional, dict):
                 errors.extend(fallback_validate(item, additional, resolver, current_file, current_schema, _path(path, key)))
@@ -283,7 +297,7 @@ def correlation_scope_errors(correlation: Any) -> List[str]:
     return errors
 
 
-_CURRENT_BASELINE = "LGE-V1.3-2026-08-27"
+_CURRENT_BASELINE = "LGE-V1.4-2026-08-27"
 _GENESIS_HASH = "0" * 64
 _TICK_PHASES = [
     "IngressCapture",
@@ -359,6 +373,53 @@ _CONFIG_INT_BOUNDS = {
     "u32": (0, 4294967295),
     "u64": (0, 18446744073709551615),
 }
+_CHUNK_KEY = re.compile(r"^c:(0|-?[1-9][0-9]{0,9}):(0|-?[1-9][0-9]{0,9}):(0|-?[1-9][0-9]{0,9})$")
+_INTEGRITY_VALUE_RULES = {
+    "None": re.compile(r"^none$"),
+    "CRC32C": re.compile(r"^[0-9a-f]{8}$"),
+    "SHA256": re.compile(r"^[0-9a-f]{64}$"),
+    "AEAD": re.compile(r"^[A-Za-z0-9+/=_-]{24,256}$"),
+}
+# ADR-037 freezes the abort reason vocabulary split between the transaction
+# and the voxel participant: the intersection and both domain-only remainders
+# may only change through a new ADR.
+_SHARED_ABORT_REASONS = {
+    "RevisionConflict",
+    "ChunkUnloaded",
+    "ValidationFailed",
+    "DeadlineExceeded",
+    "Cancelled",
+    "InsufficientResource",
+}
+_TXN_ONLY_ABORT_REASONS = {"PermissionDenied"}
+_VOXEL_ONLY_ABORT_REASONS = {"LeaseExpired"}
+# ADR-038 freezes the descriptor registry: every machine listed here must have
+# exactly one valid descriptor fixture. Where a domain schema also carries the
+# state enum, the pointer names the schema and the path to that enum so the
+# descriptor and the schema cannot drift apart.
+_STATE_MACHINE_SOURCES: Dict[str, Any] = {
+    "WorldSlotHost": None,
+    "SimulationSession": None,
+    "ClientReplicaSession": None,
+    "EcsCommandBuffer": ("cross-world-txn", ("properties", "commandBufferState", "enum")),
+    "CrossWorldTxn": ("cross-world-txn", ("properties", "state", "enum")),
+    "CoreEngineLoader": ("failure-bundle", ("properties", "coreEngine", "properties", "loaderState", "enum")),
+    "GasAbility": None,
+    "GasEffect": None,
+    "ReleasePool": ("release-catalog", ("properties", "entries", "items", "properties", "state", "enum")),
+    "GameplayScopeActivation": ("gameplay-scope-activation", ("properties", "stage", "enum")),
+    "VoxelSnapshotCapture": ("voxel-snapshot-payload", ("$defs", "voxelCaptureState", "enum")),
+    "VoxelChunkResidency": ("voxel-chunk-page", ("$defs", "voxelChunkState", "enum")),
+}
+
+
+def chunk_revision_set_errors(candidate: Any, context: str) -> List[str]:
+    errors: List[str] = []
+    if isinstance(candidate, dict):
+        for key in candidate:
+            if _CHUNK_KEY.match(str(key)) is None:
+                errors.append("{} chunk key {!r} must use the canonical ChunkId format".format(context, key))
+    return errors
 
 
 def recovery_record_checksum(value: Any) -> str:
@@ -448,6 +509,8 @@ def replication_body_errors(message_type: Any, body: Any) -> List[str]:
         vector = body.get("sessionRevisionVector")
         if not isinstance(vector, dict) or any(field not in vector for field in _SESSION_REVISION_FIELDS):
             errors.append("FullSnapshot requires a complete SessionRevisionVector")
+        if isinstance(vector, dict):
+            errors.extend(chunk_revision_set_errors(vector.get("chunkRevisionSet"), "FullSnapshot"))
     if message_type == "Delta":
         if "fromRevision" in body and "toRevision" in body and body.get("toRevision", 0) < body.get("fromRevision", 0):
             errors.append("Delta ToRevision cannot precede FromRevision")
@@ -486,6 +549,109 @@ def message_type_consistency_errors(
     missing = registry_types - used_registered
     if missing:
         errors.append("registered MessageType values are unused by fixtures: {}".format(sorted(missing)))
+    return errors
+
+
+def vocabulary_consistency_errors(schemas: Dict[str, Dict[str, Any]], id_registry: Any) -> List[str]:
+    """Enforce the ADR-037 shared-vocabulary freezes at registry level."""
+    errors: List[str] = []
+    error_codes = set()
+    for namespace in id_registry.get("namespaces", []):
+        if namespace.get("namespace") == "ErrorCode":
+            error_codes = {item.get("id") for item in namespace.get("values", [])}
+    gate = schemas.get("protocol-permission-gate", {}).get("document", {})
+    gate_reasons = set((((gate.get("properties") or {}).get("rejectReason") or {}).get("enum")) or [])
+    unregistered = gate_reasons - error_codes
+    if unregistered:
+        errors.append("gate reject reasons must be registered ErrorCodes: {}".format(sorted(unregistered)))
+    txn = schemas.get("cross-world-txn", {}).get("document", {})
+    txn_reasons = set((((txn.get("properties") or {}).get("abortReason") or {}).get("enum")) or [])
+    voxel = schemas.get("voxel-mutation-receipt", {}).get("document", {})
+    voxel_reasons = set((((voxel.get("$defs") or {}).get("voxelMutationAbortReason") or {}).get("enum")) or [])
+    if txn_reasons and voxel_reasons:
+        if txn_reasons & voxel_reasons != _SHARED_ABORT_REASONS:
+            errors.append("the shared abort reason intersection is frozen by ADR-037")
+        if txn_reasons - voxel_reasons != _TXN_ONLY_ABORT_REASONS:
+            errors.append("transaction-only abort reasons are frozen by ADR-037")
+        if voxel_reasons - txn_reasons != _VOXEL_ONLY_ABORT_REASONS:
+            errors.append("voxel-only abort reasons are frozen by ADR-037")
+    release = schemas.get("release-manifest", {}).get("document", {})
+    core_package = ((release.get("properties") or {}).get("coreEnginePackage")) or {}
+    core_required = set(core_package.get("required") or [])
+    common = load_json(SCHEMA_DIR / "common.schema.json")
+    identity_required = set((((common.get("$defs") or {}).get("packageIdentity") or {}).get("required")) or [])
+    if identity_required and not identity_required <= core_required:
+        errors.append("coreEnginePackage must require every packageIdentity member")
+    return errors
+
+
+def state_machine_consistency_errors(
+    schemas: Dict[str, Dict[str, Any]],
+    fixtures: Dict[str, Dict[str, Any]],
+) -> List[str]:
+    """Enforce the ADR-038 descriptor registry against the frozen machine set."""
+    errors: List[str] = []
+    if "state-machine-descriptor" not in schemas:
+        return errors
+    descriptors: Dict[str, Any] = {}
+    for fixture in fixtures.values():
+        meta = fixture["meta"]
+        if meta.get("schema") != "state-machine-descriptor" or meta.get("expected") != "valid":
+            continue
+        document = fixture["document"]
+        machine_id = document.get("machineId")
+        if machine_id in descriptors:
+            errors.append("duplicate state machine descriptor {}".format(machine_id))
+        descriptors[machine_id] = document
+    if set(descriptors) != set(_STATE_MACHINE_SOURCES):
+        missing = sorted(set(_STATE_MACHINE_SOURCES) - set(descriptors))
+        extra = sorted(set(descriptors) - set(_STATE_MACHINE_SOURCES))
+        errors.append(
+            "descriptor registry must cover the frozen ADR-038 machine set"
+            " (missing: {}, unregistered: {})".format(missing, extra)
+        )
+    for machine_id, source in _STATE_MACHINE_SOURCES.items():
+        descriptor = descriptors.get(machine_id)
+        if descriptor is None or source is None:
+            continue
+        schema_id, enum_path = source
+        node: Any = schemas.get(schema_id, {}).get("document", {})
+        for key in enum_path:
+            node = node.get(key) if isinstance(node, dict) else None
+            if node is None:
+                break
+        schema_states = set(node or [])
+        if schema_states and set(descriptor.get("states") or []) != schema_states:
+            errors.append(
+                "descriptor {} states must equal the {} state enum".format(machine_id, schema_id)
+            )
+    ability = descriptors.get("GasAbility")
+    if ability is not None:
+        pairs = {(item.get("from"), item.get("to")) for item in ability.get("transitions") or []}
+        expected_pairs = {
+            (source, dest)
+            for source, dests in _ABILITY_TRANSITIONS.items()
+            for dest in dests
+        }
+        if pairs != expected_pairs:
+            errors.append("GasAbility descriptor transitions must equal the ADR-031 table")
+        if set(ability.get("terminalStates") or []) != _ABILITY_TERMINAL:
+            errors.append("GasAbility descriptor terminal states must equal the ADR-031 set")
+    effect = descriptors.get("GasEffect")
+    if effect is not None:
+        pairs = {(item.get("from"), item.get("to")) for item in effect.get("transitions") or []}
+        expected_pairs = {
+            (source, dest)
+            for source, dests in _EFFECT_TRANSITIONS.items()
+            for dest in dests
+        }
+        if pairs != expected_pairs:
+            errors.append("GasEffect descriptor transitions must equal the ADR-031 table")
+        if set(effect.get("terminalStates") or []) != _EFFECT_TERMINAL:
+            errors.append("GasEffect descriptor terminal states must equal the ADR-031 set")
+        self_events = {(item.get("state"), item.get("event")) for item in effect.get("selfEvents") or []}
+        if self_events != {("Active", "Stack"), ("Active", "Duration"), ("Active", "Refresh")}:
+            errors.append("GasEffect descriptor self events must equal the ADR-031 Active-internal set")
     return errors
 
 
@@ -554,6 +720,11 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             errors.append("messageType {} is not registered".format(message_type))
         if message_type == "FullSnapshot" and value.get("reliability") != "Reliable":
             errors.append("FullSnapshot must use Reliable delivery")
+        integrity = value.get("integrity")
+        if isinstance(integrity, dict):
+            rule = _INTEGRITY_VALUE_RULES.get(str(integrity.get("algorithm")))
+            if rule is not None and rule.match(str(integrity.get("value", ""))) is None:
+                errors.append("integrity value does not match the declared algorithm")
         errors.extend(replication_body_errors(message_type, value.get("body")))
 
     elif schema_id == "entity-identity":
@@ -897,6 +1068,59 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             if dest in _EFFECT_TERMINAL and value.get("handleValid") is not False:
                 errors.append("a terminal Effect state invalidates the Handle")
 
+    elif schema_id == "state-machine-descriptor":
+        states = value.get("states") or []
+        state_set = set(states)
+        terminal = set(value.get("terminalStates") or [])
+        any_active = set(value.get("anyActiveTo") or [])
+        initial = value.get("initialState")
+        if initial not in state_set:
+            errors.append("initialState must be a declared state")
+        for field_name, members in (("terminalStates", terminal), ("anyActiveTo", any_active)):
+            undeclared = members - state_set
+            if undeclared:
+                errors.append("{} must reference declared states: {}".format(field_name, sorted(undeclared)))
+        outgoing: Dict[str, set] = {}
+        seen_events = set()
+        for transition in value.get("transitions") or []:
+            source = transition.get("from")
+            dest = transition.get("to")
+            event = transition.get("event")
+            if source not in state_set or dest not in state_set:
+                errors.append("transition {} -> {} must reference declared states".format(source, dest))
+                continue
+            if source in terminal:
+                errors.append("terminal state {} cannot own outgoing transitions".format(source))
+            if (source, event) in seen_events:
+                errors.append("state {} reuses event {} for two transitions".format(source, event))
+            seen_events.add((source, event))
+            outgoing.setdefault(source, set()).add(dest)
+        for entry in value.get("selfEvents") or []:
+            state = entry.get("state")
+            if state not in state_set:
+                errors.append("selfEvents must reference declared states")
+            elif state in terminal:
+                errors.append("terminal state {} cannot own internal events".format(state))
+        if initial in state_set:
+            reachable = {initial}
+            frontier = [initial]
+            while frontier:
+                current = frontier.pop()
+                targets = set(outgoing.get(current, set()))
+                if current not in terminal:
+                    targets |= any_active
+                for target in targets:
+                    if target in state_set and target not in reachable:
+                        reachable.add(target)
+                        frontier.append(target)
+            unreachable = state_set - reachable
+            if unreachable:
+                errors.append("states must be reachable from initialState: {}".format(sorted(unreachable)))
+        if not any_active:
+            for state in sorted(state_set - terminal):
+                if not outgoing.get(state):
+                    errors.append("non-terminal state {} needs an outgoing transition".format(state))
+
     elif schema_id in ("txn-journal-record", "command-log-record", "wal-record-envelope"):
         errors.extend(recovery_record_errors(value))
         if schema_id == "wal-record-envelope":
@@ -917,6 +1141,44 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             errors.append("pre-BarrierSwitch failure must keep OldActive and discard NewStaging")
         if value.get("stage") in ("OldQuiescing", "OldUnloaded") and value.get("switchCommitted") is not True:
             errors.append("OldQuiescing/OldUnloaded require a committed BarrierSwitch")
+
+    elif schema_id == "voxel-snapshot-payload":
+        kind = value.get("kind")
+        if kind == "DiffPayload":
+            base = value.get("base") or {}
+            advance = value.get("worldRevisionAdvance")
+            cut = value.get("cutProjection") or {}
+            base_revision = base.get("baseWorldRevision")
+            target_revision = cut.get("worldRevision")
+            if all(isinstance(item, int) for item in (advance, base_revision, target_revision)):
+                if target_revision != base_revision + advance:
+                    errors.append("diff target revision must equal baseWorldRevision plus worldRevisionAdvance")
+        if kind in ("SnapshotPayload", "DiffPayload"):
+            chunks = value.get("chunks") or []
+            coordinates = []
+            for entry in chunks:
+                match = _CHUNK_KEY.match(str(entry.get("chunkId", "")))
+                if match is not None:
+                    coordinates.append(tuple(int(group) for group in match.groups()))
+            if coordinates != sorted(coordinates):
+                errors.append("payload chunk entries must be in canonical CoordXYZAscending order")
+            offset = 0
+            contiguous = True
+            for entry in chunks:
+                if entry.get("byteOffset") != offset:
+                    errors.append("payload chunk byte ranges must be contiguous and ascending")
+                    contiguous = False
+                    break
+                length = entry.get("byteLength")
+                offset += length if isinstance(length, int) else 0
+            if contiguous and chunks and isinstance(value.get("payloadLength"), int) and offset != value.get("payloadLength"):
+                errors.append("payload chunk byte ranges must sum to payloadLength")
+
+    elif schema_id == "voxel-durability-ack":
+        if value.get("kind") == "DurabilityAck":
+            covered = [chunk.get("chunkId") for chunk in value.get("coveredChunks") or []]
+            if len(covered) != len(set(covered)):
+                errors.append("a durability acknowledgment cannot cover the same chunk twice")
 
     return errors
 
@@ -990,6 +1252,8 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
         if not any(item.get("expected") == "invalid" for item in covered):
             raise ContractError("P0 schema {} has no failure fixture".format(schema_id))
     consistency = message_type_consistency_errors(schemas, fixtures, id_registry)
+    consistency.extend(vocabulary_consistency_errors(schemas, id_registry))
+    consistency.extend(state_machine_consistency_errors(schemas, fixtures))
     if consistency:
         raise ContractError("; ".join(consistency))
     return schemas, fixtures

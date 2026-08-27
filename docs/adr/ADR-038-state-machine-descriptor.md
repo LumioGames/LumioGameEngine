@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-038-state-machine-descriptor.md

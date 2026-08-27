@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-037-contract-common-primitives.md

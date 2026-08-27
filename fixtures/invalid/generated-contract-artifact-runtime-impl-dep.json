@@ -1,0 +1,13 @@
+{
+  "artifactId": "contract-runtime-v1-native-dep",
+  "artifactKind": "ContractRuntime",
+  "publisher": "LumioGameEngineArchitecture",
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "schemaEpoch": 1,
+  "compilerHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "inputHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "outputHash": "2222222222222222222222222222222222222222222222222222222222222222",
+  "implementationDependencies": ["lumio-native-core"],
+  "forbiddenDependents": ["LumioClient", "LumioGame"],
+  "consumers": ["LumioGameRuntime", "LumioServer"]
+}

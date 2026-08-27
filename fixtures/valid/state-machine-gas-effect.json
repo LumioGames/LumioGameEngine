@@ -1,0 +1,22 @@
+{
+  "machineId": "GasEffect",
+  "owner": "GameRuntime",
+  "sourceAdr": "ADR-031",
+  "initialState": "Pending",
+  "states": ["Pending", "Active", "Expired", "Removed", "Rejected", "RolledBack"],
+  "terminalStates": ["Expired", "Removed", "Rejected", "RolledBack"],
+  "transitions": [
+    { "from": "Pending", "to": "Active", "event": "Apply" },
+    { "from": "Pending", "to": "Rejected", "event": "Reject" },
+    { "from": "Pending", "to": "RolledBack", "event": "RollBack" },
+    { "from": "Active", "to": "Expired", "event": "Expire" },
+    { "from": "Active", "to": "Removed", "event": "Remove" },
+    { "from": "Active", "to": "RolledBack", "event": "RollBack" }
+  ],
+  "selfEvents": [
+    { "state": "Active", "event": "Stack" },
+    { "state": "Active", "event": "Duration" },
+    { "state": "Active", "event": "Refresh" }
+  ],
+  "notes": "Effect instance lifecycle per ADR-031. Stack, Duration and Refresh are Active-internal events, not states; every terminal state invalidates the EffectHandle."
+}

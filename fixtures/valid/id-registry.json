@@ -1,6 +1,6 @@
 {
   "registryVersion": 1,
-  "baselineId": "LGE-V1.3-2026-08-27",
+  "baselineId": "LGE-V1.4-2026-08-27",
   "namespaces": [
     {
       "namespace": "MessageType",
@@ -58,7 +58,11 @@
         { "id": "QueueFull", "numeric": 1036, "status": "Active", "since": "V1" },
         { "id": "CoordinateOutOfBounds", "numeric": 1037, "status": "Active", "since": "V1" },
         { "id": "DirtyChunkNotDurable", "numeric": 1038, "status": "Active", "since": "V1" },
-        { "id": "SnapshotBaseMismatch", "numeric": 1039, "status": "Active", "since": "V1" }
+        { "id": "SnapshotBaseMismatch", "numeric": 1039, "status": "Active", "since": "V1" },
+        { "id": "SessionMismatch", "numeric": 1040, "status": "Active", "since": "V1" },
+        { "id": "RoleMismatch", "numeric": 1041, "status": "Active", "since": "V1" },
+        { "id": "ClaimNotGranted", "numeric": 1042, "status": "Active", "since": "V1" },
+        { "id": "SessionAntiReplay", "numeric": 1043, "status": "Active", "since": "V1" }
       ]
     },
     {

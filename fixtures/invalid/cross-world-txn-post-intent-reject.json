@@ -9,7 +9,7 @@
   "expectedGameRevision": 18,
   "expectedVoxelRevision": 24,
   "chunkRevisionSet": {
-    "chunk-0-0": 8
+    "c:0:0:0": 8
   },
   "deadlineTick": 52,
   "commitOrder": [

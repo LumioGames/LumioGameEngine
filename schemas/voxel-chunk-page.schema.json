@@ -21,7 +21,7 @@
         "encoding": { "$ref": "#/$defs/voxelPageEncoding" },
         "payloadLength": { "type": "integer", "minimum": 0 },
         "hash": { "$ref": "common.schema.json#/$defs/hash256" },
-        "compression": { "type": "string", "enum": ["None", "Zstd", "Lz4"] }
+        "compression": { "$ref": "common.schema.json#/$defs/compressionCodec" }
       },
       "additionalProperties": false
     }

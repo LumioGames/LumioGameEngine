@@ -19,18 +19,7 @@
       "type": "object",
       "required": ["packageIdentity", "loaderState", "errorCode"],
       "properties": {
-        "packageIdentity": {
-          "type": "object",
-          "required": ["manifestDigest", "artifactSetDigest", "abiIdentity", "targetProfileDigest"],
-          "properties": {
-            "manifestDigest": { "$ref": "common.schema.json#/$defs/hash256" },
-            "artifactSetDigest": { "$ref": "common.schema.json#/$defs/hash256" },
-            "abiIdentity": { "type": "string", "pattern": "^NativeManagedAbiV[0-9]+$" },
-            "targetProfileDigest": { "$ref": "common.schema.json#/$defs/hash256" },
-            "capabilitySetDigest": { "$ref": "common.schema.json#/$defs/hash256" }
-          },
-          "additionalProperties": false
-        },
+        "packageIdentity": { "$ref": "common.schema.json#/$defs/packageIdentity" },
         "loaderState": { "type": "string", "enum": ["Uninitialized", "Preflighting", "Verified", "Binding", "ApiReady", "Leased", "Quiescing", "Released", "FailedRolledBack"] },
         "errorCode": { "$ref": "common.schema.json#/$defs/id" },
         "trustDecision": { "type": "string", "enum": ["Trusted", "Rejected"] }
