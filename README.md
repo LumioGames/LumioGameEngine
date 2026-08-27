@@ -23,16 +23,18 @@ Root ABI、Capability、Manifest/ID Schema 和失败 Fixture 的唯一来源是 
 
 ## 子模块
 
-| 子模块 | 责任 | 首批状态 |
+| 子模块 | 责任 | 优先级 |
 | --- | --- | --- |
-| `composition` | 锁定 NativeCore/VoxelEngine Source 和 Feature | P0 |
-| `root-abi` | 统一 API Table、符号前缀、Header 和绑定输入 | P0 |
-| `loader` | 单包加载、Registry、重复版本拒绝和能力校验 | P0 |
-| `manifest` | CoreEngineManifest、Hash、依赖和平台描述 | P0 |
-| `signing` | 签名、信任根、Key Rotation 元数据和 SBOM | P1 |
-| `platform` | Linux/Windows/Desktop/Mobile 目录与链接矩阵 | P1 |
-| `smoke` | NativeHeadless、ABI Layout、包完整性和回归 Fixture | P0 |
-| `diagnostics` | Loader/ABI 事件、Metrics、Trace 和 Failure Bundle | P1 |
+| [`composition`](modules/composition/README.md) | 锁定 NativeCore/VoxelEngine Source 和 Feature | P0 |
+| [`root-abi`](modules/root-abi/README.md) | 统一 API Table、符号前缀、Header 和绑定输入 | P0 |
+| [`loader`](modules/loader/README.md) | 单包加载、Registry、重复版本拒绝和能力校验 | P0 |
+| [`manifest`](modules/manifest/README.md) | CoreEngineManifest、Hash、依赖和平台描述 | P0 |
+| [`signing`](modules/signing/README.md) | 签名、信任根、Key Rotation 元数据和 SBOM | P1 |
+| [`platform`](modules/platform/README.md) | Linux/Windows/Desktop/Mobile 目录与链接矩阵 | P1 |
+| [`smoke`](modules/smoke/README.md) | NativeHeadless、ABI Layout、包完整性和回归 Fixture | P0 |
+| [`diagnostics`](modules/diagnostics/README.md) | Loader/ABI 事件、Metrics、Trace 和 Failure Bundle | P1 |
+
+模块边界、依赖方向、输入输出和验收范围见 [`modules/README.md`](modules/README.md)。
 
 ## 职责
 
