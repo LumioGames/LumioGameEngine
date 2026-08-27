@@ -32,3 +32,4 @@
 | [0002](0002-supply-chain-domain-split.md) | signing 内部按四个安全域分拆，运行时只发布 runtime-verifier | 生效 |
 | [0003](0003-observation-validation-planes.md) | diagnostics 收窄为观测适配平面，smoke 定位为验证平面 | 生效 |
 | [0004](0004-workspace-runtime-boundary.md) | 固定单 Cargo workspace 15 crate，运行时发布闭包按规格 §3.7 白名单冻结 | 生效 |
+| [0006](0006-internal-build-plan-freeze.md) | BuildPlan 定为仓内确定性 JSON（plan_format_version=1），sidecar Digest 原子冻结，platform 只读 | 生效 |
