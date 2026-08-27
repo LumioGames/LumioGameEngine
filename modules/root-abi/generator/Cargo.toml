@@ -1,0 +1,17 @@
+[package]
+name = "lumio-core-root-abi-generator"
+description = "ABI 生成 Adapter：只调用锁定的架构源 compiler 并校验 hash，不含模板/slot/type map（AG-001、规格 §8.2）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 构建期 crate：不进入运行时发布闭包（规格 §3.7），运行时 crate 禁止引用。
+[features]
+default = []
+
+[[bin]]
+name = "lumio-core-root-abi-generator"
+path = "src/bin/lumio-core-root-abi-generator.rs"

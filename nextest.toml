@@ -1,0 +1,7 @@
+# cargo-nextest 配置（cargo-nextest 0.9.114）。
+# 统一测试入口为 `cargo nextest run --workspace --profile ci`（规格 §20.1）。
+
+[profile.ci]
+# P0 门禁不允许 flaky 重跑蒙混：失败立即暴露，最终报告聚合输出。
+retries = 0
+failure-output = "immediate-final"

@@ -1,0 +1,36 @@
+# LumioCoreEngine 根 workspace（LCE-P0-001）。
+# 15 个 member 显式列出，禁止 glob / exclude 兜底（规格 §3.2）。
+# crate 名与规格 §3.1 一一对应，不得增删改名。
+
+[workspace]
+resolver = "2"
+members = [
+    "modules/composition",
+    "modules/root-abi/contracts",
+    "modules/root-abi/runtime",
+    "modules/root-abi/generator",
+    "modules/platform/contracts",
+    "modules/platform/runtime",
+    "modules/platform/build",
+    "modules/manifest",
+    "modules/signing/evidence-generator",
+    "modules/signing/signer-tool",
+    "modules/signing/runtime-verifier",
+    "modules/signing/trust-policy",
+    "modules/loader",
+    "modules/diagnostics",
+    "modules/smoke",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.89.0"
+repository = "https://github.com/LumioGames/LumioCoreEngine"
+publish = false
+
+# 直接依赖统一在此固定精确版本；crate 只能经 `<dep>.workspace = true` 消费，
+# 不得自行漂移版本（规格 §3.2）。当前依赖图为空：本卡不引入任何第三方依赖，
+# 后续任务按其卡片与选型记录（规格 §4）逐项登记。
+[workspace.dependencies]

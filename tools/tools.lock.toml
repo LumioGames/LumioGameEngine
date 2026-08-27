@@ -1,0 +1,59 @@
+# 外部工具锁（LCE-P0-001，规格 §3.5）。
+# 每项固定：name, version, source_url, source_commit, license_spdx, artifact_sha256,
+# supported_hosts, invocation, owner, exit_tool。
+#   artifact_sha256 = source_url 指向的分发制品（release archive）的 SHA-256；
+#   本机实际安装的二进制 SHA-256 登记在 tools/checksums.sha256（key = name@host），
+#   由 tools/verify-tool-lock.sh 双向校验。
+#   source_commit 为 release tag 对应 commit（git ls-remote 解析）。
+# 新增/升级工具必须走规格 §4 选型记录（候选、许可证、退出路径）并同步本文件与 checksums。
+
+schema_version = 1
+
+[[tools]]
+name = "cargo-deny"
+version = "0.20.2"
+source_url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-pc-windows-msvc.tar.gz"
+source_commit = "87da103c554376c89a641116f835a41073a9d774"
+license_spdx = "Apache-2.0 OR MIT"
+artifact_sha256 = "975a22143262fd27476d19ee00c7af67978426e40e1dee94eed6bbade1cf87dc"
+supported_hosts = ["windows-x86_64"]
+invocation = "cargo deny check"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "cargo-audit + OSV-Scanner（候选见规格 §4「许可证/供应链门禁」行）"
+
+[[tools]]
+name = "cargo-about"
+version = "0.9.2"
+source_url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.2/cargo-about-0.9.2-x86_64-pc-windows-msvc.tar.gz"
+source_commit = "caf26fdd28970d9d0ef7ec84fcf3c1086ac971c8"
+license_spdx = "Apache-2.0 OR MIT"
+artifact_sha256 = "1c03e5890238562497c2d89a3b75b02560af349c1fc3e713d3284f532a5cd748"
+supported_hosts = ["windows-x86_64"]
+invocation = "cargo about generate --config about.toml about.hbs -o build/reports/licenses.md"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "cargo-cyclonedx / ORT（候选见规格 §4「SBOM/License/Provenance」行）"
+
+[[tools]]
+name = "cargo-nextest"
+version = "0.9.114"
+# release tag commit 为 8f10a6bd…；二进制自报构建 commit 9daab1c50cd0389236508435f71434f01aa2eca1（nextest 发布分支），以 archive SHA-256 为准。
+source_url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.114/cargo-nextest-0.9.114-x86_64-pc-windows-msvc.zip"
+source_commit = "8f10a6bd14ca92ecb6e6f0a77a5b8cf899794a39"
+license_spdx = "MIT OR Apache-2.0"
+artifact_sha256 = "43f376ca6e33e7814a5aa7a92a86839ca81bbbbccb150f1497019108fa2e860b"
+supported_hosts = ["windows-x86_64"]
+invocation = "cargo nextest run --workspace --profile ci"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "cargo test（libtest，规格 §4「测试/Fixture」行）"
+
+[[tools]]
+name = "just"
+version = "1.58.0"
+source_url = "https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-x86_64-pc-windows-msvc.zip"
+source_commit = "ebedee5bafe1ce779e93d91a2eff0c1bf3687b9c"
+license_spdx = "MIT"
+artifact_sha256 = "759f16fb7aa17c5c8b9594b6d4a8c1a6630dfd042cf2b3ff84841454d3d188dc"
+supported_hosts = ["windows-x86_64"]
+invocation = "just <recipe>（命令 facade，规格 §3.4）"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "直接调用 crate CLI（去掉 just 转发层）"

@@ -1,0 +1,2 @@
+# clippy 配置。MSRV 与 rust-toolchain.toml / workspace rust-version 保持一致。
+msrv = "1.89.0"

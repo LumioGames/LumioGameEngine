@@ -1,0 +1,17 @@
+[package]
+name = "lumio-core-composition"
+description = "把锁定的 Source、Feature、TargetProfile 与工具链约束解析为不可变 BuildPlan 与 ProvenanceRecord（ADR 0001：只产计划，不执行构建）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 构建期 crate：不进入运行时发布闭包（规格 §3.7）。
+[features]
+default = []
+
+[[bin]]
+name = "lumio-core-compose"
+path = "src/bin/lumio-core-compose.rs"

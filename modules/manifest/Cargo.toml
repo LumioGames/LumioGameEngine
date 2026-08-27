@@ -1,0 +1,17 @@
+[package]
+name = "lumio-core-manifest"
+description = "CoreEngineManifestBody 生成/校验 CLI：消费 FrozenBuildPlan、ABI 记录、TargetProfile、ArtifactIndex 与 EvidenceSet，产出 Canonical bytes 与 Manifest Digest（规格 §10）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 构建期 crate：不进入运行时发布闭包（规格 §3.7）；Loader 不得编译依赖本 crate。
+[features]
+default = []
+
+[[bin]]
+name = "lumio-core-manifest"
+path = "src/bin/lumio-core-manifest.rs"

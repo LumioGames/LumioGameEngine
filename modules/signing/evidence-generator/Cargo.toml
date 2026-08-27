@@ -1,0 +1,17 @@
+[package]
+name = "lumio-core-evidence-generator"
+description = "供应链证据生成：运行锁定工具产出 SBOM/License/Provenance 并绑定进 EvidenceSet（ADR 0002、规格 §11.1）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 构建期 crate：不进入运行时发布闭包（规格 §3.7）。
+[features]
+default = []
+
+[[bin]]
+name = "lumio-core-evidence-generator"
+path = "src/bin/lumio-core-evidence-generator.rs"

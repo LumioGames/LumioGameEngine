@@ -1,0 +1,17 @@
+[package]
+name = "lumio-core-smoke"
+description = "验证平面：串起 P0 垂直切片的 verify-package/load 冒烟与篡改矩阵，产出测试报告；不生产最终 Failure Bundle（ADR 0003、规格 §14）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 验证平面（ADR 0003）：非生产模块，不进入运行时发布闭包（规格 §3.7）。
+[features]
+default = []
+
+[[bin]]
+name = "lumio-core-smoke"
+path = "src/bin/lumio-core-smoke.rs"

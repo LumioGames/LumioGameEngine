@@ -1,0 +1,17 @@
+# cargo-about 许可证报告配置（cargo-about 0.9.2）。
+# accepted 与 deny.toml [licenses].allow 保持同一口径：白名单外的许可证
+# （GPL/AGPL/SSPL/MPL 等强传染与弱传染许可证）不进报告——cargo-about 解析阶段
+# 直接失败，该状态即「需法务审核」；放行须走 ADR + 法务并同步更新 deny.toml。
+
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "CDLA-Permissive-2.0",
+]

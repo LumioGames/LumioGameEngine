@@ -1,0 +1,60 @@
+# cargo-deny 供应链门禁（LCE-P0-001，cargo-deny 0.20.2，licenses 配置 v2）。
+# 策略：
+#   1. 许可证白名单制（deny-by-default）：只有 allow 列出的宽松许可证可进入依赖闭包；
+#      GPL/AGPL/SSPL/MPL 等强传染与弱传染许可证不在白名单内，出现即被拒绝并显示
+#      被拒许可证 ID——该状态即「需法务审核」（legal review）。放行只能走
+#      [[licenses.exceptions]]（逐 crate、逐许可证、须附法务评审与 ADR），不得扩白名单。
+#      被默认拒绝的许可证族（含但不限于）："GPL-1.0", "GPL-2.0", "GPL-3.0",
+#      "LGPL-2.0", "LGPL-2.1", "LGPL-3.0", "AGPL-1.0", "AGPL-3.0", "SSPL-1.0",
+#      "MPL-2.0"，以及一切未列入 allow 的许可证。
+#   2. 未知 registry / git 来源一律拒绝；git 依赖必须固定 40 位 commit。
+#   3. 同一 crate 多版本共存一律拒绝；通配符版本依赖一律拒绝。
+# 与 about.toml 的 accepted 白名单保持同一口径。
+
+[graph]
+# 全 feature 检查（当前依赖图为空；后续任务登记依赖后立即生效）。
+all-features = true
+
+[licenses]
+version = 2
+# SPDX 匹配置信度阈值（默认 0.8，收紧到 0.93）。
+confidence-threshold = 0.93
+# 宽松许可证白名单。MPL-2.0 有意不在列：弱传染（file-level copyleft），与 cbindgen 同类
+# ——引入前需法务审核（规格 §4 选型表）。GPL/AGPL/SSPL/LGPL 全系同理被默认拒绝。
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "CDLA-Permissive-2.0",
+]
+# 「需法务审核」放行口：v2 配置下例外是唯一允许非白名单许可证的机制，
+# 每条例外必须附法务评审记录与 ADR 编号；当前无例外。
+# [[licenses.exceptions]]
+# allow = ["<SPDX-ID>"]
+# name = "<crate>"
+# 声明理由（法务评审记录与 ADR 编号）。
+# 白名单中出现图里不存在的许可证时告警（依赖图为空时全部白名单暂未使用，属预期）。
+unused-allowed-license = "warn"
+
+[bans]
+# 同一 crate 多版本共存一律拒绝；确需并存时按 crate 显式 skip 并写明理由。
+multiple-versions = "deny"
+# 通配符版本依赖（version = "*"）拒绝。
+wildcards = "deny"
+# 高亮多版本问题的最简引入路径，便于定位。
+highlight = "simplest-path"
+
+[sources]
+# 未登记的 registry 与 git 来源一律拒绝（验收项：无未锁定 git/registry）。
+unknown-registry = "deny"
+unknown-git = "deny"
+
+[advisories]
+# 已撤回（yanked）的版本一律拒绝。
+yanked = "deny"
