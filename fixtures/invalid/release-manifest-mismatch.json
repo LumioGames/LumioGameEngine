@@ -1,0 +1,20 @@
+{
+  "productId": "A",
+  "gameReleaseId": "A-1.1.0",
+  "manifestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "serverAssemblyHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "clientAssemblyHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "gameplayContractHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "runtimeApi": "RuntimeApiV1",
+  "coreEngineAbi": "NativeManagedAbiV1",
+  "networkProtocol": "LumioWireV1",
+  "voxelSchema": "VoxelSchemaV1",
+  "voxelMigration": "VoxelMigrationV1",
+  "configContentHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "signature": { "algorithm": "Ed25519", "keyId": "release-key-1", "value": "sig-mismatch-placeholder-00000000000000000000000000000000" },
+  "sbom": { "format": "CycloneDX", "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "dependencyCount": 42 },
+  "capabilities": ["Native", "Server", "Client"],
+  "compatibilityPolicy": "ExactRelease",
+  "serverReleaseId": "A-1.1.0",
+  "clientReleaseId": "A-1.0.0"
+}

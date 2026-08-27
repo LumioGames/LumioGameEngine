@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-006-native-managed-abi.md

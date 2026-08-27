@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/common.schema.json",
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "hash256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "netEntityId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tickId": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "releaseId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "productId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"
+    },
+    "hexOrBase64": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "correlation": {
+      "type": "object",
+      "required": [
+        "productId",
+        "gameReleaseId",
+        "sessionId",
+        "worldId",
+        "tickId",
+        "traceId",
+        "eventSeq"
+      ],
+      "properties": {
+        "productId": { "$ref": "common.schema.json#/$defs/productId" },
+        "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
+        "releasePoolId": { "$ref": "common.schema.json#/$defs/id" },
+        "maintenanceId": { "$ref": "common.schema.json#/$defs/id" },
+        "sessionId": { "$ref": "common.schema.json#/$defs/id" },
+        "worldId": { "$ref": "common.schema.json#/$defs/id" },
+        "worldSlotId": { "$ref": "common.schema.json#/$defs/id" },
+        "tickId": { "$ref": "common.schema.json#/$defs/tickId" },
+        "txnId": { "$ref": "common.schema.json#/$defs/id" },
+        "netEntityId": { "$ref": "common.schema.json#/$defs/netEntityId" },
+        "predictionKey": { "$ref": "common.schema.json#/$defs/id" },
+        "snapshotId": { "$ref": "common.schema.json#/$defs/id" },
+        "traceId": { "$ref": "common.schema.json#/$defs/id" },
+        "producerId": { "$ref": "common.schema.json#/$defs/id" },
+        "eventSeq": { "$ref": "common.schema.json#/$defs/revision" }
+      },
+      "additionalProperties": true
+    },
+    "sessionRevisionVector": {
+      "type": "object",
+      "required": [
+        "tickId",
+        "gameRevision",
+        "voxelWorldRevision",
+        "chunkRevisionSet",
+        "replicationRevision",
+        "configRevision",
+        "schemaEpoch"
+      ],
+      "properties": {
+        "tickId": { "$ref": "common.schema.json#/$defs/tickId" },
+        "gameRevision": { "$ref": "common.schema.json#/$defs/revision" },
+        "voxelWorldRevision": { "$ref": "common.schema.json#/$defs/revision" },
+        "chunkRevisionSet": {
+          "type": "object",
+          "additionalProperties": { "$ref": "common.schema.json#/$defs/revision" }
+        },
+        "replicationRevision": { "$ref": "common.schema.json#/$defs/revision" },
+        "configRevision": { "$ref": "common.schema.json#/$defs/revision" },
+        "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

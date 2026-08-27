@@ -1,0 +1,36 @@
+{
+  "registryVersion": 1,
+  "baselineId": "LGE-V1.0-2026-08-27",
+  "namespaces": [
+    {
+      "namespace": "MessageType",
+      "owner": "GameRuntime",
+      "values": [
+        { "id": "Handshake", "numeric": 1, "status": "Active", "since": "V1" },
+        { "id": "FullSnapshot", "numeric": 2, "status": "Active", "since": "V1" },
+        { "id": "Delta", "numeric": 3, "status": "Active", "since": "V1" },
+        { "id": "ResyncRequest", "numeric": 4, "status": "Active", "since": "V1" },
+        { "id": "MaintenanceKick", "numeric": 5, "status": "Active", "since": "V1" }
+      ]
+    },
+    {
+      "namespace": "ErrorCode",
+      "owner": "Architecture",
+      "values": [
+        { "id": "RevisionConflict", "numeric": 1001, "status": "Active", "since": "V1" },
+        { "id": "MaintenanceKick", "numeric": 1002, "status": "Active", "since": "V1" },
+        { "id": "ReleaseMismatch", "numeric": 1003, "status": "Active", "since": "V1" },
+        { "id": "NativeAbiMismatch", "numeric": 1004, "status": "Active", "since": "V1" }
+      ]
+    },
+    {
+      "namespace": "Capability",
+      "owner": "Architecture",
+      "values": [
+        { "id": "Native", "numeric": 1, "status": "Active", "since": "V1" },
+        { "id": "HybridCLR", "numeric": 2, "status": "Reserved", "since": "V1" },
+        { "id": "ReferenceVoxel", "numeric": 3, "status": "Active", "since": "V1" }
+      ]
+    }
+  ]
+}

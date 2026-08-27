@@ -1,0 +1,17 @@
+{
+  "abiVersion": 1,
+  "structSize": 64,
+  "capabilityBits": 7,
+  "pointerWidth": 64,
+  "endianness": "Little",
+  "apiTable": [
+    { "name": "lumio_core_get_api_v1", "version": 1, "functionCount": 12 },
+    { "name": "lumio_voxel_get_api_v1", "version": 1, "functionCount": 18 }
+  ],
+  "ownership": "CallerBuffer",
+  "errorModel": "StableErrorCode",
+  "panicBoundary": "CaughtAndMapped",
+  "exceptionBoundary": "CaughtAndMapped",
+  "threading": "OwnerThreadTick",
+  "loadPolicy": "OnePackagePerProcess"
+}

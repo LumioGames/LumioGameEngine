@@ -1,0 +1,10 @@
+{
+  "netEntityId": "00000000000000010000000000000001",
+  "authorityDomain": "server-a",
+  "worldEpoch": 7,
+  "sequence": 15,
+  "generation": 2,
+  "namespace": "Authoritative",
+  "lifecycle": "Alive",
+  "tombstoneUntilRevision": 48
+}

@@ -1,0 +1,2 @@
+# Architecture-gate validator. Runtime repositories own their own lockfiles.
+jsonschema==4.25.1

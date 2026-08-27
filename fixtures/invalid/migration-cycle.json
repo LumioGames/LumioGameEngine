@@ -1,0 +1,13 @@
+{
+  "migrationId": "cycle-invalid",
+  "sourceReleaseId": "A-1.0.0",
+  "targetReleaseId": "A-1.1.0",
+  "sourceSchemaEpoch": 1,
+  "targetSchemaEpoch": 2,
+  "staging": "ImmutableSourceCopy",
+  "activation": "AtomicPointer",
+  "nodes": [
+    { "nodeId": "a", "owner": "Game", "dependsOn": ["b"], "inputSchema": "S1", "outputSchema": "S2", "idempotent": true },
+    { "nodeId": "b", "owner": "VoxelEngine", "dependsOn": ["a"], "inputSchema": "S2", "outputSchema": "S3", "idempotent": true }
+  ]
+}

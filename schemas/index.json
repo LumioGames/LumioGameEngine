@@ -1,0 +1,25 @@
+{
+  "schemaSetVersion": 1,
+  "baselineId": "LGE-V1.0-2026-08-27",
+  "schemas": [
+    { "id": "session-revision-vector", "file": "session-revision-vector.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "cross-world-txn", "file": "cross-world-txn.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "replication-envelope", "file": "replication-envelope.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "entity-identity", "file": "entity-identity.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "native-managed-abi", "file": "native-managed-abi.schema.json", "priority": "P0", "owner": "CoreEngine" },
+    { "id": "release-manifest", "file": "release-manifest.schema.json", "priority": "P0", "owner": "Game" },
+    { "id": "maintenance-command", "file": "maintenance-command.schema.json", "priority": "P0", "owner": "Server" },
+    { "id": "snapshot-header", "file": "snapshot-header.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "config-table", "file": "config-table.schema.json", "priority": "P0", "owner": "Game" },
+    { "id": "logging-event", "file": "logging-event.schema.json", "priority": "P0", "owner": "Server" },
+    { "id": "processor-descriptor", "file": "processor-descriptor.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "failure-bundle", "file": "failure-bundle.schema.json", "priority": "P0", "owner": "Architecture" },
+    { "id": "release-catalog", "file": "release-catalog.schema.json", "priority": "P0", "owner": "Server" },
+    { "id": "replication-mapping", "file": "replication-mapping.schema.json", "priority": "P0", "owner": "Game" },
+    { "id": "host-capability", "file": "host-capability.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "id-registry", "file": "id-registry.schema.json", "priority": "P0", "owner": "Architecture" },
+    { "id": "migration-manifest", "file": "migration-manifest.schema.json", "priority": "P1", "owner": "Game" },
+    { "id": "contract-result", "file": "contract-result.schema.json", "priority": "P1", "owner": "Architecture" },
+    { "id": "mod-manifest", "file": "mod-manifest.schema.json", "priority": "P2", "owner": "Game" }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/native-managed-abi.schema.json",
+  "type": "object",
+  "required": ["abiVersion", "structSize", "capabilityBits", "pointerWidth", "endianness", "apiTable", "ownership", "errorModel"],
+  "properties": {
+    "abiVersion": { "type": "integer", "minimum": 1 },
+    "structSize": { "type": "integer", "minimum": 1 },
+    "capabilityBits": { "type": "integer", "minimum": 0 },
+    "pointerWidth": { "type": "integer", "enum": [32, 64] },
+    "endianness": { "type": "string", "enum": ["Little", "Big"] },
+    "apiTable": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "version", "functionCount"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
+          "version": { "type": "integer", "minimum": 1 },
+          "functionCount": { "type": "integer", "minimum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "ownership": { "type": "string", "enum": ["CreatorFrees", "CallerBuffer", "BorrowedUntilReturn"] },
+    "errorModel": { "type": "string", "enum": ["StableErrorCode"] },
+    "panicBoundary": { "type": "string", "enum": ["CaughtAndMapped"] },
+    "exceptionBoundary": { "type": "string", "enum": ["CaughtAndMapped"] },
+    "threading": { "type": "string", "enum": ["OwnerThreadTick", "ThreadSafeBatched", "CallerSerialized"] },
+    "loadPolicy": { "type": "string", "enum": ["OnePackagePerProcess"] }
+  },
+  "additionalProperties": false
+}

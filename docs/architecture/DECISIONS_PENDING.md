@@ -1,0 +1,18 @@
+# Decisions Pending Before Foundation
+
+These are implementation choices that are intentionally **not** frozen by `LGE-V1.0-2026-08-27`. The documented defaults keep the v1.0 ownership, state machines and compatibility boundary intact. Confirming a value records it in the relevant ADR/Manifest; changing a wire field, Schema, state or compatibility rule requires a new BaselineId.
+
+| ID | Question | Temporary default | Why it matters | Baseline impact |
+| --- | --- | --- | --- | --- |
+| D-001 | One Release per process or multiple Products/Releases in one process? | One `GameReleaseId` per process; multiple `ReleasePool` processes serve A 1.1 and BOE 2.1. | ABI/ALC isolation, rollback and fault scope. | No change unless in-process loading is enabled; then update ADR-006/012 and Loader Schema. |
+| D-002 | How far should rolling update drain? | Service-level drain; existing Sessions finish or are kicked by deadline. | Live Session migration needs a new protocol, save cut and rollback contract. | No change for default; live migration requires a new ADR and protocol epoch. |
+| D-003 | Which maintenance mode is the operational default? | `Graceful` for scheduled work; `Forced` only for emergency/security work. | Controls user experience, durability window and incident runbook. | No wire change; record the policy in Server deployment config. |
+| D-004 | Which OSS Transport/Codec/compression stack? | No vendor is frozen; evaluate mature OSS behind adapters. | Affects latency, MTU/fragmentation, AOT, licensing and deterministic bytes. | Adapter-only choice does not change baseline; envelope/codec changes do. |
+| D-005 | What Snapshot/WAL durability and retention are required? | Dedicated Server: recoverable before authority confirmation; group-commit or sync mode to be measured. | Determines fsync cost, crash-loss window, disk/object-store layout and audit retention. | Record in ADR-010 and deployment manifest; format stays canonical. |
+| D-006 | What are `MobileLocal` memory/startup budgets and HybridCLR policy? | Run a measured spike; do not make Server HybridCLR or deep mobile optimization a V1 prerequisite. | Determines package layout, AOT metadata and whether LocalEmbedded is feasible on target devices. | Capability/manifest update only unless loading or persistence semantics change. |
+| D-007 | Should V1 later accept N/N-1 Release compatibility? | No; exact `ProductId + GameReleaseId` matching and forced update path. | Compatibility windows multiply Mapping, migration and security test matrices. | Opening a window requires a new ADR, handshake rules and fixtures. |
+| D-008 | Which external log sink and retention/PII policy? | File + console adapters first; external sink and retention are deployment choices. | Changes queue sizing, redaction, audit evidence and operational cost. | Event Schema remains stable; sink contract and policy are versioned separately. |
+
+## Confirmation Record
+
+Until the owner confirms these rows, implementation may proceed only with the temporary defaults and must label measurements as provisional. The confirmation should include date, owner, selected value, rejected alternatives and the affected ADR/Manifest. No code may infer a choice from an environment variable without a declared Host/Release capability.
