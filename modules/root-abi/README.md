@@ -36,4 +36,4 @@
 ## 相关文档
 
 - [模块索引](../README.md)
-- [架构基线镜像](../../docs/architecture/LumioGameEngine_Architecture_v1.1.md)
+- [架构基线镜像](../../docs/architecture/LumioGameEngine_Architecture_v1.2.md)

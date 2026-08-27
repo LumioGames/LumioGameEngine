@@ -4,9 +4,9 @@
 
 ## 架构基线
 
-- Baseline：`LGE-V1.1-2026-08-27`
+- Baseline：`LGE-V1.2-2026-08-27`
 - 唯一架构源：`LumioGameEngineArchitecture`
-- 本地镜像：[`docs/architecture/LumioGameEngine_Architecture_v1.1.md`](docs/architecture/LumioGameEngine_Architecture_v1.1.md)
+- 本地镜像：[`docs/architecture/LumioGameEngine_Architecture_v1.2.md`](docs/architecture/LumioGameEngine_Architecture_v1.2.md)
 
 `LumioCoreEngine` 是 Native 发布层，不是新的运行时或领域引擎。它把锁定版本的 NativeCore/VoxelEngine 组合为一个可验证的平台包，负责 Root ABI、Loader、ArtifactIndex、签名、SBOM 和平台兼容性。
 

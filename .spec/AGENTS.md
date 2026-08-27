@@ -9,7 +9,7 @@
 
 `LumioCoreEngine` 是 `LumioNativeCore` 与 `LumioVoxelEngine` 的聚合发布层，拥有统一 Native ABI、Loader、Manifest、签名、SBOM 和平台产物边界。
 
-- 当前架构基线是 `LGE-V1.1-2026-08-27`；公共架构与契约的唯一来源是 `LumioGameEngineArchitecture`，本仓只保存只读镜像。
+- 当前架构基线是 `LGE-V1.2-2026-08-27`；公共架构与契约的唯一来源是 `LumioGameEngineArchitecture`，本仓只保存只读镜像。
 - 本仓只负责组合、适配、发布和校验，不成为新的 Runtime、Voxel 或 Gameplay 领域层。
 - 开工前先读 [`repository-architecture.md`](knowledge/standards/repository-architecture.md)；详细模块边界见根 [`README.md`](../README.md)。
 
