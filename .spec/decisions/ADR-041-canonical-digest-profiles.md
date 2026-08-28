@@ -51,9 +51,17 @@ Sorting rules used above, and nowhere else:
 
 The empty artifact set is defined (`entries: []` canonicalizes to `[]` and has a stable digest) even though `artifact-index.entries` keeps `minItems: 1`: a shipped package always has files, but the serializer must still agree on the empty case, so it is frozen as a Golden rather than by loosening a published constraint.
 
-### 4. Golden vectors are published, and they are self-verifying
+### 4. Each domain publishes its normalization as data, not as prose
 
-`schemas/canonical-digest-profile.schema.json` describes a published record carrying the §1 form parameters, the §3 domain table, and a list of Golden vectors. Each vector is a triple: the input value, the exact canonical byte string, and its SHA-256. The architecture gate **recomputes** both the bytes and the digest from the input value, so a Golden cannot rot into a lie.
+The sort rules of §3 are published in `digestDomains[].normalization` as an ordered list of executable steps (`path`, `op`, `by`, `collation`) — the same declaration the generator and the gate execute. `sortRule` remains as the human-readable gloss of that declaration, never as its authority.
+
+This is not decoration. Normalization runs **before** canonicalization, and `CanonicalJsonV1` itself never reorders an array (`arrayOrder = DocumentOrder`), so an implementation that reads the form parameters but misses the sort produces different bytes **and raises nothing**. Three downstream repositories independently implemented from the form block alone and each reproduced exactly 6 of 8 Goldens, failing exactly the two permutation vectors — the other six inputs are already sorted, so the omission does not show. Publishing the rule as prose while publishing `omitMembers` as data made that outcome the predictable one: a consumer correctly executes the omit and silently skips the sort.
+
+It also closes a contradiction in §5 below: conformance is defined as reproducing the Goldens, so a published profile from which the Goldens cannot be reproduced makes the conformance criterion unreachable.
+
+### 5. Golden vectors are published, and they are self-verifying
+
+`schemas/canonical-digest-profile.schema.json` describes a published record carrying the §1 form parameters, the §3 domain table with its §4 normalization, and a list of Golden vectors. Each vector is a triple: the input value, the exact canonical byte string, and its SHA-256. The architecture gate **recomputes** both the bytes and the digest from the input value, so a Golden cannot rot into a lie.
 
 The vector set covers, at minimum: the empty / single / multi artifact set; two entry orderings that must collapse to one digest; two capability orderings that must collapse to one digest; the escaping boundary (quote, backslash, the five shorthand controls, another C0 control, non-ASCII BMP and an astral code point); an integer boundary; and a schema-version change that must change the digest.
 
@@ -65,7 +73,7 @@ The vector set covers, at minimum: the empty / single / multi artifact set; two 
 
 `schemas/canonical-digest-profile.schema.json` (structural) plus `tools/lumio_contract.py` semantic rules:
 
-- **Profile**: the canonical form parameters equal the §1 freeze; the domain table equals the §3 set exactly; every Golden's `canonicalBytes` equals the re-canonicalization of its `input`, and its `sha256` equals the digest of those bytes; the required coverage cases of §4 are all present.
+- **Profile**: the canonical form parameters equal the §1 freeze; the domain table equals the §3 set exactly and each domain publishes the §4 normalization; every Golden's `canonicalBytes` equals the re-canonicalization of its `input`, and its `sha256` equals the digest of those bytes; the required coverage cases of §4 are all present.
 - **ArtifactIndex**: `artifactSetDigest` equals the §3 recomputation (existing unique-path rule unchanged).
 
 ## Failure semantics
@@ -90,4 +98,4 @@ Additive only. No existing schema, required field, enum, ID or state changes mea
 
 ## Verification
 
-Fixtures `canonical/profile` (positive), `canonical/golden-digest-mismatch` (a Golden whose `sha256` does not match its bytes), `canonical/golden-bytes-mismatch` (a Golden whose `canonicalBytes` is not the canonicalization of its input), `canonical/missing-domain` (the domain table missing a frozen domain), and `artifact/set-digest-mismatch` (an ArtifactIndex whose `artifactSetDigest` disagrees with its entries), alongside the existing `artifact/index` and `artifact/duplicate-path`.
+Fixtures `canonical/profile` (positive), `canonical/missing-normalization` (a domain table stripped of its machine-readable normalization — the exact defect three repositories hit), `canonical/golden-digest-mismatch` (a Golden whose `sha256` does not match its bytes), `canonical/golden-bytes-mismatch` (a Golden whose `canonicalBytes` is not the canonicalization of its input), `canonical/missing-domain` (the domain table missing a frozen domain), and `artifact/set-digest-mismatch` (an ArtifactIndex whose `artifactSetDigest` disagrees with its entries), alongside the existing `artifact/index` and `artifact/duplicate-path`.

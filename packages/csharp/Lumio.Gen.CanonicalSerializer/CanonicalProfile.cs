@@ -17,16 +17,17 @@ public static class CanonicalForm
     public const string DigestFraming = "PrefixFreeOverCanonicalBytes";
 }
 
-public readonly record struct DigestDomain(string Digest, string DomainTag, string SortRule, string[] OmitMembers);
+public readonly record struct NormalizationStep(string Path, string Op, string By, string Collation);
+public readonly record struct DigestDomain(string Digest, string DomainTag, string SortRule, string[] OmitMembers, NormalizationStep[] Normalization);
 public static class DigestDomains
 {
     public static readonly DigestDomain[] All =
     {
-        new DigestDomain("manifestDigest", "CoreEngineManifestBody", "member order only; the body has no array whose order is semantic", System.Array.Empty<string>()),
-        new DigestDomain("artifactSetDigest", "ArtifactSetV1", "entries sorted ascending by path (code point); paths are unique within an index", new[] { "artifactSetDigest" }),
-        new DigestDomain("artifactIndexDigest", "ArtifactIndexV1", "index.entries sorted ascending by path (code point)", System.Array.Empty<string>()),
-        new DigestDomain("targetProfileDigest", "TargetProfileV1", "member order only; the profile has no array", System.Array.Empty<string>()),
-        new DigestDomain("capabilitySetDigest", "CapabilitySetV1", "capabilities sorted ascending by code point; the array is uniqueItems so ties are impossible", System.Array.Empty<string>()),
+        new DigestDomain("manifestDigest", "CoreEngineManifestBody", "member order only; the body has no array whose order is semantic", System.Array.Empty<string>(), System.Array.Empty<NormalizationStep>()),
+        new DigestDomain("artifactSetDigest", "ArtifactSetV1", "entries sorted ascending by path (code point); paths are unique within an index", new[] { "artifactSetDigest" }, new[] { new NormalizationStep("entries", "sortAscending", "path", "codePoint") }),
+        new DigestDomain("artifactIndexDigest", "ArtifactIndexV1", "index.entries sorted ascending by path (code point)", System.Array.Empty<string>(), new[] { new NormalizationStep("index.entries", "sortAscending", "path", "codePoint") }),
+        new DigestDomain("targetProfileDigest", "TargetProfileV1", "member order only; the profile has no array", System.Array.Empty<string>(), System.Array.Empty<NormalizationStep>()),
+        new DigestDomain("capabilitySetDigest", "CapabilitySetV1", "capabilities sorted ascending by code point; the array is uniqueItems so ties are impossible", System.Array.Empty<string>(), new[] { new NormalizationStep("capabilities", "sortAscending", "$self", "codePoint") }),
     };
 }
 

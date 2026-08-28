@@ -319,19 +319,33 @@ def emit_canonical(rust_dir: Path, cs_dir: Path, profile: Dict[str, Any]) -> Non
     rust += "pub const DIGEST_FRAMING: &str = \"%s\";\n\n" % profile["digestAlgorithm"]["framing"]
     rust += (
         "#[derive(Clone, Copy, Debug)]\n"
+        "pub struct NormalizationStep {\n"
+        "    pub path: &'static str,\n"
+        "    pub op: &'static str,\n"
+        "    pub by: &'static str,\n"
+        "    pub collation: &'static str,\n"
+        "}\n\n"
+        "#[derive(Clone, Copy, Debug)]\n"
         "pub struct DigestDomain {\n"
         "    pub digest: &'static str,\n"
         "    pub domain_tag: &'static str,\n"
         "    pub sort_rule: &'static str,\n"
         "    pub omit_members: &'static [&'static str],\n"
+        "    /// Executed in declared order, before canonicalization.\n"
+        "    pub normalization: &'static [NormalizationStep],\n"
         "}\n\n"
     )
     rust += "pub const DIGEST_DOMAINS: &[DigestDomain] = &[\n"
     for domain in profile["digestDomains"]:
         omit = ", ".join("\"%s\"" % name for name in domain.get("omitMembers", []))
+        steps = ", ".join(
+            "NormalizationStep { path: \"%s\", op: \"%s\", by: \"%s\", collation: \"%s\" }"
+            % (step["path"], step["op"], step["by"], step["collation"])
+            for step in domain.get("normalization", [])
+        )
         rust += (
-            "    DigestDomain { digest: \"%s\", domain_tag: \"%s\", sort_rule: \"%s\", omit_members: &[%s] },\n"
-            % (domain["digest"], domain["domainTag"], domain["sortRule"], omit)
+            "    DigestDomain { digest: \"%s\", domain_tag: \"%s\", sort_rule: \"%s\", omit_members: &[%s], normalization: &[%s] },\n"
+            % (domain["digest"], domain["domainTag"], domain["sortRule"], omit, steps)
         )
     rust += "];\n\n"
     rust += "/// Golden vectors: `(id, case, sha256)`. Full inputs and canonical bytes are in\n"
@@ -360,16 +374,29 @@ def emit_canonical(rust_dir: Path, cs_dir: Path, profile: Dict[str, Any]) -> Non
     cs_extra.append("    public const string DuplicateMembers = \"%s\";\n" % form["duplicateMembers"])
     cs_extra.append("    public const string DigestAlgorithm = \"%s\";\n" % profile["digestAlgorithm"]["name"])
     cs_extra.append("    public const string DigestFraming = \"%s\";\n}\n\n" % profile["digestAlgorithm"]["framing"])
-    cs_extra.append("public readonly record struct DigestDomain(string Digest, string DomainTag, string SortRule, string[] OmitMembers);\n")
+    cs_extra.append("public readonly record struct NormalizationStep(string Path, string Op, string By, string Collation);\n")
+    cs_extra.append("public readonly record struct DigestDomain(string Digest, string DomainTag, string SortRule, string[] OmitMembers, NormalizationStep[] Normalization);\n")
     cs_extra.append("public static class DigestDomains\n{\n    public static readonly DigestDomain[] All =\n    {\n")
     for domain in profile["digestDomains"]:
         omit = ", ".join("\"%s\"" % name for name in domain.get("omitMembers", []))
         cs_extra.append(
-            "        new DigestDomain(\"%s\", \"%s\", \"%s\", new[] { %s }),\n"
-            % (domain["digest"], domain["domainTag"], domain["sortRule"], omit)
-            if omit
-            else "        new DigestDomain(\"%s\", \"%s\", \"%s\", System.Array.Empty<string>()),\n"
-            % (domain["digest"], domain["domainTag"], domain["sortRule"])
+            "        new DigestDomain(\"%s\", \"%s\", \"%s\", %s, %s),\n"
+            % (
+                domain["digest"],
+                domain["domainTag"],
+                domain["sortRule"],
+                ("new[] { %s }" % omit) if omit else "System.Array.Empty<string>()",
+                (
+                    "new[] { %s }"
+                    % ", ".join(
+                        "new NormalizationStep(\"%s\", \"%s\", \"%s\", \"%s\")"
+                        % (step["path"], step["op"], step["by"], step["collation"])
+                        for step in domain.get("normalization", [])
+                    )
+                )
+                if domain.get("normalization")
+                else "System.Array.Empty<NormalizationStep>()",
+            )
         )
     cs_extra.append("    };\n}\n\n")
     cs_extra.append("public readonly record struct CanonicalGolden(string Id, string Case, string Sha256);\n")
@@ -655,12 +682,16 @@ CANONICAL_FORM = {
     "duplicateMembers": "Reject",
 }
 CANONICAL_DIGEST_ALGORITHM = {"name": "SHA-256", "framing": "PrefixFreeOverCanonicalBytes"}
+# `normalization` is the machine-readable half: it is what the generator and the
+# gate actually execute, and what a downstream must execute to reproduce the
+# Goldens. `sortRule` stays as the human-readable gloss of the same rule.
 CANONICAL_DIGEST_DOMAINS = [
     {
         "digest": "manifestDigest",
         "domainTag": "CoreEngineManifestBody",
         "input": "the CoreEngineManifestBody document itself (ADR-018; the one input with no digestDomain member)",
         "sortRule": "member order only; the body has no array whose order is semantic",
+        "normalization": [],
     },
     {
         "digest": "artifactSetDigest",
@@ -668,26 +699,39 @@ CANONICAL_DIGEST_DOMAINS = [
         "input": "the ArtifactIndex with artifactSetDigest omitted, wrapped as {digestDomain,indexVersion,targetProfileId,entries}",
         "sortRule": "entries sorted ascending by path (code point); paths are unique within an index",
         "omitMembers": ["artifactSetDigest"],
+        "normalization": [
+            {"path": "entries", "op": "sortAscending", "by": "path", "collation": "codePoint"}
+        ],
     },
     {
         "digest": "artifactIndexDigest",
         "domainTag": "ArtifactIndexV1",
         "input": "the complete ArtifactIndex document including artifactSetDigest, wrapped as {digestDomain,index}",
         "sortRule": "index.entries sorted ascending by path (code point)",
+        "normalization": [
+            {"path": "index.entries", "op": "sortAscending", "by": "path", "collation": "codePoint"}
+        ],
     },
     {
         "digest": "targetProfileDigest",
         "domainTag": "TargetProfileV1",
         "input": "the complete TargetProfile document, wrapped as {digestDomain,profile}",
         "sortRule": "member order only; the profile has no array",
+        "normalization": [],
     },
     {
         "digest": "capabilitySetDigest",
         "domainTag": "CapabilitySetV1",
         "input": "the capability id list, wrapped as {digestDomain,capabilities}",
         "sortRule": "capabilities sorted ascending by code point; the array is uniqueItems so ties are impossible",
+        "normalization": [
+            {"path": "capabilities", "op": "sortAscending", "by": "$self", "collation": "codePoint"}
+        ],
     },
 ]
+CANONICAL_NORMALIZATION_BY_TAG = {
+    item["domainTag"]: item.get("normalization") or [] for item in CANONICAL_DIGEST_DOMAINS
+}
 CANONICAL_DOMAIN_TAGS = {item["domainTag"] for item in CANONICAL_DIGEST_DOMAINS}
 CANONICAL_GOLDEN_CASES = [
     "EmptyArtifactSet",
@@ -724,23 +768,48 @@ def assert_canonicalizable(value: Any, path: str = "$") -> None:
     raise CanonicalError("{} has a type CanonicalJsonV1 does not define".format(path))
 
 
+def _sort_key(item: Any, by: str) -> str:
+    """`$self` sorts the element itself; anything else sorts by that member."""
+    if by == "$self":
+        return str(item)
+    return str(item.get(by, "")) if isinstance(item, dict) else ""
+
+
+def _apply_normalization_step(value: Any, step: Dict[str, Any]) -> Any:
+    """Execute one published normalization step against a dotted member path."""
+    if step.get("op") != "sortAscending" or step.get("collation") != "codePoint":
+        raise CanonicalError("unsupported normalization step {}".format(step))
+    parts = str(step.get("path", "")).split(".")
+    out = dict(value)
+    cursor = out
+    for name in parts[:-1]:
+        child = cursor.get(name)
+        if not isinstance(child, dict):
+            return out
+        child = dict(child)
+        cursor[name] = child
+        cursor = child
+    leaf = parts[-1]
+    target = cursor.get(leaf)
+    if isinstance(target, list):
+        cursor[leaf] = sorted(target, key=lambda item: _sort_key(item, str(step.get("by", "$self"))))
+    return out
+
+
 def apply_digest_domain_sort(value: Any) -> Any:
-    """Apply the ADR-041 section 3 sort rule for a recognised digest domain."""
+    """Execute the domain's published `normalization` steps, in declared order.
+
+    The generator, the gate and any downstream run the same declaration, so a
+    consumer that reads only the published profile reproduces the Goldens.
+    """
     if not isinstance(value, dict):
         return value
     tag = value.get("digestDomain")
     if tag not in CANONICAL_DOMAIN_TAGS:
         return value
-    out = dict(value)
-    if tag == "ArtifactSetV1" and isinstance(out.get("entries"), list):
-        out["entries"] = sorted(out["entries"], key=lambda entry: str(entry.get("path", "")))
-    elif tag == "ArtifactIndexV1" and isinstance(out.get("index"), dict):
-        index = dict(out["index"])
-        if isinstance(index.get("entries"), list):
-            index["entries"] = sorted(index["entries"], key=lambda entry: str(entry.get("path", "")))
-        out["index"] = index
-    elif tag == "CapabilitySetV1" and isinstance(out.get("capabilities"), list):
-        out["capabilities"] = sorted(out["capabilities"], key=str)
+    out = value
+    for step in CANONICAL_NORMALIZATION_BY_TAG.get(tag, []):
+        out = _apply_normalization_step(out, step)
     return out
 
 

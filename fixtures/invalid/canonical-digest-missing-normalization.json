@@ -35,34 +35,27 @@
       "omitMembers": [
         "artifactSetDigest"
       ],
-      "normalization": [
-        {
-          "path": "entries",
-          "op": "sortAscending",
-          "by": "path",
-          "collation": "codePoint"
-        }
-      ]
+      "normalization": []
     },
     {
       "digest": "artifactIndexDigest",
       "domainTag": "ArtifactIndexV1",
       "input": "the complete ArtifactIndex document including artifactSetDigest, wrapped as {digestDomain,index}",
       "sortRule": "index.entries sorted ascending by path (code point)",
-      "normalization": [
-        {
-          "path": "index.entries",
-          "op": "sortAscending",
-          "by": "path",
-          "collation": "codePoint"
-        }
-      ]
+      "normalization": []
     },
     {
       "digest": "targetProfileDigest",
       "domainTag": "TargetProfileV1",
       "input": "the complete TargetProfile document, wrapped as {digestDomain,profile}",
       "sortRule": "member order only; the profile has no array",
+      "normalization": []
+    },
+    {
+      "digest": "capabilitySetDigest",
+      "domainTag": "CapabilitySetV1",
+      "input": "the capability id list, wrapped as {digestDomain,capabilities}",
+      "sortRule": "capabilities sorted ascending by code point; the array is uniqueItems so ties are impossible",
       "normalization": []
     }
   ],

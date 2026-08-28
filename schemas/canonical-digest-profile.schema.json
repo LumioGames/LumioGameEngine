@@ -61,7 +61,7 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["digest", "domainTag", "input", "sortRule"],
+        "required": ["digest", "domainTag", "input", "sortRule", "normalization"],
         "properties": {
           "digest": {
             "type": "string",
@@ -80,6 +80,20 @@
             "type": "array",
             "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
             "uniqueItems": true
+          },
+          "normalization": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "op", "by", "collation"],
+              "properties": {
+                "path": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*(\\.[A-Za-z][A-Za-z0-9]*)*$" },
+                "op": { "type": "string", "enum": ["sortAscending"] },
+                "by": { "type": "string", "pattern": "^(\\$self|[A-Za-z][A-Za-z0-9]*)$" },
+                "collation": { "type": "string", "enum": ["codePoint"] }
+              },
+              "additionalProperties": false
+            }
           }
         },
         "additionalProperties": false
