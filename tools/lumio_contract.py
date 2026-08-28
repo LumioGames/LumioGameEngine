@@ -41,6 +41,13 @@ _ABI_OUTPUT_PATHS = [path for path, _role in _abi.ABI_OUTPUT_FILES]
 _ABI_OUTPUT_ROLES = [role for _path, role in _abi.ABI_OUTPUT_FILES]
 _ABI_BUNDLE_FILE = _abi.ABI_BUNDLE_FILE
 
+_CANONICAL_FORM = dict(_abi.CANONICAL_FORM)
+_CANONICAL_DIGEST_ALGORITHM = dict(_abi.CANONICAL_DIGEST_ALGORITHM)
+_CANONICAL_DIGEST_KEYS = [item["digest"] for item in _abi.CANONICAL_DIGEST_DOMAINS]
+_CANONICAL_DOMAIN_TAGS = {item["digest"]: item["domainTag"] for item in _abi.CANONICAL_DIGEST_DOMAINS}
+_CANONICAL_GOLDEN_CASES = set(_abi.CANONICAL_GOLDEN_CASES)
+_CANONICAL_PROFILE_FILE = _abi.CANONICAL_PROFILE_FILE
+
 
 class ContractError(Exception):
     """Raised for malformed registry data or an unreadable contract file."""
@@ -680,6 +687,26 @@ def state_machine_consistency_errors(
     return errors
 
 
+def published_canonical_profile_errors() -> List[str]:
+    """ADR-041: the published profile must be re-derivable from the fixture inputs."""
+    published = PACKAGE_DIR / _CANONICAL_PROFILE_FILE
+    if not published.is_file():
+        return []
+    document = load_json(published)
+    try:
+        derived = _abi.derive_canonical_profile(ROOT)
+    except _abi.CanonicalError as exc:
+        return ["published canonical/digest profile cannot be derived: {}".format(exc)]
+    if canonical_json(derived) != canonical_json(document):
+        return [
+            "published {} does not match the profile derived from the registered inputs;"
+            " regenerate with `python3 tools/lumio_contract.py generate --out packages`".format(
+                _CANONICAL_PROFILE_FILE
+            )
+        ]
+    return []
+
+
 def published_root_abi_bundle_errors() -> List[str]:
     """ADR-040: the published bundle must be re-derivable from the ABI document."""
     published = PACKAGE_DIR / _ABI_BUNDLE_FILE
@@ -1028,6 +1055,72 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         paths = [entry.get("path") for entry in value.get("entries", [])]
         if len(paths) != len(set(paths)):
             errors.append("artifact paths must be unique within an index")
+        # ADR-041: artifactSetDigest is the digest of this index with its own
+        # artifactSetDigest member omitted, so the self-reference is defined.
+        try:
+            expected = _abi.canonical_digest(_abi.artifact_set_digest_input(value))
+        except _abi.CanonicalError as exc:
+            errors.append("artifact index is not canonicalizable: {}".format(exc))
+        else:
+            if value.get("artifactSetDigest") != expected:
+                errors.append(
+                    "artifactSetDigest must equal the ADR-041 recomputation {}".format(expected)
+                )
+
+    elif schema_id == "canonical-digest-profile":
+        if value.get("canonicalForm") != _CANONICAL_FORM:
+            errors.append("canonicalForm must equal the ADR-041 frozen CanonicalJsonV1 parameters")
+        if value.get("digestAlgorithm") != _CANONICAL_DIGEST_ALGORITHM:
+            errors.append("digestAlgorithm must equal the ADR-041 frozen construction")
+        declared = [item.get("digest") for item in value.get("digestDomains", [])]
+        if declared != _CANONICAL_DIGEST_KEYS:
+            missing = [key for key in _CANONICAL_DIGEST_KEYS if key not in declared]
+            extra = [key for key in declared if key not in _CANONICAL_DIGEST_KEYS]
+            errors.append(
+                "digestDomains must cover the frozen digest set in order"
+                " (missing: {}, unregistered: {})".format(missing, extra)
+            )
+        for item in value.get("digestDomains", []):
+            expected_tag = _CANONICAL_DOMAIN_TAGS.get(item.get("digest"))
+            if expected_tag is not None and item.get("domainTag") != expected_tag:
+                errors.append(
+                    "digest {} must use domain tag {}".format(item.get("digest"), expected_tag)
+                )
+        goldens = value.get("goldens", [])
+        ids = [item.get("id") for item in goldens]
+        if len(ids) != len(set(ids)):
+            errors.append("golden ids must be unique")
+        covered = {item.get("case") for item in goldens}
+        if covered != _CANONICAL_GOLDEN_CASES:
+            missing = sorted(_CANONICAL_GOLDEN_CASES - covered)
+            extra = sorted(covered - _CANONICAL_GOLDEN_CASES)
+            errors.append(
+                "goldens must cover every frozen case"
+                " (missing: {}, unregistered: {})".format(missing, extra)
+            )
+        by_case = {}
+        for golden in goldens:
+            try:
+                text = _abi.canonical_bytes(golden.get("input"))
+            except _abi.CanonicalError as exc:
+                errors.append("golden {} input is not canonicalizable: {}".format(golden.get("id"), exc))
+                continue
+            if golden.get("canonicalBytes") != text:
+                errors.append(
+                    "golden {} canonicalBytes does not re-canonicalize from its input".format(golden.get("id"))
+                )
+            digest = hashlib.sha256(text.encode("ascii")).hexdigest()
+            if golden.get("sha256") != digest:
+                errors.append("golden {} sha256 must equal {}".format(golden.get("id"), digest))
+            by_case.setdefault(golden.get("case"), []).append(golden)
+        multi = by_case.get("MultiArtifact") or []
+        permutation = by_case.get("PathOrderPermutation") or []
+        if multi and permutation and multi[0].get("sha256") != permutation[0].get("sha256"):
+            errors.append("a path permutation must collapse to the MultiArtifact digest")
+        single = by_case.get("SingleArtifact") or []
+        versioned = by_case.get("SchemaVersionChange") or []
+        if single and versioned and single[0].get("sha256") == versioned[0].get("sha256"):
+            errors.append("a schema version change must change the digest")
 
     elif schema_id == "core-engine-manifest":
         if "Native" not in value.get("capabilitySet", []):
@@ -1429,6 +1522,7 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     consistency.extend(vocabulary_consistency_errors(schemas, id_registry))
     consistency.extend(state_machine_consistency_errors(schemas, fixtures))
     consistency.extend(published_root_abi_bundle_errors())
+    consistency.extend(published_canonical_profile_errors())
     if consistency:
         raise ContractError("; ".join(consistency))
     return schemas, fixtures
