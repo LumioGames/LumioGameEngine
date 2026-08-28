@@ -2,191 +2,1240 @@
   "fixtureSetVersion": 1,
   "baselineId": "LGE-V1.4-2026-08-27",
   "fixtures": [
-    { "id": "revision/valid", "schema": "session-revision-vector", "file": "valid/session-revision-vector.json", "expected": "valid" },
-    { "id": "revision/negative", "schema": "session-revision-vector", "file": "invalid/session-revision-negative.json", "expected": "invalid", "reason": "negative revision" },
-    { "id": "revision/legacy-chunk-key", "schema": "session-revision-vector", "file": "invalid/session-revision-legacy-chunk-key.json", "expected": "invalid", "reason": "chunk revision keys must use the canonical ChunkId format" },
-    { "id": "txn/committed", "schema": "cross-world-txn", "file": "valid/cross-world-txn-committed.json", "expected": "valid" },
-    { "id": "txn/aborted-revision-conflict", "schema": "cross-world-txn", "file": "valid/cross-world-txn-aborted.json", "expected": "valid" },
-    { "id": "txn/partial-commit", "schema": "cross-world-txn", "file": "invalid/cross-world-txn-partial-commit.json", "expected": "invalid", "reason": "commit order and participant markers disagree" },
-    { "id": "txn/lost-result", "schema": "cross-world-txn", "file": "valid/cross-world-txn-lost-result.json", "expected": "valid" },
-    { "id": "txn/marker-crash", "schema": "cross-world-txn", "file": "valid/cross-world-txn-marker-crash.json", "expected": "valid" },
-    { "id": "txn/post-intent-business-reject", "schema": "cross-world-txn", "file": "invalid/cross-world-txn-post-intent-reject.json", "expected": "invalid", "reason": "CommitIntent persistence forbids a later business-level reject" },
-    { "id": "replication/full-snapshot", "schema": "replication-envelope", "file": "valid/replication-full-snapshot.json", "expected": "valid" },
-    { "id": "replication/delta", "schema": "replication-envelope", "file": "valid/replication-delta.json", "expected": "valid" },
-    { "id": "replication/handshake", "schema": "replication-envelope", "file": "valid/replication-handshake.json", "expected": "valid" },
-    { "id": "replication/baseline-ack", "schema": "replication-envelope", "file": "valid/replication-baseline-ack.json", "expected": "valid" },
-    { "id": "replication/delta-ack", "schema": "replication-envelope", "file": "valid/replication-delta-ack.json", "expected": "valid" },
-    { "id": "replication/resync", "schema": "replication-envelope", "file": "valid/replication-resync.json", "expected": "valid" },
-    { "id": "replication/maintenance-kick", "schema": "replication-envelope", "file": "valid/replication-maintenance-kick.json", "expected": "valid" },
-    { "id": "replication/error", "schema": "replication-envelope", "file": "valid/replication-error.json", "expected": "valid" },
-    { "id": "replication/gap-without-resync", "schema": "replication-envelope", "file": "invalid/replication-gap-without-resync.json", "expected": "invalid", "reason": "gap must lead to a resync request" },
-    { "id": "replication/missing-snapshot-identity", "schema": "replication-envelope", "file": "invalid/replication-missing-snapshot-identity.json", "expected": "invalid", "reason": "FullSnapshot requires TickId, SessionRevisionVector and MappingSetHash" },
-    { "id": "replication/unregistered-message-type", "schema": "replication-envelope", "file": "invalid/replication-unregistered-message-type.json", "expected": "invalid", "reason": "messageType must be registered" },
-    { "id": "replication/unreliable-full-snapshot", "schema": "replication-envelope", "file": "invalid/replication-unreliable-full-snapshot.json", "expected": "invalid", "reason": "FullSnapshot must use Reliable delivery" },
-    { "id": "replication/integrity-value-mismatch", "schema": "replication-envelope", "file": "invalid/replication-integrity-value-mismatch.json", "expected": "invalid", "reason": "integrity value must match the declared algorithm" },
-    { "id": "authority/committed", "schema": "client-authority-update", "file": "valid/client-authority-update-committed.json", "expected": "valid" },
-    { "id": "authority/visible-on-abort", "schema": "client-authority-update", "file": "invalid/client-authority-update-visible-abort.json", "expected": "invalid", "reason": "Abort cannot expose side effects or advance Ack/Baseline" },
-    { "id": "gate/accept", "schema": "protocol-permission-gate", "file": "valid/protocol-permission-gate-accept.json", "expected": "valid" },
-    { "id": "gate/stale-generation", "schema": "protocol-permission-gate", "file": "invalid/protocol-permission-gate-stale-generation.json", "expected": "invalid", "reason": "Accept cannot ignore a Connection Generation mismatch" },
-    { "id": "gencfg/validator", "schema": "generated-contract-artifact", "file": "valid/generated-contract-artifact.json", "expected": "valid" },
-    { "id": "gencfg/client-implementation-dep", "schema": "generated-contract-artifact", "file": "invalid/generated-contract-artifact-client-dep.json", "expected": "invalid", "reason": "generated artifacts cannot depend on LumioClient" },
-    { "id": "entity/tombstone", "schema": "entity-identity", "file": "valid/entity-tombstone.json", "expected": "valid" },
-    { "id": "entity/provisional-remap", "schema": "entity-identity", "file": "valid/entity-provisional-remap.json", "expected": "valid" },
-    { "id": "entity/reused-tombstone", "schema": "entity-identity", "file": "invalid/entity-reused-tombstone.json", "expected": "invalid", "reason": "tombstoned identity cannot become alive" },
-    { "id": "entity/missing-namespace", "schema": "entity-identity", "file": "invalid/entity-missing-namespace.json", "expected": "invalid", "reason": "namespace is required" },
-    { "id": "entity/authoritative-provisional-domain", "schema": "entity-identity", "file": "invalid/entity-authoritative-provisional-domain.json", "expected": "invalid", "reason": "Authoritative entity cannot use a provisional domain" },
-    { "id": "entity/replay-missing-source", "schema": "entity-identity", "file": "invalid/entity-replay-missing-source.json", "expected": "invalid", "reason": "Replay entity requires source Revision and Release" },
-    { "id": "abi/compatible", "schema": "native-managed-abi", "file": "valid/native-managed-abi.json", "expected": "valid" },
-    { "id": "abi/pointer-width", "schema": "native-managed-abi", "file": "invalid/native-managed-abi-pointer-width.json", "expected": "invalid", "reason": "unsupported pointer width" },
-    { "id": "abi/slot-count", "schema": "native-managed-abi", "file": "invalid/native-managed-abi-slot-count.json", "expected": "invalid", "reason": "functionCount must equal the number of apiTable slots" },
-    { "id": "abi/entry-symbol", "schema": "native-managed-abi", "file": "invalid/native-managed-abi-entry-symbol.json", "expected": "invalid", "reason": "entrySymbol must match the versioned root entry pattern" },
-    { "id": "abi/duplicate-table", "schema": "native-managed-abi", "file": "invalid/native-managed-abi-duplicate-table.json", "expected": "invalid", "reason": "apiTable names must be unique" },
-    { "id": "abi/slot-index-gap", "schema": "native-managed-abi", "file": "invalid/native-managed-abi-slot-index-gap.json", "expected": "invalid", "reason": "slot indexes must be contiguous from 0" },
-    { "id": "abi/struct-size", "schema": "native-managed-abi", "file": "invalid/native-managed-abi-struct-size.json", "expected": "invalid", "reason": "declared structSize is below the ADR-040 derived minimum" },
-    { "id": "rootabi/bundle", "schema": "root-abi-bundle", "file": "valid/root-abi-bundle.json", "expected": "valid" },
-    { "id": "rootabi/short-struct-size", "schema": "root-abi-bundle", "file": "invalid/root-abi-bundle-short-struct-size.json", "expected": "invalid", "reason": "minimumStructSize cannot exceed declaredStructSize" },
-    { "id": "rootabi/incomplete-type-mapping", "schema": "root-abi-bundle", "file": "invalid/root-abi-bundle-incomplete-type-mapping.json", "expected": "invalid", "reason": "every typeRef production must appear in the frozen mapping" },
-    { "id": "release/a-1.1", "schema": "release-manifest", "file": "valid/release-manifest-a-1.1.json", "expected": "valid" },
-    { "id": "release/boe-2.1", "schema": "release-manifest", "file": "valid/release-manifest-boe-2.1.json", "expected": "valid" },
-    { "id": "release/mismatch", "schema": "release-manifest", "file": "invalid/release-manifest-mismatch.json", "expected": "invalid", "reason": "server and client releases differ under ExactRelease" },
-    { "id": "release/coreengine-abi-mismatch", "schema": "release-manifest", "file": "invalid/release-manifest-coreengine-abi.json", "expected": "invalid", "reason": "coreEnginePackage.abiIdentity must equal coreEngineAbi" },
-    { "id": "release/missing-capability-digest", "schema": "release-manifest", "file": "invalid/release-manifest-missing-capability-digest.json", "expected": "invalid", "reason": "the package identity five-tuple requires capabilitySetDigest" },
-    { "id": "maintenance/forced", "schema": "maintenance-command", "file": "valid/maintenance-forced.json", "expected": "valid" },
-    { "id": "maintenance/graceful", "schema": "maintenance-command", "file": "valid/maintenance-graceful.json", "expected": "valid" },
-    { "id": "maintenance/missing-scope", "schema": "maintenance-command", "file": "invalid/maintenance-missing-scope.json", "expected": "invalid", "reason": "ReleasePoolId is mandatory" },
-    { "id": "maintenance/forced-with-grace", "schema": "maintenance-command", "file": "invalid/maintenance-forced-with-grace.json", "expected": "invalid", "reason": "Forced mode requires graceDeadlineSeconds 0" },
-    { "id": "snapshot/active", "schema": "snapshot-header", "file": "valid/snapshot-active.json", "expected": "valid" },
-    { "id": "snapshot/length-mismatch", "schema": "snapshot-header", "file": "invalid/snapshot-length-mismatch.json", "expected": "invalid", "reason": "payload length and hash do not verify" },
-    { "id": "snapshot/legacy-checksum", "schema": "snapshot-header", "file": "invalid/snapshot-legacy-checksum.json", "expected": "invalid", "reason": "the header checksum must be a SHA-256 digest" },
-    { "id": "config/typed-table", "schema": "config-table", "file": "valid/config-table.json", "expected": "valid" },
-    { "id": "config/duplicate-key", "schema": "config-table", "file": "invalid/config-duplicate-key.json", "expected": "invalid", "reason": "table keys must be unique" },
-    { "id": "config/type-mismatch", "schema": "config-table", "file": "invalid/config-type-mismatch.json", "expected": "invalid", "reason": "cell type must match the column" },
-    { "id": "config/range-overflow", "schema": "config-table", "file": "invalid/config-range-overflow.json", "expected": "invalid", "reason": "numeric cell exceeds column range" },
-    { "id": "config/missing-ref", "schema": "config-table", "file": "invalid/config-missing-ref.json", "expected": "invalid", "reason": "ref cell must resolve to a row key" },
-    { "id": "config/unknown-column", "schema": "config-table", "file": "invalid/config-unknown-column.json", "expected": "invalid", "reason": "unknown or missing required column" },
-    { "id": "config/production-unsigned", "schema": "config-table", "file": "invalid/config-production-unsigned.json", "expected": "invalid", "reason": "production activation requires a signature" },
-    { "id": "logging/audit", "schema": "logging-event", "file": "valid/logging-audit.json", "expected": "valid" },
-    { "id": "logging/missing-sequence", "schema": "logging-event", "file": "invalid/logging-audit-missing-correlation.json", "expected": "invalid", "reason": "per-producer EventSeq is mandatory" },
-    { "id": "logging/startup-audit", "schema": "logging-event", "file": "valid/logging-startup-audit.json", "expected": "valid" },
-    { "id": "logging/auth-reject-audit", "schema": "logging-event", "file": "valid/logging-auth-reject-audit.json", "expected": "valid" },
-    { "id": "logging/missing-durability", "schema": "logging-event", "file": "invalid/logging-audit-missing-durability.json", "expected": "invalid", "reason": "durability declaration is mandatory" },
-    { "id": "logging/fabricated-scope", "schema": "logging-event", "file": "invalid/logging-scope-fabricated-session.json", "expected": "invalid", "reason": "Process scope cannot fabricate a SessionId" },
-    { "id": "processor/place-voxel", "schema": "processor-descriptor", "file": "valid/processor-place-voxel.json", "expected": "valid" },
-    { "id": "processor/stable-self-overlap", "schema": "processor-descriptor", "file": "valid/processor-stable-self-overlap.json", "expected": "valid" },
-    { "id": "processor/structural-in-metrics", "schema": "processor-descriptor", "file": "invalid/processor-structural-in-metrics.json", "expected": "invalid", "reason": "non-business phases cannot emit structural commands" },
-    { "id": "failure/crash-between-commits", "schema": "failure-bundle", "file": "valid/failure-bundle.json", "expected": "valid" },
-    { "id": "failure/bad-hash", "schema": "failure-bundle", "file": "invalid/failure-bundle-bad-hash.json", "expected": "invalid", "reason": "artifact hash must be SHA-256" },
-    { "id": "failure/coreengine-load", "schema": "failure-bundle", "file": "valid/failure-bundle-coreengine-load.json", "expected": "valid" },
-    { "id": "failure/missing-snapshot", "schema": "failure-bundle", "file": "invalid/failure-bundle-missing-snapshot.json", "expected": "invalid", "reason": "a Simulation incident must reference a snapshot or pre-snapshot attestation" },
-    { "id": "failure/presnapshot", "schema": "failure-bundle", "file": "valid/failure-bundle-presnapshot.json", "expected": "valid" },
-    { "id": "release/catalog", "schema": "release-catalog", "file": "valid/release-catalog.json", "expected": "valid" },
-    { "id": "release/catalog-duplicate-route", "schema": "release-catalog", "file": "invalid/release-catalog-duplicate-route.json", "expected": "invalid", "reason": "a ProductId and GameReleaseId route must be unique" },
-    { "id": "mapping/health", "schema": "replication-mapping", "file": "valid/replication-mapping.json", "expected": "valid" },
-    { "id": "mapping/empty-field", "schema": "replication-mapping", "file": "invalid/replication-mapping-empty-field.json", "expected": "invalid", "reason": "source field id cannot be empty" },
-    { "id": "migration/dag", "schema": "migration-manifest", "file": "valid/migration-manifest.json", "expected": "valid" },
-    { "id": "migration/cycle", "schema": "migration-manifest", "file": "invalid/migration-cycle.json", "expected": "invalid", "reason": "migration dependency graph must be acyclic" },
-    { "id": "migration/missing-node-hash", "schema": "migration-manifest", "file": "invalid/migration-missing-node-hash.json", "expected": "invalid", "reason": "a migration node must record its input and output hashes" },
-    { "id": "migration/missing-tool-version", "schema": "migration-manifest", "file": "invalid/migration-missing-tool-version.json", "expected": "invalid", "reason": "a migration node must record its tool version" },
-    { "id": "host/local-embedded", "schema": "host-capability", "file": "valid/host-capability.json", "expected": "valid" },
-    { "id": "host/local-split-process", "schema": "host-capability", "file": "valid/host-capability-local-split-process.json", "expected": "valid" },
-    { "id": "host/missing-role", "schema": "host-capability", "file": "invalid/host-capability-missing-role.json", "expected": "invalid", "reason": "a host must provide at least one role" },
-    { "id": "ids/registry", "schema": "id-registry", "file": "valid/id-registry.json", "expected": "valid" },
-    { "id": "ids/duplicate", "schema": "id-registry", "file": "invalid/id-registry-duplicate.json", "expected": "invalid", "reason": "numeric ids must be unique within a namespace" },
-    { "id": "target/linux-server", "schema": "target-profile", "file": "valid/target-profile-linux-server.json", "expected": "valid" },
-    { "id": "target/missing-load-backend", "schema": "target-profile", "file": "invalid/target-profile-missing-load-backend.json", "expected": "invalid", "reason": "a target profile must declare its load backend" },
-    { "id": "artifact/index", "schema": "artifact-index", "file": "valid/artifact-index.json", "expected": "valid" },
-    { "id": "artifact/duplicate-path", "schema": "artifact-index", "file": "invalid/artifact-index-duplicate-path.json", "expected": "invalid", "reason": "artifact paths must be unique within an index" },
-    { "id": "artifact/set-digest-mismatch", "schema": "artifact-index", "file": "invalid/artifact-index-set-digest-mismatch.json", "expected": "invalid", "reason": "artifactSetDigest must equal the ADR-041 recomputation" },
-    { "id": "canonical/profile", "schema": "canonical-digest-profile", "file": "valid/canonical-digest-profile.json", "expected": "valid" },
-    { "id": "canonical/golden-digest-mismatch", "schema": "canonical-digest-profile", "file": "invalid/canonical-digest-golden-digest-mismatch.json", "expected": "invalid", "reason": "a golden sha256 must equal the digest of its canonical bytes" },
-    { "id": "canonical/golden-bytes-mismatch", "schema": "canonical-digest-profile", "file": "invalid/canonical-digest-golden-bytes-mismatch.json", "expected": "invalid", "reason": "a golden canonicalBytes must re-canonicalize from its input" },
-    { "id": "canonical/missing-domain", "schema": "canonical-digest-profile", "file": "invalid/canonical-digest-missing-domain.json", "expected": "invalid", "reason": "digestDomains must cover the frozen digest set" },
-    { "id": "canonical/missing-normalization", "schema": "canonical-digest-profile", "file": "invalid/canonical-digest-missing-normalization.json", "expected": "invalid", "reason": "each digest domain must publish its machine-readable normalization" },
-    { "id": "cemanifest/linux-server", "schema": "core-engine-manifest", "file": "valid/core-engine-manifest.json", "expected": "valid" },
-    { "id": "cemanifest/missing-native", "schema": "core-engine-manifest", "file": "invalid/core-engine-manifest-missing-native.json", "expected": "invalid", "reason": "a NativeLibrary package must declare the Native capability" },
-    { "id": "envelope/ed25519", "schema": "signature-envelope", "file": "valid/signature-envelope.json", "expected": "valid" },
-    { "id": "envelope/production-test-key", "schema": "signature-envelope", "file": "invalid/signature-envelope-production-test-key.json", "expected": "invalid", "reason": "a Production trust domain cannot use a test key" },
-    { "id": "trust/profile", "schema": "trust-profile", "file": "valid/trust-profile.json", "expected": "valid" },
-    { "id": "trust/keyid-mismatch", "schema": "trust-profile", "file": "invalid/trust-profile-keyid-mismatch.json", "expected": "invalid", "reason": "keyId must be the ADR-042 derivation of its own publicKey" },
-    { "id": "trust/reject-order", "schema": "trust-profile", "file": "invalid/trust-profile-reject-order.json", "expected": "invalid", "reason": "rejectPriority must equal the ADR-042 frozen order" },
-    { "id": "trust/vector-outcome-mismatch", "schema": "trust-profile", "file": "invalid/trust-profile-vector-outcome-mismatch.json", "expected": "invalid", "reason": "a vector outcome must be what evaluating the frozen order produces" },
-    { "id": "loader/profile", "schema": "loader-profile", "file": "valid/loader-profile.json", "expected": "valid" },
-    { "id": "loader/error-priority-order", "schema": "loader-profile", "file": "invalid/loader-profile-error-priority-order.json", "expected": "invalid", "reason": "errorPriority must equal the ADR-043 frozen order" },
-    { "id": "loader/vector-outcome-mismatch", "schema": "loader-profile", "file": "invalid/loader-profile-vector-outcome-mismatch.json", "expected": "invalid", "reason": "an acquire outcome must be what the identity latch produces" },
-    { "id": "loader/priority-vector-mismatch", "schema": "loader-profile", "file": "invalid/loader-profile-priority-vector-mismatch.json", "expected": "invalid", "reason": "a reported code must be the highest-ranked declared cause" },
-    { "id": "evidence/profile", "schema": "evidence-profile", "file": "valid/evidence-profile.json", "expected": "valid" },
-    { "id": "evidence/profile-frozen-set", "schema": "evidence-profile", "file": "invalid/evidence-profile-frozen-set.json", "expected": "invalid", "reason": "profiles must equal the ADR-044 frozen format/version/media-type set" },
-    { "id": "evidence/vector-outcome-mismatch", "schema": "evidence-profile", "file": "invalid/evidence-profile-vector-outcome-mismatch.json", "expected": "invalid", "reason": "an evidence vector outcome must be what the coverage rules produce" },
-    { "id": "vpd/trusted", "schema": "verified-package-descriptor", "file": "valid/verified-package-descriptor.json", "expected": "valid" },
-    { "id": "vpd/failed-check", "schema": "verified-package-descriptor", "file": "invalid/verified-package-descriptor-failed-check.json", "expected": "invalid", "reason": "a Trusted decision cannot carry a failed check" },
-    { "id": "result/valid", "schema": "contract-result", "file": "valid/contract-result.json", "expected": "valid" },
-    { "id": "result/negative", "schema": "contract-result", "file": "invalid/contract-result-negative.json", "expected": "invalid", "reason": "failure count cannot be negative" },
-    { "id": "mod/reserved", "schema": "mod-manifest", "file": "valid/mod-manifest-reserved.json", "expected": "valid" },
-    { "id": "mod/native-library", "schema": "mod-manifest", "file": "invalid/mod-manifest-native.json", "expected": "invalid", "reason": "V1 Mod boundary cannot load native libraries" },
-    { "id": "world/authority-ready", "schema": "voxel-world-port", "file": "valid/voxel-world-port.json", "expected": "valid" },
-    { "id": "world/bad-role", "schema": "voxel-world-port", "file": "invalid/voxel-world-port-bad-role.json", "expected": "invalid", "reason": "a voxel world role must be Authority or Replica" },
-    { "id": "chunk/negative-coord", "schema": "voxel-chunk-page", "file": "valid/voxel-chunk-page.json", "expected": "valid" },
-    { "id": "chunk/coord-overflow", "schema": "voxel-chunk-page", "file": "invalid/voxel-chunk-page-coord-overflow.json", "expected": "invalid", "reason": "a chunk coordinate must stay inside the frozen i32 wire range" },
-    { "id": "chunk/page-bad-hash", "schema": "voxel-chunk-page", "file": "invalid/voxel-chunk-page-bad-hash.json", "expected": "invalid", "reason": "a page hash must be a SHA-256 digest" },
-    { "id": "voxelrev/stamp", "schema": "voxel-revision-stamp", "file": "valid/voxel-revision-stamp.json", "expected": "valid" },
-    { "id": "voxelrev/negative-chunk-revision", "schema": "voxel-revision-stamp", "file": "invalid/voxel-revision-stamp-negative.json", "expected": "invalid", "reason": "a chunk revision cannot be negative" },
-    { "id": "query/multi-chunk-bound", "schema": "voxel-query", "file": "valid/voxel-query-bound.json", "expected": "valid" },
-    { "id": "query/continuation-unbound", "schema": "voxel-query", "file": "invalid/voxel-query-continuation-unbound.json", "expected": "invalid", "reason": "a continuation must stay bound to the WorldRevision fixed at begin" },
-    { "id": "mutation/receipt-applied", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-receipt-applied.json", "expected": "valid" },
-    { "id": "mutation/receipt-duplicate", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-receipt-duplicate.json", "expected": "valid" },
-    { "id": "mutation/receipt-aborted-revision-conflict", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-receipt-aborted-conflict.json", "expected": "valid" },
-    { "id": "mutation/status-lost-result", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-status-lost-result.json", "expected": "valid" },
-    { "id": "mutation/status-result-pruned", "schema": "voxel-mutation-receipt", "file": "valid/voxel-mutation-status-pruned.json", "expected": "valid" },
-    { "id": "mutation/receipt-global-commit-intent", "schema": "voxel-mutation-receipt", "file": "invalid/voxel-mutation-receipt-commit-intent.json", "expected": "invalid", "reason": "a voxel participant must not own the global CommitIntent state" },
-    { "id": "mutation/receipt-applied-missing-result", "schema": "voxel-mutation-receipt", "file": "invalid/voxel-mutation-receipt-applied-missing-result.json", "expected": "invalid", "reason": "an Applied receipt must retain the original result revisions" },
-    { "id": "txn/crash-between-markers", "schema": "cross-world-txn", "file": "valid/cross-world-txn-indeterminate.json", "expected": "valid" },
-    { "id": "tick/phase-matrix", "schema": "tick-phase-contract", "file": "valid/tick-phase-contract.json", "expected": "valid" },
-    { "id": "tick/duplicate-commit-point", "schema": "tick-phase-contract", "file": "invalid/tick-phase-duplicate-commit.json", "expected": "invalid", "reason": "exactly one Tick Commit Point is allowed" },
-    { "id": "gas/ability-complete", "schema": "gas-lifecycle", "file": "valid/gas-ability-complete.json", "expected": "valid" },
-    { "id": "gas/illegal-transition", "schema": "gas-lifecycle", "file": "invalid/gas-illegal-transition.json", "expected": "invalid", "reason": "generic GAS transitions cannot be invented" },
-    { "id": "journal/committed", "schema": "txn-journal-record", "file": "valid/txn-journal-committed.json", "expected": "valid" },
-    { "id": "journal/broken-previous-hash", "schema": "txn-journal-record", "file": "invalid/txn-journal-broken-previous-hash.json", "expected": "invalid", "reason": "previousHash chain must be contiguous" },
-    { "id": "cmdlog/appended", "schema": "command-log-record", "file": "valid/command-log-appended.json", "expected": "valid" },
-    { "id": "cmdlog/checksum-mismatch", "schema": "command-log-record", "file": "invalid/command-log-checksum-mismatch.json", "expected": "invalid", "reason": "checksum must match the hash chain" },
-    { "id": "wal/envelope", "schema": "wal-record-envelope", "file": "valid/wal-record-envelope.json", "expected": "valid" },
-    { "id": "wal/checksum-mismatch", "schema": "wal-record-envelope", "file": "invalid/wal-record-checksum-mismatch.json", "expected": "invalid", "reason": "WAL checksum must match the hash chain" },
-    { "id": "scope/barrier-switch", "schema": "gameplay-scope-activation", "file": "valid/gameplay-scope-activation.json", "expected": "valid" },
-    { "id": "scope/reactivate-old", "schema": "gameplay-scope-activation", "file": "invalid/gameplay-scope-reactivate-old.json", "expected": "invalid", "reason": "an unloaded old Scope cannot be reactivated" },
-    { "id": "voxelsnap/capture-ready-pinned", "schema": "voxel-snapshot-payload", "file": "valid/voxel-snapshot-capture-ready.json", "expected": "valid" },
-    { "id": "voxelsnap/full-cut-projection", "schema": "voxel-snapshot-payload", "file": "valid/voxel-snapshot-payload-full.json", "expected": "valid" },
-    { "id": "voxelsnap/partial-aoi-subset", "schema": "voxel-snapshot-payload", "file": "valid/voxel-snapshot-payload-partial.json", "expected": "valid" },
-    { "id": "voxelsnap/diff-base-target-round-trip", "schema": "voxel-snapshot-payload", "file": "valid/voxel-snapshot-diff.json", "expected": "valid" },
-    { "id": "voxelsnap/capture-pin-expired-ready", "schema": "voxel-snapshot-payload", "file": "invalid/voxel-snapshot-capture-pin-expired-ready.json", "expected": "invalid", "reason": "a capture whose snapshot pin has expired must not claim Ready" },
-    { "id": "voxelsnap/payload-bad-hash", "schema": "voxel-snapshot-payload", "file": "invalid/voxel-snapshot-payload-bad-hash.json", "expected": "invalid", "reason": "a canonical voxel payload hash must be a SHA-256 digest" },
-    { "id": "voxelsnap/diff-no-advance", "schema": "voxel-snapshot-payload", "file": "invalid/voxel-snapshot-diff-no-advance.json", "expected": "invalid", "reason": "a diff must strictly advance from its base world revision" },
-    { "id": "voxeldur/ack-snapshot-point", "schema": "voxel-durability-ack", "file": "valid/voxel-durability-ack-snapshot-point.json", "expected": "valid" },
-    { "id": "voxeldur/ack-wal-point", "schema": "voxel-durability-ack", "file": "valid/voxel-durability-ack-wal-point.json", "expected": "valid" },
-    { "id": "voxeldur/residency-all-resident", "schema": "voxel-durability-ack", "file": "valid/voxel-residency-all-resident.json", "expected": "valid" },
-    { "id": "voxeldur/fence-dirty-covered-evict", "schema": "voxel-durability-ack", "file": "valid/voxel-eviction-fence-covered-evict.json", "expected": "valid" },
-    { "id": "voxeldur/fence-dirty-uncovered-deny", "schema": "voxel-durability-ack", "file": "valid/voxel-eviction-fence-uncovered-deny.json", "expected": "valid" },
-    { "id": "voxeldur/fence-dirty-uncovered-evict", "schema": "voxel-durability-ack", "file": "invalid/voxel-eviction-fence-uncovered-evict.json", "expected": "invalid", "reason": "a Dirty chunk without an acknowledged durability point must not be evicted" },
-    { "id": "voxeldur/ack-missing-durability-point", "schema": "voxel-durability-ack", "file": "invalid/voxel-durability-ack-missing-point.json", "expected": "invalid", "reason": "a durability acknowledgment must carry a snapshot or WAL durability point" },
-    { "id": "voxeldur/fence-all-resident-evict", "schema": "voxel-durability-ack", "file": "invalid/voxel-eviction-fence-all-resident-evict.json", "expected": "invalid", "reason": "an AllResident residency mode disables chunk eviction" },
-    { "id": "voxelrev/legacy-chunk-key", "schema": "voxel-revision-stamp", "file": "invalid/voxel-revision-stamp-legacy-chunk-key.json", "expected": "invalid", "reason": "a voxel chunk-keyed map must use the canonical ChunkId key format" },
-    { "id": "mutation/status-pruned-with-result", "schema": "voxel-mutation-receipt", "file": "invalid/voxel-mutation-status-pruned-with-result.json", "expected": "invalid", "reason": "a ResultPruned status response never carries result revisions" },
-    { "id": "mutation/status-applied-missing-result", "schema": "voxel-mutation-receipt", "file": "invalid/voxel-mutation-status-applied-missing-result.json", "expected": "invalid", "reason": "an Applied status response must re-serve the original result revisions" },
-    { "id": "txn/intent-persisted-no-markers", "schema": "cross-world-txn", "file": "valid/cross-world-txn-crash-window.json", "expected": "valid" },
-    { "id": "query/target-revision-unavailable", "schema": "voxel-query", "file": "valid/voxel-query-revision-unavailable.json", "expected": "valid" },
-    { "id": "machine/world-slot-host", "schema": "state-machine-descriptor", "file": "valid/state-machine-world-slot-host.json", "expected": "valid" },
-    { "id": "machine/simulation-session", "schema": "state-machine-descriptor", "file": "valid/state-machine-simulation-session.json", "expected": "valid" },
-    { "id": "machine/client-replica-session", "schema": "state-machine-descriptor", "file": "valid/state-machine-client-replica-session.json", "expected": "valid" },
-    { "id": "machine/ecs-command-buffer", "schema": "state-machine-descriptor", "file": "valid/state-machine-ecs-command-buffer.json", "expected": "valid" },
-    { "id": "machine/cross-world-txn", "schema": "state-machine-descriptor", "file": "valid/state-machine-cross-world-txn.json", "expected": "valid" },
-    { "id": "machine/core-engine-loader", "schema": "state-machine-descriptor", "file": "valid/state-machine-core-engine-loader.json", "expected": "valid" },
-    { "id": "machine/gas-ability", "schema": "state-machine-descriptor", "file": "valid/state-machine-gas-ability.json", "expected": "valid" },
-    { "id": "machine/gas-effect", "schema": "state-machine-descriptor", "file": "valid/state-machine-gas-effect.json", "expected": "valid" },
-    { "id": "machine/release-pool", "schema": "state-machine-descriptor", "file": "valid/state-machine-release-pool.json", "expected": "valid" },
-    { "id": "machine/gameplay-scope-activation", "schema": "state-machine-descriptor", "file": "valid/state-machine-gameplay-scope-activation.json", "expected": "valid" },
-    { "id": "machine/voxel-snapshot-capture", "schema": "state-machine-descriptor", "file": "valid/state-machine-voxel-snapshot-capture.json", "expected": "valid" },
-    { "id": "machine/voxel-chunk-residency", "schema": "state-machine-descriptor", "file": "valid/state-machine-voxel-chunk-residency.json", "expected": "valid" },
-    { "id": "machine/terminal-outgoing", "schema": "state-machine-descriptor", "file": "invalid/state-machine-terminal-outgoing.json", "expected": "invalid", "reason": "a terminal state cannot own outgoing transitions" },
-    { "id": "machine/undeclared-state", "schema": "state-machine-descriptor", "file": "invalid/state-machine-undeclared-state.json", "expected": "invalid", "reason": "every transition endpoint must be a declared state" },
-    { "id": "gencfg/contract-runtime", "schema": "generated-contract-artifact", "file": "valid/generated-contract-artifact-runtime.json", "expected": "valid" },
-    { "id": "gencfg/contract-runtime-impl-dep", "schema": "generated-contract-artifact", "file": "invalid/generated-contract-artifact-runtime-impl-dep.json", "expected": "invalid", "reason": "a ContractRuntime support library must not depend on any implementation project" }
+    {
+      "id": "abi/compatible",
+      "schema": "native-managed-abi",
+      "file": "valid/native-managed-abi.json",
+      "expected": "valid"
+    },
+    {
+      "id": "abi/duplicate-table",
+      "schema": "native-managed-abi",
+      "file": "invalid/native-managed-abi-duplicate-table.json",
+      "expected": "invalid",
+      "reason": "apiTable names must be unique"
+    },
+    {
+      "id": "abi/entry-symbol",
+      "schema": "native-managed-abi",
+      "file": "invalid/native-managed-abi-entry-symbol.json",
+      "expected": "invalid",
+      "reason": "entrySymbol must match the versioned root entry pattern"
+    },
+    {
+      "id": "abi/pointer-width",
+      "schema": "native-managed-abi",
+      "file": "invalid/native-managed-abi-pointer-width.json",
+      "expected": "invalid",
+      "reason": "unsupported pointer width"
+    },
+    {
+      "id": "abi/slot-count",
+      "schema": "native-managed-abi",
+      "file": "invalid/native-managed-abi-slot-count.json",
+      "expected": "invalid",
+      "reason": "functionCount must equal the number of apiTable slots"
+    },
+    {
+      "id": "abi/slot-index-gap",
+      "schema": "native-managed-abi",
+      "file": "invalid/native-managed-abi-slot-index-gap.json",
+      "expected": "invalid",
+      "reason": "slot indexes must be contiguous from 0"
+    },
+    {
+      "id": "abi/struct-size",
+      "schema": "native-managed-abi",
+      "file": "invalid/native-managed-abi-struct-size.json",
+      "expected": "invalid",
+      "reason": "declared structSize is below the ADR-040 derived minimum"
+    },
+    {
+      "id": "artifact/duplicate-path",
+      "schema": "artifact-index",
+      "file": "invalid/artifact-index-duplicate-path.json",
+      "expected": "invalid",
+      "reason": "artifact paths must be unique within an index"
+    },
+    {
+      "id": "artifact/index",
+      "schema": "artifact-index",
+      "file": "valid/artifact-index.json",
+      "expected": "valid"
+    },
+    {
+      "id": "artifact/set-digest-mismatch",
+      "schema": "artifact-index",
+      "file": "invalid/artifact-index-set-digest-mismatch.json",
+      "expected": "invalid",
+      "reason": "artifactSetDigest must equal the ADR-041 recomputation"
+    },
+    {
+      "id": "authority/committed",
+      "schema": "client-authority-update",
+      "file": "valid/client-authority-update-committed.json",
+      "expected": "valid"
+    },
+    {
+      "id": "authority/visible-on-abort",
+      "schema": "client-authority-update",
+      "file": "invalid/client-authority-update-visible-abort.json",
+      "expected": "invalid",
+      "reason": "Abort cannot expose side effects or advance Ack/Baseline"
+    },
+    {
+      "id": "canonical/golden-bytes-mismatch",
+      "schema": "canonical-digest-profile",
+      "file": "invalid/canonical-digest-golden-bytes-mismatch.json",
+      "expected": "invalid",
+      "reason": "a golden canonicalBytes must re-canonicalize from its input"
+    },
+    {
+      "id": "canonical/golden-digest-mismatch",
+      "schema": "canonical-digest-profile",
+      "file": "invalid/canonical-digest-golden-digest-mismatch.json",
+      "expected": "invalid",
+      "reason": "a golden sha256 must equal the digest of its canonical bytes"
+    },
+    {
+      "id": "canonical/missing-domain",
+      "schema": "canonical-digest-profile",
+      "file": "invalid/canonical-digest-missing-domain.json",
+      "expected": "invalid",
+      "reason": "digestDomains must cover the frozen digest set"
+    },
+    {
+      "id": "canonical/missing-normalization",
+      "schema": "canonical-digest-profile",
+      "file": "invalid/canonical-digest-missing-normalization.json",
+      "expected": "invalid",
+      "reason": "each digest domain must publish its machine-readable normalization"
+    },
+    {
+      "id": "canonical/profile",
+      "schema": "canonical-digest-profile",
+      "file": "valid/canonical-digest-profile.json",
+      "expected": "valid"
+    },
+    {
+      "id": "cemanifest/linux-server",
+      "schema": "core-engine-manifest",
+      "file": "valid/core-engine-manifest.json",
+      "expected": "valid"
+    },
+    {
+      "id": "cemanifest/missing-native",
+      "schema": "core-engine-manifest",
+      "file": "invalid/core-engine-manifest-missing-native.json",
+      "expected": "invalid",
+      "reason": "a NativeLibrary package must declare the Native capability"
+    },
+    {
+      "id": "chunk/coord-overflow",
+      "schema": "voxel-chunk-page",
+      "file": "invalid/voxel-chunk-page-coord-overflow.json",
+      "expected": "invalid",
+      "reason": "a chunk coordinate must stay inside the frozen i32 wire range"
+    },
+    {
+      "id": "chunk/negative-coord",
+      "schema": "voxel-chunk-page",
+      "file": "valid/voxel-chunk-page.json",
+      "expected": "valid"
+    },
+    {
+      "id": "chunk/page-bad-hash",
+      "schema": "voxel-chunk-page",
+      "file": "invalid/voxel-chunk-page-bad-hash.json",
+      "expected": "invalid",
+      "reason": "a page hash must be a SHA-256 digest"
+    },
+    {
+      "id": "cmdlog/appended",
+      "schema": "command-log-record",
+      "file": "valid/command-log-appended.json",
+      "expected": "valid"
+    },
+    {
+      "id": "cmdlog/checksum-mismatch",
+      "schema": "command-log-record",
+      "file": "invalid/command-log-checksum-mismatch.json",
+      "expected": "invalid",
+      "reason": "checksum must match the hash chain"
+    },
+    {
+      "id": "config/duplicate-key",
+      "schema": "config-table",
+      "file": "invalid/config-duplicate-key.json",
+      "expected": "invalid",
+      "reason": "table keys must be unique"
+    },
+    {
+      "id": "config/missing-ref",
+      "schema": "config-table",
+      "file": "invalid/config-missing-ref.json",
+      "expected": "invalid",
+      "reason": "ref cell must resolve to a row key"
+    },
+    {
+      "id": "config/production-unsigned",
+      "schema": "config-table",
+      "file": "invalid/config-production-unsigned.json",
+      "expected": "invalid",
+      "reason": "production activation requires a signature"
+    },
+    {
+      "id": "config/range-overflow",
+      "schema": "config-table",
+      "file": "invalid/config-range-overflow.json",
+      "expected": "invalid",
+      "reason": "numeric cell exceeds column range"
+    },
+    {
+      "id": "config/type-mismatch",
+      "schema": "config-table",
+      "file": "invalid/config-type-mismatch.json",
+      "expected": "invalid",
+      "reason": "cell type must match the column"
+    },
+    {
+      "id": "config/typed-table",
+      "schema": "config-table",
+      "file": "valid/config-table.json",
+      "expected": "valid"
+    },
+    {
+      "id": "config/unknown-column",
+      "schema": "config-table",
+      "file": "invalid/config-unknown-column.json",
+      "expected": "invalid",
+      "reason": "unknown or missing required column"
+    },
+    {
+      "id": "entity/authoritative-provisional-domain",
+      "schema": "entity-identity",
+      "file": "invalid/entity-authoritative-provisional-domain.json",
+      "expected": "invalid",
+      "reason": "Authoritative entity cannot use a provisional domain"
+    },
+    {
+      "id": "entity/missing-namespace",
+      "schema": "entity-identity",
+      "file": "invalid/entity-missing-namespace.json",
+      "expected": "invalid",
+      "reason": "namespace is required"
+    },
+    {
+      "id": "entity/provisional-remap",
+      "schema": "entity-identity",
+      "file": "valid/entity-provisional-remap.json",
+      "expected": "valid"
+    },
+    {
+      "id": "entity/replay-missing-source",
+      "schema": "entity-identity",
+      "file": "invalid/entity-replay-missing-source.json",
+      "expected": "invalid",
+      "reason": "Replay entity requires source Revision and Release"
+    },
+    {
+      "id": "entity/reused-tombstone",
+      "schema": "entity-identity",
+      "file": "invalid/entity-reused-tombstone.json",
+      "expected": "invalid",
+      "reason": "tombstoned identity cannot become alive"
+    },
+    {
+      "id": "entity/tombstone",
+      "schema": "entity-identity",
+      "file": "valid/entity-tombstone.json",
+      "expected": "valid"
+    },
+    {
+      "id": "envelope/ed25519",
+      "schema": "signature-envelope",
+      "file": "valid/signature-envelope.json",
+      "expected": "valid"
+    },
+    {
+      "id": "envelope/production-test-key",
+      "schema": "signature-envelope",
+      "file": "invalid/signature-envelope-production-test-key.json",
+      "expected": "invalid",
+      "reason": "a Production trust domain cannot use a test key"
+    },
+    {
+      "id": "evidence/profile",
+      "schema": "evidence-profile",
+      "file": "valid/evidence-profile.json",
+      "expected": "valid"
+    },
+    {
+      "id": "evidence/profile-frozen-set",
+      "schema": "evidence-profile",
+      "file": "invalid/evidence-profile-frozen-set.json",
+      "expected": "invalid",
+      "reason": "profiles must equal the ADR-044 frozen format/version/media-type set"
+    },
+    {
+      "id": "evidence/vector-outcome-mismatch",
+      "schema": "evidence-profile",
+      "file": "invalid/evidence-profile-vector-outcome-mismatch.json",
+      "expected": "invalid",
+      "reason": "an evidence vector outcome must be what the coverage rules produce"
+    },
+    {
+      "id": "failure/bad-hash",
+      "schema": "failure-bundle",
+      "file": "invalid/failure-bundle-bad-hash.json",
+      "expected": "invalid",
+      "reason": "artifact hash must be SHA-256"
+    },
+    {
+      "id": "failure/coreengine-load",
+      "schema": "failure-bundle",
+      "file": "valid/failure-bundle-coreengine-load.json",
+      "expected": "valid"
+    },
+    {
+      "id": "failure/crash-between-commits",
+      "schema": "failure-bundle",
+      "file": "valid/failure-bundle.json",
+      "expected": "valid"
+    },
+    {
+      "id": "failure/missing-snapshot",
+      "schema": "failure-bundle",
+      "file": "invalid/failure-bundle-missing-snapshot.json",
+      "expected": "invalid",
+      "reason": "a Simulation incident must reference a snapshot or pre-snapshot attestation"
+    },
+    {
+      "id": "failure/presnapshot",
+      "schema": "failure-bundle",
+      "file": "valid/failure-bundle-presnapshot.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/ability-complete",
+      "schema": "gas-lifecycle",
+      "file": "valid/gas-ability-complete.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/illegal-transition",
+      "schema": "gas-lifecycle",
+      "file": "invalid/gas-illegal-transition.json",
+      "expected": "invalid",
+      "reason": "generic GAS transitions cannot be invented"
+    },
+    {
+      "id": "gate/accept",
+      "schema": "protocol-permission-gate",
+      "file": "valid/protocol-permission-gate-accept.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gate/stale-generation",
+      "schema": "protocol-permission-gate",
+      "file": "invalid/protocol-permission-gate-stale-generation.json",
+      "expected": "invalid",
+      "reason": "Accept cannot ignore a Connection Generation mismatch"
+    },
+    {
+      "id": "gencfg/client-implementation-dep",
+      "schema": "generated-contract-artifact",
+      "file": "invalid/generated-contract-artifact-client-dep.json",
+      "expected": "invalid",
+      "reason": "generated artifacts cannot depend on LumioClient"
+    },
+    {
+      "id": "gencfg/contract-runtime",
+      "schema": "generated-contract-artifact",
+      "file": "valid/generated-contract-artifact-runtime.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gencfg/contract-runtime-impl-dep",
+      "schema": "generated-contract-artifact",
+      "file": "invalid/generated-contract-artifact-runtime-impl-dep.json",
+      "expected": "invalid",
+      "reason": "a ContractRuntime support library must not depend on any implementation project"
+    },
+    {
+      "id": "gencfg/validator",
+      "schema": "generated-contract-artifact",
+      "file": "valid/generated-contract-artifact.json",
+      "expected": "valid"
+    },
+    {
+      "id": "host/local-embedded",
+      "schema": "host-capability",
+      "file": "valid/host-capability.json",
+      "expected": "valid"
+    },
+    {
+      "id": "host/local-split-process",
+      "schema": "host-capability",
+      "file": "valid/host-capability-local-split-process.json",
+      "expected": "valid"
+    },
+    {
+      "id": "host/missing-role",
+      "schema": "host-capability",
+      "file": "invalid/host-capability-missing-role.json",
+      "expected": "invalid",
+      "reason": "a host must provide at least one role"
+    },
+    {
+      "id": "ids/duplicate",
+      "schema": "id-registry",
+      "file": "invalid/id-registry-duplicate.json",
+      "expected": "invalid",
+      "reason": "numeric ids must be unique within a namespace"
+    },
+    {
+      "id": "ids/registry",
+      "schema": "id-registry",
+      "file": "valid/id-registry.json",
+      "expected": "valid"
+    },
+    {
+      "id": "journal/broken-previous-hash",
+      "schema": "txn-journal-record",
+      "file": "invalid/txn-journal-broken-previous-hash.json",
+      "expected": "invalid",
+      "reason": "previousHash chain must be contiguous"
+    },
+    {
+      "id": "journal/committed",
+      "schema": "txn-journal-record",
+      "file": "valid/txn-journal-committed.json",
+      "expected": "valid"
+    },
+    {
+      "id": "loader/error-priority-order",
+      "schema": "loader-profile",
+      "file": "invalid/loader-profile-error-priority-order.json",
+      "expected": "invalid",
+      "reason": "errorPriority must equal the ADR-043 frozen order"
+    },
+    {
+      "id": "loader/priority-vector-mismatch",
+      "schema": "loader-profile",
+      "file": "invalid/loader-profile-priority-vector-mismatch.json",
+      "expected": "invalid",
+      "reason": "a reported code must be the highest-ranked declared cause"
+    },
+    {
+      "id": "loader/profile",
+      "schema": "loader-profile",
+      "file": "valid/loader-profile.json",
+      "expected": "valid"
+    },
+    {
+      "id": "loader/vector-outcome-mismatch",
+      "schema": "loader-profile",
+      "file": "invalid/loader-profile-vector-outcome-mismatch.json",
+      "expected": "invalid",
+      "reason": "an acquire outcome must be what the identity latch produces"
+    },
+    {
+      "id": "logging/audit",
+      "schema": "logging-event",
+      "file": "valid/logging-audit.json",
+      "expected": "valid"
+    },
+    {
+      "id": "logging/auth-reject-audit",
+      "schema": "logging-event",
+      "file": "valid/logging-auth-reject-audit.json",
+      "expected": "valid"
+    },
+    {
+      "id": "logging/fabricated-scope",
+      "schema": "logging-event",
+      "file": "invalid/logging-scope-fabricated-session.json",
+      "expected": "invalid",
+      "reason": "Process scope cannot fabricate a SessionId"
+    },
+    {
+      "id": "logging/missing-durability",
+      "schema": "logging-event",
+      "file": "invalid/logging-audit-missing-durability.json",
+      "expected": "invalid",
+      "reason": "durability declaration is mandatory"
+    },
+    {
+      "id": "logging/missing-sequence",
+      "schema": "logging-event",
+      "file": "invalid/logging-audit-missing-correlation.json",
+      "expected": "invalid",
+      "reason": "per-producer EventSeq is mandatory"
+    },
+    {
+      "id": "logging/startup-audit",
+      "schema": "logging-event",
+      "file": "valid/logging-startup-audit.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/client-replica-session",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-client-replica-session.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/core-engine-loader",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-core-engine-loader.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/cross-world-txn",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-cross-world-txn.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/ecs-command-buffer",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-ecs-command-buffer.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/gameplay-scope-activation",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-gameplay-scope-activation.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/gas-ability",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-gas-ability.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/gas-effect",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-gas-effect.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/release-pool",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-release-pool.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/simulation-session",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-simulation-session.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/terminal-outgoing",
+      "schema": "state-machine-descriptor",
+      "file": "invalid/state-machine-terminal-outgoing.json",
+      "expected": "invalid",
+      "reason": "a terminal state cannot own outgoing transitions"
+    },
+    {
+      "id": "machine/undeclared-state",
+      "schema": "state-machine-descriptor",
+      "file": "invalid/state-machine-undeclared-state.json",
+      "expected": "invalid",
+      "reason": "every transition endpoint must be a declared state"
+    },
+    {
+      "id": "machine/voxel-chunk-residency",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-voxel-chunk-residency.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/voxel-snapshot-capture",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-voxel-snapshot-capture.json",
+      "expected": "valid"
+    },
+    {
+      "id": "machine/world-slot-host",
+      "schema": "state-machine-descriptor",
+      "file": "valid/state-machine-world-slot-host.json",
+      "expected": "valid"
+    },
+    {
+      "id": "maintenance/forced",
+      "schema": "maintenance-command",
+      "file": "valid/maintenance-forced.json",
+      "expected": "valid"
+    },
+    {
+      "id": "maintenance/forced-with-grace",
+      "schema": "maintenance-command",
+      "file": "invalid/maintenance-forced-with-grace.json",
+      "expected": "invalid",
+      "reason": "Forced mode requires graceDeadlineSeconds 0"
+    },
+    {
+      "id": "maintenance/graceful",
+      "schema": "maintenance-command",
+      "file": "valid/maintenance-graceful.json",
+      "expected": "valid"
+    },
+    {
+      "id": "maintenance/missing-scope",
+      "schema": "maintenance-command",
+      "file": "invalid/maintenance-missing-scope.json",
+      "expected": "invalid",
+      "reason": "ReleasePoolId is mandatory"
+    },
+    {
+      "id": "mapping/empty-field",
+      "schema": "replication-mapping",
+      "file": "invalid/replication-mapping-empty-field.json",
+      "expected": "invalid",
+      "reason": "source field id cannot be empty"
+    },
+    {
+      "id": "mapping/health",
+      "schema": "replication-mapping",
+      "file": "valid/replication-mapping.json",
+      "expected": "valid"
+    },
+    {
+      "id": "migration/cycle",
+      "schema": "migration-manifest",
+      "file": "invalid/migration-cycle.json",
+      "expected": "invalid",
+      "reason": "migration dependency graph must be acyclic"
+    },
+    {
+      "id": "migration/dag",
+      "schema": "migration-manifest",
+      "file": "valid/migration-manifest.json",
+      "expected": "valid"
+    },
+    {
+      "id": "migration/missing-node-hash",
+      "schema": "migration-manifest",
+      "file": "invalid/migration-missing-node-hash.json",
+      "expected": "invalid",
+      "reason": "a migration node must record its input and output hashes"
+    },
+    {
+      "id": "migration/missing-tool-version",
+      "schema": "migration-manifest",
+      "file": "invalid/migration-missing-tool-version.json",
+      "expected": "invalid",
+      "reason": "a migration node must record its tool version"
+    },
+    {
+      "id": "mod/native-library",
+      "schema": "mod-manifest",
+      "file": "invalid/mod-manifest-native.json",
+      "expected": "invalid",
+      "reason": "V1 Mod boundary cannot load native libraries"
+    },
+    {
+      "id": "mod/reserved",
+      "schema": "mod-manifest",
+      "file": "valid/mod-manifest-reserved.json",
+      "expected": "valid"
+    },
+    {
+      "id": "mutation/receipt-aborted-revision-conflict",
+      "schema": "voxel-mutation-receipt",
+      "file": "valid/voxel-mutation-receipt-aborted-conflict.json",
+      "expected": "valid"
+    },
+    {
+      "id": "mutation/receipt-applied",
+      "schema": "voxel-mutation-receipt",
+      "file": "valid/voxel-mutation-receipt-applied.json",
+      "expected": "valid"
+    },
+    {
+      "id": "mutation/receipt-applied-missing-result",
+      "schema": "voxel-mutation-receipt",
+      "file": "invalid/voxel-mutation-receipt-applied-missing-result.json",
+      "expected": "invalid",
+      "reason": "an Applied receipt must retain the original result revisions"
+    },
+    {
+      "id": "mutation/receipt-duplicate",
+      "schema": "voxel-mutation-receipt",
+      "file": "valid/voxel-mutation-receipt-duplicate.json",
+      "expected": "valid"
+    },
+    {
+      "id": "mutation/receipt-global-commit-intent",
+      "schema": "voxel-mutation-receipt",
+      "file": "invalid/voxel-mutation-receipt-commit-intent.json",
+      "expected": "invalid",
+      "reason": "a voxel participant must not own the global CommitIntent state"
+    },
+    {
+      "id": "mutation/status-applied-missing-result",
+      "schema": "voxel-mutation-receipt",
+      "file": "invalid/voxel-mutation-status-applied-missing-result.json",
+      "expected": "invalid",
+      "reason": "an Applied status response must re-serve the original result revisions"
+    },
+    {
+      "id": "mutation/status-lost-result",
+      "schema": "voxel-mutation-receipt",
+      "file": "valid/voxel-mutation-status-lost-result.json",
+      "expected": "valid"
+    },
+    {
+      "id": "mutation/status-pruned-with-result",
+      "schema": "voxel-mutation-receipt",
+      "file": "invalid/voxel-mutation-status-pruned-with-result.json",
+      "expected": "invalid",
+      "reason": "a ResultPruned status response never carries result revisions"
+    },
+    {
+      "id": "mutation/status-result-pruned",
+      "schema": "voxel-mutation-receipt",
+      "file": "valid/voxel-mutation-status-pruned.json",
+      "expected": "valid"
+    },
+    {
+      "id": "processor/place-voxel",
+      "schema": "processor-descriptor",
+      "file": "valid/processor-place-voxel.json",
+      "expected": "valid"
+    },
+    {
+      "id": "processor/stable-self-overlap",
+      "schema": "processor-descriptor",
+      "file": "valid/processor-stable-self-overlap.json",
+      "expected": "valid"
+    },
+    {
+      "id": "processor/structural-in-metrics",
+      "schema": "processor-descriptor",
+      "file": "invalid/processor-structural-in-metrics.json",
+      "expected": "invalid",
+      "reason": "non-business phases cannot emit structural commands"
+    },
+    {
+      "id": "query/continuation-unbound",
+      "schema": "voxel-query",
+      "file": "invalid/voxel-query-continuation-unbound.json",
+      "expected": "invalid",
+      "reason": "a continuation must stay bound to the WorldRevision fixed at begin"
+    },
+    {
+      "id": "query/multi-chunk-bound",
+      "schema": "voxel-query",
+      "file": "valid/voxel-query-bound.json",
+      "expected": "valid"
+    },
+    {
+      "id": "query/target-revision-unavailable",
+      "schema": "voxel-query",
+      "file": "valid/voxel-query-revision-unavailable.json",
+      "expected": "valid"
+    },
+    {
+      "id": "release/a-1.1",
+      "schema": "release-manifest",
+      "file": "valid/release-manifest-a-1.1.json",
+      "expected": "valid"
+    },
+    {
+      "id": "release/boe-2.1",
+      "schema": "release-manifest",
+      "file": "valid/release-manifest-boe-2.1.json",
+      "expected": "valid"
+    },
+    {
+      "id": "release/catalog",
+      "schema": "release-catalog",
+      "file": "valid/release-catalog.json",
+      "expected": "valid"
+    },
+    {
+      "id": "release/catalog-duplicate-route",
+      "schema": "release-catalog",
+      "file": "invalid/release-catalog-duplicate-route.json",
+      "expected": "invalid",
+      "reason": "a ProductId and GameReleaseId route must be unique"
+    },
+    {
+      "id": "release/coreengine-abi-mismatch",
+      "schema": "release-manifest",
+      "file": "invalid/release-manifest-coreengine-abi.json",
+      "expected": "invalid",
+      "reason": "coreEnginePackage.abiIdentity must equal coreEngineAbi"
+    },
+    {
+      "id": "release/mismatch",
+      "schema": "release-manifest",
+      "file": "invalid/release-manifest-mismatch.json",
+      "expected": "invalid",
+      "reason": "server and client releases differ under ExactRelease"
+    },
+    {
+      "id": "release/missing-capability-digest",
+      "schema": "release-manifest",
+      "file": "invalid/release-manifest-missing-capability-digest.json",
+      "expected": "invalid",
+      "reason": "the package identity five-tuple requires capabilitySetDigest"
+    },
+    {
+      "id": "replication/ack-smuggled-command",
+      "schema": "replication-envelope",
+      "file": "invalid/replication-ack-smuggled-command.json",
+      "expected": "invalid"
+    },
+    {
+      "id": "replication/baseline-ack",
+      "schema": "replication-envelope",
+      "file": "valid/replication-baseline-ack.json",
+      "expected": "valid"
+    },
+    {
+      "id": "replication/body-extra-member",
+      "schema": "replication-envelope",
+      "file": "invalid/replication-body-extra-member.json",
+      "expected": "invalid"
+    },
+    {
+      "id": "replication/delta",
+      "schema": "replication-envelope",
+      "file": "valid/replication-delta.json",
+      "expected": "valid"
+    },
+    {
+      "id": "replication/delta-ack",
+      "schema": "replication-envelope",
+      "file": "valid/replication-delta-ack.json",
+      "expected": "valid"
+    },
+    {
+      "id": "replication/error",
+      "schema": "replication-envelope",
+      "file": "valid/replication-error.json",
+      "expected": "valid"
+    },
+    {
+      "id": "replication/full-snapshot",
+      "schema": "replication-envelope",
+      "file": "valid/replication-full-snapshot.json",
+      "expected": "valid"
+    },
+    {
+      "id": "replication/gap-without-resync",
+      "schema": "replication-envelope",
+      "file": "invalid/replication-gap-without-resync.json",
+      "expected": "invalid",
+      "reason": "gap must lead to a resync request"
+    },
+    {
+      "id": "replication/handshake",
+      "schema": "replication-envelope",
+      "file": "valid/replication-handshake.json",
+      "expected": "valid"
+    },
+    {
+      "id": "replication/integrity-value-mismatch",
+      "schema": "replication-envelope",
+      "file": "invalid/replication-integrity-value-mismatch.json",
+      "expected": "invalid",
+      "reason": "integrity value must match the declared algorithm"
+    },
+    {
+      "id": "replication/length-exceeds-max",
+      "schema": "replication-envelope",
+      "file": "invalid/replication-length-exceeds-max.json",
+      "expected": "invalid"
+    },
+    {
+      "id": "replication/maintenance-kick",
+      "schema": "replication-envelope",
+      "file": "valid/replication-maintenance-kick.json",
+      "expected": "valid"
+    },
+    {
+      "id": "replication/mapping-set-hash-type",
+      "schema": "replication-envelope",
+      "file": "invalid/replication-mapping-set-hash-type.json",
+      "expected": "invalid"
+    },
+    {
+      "id": "replication/missing-snapshot-identity",
+      "schema": "replication-envelope",
+      "file": "invalid/replication-missing-snapshot-identity.json",
+      "expected": "invalid",
+      "reason": "FullSnapshot requires TickId, SessionRevisionVector and MappingSetHash"
+    },
+    {
+      "id": "replication/resync",
+      "schema": "replication-envelope",
+      "file": "valid/replication-resync.json",
+      "expected": "valid"
+    },
+    {
+      "id": "replication/unregistered-message-type",
+      "schema": "replication-envelope",
+      "file": "invalid/replication-unregistered-message-type.json",
+      "expected": "invalid",
+      "reason": "messageType must be registered"
+    },
+    {
+      "id": "replication/unreliable-full-snapshot",
+      "schema": "replication-envelope",
+      "file": "invalid/replication-unreliable-full-snapshot.json",
+      "expected": "invalid",
+      "reason": "FullSnapshot must use Reliable delivery"
+    },
+    {
+      "id": "result/negative",
+      "schema": "contract-result",
+      "file": "invalid/contract-result-negative.json",
+      "expected": "invalid",
+      "reason": "failure count cannot be negative"
+    },
+    {
+      "id": "result/valid",
+      "schema": "contract-result",
+      "file": "valid/contract-result.json",
+      "expected": "valid"
+    },
+    {
+      "id": "revision/legacy-chunk-key",
+      "schema": "session-revision-vector",
+      "file": "invalid/session-revision-legacy-chunk-key.json",
+      "expected": "invalid",
+      "reason": "chunk revision keys must use the canonical ChunkId format"
+    },
+    {
+      "id": "revision/negative",
+      "schema": "session-revision-vector",
+      "file": "invalid/session-revision-negative.json",
+      "expected": "invalid",
+      "reason": "negative revision"
+    },
+    {
+      "id": "revision/valid",
+      "schema": "session-revision-vector",
+      "file": "valid/session-revision-vector.json",
+      "expected": "valid"
+    },
+    {
+      "id": "rootabi/bundle",
+      "schema": "root-abi-bundle",
+      "file": "valid/root-abi-bundle.json",
+      "expected": "valid"
+    },
+    {
+      "id": "rootabi/incomplete-type-mapping",
+      "schema": "root-abi-bundle",
+      "file": "invalid/root-abi-bundle-incomplete-type-mapping.json",
+      "expected": "invalid",
+      "reason": "every typeRef production must appear in the frozen mapping"
+    },
+    {
+      "id": "rootabi/short-struct-size",
+      "schema": "root-abi-bundle",
+      "file": "invalid/root-abi-bundle-short-struct-size.json",
+      "expected": "invalid",
+      "reason": "minimumStructSize cannot exceed declaredStructSize"
+    },
+    {
+      "id": "scope/barrier-switch",
+      "schema": "gameplay-scope-activation",
+      "file": "valid/gameplay-scope-activation.json",
+      "expected": "valid"
+    },
+    {
+      "id": "scope/reactivate-old",
+      "schema": "gameplay-scope-activation",
+      "file": "invalid/gameplay-scope-reactivate-old.json",
+      "expected": "invalid",
+      "reason": "an unloaded old Scope cannot be reactivated"
+    },
+    {
+      "id": "snapshot/active",
+      "schema": "snapshot-header",
+      "file": "valid/snapshot-active.json",
+      "expected": "valid"
+    },
+    {
+      "id": "snapshot/legacy-checksum",
+      "schema": "snapshot-header",
+      "file": "invalid/snapshot-legacy-checksum.json",
+      "expected": "invalid",
+      "reason": "the header checksum must be a SHA-256 digest"
+    },
+    {
+      "id": "snapshot/length-mismatch",
+      "schema": "snapshot-header",
+      "file": "invalid/snapshot-length-mismatch.json",
+      "expected": "invalid",
+      "reason": "payload length and hash do not verify"
+    },
+    {
+      "id": "target/linux-server",
+      "schema": "target-profile",
+      "file": "valid/target-profile-linux-server.json",
+      "expected": "valid"
+    },
+    {
+      "id": "target/missing-load-backend",
+      "schema": "target-profile",
+      "file": "invalid/target-profile-missing-load-backend.json",
+      "expected": "invalid",
+      "reason": "a target profile must declare its load backend"
+    },
+    {
+      "id": "tick/duplicate-commit-point",
+      "schema": "tick-phase-contract",
+      "file": "invalid/tick-phase-duplicate-commit.json",
+      "expected": "invalid",
+      "reason": "exactly one Tick Commit Point is allowed"
+    },
+    {
+      "id": "tick/phase-matrix",
+      "schema": "tick-phase-contract",
+      "file": "valid/tick-phase-contract.json",
+      "expected": "valid"
+    },
+    {
+      "id": "trust/keyid-mismatch",
+      "schema": "trust-profile",
+      "file": "invalid/trust-profile-keyid-mismatch.json",
+      "expected": "invalid",
+      "reason": "keyId must be the ADR-042 derivation of its own publicKey"
+    },
+    {
+      "id": "trust/profile",
+      "schema": "trust-profile",
+      "file": "valid/trust-profile.json",
+      "expected": "valid"
+    },
+    {
+      "id": "trust/reject-order",
+      "schema": "trust-profile",
+      "file": "invalid/trust-profile-reject-order.json",
+      "expected": "invalid",
+      "reason": "rejectPriority must equal the ADR-042 frozen order"
+    },
+    {
+      "id": "trust/vector-outcome-mismatch",
+      "schema": "trust-profile",
+      "file": "invalid/trust-profile-vector-outcome-mismatch.json",
+      "expected": "invalid",
+      "reason": "a vector outcome must be what evaluating the frozen order produces"
+    },
+    {
+      "id": "txn/aborted-revision-conflict",
+      "schema": "cross-world-txn",
+      "file": "valid/cross-world-txn-aborted.json",
+      "expected": "valid"
+    },
+    {
+      "id": "txn/committed",
+      "schema": "cross-world-txn",
+      "file": "valid/cross-world-txn-committed.json",
+      "expected": "valid"
+    },
+    {
+      "id": "txn/crash-between-markers",
+      "schema": "cross-world-txn",
+      "file": "valid/cross-world-txn-indeterminate.json",
+      "expected": "valid"
+    },
+    {
+      "id": "txn/intent-persisted-no-markers",
+      "schema": "cross-world-txn",
+      "file": "valid/cross-world-txn-crash-window.json",
+      "expected": "valid"
+    },
+    {
+      "id": "txn/lost-result",
+      "schema": "cross-world-txn",
+      "file": "valid/cross-world-txn-lost-result.json",
+      "expected": "valid"
+    },
+    {
+      "id": "txn/marker-crash",
+      "schema": "cross-world-txn",
+      "file": "valid/cross-world-txn-marker-crash.json",
+      "expected": "valid"
+    },
+    {
+      "id": "txn/partial-commit",
+      "schema": "cross-world-txn",
+      "file": "invalid/cross-world-txn-partial-commit.json",
+      "expected": "invalid",
+      "reason": "commit order and participant markers disagree"
+    },
+    {
+      "id": "txn/post-intent-business-reject",
+      "schema": "cross-world-txn",
+      "file": "invalid/cross-world-txn-post-intent-reject.json",
+      "expected": "invalid",
+      "reason": "CommitIntent persistence forbids a later business-level reject"
+    },
+    {
+      "id": "voxeldur/ack-missing-durability-point",
+      "schema": "voxel-durability-ack",
+      "file": "invalid/voxel-durability-ack-missing-point.json",
+      "expected": "invalid",
+      "reason": "a durability acknowledgment must carry a snapshot or WAL durability point"
+    },
+    {
+      "id": "voxeldur/ack-snapshot-point",
+      "schema": "voxel-durability-ack",
+      "file": "valid/voxel-durability-ack-snapshot-point.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxeldur/ack-wal-point",
+      "schema": "voxel-durability-ack",
+      "file": "valid/voxel-durability-ack-wal-point.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxeldur/fence-all-resident-evict",
+      "schema": "voxel-durability-ack",
+      "file": "invalid/voxel-eviction-fence-all-resident-evict.json",
+      "expected": "invalid",
+      "reason": "an AllResident residency mode disables chunk eviction"
+    },
+    {
+      "id": "voxeldur/fence-dirty-covered-evict",
+      "schema": "voxel-durability-ack",
+      "file": "valid/voxel-eviction-fence-covered-evict.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxeldur/fence-dirty-uncovered-deny",
+      "schema": "voxel-durability-ack",
+      "file": "valid/voxel-eviction-fence-uncovered-deny.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxeldur/fence-dirty-uncovered-evict",
+      "schema": "voxel-durability-ack",
+      "file": "invalid/voxel-eviction-fence-uncovered-evict.json",
+      "expected": "invalid",
+      "reason": "a Dirty chunk without an acknowledged durability point must not be evicted"
+    },
+    {
+      "id": "voxeldur/residency-all-resident",
+      "schema": "voxel-durability-ack",
+      "file": "valid/voxel-residency-all-resident.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxelrev/legacy-chunk-key",
+      "schema": "voxel-revision-stamp",
+      "file": "invalid/voxel-revision-stamp-legacy-chunk-key.json",
+      "expected": "invalid",
+      "reason": "a voxel chunk-keyed map must use the canonical ChunkId key format"
+    },
+    {
+      "id": "voxelrev/negative-chunk-revision",
+      "schema": "voxel-revision-stamp",
+      "file": "invalid/voxel-revision-stamp-negative.json",
+      "expected": "invalid",
+      "reason": "a chunk revision cannot be negative"
+    },
+    {
+      "id": "voxelrev/stamp",
+      "schema": "voxel-revision-stamp",
+      "file": "valid/voxel-revision-stamp.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxelsnap/capture-pin-expired-ready",
+      "schema": "voxel-snapshot-payload",
+      "file": "invalid/voxel-snapshot-capture-pin-expired-ready.json",
+      "expected": "invalid",
+      "reason": "a capture whose snapshot pin has expired must not claim Ready"
+    },
+    {
+      "id": "voxelsnap/capture-ready-pinned",
+      "schema": "voxel-snapshot-payload",
+      "file": "valid/voxel-snapshot-capture-ready.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxelsnap/diff-base-target-round-trip",
+      "schema": "voxel-snapshot-payload",
+      "file": "valid/voxel-snapshot-diff.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxelsnap/diff-no-advance",
+      "schema": "voxel-snapshot-payload",
+      "file": "invalid/voxel-snapshot-diff-no-advance.json",
+      "expected": "invalid",
+      "reason": "a diff must strictly advance from its base world revision"
+    },
+    {
+      "id": "voxelsnap/full-cut-projection",
+      "schema": "voxel-snapshot-payload",
+      "file": "valid/voxel-snapshot-payload-full.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxelsnap/partial-aoi-subset",
+      "schema": "voxel-snapshot-payload",
+      "file": "valid/voxel-snapshot-payload-partial.json",
+      "expected": "valid"
+    },
+    {
+      "id": "voxelsnap/payload-bad-hash",
+      "schema": "voxel-snapshot-payload",
+      "file": "invalid/voxel-snapshot-payload-bad-hash.json",
+      "expected": "invalid",
+      "reason": "a canonical voxel payload hash must be a SHA-256 digest"
+    },
+    {
+      "id": "vpd/failed-check",
+      "schema": "verified-package-descriptor",
+      "file": "invalid/verified-package-descriptor-failed-check.json",
+      "expected": "invalid",
+      "reason": "a Trusted decision cannot carry a failed check"
+    },
+    {
+      "id": "vpd/trusted",
+      "schema": "verified-package-descriptor",
+      "file": "valid/verified-package-descriptor.json",
+      "expected": "valid"
+    },
+    {
+      "id": "wal/checksum-mismatch",
+      "schema": "wal-record-envelope",
+      "file": "invalid/wal-record-checksum-mismatch.json",
+      "expected": "invalid",
+      "reason": "WAL checksum must match the hash chain"
+    },
+    {
+      "id": "wal/envelope",
+      "schema": "wal-record-envelope",
+      "file": "valid/wal-record-envelope.json",
+      "expected": "valid"
+    },
+    {
+      "id": "world/authority-ready",
+      "schema": "voxel-world-port",
+      "file": "valid/voxel-world-port.json",
+      "expected": "valid"
+    },
+    {
+      "id": "world/bad-role",
+      "schema": "voxel-world-port",
+      "file": "invalid/voxel-world-port-bad-role.json",
+      "expected": "invalid",
+      "reason": "a voxel world role must be Authority or Replica"
+    }
   ]
 }

@@ -28,6 +28,7 @@ public static class DigestDomains
         new DigestDomain("artifactIndexDigest", "ArtifactIndexV1", "index.entries sorted ascending by path (code point)", System.Array.Empty<string>(), new[] { new NormalizationStep("index.entries", "sortAscending", "path", "codePoint") }),
         new DigestDomain("targetProfileDigest", "TargetProfileV1", "member order only; the profile has no array", System.Array.Empty<string>(), System.Array.Empty<NormalizationStep>()),
         new DigestDomain("capabilitySetDigest", "CapabilitySetV1", "capabilities sorted ascending by code point; the array is uniqueItems so ties are impossible", System.Array.Empty<string>(), new[] { new NormalizationStep("capabilities", "sortAscending", "$self", "codePoint") }),
+        new DigestDomain("mappingSetHash", "ReplicationMappingSetV1", "mappings sorted ascending by code point; mappingId is unique within a set so ties are impossible", System.Array.Empty<string>(), new[] { new NormalizationStep("mappings", "sortAscending", "$self", "codePoint") }),
     };
 }
 
@@ -44,5 +45,7 @@ public static class CanonicalGoldens
         new CanonicalGolden("escape-boundary", "EscapeBoundary", "b7fb9362f56ca50b68969d61dd73ee73f31a23a64d4f15a898045c1f6c4cb5eb"),
         new CanonicalGolden("integer-boundary", "IntegerBoundary", "a6135f19ccbcd596fb0bd7bc81fcd9770f49609c483812fc776bf71c28c2de73"),
         new CanonicalGolden("artifact-set-schema-version", "SchemaVersionChange", "e0fd1f58d4435bec2365841d68280a6bf03aa158e99de07c3e970f7bc836968e"),
+        new CanonicalGolden("replication-mapping-set-empty", "EmptyMappingSet", "a805f7c841f708981cc82a93047d7b0c8e6bf923f3dba18e179036741a6d2ea7"),
+        new CanonicalGolden("replication-mapping-set-permutation", "MappingOrderPermutation", "4120cf666fec14f6bcaf703a5d10706d755f36fb0e354dfdec6e6d5bddc40e23"),
     };
 }

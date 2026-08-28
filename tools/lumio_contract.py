@@ -640,6 +640,28 @@ def config_cell_errors(column: Any, raw: Any, row_key: Any, known_keys: set) -> 
     return errors
 
 
+def replication_length_errors(value: Any) -> List[str]:
+    """ADR-045 section 3: `length` is a declared bound, not a byte-count claim.
+
+    The envelope's wire byte encoding is not frozen yet (it waits on the state
+    payload decision), so the gate cannot check `length` against real bytes. What
+    it can check, and what a transport actually needs, is that the declared length
+    fits the negotiated `transportPolicy.maxMessageBytes`.
+    """
+    errors: List[str] = []
+    if not isinstance(value, dict):
+        return errors
+    length = value.get("length")
+    policy = value.get("transportPolicy")
+    if not isinstance(length, int) or isinstance(length, bool):
+        return errors
+    if isinstance(policy, dict):
+        maximum = policy.get("maxMessageBytes")
+        if isinstance(maximum, int) and not isinstance(maximum, bool) and length > maximum:
+            errors.append("declared length exceeds the negotiated maxMessageBytes")
+    return errors
+
+
 def replication_body_errors(message_type: Any, body: Any) -> List[str]:
     errors: List[str] = []
     if not isinstance(body, dict):
@@ -1112,6 +1134,7 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             rule = _INTEGRITY_VALUE_RULES.get(str(integrity.get("algorithm")))
             if rule is not None and rule.match(str(integrity.get("value", ""))) is None:
                 errors.append("integrity value does not match the declared algorithm")
+        errors.extend(replication_length_errors(value))
         errors.extend(replication_body_errors(message_type, value.get("body")))
 
     elif schema_id == "entity-identity":

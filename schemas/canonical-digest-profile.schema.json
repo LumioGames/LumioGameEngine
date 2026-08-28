@@ -70,7 +70,8 @@
               "artifactSetDigest",
               "artifactIndexDigest",
               "targetProfileDigest",
-              "capabilitySetDigest"
+              "capabilitySetDigest",
+              "mappingSetHash"
             ]
           },
           "domainTag": { "type": "string", "minLength": 1, "maxLength": 64 },
@@ -117,7 +118,9 @@
               "CapabilityOrderPermutation",
               "EscapeBoundary",
               "IntegerBoundary",
-              "SchemaVersionChange"
+              "SchemaVersionChange",
+              "EmptyMappingSet",
+              "MappingOrderPermutation"
             ]
           },
           "input": {},
