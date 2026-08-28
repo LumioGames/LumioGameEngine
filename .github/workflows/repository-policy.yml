@@ -25,14 +25,14 @@ jobs:
           test -s LICENSE
           test -s .gitattributes
           grep -q '^\*\.md text eol=lf$' .gitattributes
-          test -s docs/architecture/LumioGameEngine_Architecture_v1.2.md
+          test -s docs/architecture/LumioGameEngine_Architecture_v1.4.md
           grep -q '^## 职责$' README.md
           grep -q '^## 明确不负责什么$' README.md
           grep -q '^## Source / Compile-Time Dependencies$' README.md
           grep -q '^## Headless Test Surface$' README.md
-          grep -q '^# LumioGameEngine V3 (v1.2)' docs/architecture/LumioGameEngine_Architecture_v1.2.md
-          grep -q 'LGE-V1.2-2026-08-27' README.md
-          grep -q 'LGE-V1.2-2026-08-27' docs/architecture/LumioGameEngine_Architecture_v1.2.md
+          grep -q '^# LumioGameEngine V3 (v1.4)' docs/architecture/LumioGameEngine_Architecture_v1.4.md
+          grep -q 'LGE-V1.4-2026-08-27' README.md
+          grep -q 'LGE-V1.4-2026-08-27' docs/architecture/LumioGameEngine_Architecture_v1.4.md
           grep -q '^## 子模块' README.md
           grep -q '^## 当前阶段与开发节奏$' README.md
           test -s docs/architecture/.baseline.sha256
