@@ -681,6 +681,10 @@ def emit_contract_runtime(rust_dir: Path, cs_dir: Path) -> None:
 CANONICAL_PROFILE_ID = "canonical-digest-v1"
 CANONICAL_PROFILE_FILE = "canonical/canonical-digest-profile.json"
 TRUST_PROFILE_FILE = "trust/trust-profile.json"
+LOADER_PROFILE_FILE = "loader/loader-profile.json"
+EVIDENCE_PROFILE_FILE = "evidence/evidence-profile.json"
+LOADER_PROFILE_CONSUMERS = ["LumioCoreEngine"]
+EVIDENCE_PROFILE_CONSUMERS = ["LumioCoreEngine"]
 CANONICAL_FORM = {
     "formId": "CanonicalJsonV1",
     "encoding": "AsciiEscaped",
@@ -940,6 +944,13 @@ def derive_canonical_profile(root: Path) -> Dict[str, Any]:
         "digestDomains": json.loads(json.dumps(CANONICAL_DIGEST_DOMAINS)),
         "goldens": goldens,
     }
+
+
+def emit_validated_profile(root: Path, out_dir: Path, fixture: str, target: str) -> Dict[str, Any]:
+    """Publish a gate-validated profile fixture into the consumable package tree."""
+    profile = json.loads((root / "fixtures" / "valid" / fixture).read_text(encoding="utf-8"))
+    write_text(out_dir / target, canonical_json(profile) + "\n")
+    return profile
 
 
 def emit_trust_profile(root: Path, out_dir: Path) -> Dict[str, Any]:
@@ -1633,6 +1644,8 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
     bundle = emit_root_abi(root, out_dir, comp)
     write_text(out_dir / CANONICAL_PROFILE_FILE, canonical_json(canonical_profile) + "\n")
     trust_profile = emit_trust_profile(root, out_dir)
+    loader_profile = emit_validated_profile(root, out_dir, "loader-profile.json", LOADER_PROFILE_FILE)
+    evidence_profile = emit_validated_profile(root, out_dir, "evidence-profile.json", EVIDENCE_PROFILE_FILE)
 
     inventory = []
     for kind in KINDS:
@@ -1663,6 +1676,20 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         ],
         "stateMachineCount": len(machines),
         "stateMachineIds": [m.get("machineId") for m in machines],
+        "loader": {
+            "profileId": loader_profile["profileId"],
+            "profilePath": LOADER_PROFILE_FILE,
+            "profileDigest": sha256_file(out_dir / LOADER_PROFILE_FILE),
+            "errorPriorityLength": len(loader_profile["errorPriority"]),
+            "consumers": list(LOADER_PROFILE_CONSUMERS),
+        },
+        "evidence": {
+            "profileId": evidence_profile["profileId"],
+            "profilePath": EVIDENCE_PROFILE_FILE,
+            "profileDigest": sha256_file(out_dir / EVIDENCE_PROFILE_FILE),
+            "profileCount": len(evidence_profile["profiles"]),
+            "consumers": list(EVIDENCE_PROFILE_CONSUMERS),
+        },
         "trust": {
             "profileId": trust_profile["profileId"],
             "profilePath": TRUST_PROFILE_FILE,

@@ -51,6 +51,95 @@ _CANONICAL_NORMALIZATION = {
 _CANONICAL_GOLDEN_CASES = set(_abi.CANONICAL_GOLDEN_CASES)
 _CANONICAL_PROFILE_FILE = _abi.CANONICAL_PROFILE_FILE
 
+_LOADER_REENTRY = {
+    "afterFailedRolledBack": "NewInstanceFromUninitialized",
+    "afterReleased": "NewInstanceFromUninitialized",
+    "latchScope": "Process",
+    "latchClearedOnRelease": False,
+    "sameIdentityAcquire": "ReturnExistingLease",
+    "differentIdentityAcquire": "PackageIdentityConflict",
+}
+# ADR-043 section 3: lower rank wins. PartialLoadRolledBack is a floor, not a winner.
+_LOADER_ERROR_PRIORITY = [
+    "PackageIdentityConflict",
+    "NativeAbiMismatch",
+    "SymbolMissing",
+    "SymbolCollision",
+    "CapabilityMissing",
+    "TargetProfileMismatch",
+    "LoaderOutOfMemory",
+    "LoaderTimeout",
+    "LoaderCancelled",
+    "PartialLoadRolledBack",
+]
+_LOADER_ACQUIRE_CASES = {
+    "FirstAcquire",
+    "ConcurrentSameIdentity",
+    "ConcurrentDifferentIdentity",
+    "AfterReleasedSameIdentity",
+    "AfterReleasedDifferentIdentity",
+    "RetryAfterFailedRolledBack",
+}
+# ADR-044 section 1: the closed format set and what each spelling implies.
+_EVIDENCE_PROFILES = {
+    "sbom": ("Sbom", "CycloneDX", "1.6", "application/vnd.cyclonedx+json"),
+    "license": ("License", "SPDX", "2.3", "application/spdx+json"),
+    "provenance": ("Provenance", "SLSA-v1", "1.0", "application/vnd.in-toto+json"),
+}
+_EVIDENCE_FORMATS = {item[1] for item in _EVIDENCE_PROFILES.values()}
+_EVIDENCE_VECTOR_CASES = {
+    "Valid",
+    "MissingKind",
+    "DigestMismatch",
+    "UnknownFormat",
+    "IndexEntryWithoutManifestReference",
+    "ManifestReferenceWithoutIndexEntry",
+}
+
+
+def evaluate_acquire(vector: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+    """ADR-043 section 2: the latch is by identity, not by time."""
+    latched = vector.get("latchedIdentity")
+    requested = vector.get("requestedIdentity")
+    if latched is None:
+        return "NewLease", None
+    if latched == requested:
+        return "ExistingLease", None
+    return "Rejected", "PackageIdentityConflict"
+
+
+def evaluate_loader_failure(causes: List[str]) -> Optional[str]:
+    """ADR-043 section 3: the reported code is the highest-ranked cause."""
+    ranked = [c for c in causes if c in _LOADER_ERROR_PRIORITY]
+    if not ranked:
+        return None
+    return min(ranked, key=_LOADER_ERROR_PRIORITY.index)
+
+
+def evaluate_evidence(vector: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+    """ADR-044 sections 3-4: DigestOnly plus exact bidirectional coverage."""
+    evidence_set = vector.get("evidenceSet") or {}
+    entries = vector.get("indexEntries") or []
+    by_kind: Dict[str, List[Dict[str, Any]]] = {}
+    for entry in entries:
+        by_kind.setdefault(str(entry.get("kind")), []).append(entry)
+    for kind, (artifact_kind, fmt, _version, _media) in _EVIDENCE_PROFILES.items():
+        ref = evidence_set.get(kind)
+        if ref is None:
+            return "Rejected", "EvidenceMissing"
+        if ref.get("format") != fmt:
+            return "Rejected", "EvidenceMissing"
+        matches = by_kind.get(artifact_kind) or []
+        if len(matches) != 1:
+            return "Rejected", "EvidenceMissing"
+        if matches[0].get("sha256") != ref.get("digest"):
+            return "Rejected", "EvidenceDigestMismatch"
+    extra = set(by_kind) - {item[0] for item in _EVIDENCE_PROFILES.values()}
+    if extra:
+        return "Rejected", "EvidenceMissing"
+    return "Accepted", None
+
+
 _TRUST_PREIMAGE_FIELDS = ["domainSeparator", "trustDomain", "payloadType", "payloadDigest"]
 _TRUST_REJECT_PRIORITY = [
     (1, "SignatureMissing"),
@@ -1257,6 +1346,81 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
                     "artifactSetDigest must equal the ADR-041 recomputation {}".format(expected)
                 )
 
+    elif schema_id == "loader-profile":
+        if value.get("reentry") != _LOADER_REENTRY:
+            errors.append("reentry must equal the ADR-043 freeze")
+        order = [item.get("errorCode") for item in value.get("errorPriority", [])]
+        if order != _LOADER_ERROR_PRIORITY:
+            errors.append("errorPriority must equal the ADR-043 frozen order {}".format(_LOADER_ERROR_PRIORITY))
+        ranks = [item.get("rank") for item in value.get("errorPriority", [])]
+        if ranks != list(range(1, len(ranks) + 1)):
+            errors.append("errorPriority ranks must be contiguous from 1")
+        seen = set()
+        for vector in value.get("acquireVectors", []):
+            seen.add(vector.get("case"))
+            decision, reason = evaluate_acquire(vector)
+            if decision != vector.get("expected"):
+                errors.append(
+                    "acquire vector {} expects {} but the latch rule yields {}".format(
+                        vector.get("vectorId"), vector.get("expected"), decision
+                    )
+                )
+            elif reason != vector.get("rejectReason"):
+                errors.append(
+                    "acquire vector {} declares rejectReason {} but the latch rule yields {}".format(
+                        vector.get("vectorId"), vector.get("rejectReason"), reason
+                    )
+                )
+        if seen != _LOADER_ACQUIRE_CASES:
+            errors.append(
+                "acquire vectors must cover every frozen case (missing: {})".format(
+                    sorted(_LOADER_ACQUIRE_CASES - seen)
+                )
+            )
+        for vector in value.get("failureVectors", []):
+            expected = evaluate_loader_failure(list(vector.get("causes") or []))
+            if vector.get("reported") != expected:
+                errors.append(
+                    "failure vector {} reports {} but the frozen priority yields {}".format(
+                        vector.get("vectorId"), vector.get("reported"), expected
+                    )
+                )
+
+    elif schema_id == "evidence-profile":
+        declared = {
+            item.get("kind"): (
+                item.get("artifactKind"), item.get("format"), item.get("specVersion"), item.get("mediaType")
+            )
+            for item in value.get("profiles", [])
+        }
+        if declared != _EVIDENCE_PROFILES:
+            errors.append("profiles must equal the ADR-044 frozen format/version/media-type set")
+        for item in value.get("profiles", []):
+            if item.get("digestObject") != "RawBytes":
+                errors.append("evidence digests are over raw published bytes, never a canonicalization")
+        seen = set()
+        for vector in value.get("vectors", []):
+            seen.add(vector.get("case"))
+            decision, reason = evaluate_evidence(vector)
+            if decision != vector.get("expected"):
+                errors.append(
+                    "evidence vector {} expects {} but the coverage rules yield {}".format(
+                        vector.get("vectorId"), vector.get("expected"), decision
+                    )
+                )
+            elif reason != vector.get("rejectReason"):
+                errors.append(
+                    "evidence vector {} declares rejectReason {} but the coverage rules yield {}".format(
+                        vector.get("vectorId"), vector.get("rejectReason"), reason
+                    )
+                )
+        if seen != _EVIDENCE_VECTOR_CASES:
+            errors.append(
+                "evidence vectors must cover every frozen case (missing: {})".format(
+                    sorted(_EVIDENCE_VECTOR_CASES - seen)
+                )
+            )
+
     elif schema_id == "trust-profile":
         signature_profile = value.get("signatureProfile", {})
         if signature_profile.get("preimageFields") != _TRUST_PREIMAGE_FIELDS:
@@ -1369,6 +1533,16 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
     elif schema_id == "core-engine-manifest":
         if "Native" not in value.get("capabilitySet", []):
             errors.append("a CoreEngine NativeLibrary package must declare the Native capability")
+        # ADR-044: format is a closed set; a tool default or a free string is not a profile.
+        for kind, ref in (value.get("evidenceSet") or {}).items():
+            fmt = (ref or {}).get("format")
+            expected = _EVIDENCE_PROFILES.get(kind)
+            if expected is not None and fmt != expected[1]:
+                errors.append(
+                    "evidenceSet.{} format {} is outside the ADR-044 frozen set (expected {})".format(
+                        kind, fmt, expected[1]
+                    )
+                )
 
     elif schema_id == "signature-envelope":
         if value.get("trustDomain") == "Production" and str(value.get("keyId", "")).startswith("test-"):
