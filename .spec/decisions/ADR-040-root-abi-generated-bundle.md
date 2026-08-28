@@ -76,6 +76,35 @@ The `rootAbi` entry in `packages/index.json` (the language-neutral directory of 
 
 `schemas/root-abi-bundle.schema.json` (P0, owner `Architecture`) is the generation record contract: compiler identity, input set and `inputHash`, ABI identity (`abiVersion`, `entrySymbol`, `symbolPrefix`, `callingConvention`, `pointerWidth`, `endianness`), layout profile, the frozen type mapping, the derived root and per-table layout, and the output file digests. It is registered in `schemas/index.json` and exercised by positive and negative fixtures.
 
+### 7. What a `rootAbi` consumer reads, and what it may assert
+
+§5 names the two consumers. This section is the other half of that decision: it states what those repositories discover, through which index, and with what verification — so a native-toolchain repository can model itself without guessing.
+
+**Discovery.** A `rootAbi` consumer reads four indices and no other entry point:
+
+| Directory | Index | What the consumer takes from it |
+| --- | --- | --- |
+| `packages/abi/` | the `rootAbi` block of `packages/index.json` | bundle id, path and digest, compiler identity, `inputHash`, `layoutProfileId`, the digest of every output file, and the `consumers` list |
+| `ids/` | `ids/index.json` | the **numeric** identity of every public name (`ErrorCode`, `MessageType`, `Capability`, `FaultClass`) |
+| `schemas/` | `schemas/index.json` | the schema set the bundle's inputs belong to, including `native-managed-abi` and `root-abi-bundle` |
+| `fixtures/` | `fixtures/index.json` | the positive and negative cases, including the ABI document instance `fixtures/valid/native-managed-abi.json` this bundle is derived from |
+
+The generated Rust and C# packages are **not** in that list. They publish id *strings* only; `ids/index.json` is the sole authority for numerics. A consumer that reads an ordinal out of a generated package is reading something that was never published there.
+
+**Verification.** The bundle is self-verifying; the rest is pinned by object identity:
+
+- Recompute the SHA-256 of every `outputFiles[].path` and compare it to the recorded `digest`; recompute the bundle file's own digest and compare it to `rootAbi.bundleDigest`.
+- Record `rootAbi.compiler.digest` next to the name and version, so the consumer can state *which* compiler it verified against (§1).
+- `ids/`, `schemas/` and `fixtures/` carry **no per-file digest** in V1, and `docs/architecture/.baseline.sha256` covers the architecture text only. Their integrity guarantee is therefore the object identity of the pinned mirror revision — a consumer pins a revision, never a branch name.
+
+**What this bundle deliberately does not freeze.** A consumer treats each of these as absent rather than inferring a value:
+
+- **Capability bits.** The ABI document declares `capabilityBits` as a non-negative integer and the header publishes it verbatim as `LUMIO_CAPABILITY_BITS`. V1 freezes neither whether `lumio_root_api.capability_bits` is a bitmask or a count, nor any bit position. The ID Registry `Capability` namespace holds CoreEngine *package* capabilities and its numerics are enumeration ordinals, not bit positions — the same reason the WebSocket transport profile was refused a `Capability` id. A consumer must not derive a capability key from either source; a repository-private key is the only correct model until the semantics are confirmed.
+- **Any layout profile other than §4's.** V1 guarantees `linux-x86_64-glibc` and publishes a Golden for it alone. The shared POD types are built from fixed-width fields with no `size_t` precisely so they *should* not follow the host toolchain, but intent is not a Golden: no other target is published, and a consumer must not assert a layout on one.
+- **A separate operation identity.** The public identity of a callable operation is the pair (`apiTable[].name`, `slots[].slotIndex`), already published in the bundle and asserted by the layout Golden. There is no `OperationId` namespace, none is reserved, and none is required while the dispatch surface stays blocked. A repository's internal or test-only operation ids stay private and need no public reservation.
+
+**Two consumers, one exporter.** Both listed consumers bind `lumio_core.h`, but only `LumioCoreEngine` exports `LUMIO_ENTRY_SYMBOL`: per ADR-006 the single cross-repository root symbol is owned and exported exclusively by CoreEngine's `root-abi`/`composition` component, and a provider repository ships API table contracts that CoreEngine composes. A provider release artifact that exports a root symbol is a contract violation, not a packaging choice.
+
 ## Contract
 
 `schemas/root-abi-bundle.schema.json` (structural) plus `tools/lumio_contract.py` semantic rules:

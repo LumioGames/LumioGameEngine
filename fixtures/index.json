@@ -401,6 +401,13 @@
       "expected": "valid"
     },
     {
+      "id": "ids/status-range",
+      "schema": "id-registry",
+      "file": "invalid/id-registry-status-range.json",
+      "expected": "invalid",
+      "reason": "an ErrorCode numeric must fit lumio_status_t (int32)"
+    },
+    {
       "id": "journal/broken-previous-hash",
       "schema": "txn-journal-record",
       "file": "invalid/txn-journal-broken-previous-hash.json",

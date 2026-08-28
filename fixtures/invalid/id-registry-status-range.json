@@ -1,0 +1,14 @@
+{
+  "registryVersion": 1,
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "namespaces": [
+    {
+      "namespace": "ErrorCode",
+      "owner": "Architecture",
+      "values": [
+        { "id": "InternalInvariant", "numeric": 1053, "status": "Active", "since": "V1" },
+        { "id": "BeyondStatusRange", "numeric": 2147483648, "status": "Reserved", "since": "V1" }
+      ]
+    }
+  ]
+}

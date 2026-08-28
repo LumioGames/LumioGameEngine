@@ -62,7 +62,17 @@
         { "id": "SessionMismatch", "numeric": 1040, "status": "Active", "since": "V1" },
         { "id": "RoleMismatch", "numeric": 1041, "status": "Active", "since": "V1" },
         { "id": "ClaimNotGranted", "numeric": 1042, "status": "Active", "since": "V1" },
-        { "id": "SessionAntiReplay", "numeric": 1043, "status": "Active", "since": "V1" }
+        { "id": "SessionAntiReplay", "numeric": 1043, "status": "Active", "since": "V1" },
+        { "id": "InvalidArgument", "numeric": 1044, "status": "Active", "since": "V1" },
+        { "id": "WrongContext", "numeric": 1045, "status": "Active", "since": "V1" },
+        { "id": "BufferTooSmall", "numeric": 1046, "status": "Active", "since": "V1" },
+        { "id": "CapacityExceeded", "numeric": 1047, "status": "Active", "since": "V1" },
+        { "id": "Cancelled", "numeric": 1048, "status": "Active", "since": "V1" },
+        { "id": "TimedOut", "numeric": 1049, "status": "Active", "since": "V1" },
+        { "id": "ContextClosing", "numeric": 1050, "status": "Active", "since": "V1" },
+        { "id": "ContextDestroyed", "numeric": 1051, "status": "Active", "since": "V1" },
+        { "id": "PanicBoundary", "numeric": 1052, "status": "Active", "since": "V1" },
+        { "id": "InternalInvariant", "numeric": 1053, "status": "Active", "since": "V1" }
       ]
     },
     {
