@@ -71,10 +71,19 @@ jobs:
           print("packages/ matches generate: {} artifacts".format(len(a)))
           PY
       - uses: dtolnay/rust-toolchain@1.98.0
-      - name: ContractRuntime cargo check and tree
+      - name: ContractRuntime cargo check, tree and test
         run: |
           cargo check --manifest-path packages/rust/Cargo.toml --offline || cargo check --manifest-path packages/rust/Cargo.toml
           cargo tree --manifest-path packages/rust/Cargo.toml -p lumio-gen-contract-runtime
+          # The generated crate ships FIPS 180-4 known-answer vectors; without
+          # executing them a corrupted round constant reaches release, which is
+          # how K[28] = 0xc6eabbdc survived until bcc8eb9.
+          cargo test --manifest-path packages/rust/Cargo.toml -p lumio-gen-contract-runtime
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: SHA-256 three-way agreement (Rust, C#, hashlib)
+        run: python3 tools/lumio_kat.py
       - name: C# packages have no Native / PInvoke / implementation PackageReference
         run: |
           if grep -RniE 'AllowUnsafeBlocks>true|DllImport|PInvoke|NativeLibrary|PackageReference' packages/csharp | grep -viE 'ImplicitUsings|DisableImplicitNuGetFallbackFolder|no Native'; then

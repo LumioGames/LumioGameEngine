@@ -168,6 +168,48 @@ def rust_lib_header(kind: str) -> str:
     ).format(kind, BASELINE)
 
 
+# Known-answer vectors for the generated SHA-256, from FIPS 180-4. The third is
+# 56 bytes so that its length padding spills into a second compression block.
+# tools/lumio_kat.py imports this list to drive the Rust / C# / hashlib
+# three-way comparison, so the vectors are defined here once and only here.
+KAT_VECTORS = [
+    (b"", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+    (b"abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
+    (
+        b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+        "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1",
+    ),
+]
+
+KAT_COMMENTS = [
+    "FIPS 180-4 reference digest of the empty message.",
+    "FIPS 180-4 B.1: single-block message.",
+    "FIPS 180-4 B.2: 448-bit message, 56 bytes, spans two compression blocks.",
+]
+
+
+def kat_test_rs() -> str:
+    """Emit the known-answer test for the generated Rust SHA-256.
+
+    Every other test in the generated chain.rs only asserts the hasher agrees
+    with itself, so a corrupted round constant stays invisible to them. These
+    are the only assertions there compared against values fixed outside this
+    codebase.
+    """
+    lines = [
+        "#[test]",
+        "fn sha256_known_answer_vectors() {",
+    ]
+    for (data, digest), comment in zip(KAT_VECTORS, KAT_COMMENTS):
+        lines.append("    // {}".format(comment))
+        lines.append("    assert_eq!(")
+        lines.append('        sha256_hex(b"{}"),'.format(data.decode("ascii")))
+        lines.append('        "{}",'.format(digest))
+        lines.append("    );")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
 SHA256_RS = r'''
 const K: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
@@ -632,7 +674,7 @@ def emit_contract_runtime(rust_dir: Path, cs_dir: Path) -> None:
         "    assert!(buf.push(1).is_ok());\n"
         "    assert!(buf.push(2).is_ok());\n"
         "    assert!(buf.push(3).is_err());\n"
-        "}\n",
+        "}\n" + kat_test_rs(),
     )
     write_text(
         cs_dir / "ContractRuntime.cs",
