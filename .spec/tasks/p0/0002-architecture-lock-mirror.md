@@ -30,7 +30,7 @@ status: in_progress
 
 ## 证据记录（在途；验收勾选归主 loop/reviewer）
 
-实现前 Red（基线 015035b，worktree wf/r12）：
+实现前 Red（基线 48f109b，worktree wf/r12）：
 
 - `just sync-contracts` / `just check-contracts` → `error: justfile does not contain recipe …`，均 exit 1；`architecture.lock.json`、`generated/architecture/LGE-V1.2-2026-08-27/`、两脚本均不存在（ls exit 2）。
 

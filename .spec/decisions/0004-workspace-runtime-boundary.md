@@ -5,7 +5,7 @@
 
 ## 背景
 
-LCE-P0-001（R-00011 @ `015035b`）已按规格 §3.1/§3.2 建立根 workspace：15 个 member 显式列出、`[workspace.dependencies]` 为空（无第三方依赖）、`publish = false`、统一 toolchain 1.89.0。当前 15 个 crate 的依赖节全部为空，crate 间依赖方向尚未落进任何 `Cargo.toml`——workspace 拓扑与运行时发布边界正处于「骨架已建、边界未冻结」状态。
+LCE-P0-001（R-00011 @ `48f109b`）已按规格 §3.1/§3.2 建立根 workspace：15 个 member 显式列出、`[workspace.dependencies]` 为空（无第三方依赖）、`publish = false`、统一 toolchain 1.89.0。当前 15 个 crate 的依赖节全部为空，crate 间依赖方向尚未落进任何 `Cargo.toml`——workspace 拓扑与运行时发布边界正处于「骨架已建、边界未冻结」状态。
 
 实现开始前有三个未决问题，任何一张实现卡单独作答都会造成边界漂移：
 
@@ -75,7 +75,7 @@ lumio-core-smoke
 
 禁止边（沿用 §5.1/ADR 0001—0003）：`Loader -> Manifest 生成器`、`Loader -> Signer`、`Loader -> Evidence`、生产模块 `-> Smoke`、生产模块 `-> Diagnostics`。
 
-### 4. 现状对照（`015035b` 实测：`cargo metadata --no-deps` 15 package / 7 bin / 0 依赖）
+### 4. 现状对照（`48f109b` 实测：`cargo metadata --no-deps` 15 package / 7 bin / 0 依赖）
 
 | package | 类型 | 进入运行时闭包 | bin |
 | --- | --- | --- | --- |
