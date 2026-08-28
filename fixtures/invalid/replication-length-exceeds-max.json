@@ -1,0 +1,39 @@
+{
+  "protocolVersion": 1,
+  "length": 999999999,
+  "sequence": 100,
+  "sessionId": "session-001",
+  "productId": "A",
+  "gameReleaseId": "A-1.1.0",
+  "messageType": "FullSnapshot",
+  "reliability": "Reliable",
+  "integrity": {
+    "algorithm": "SHA256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "traceId": "trace-fullsnapshot-length-over-max",
+  "transportPolicy": {
+    "maxMessageBytes": 65536,
+    "maxFragmentBytes": 4096,
+    "antiReplayWindow": 1024,
+    "authBinding": "SessionAdmission",
+    "errorClass": "Rejectable"
+  },
+  "body": {
+    "snapshotId": "snapshot-100",
+    "tickId": 42,
+    "sessionRevisionVector": {
+      "tickId": 42,
+      "gameRevision": 18,
+      "voxelWorldRevision": 24,
+      "chunkRevisionSet": {
+        "c:0:0:0": 9
+      },
+      "replicationRevision": 13,
+      "configRevision": 4,
+      "schemaEpoch": 1
+    },
+    "schemaEpoch": 1,
+    "mappingSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

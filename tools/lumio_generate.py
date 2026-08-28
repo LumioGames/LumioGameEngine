@@ -742,6 +742,15 @@ CANONICAL_DIGEST_DOMAINS = [
             {"path": "capabilities", "op": "sortAscending", "by": "$self", "collation": "codePoint"}
         ],
     },
+    {
+        "digest": "mappingSetHash",
+        "domainTag": "ReplicationMappingSetV1",
+        "input": "the registered mappingId list, wrapped as {digestDomain,mappings}",
+        "sortRule": "mappings sorted ascending by code point; mappingId is unique within a set so ties are impossible",
+        "normalization": [
+            {"path": "mappings", "op": "sortAscending", "by": "$self", "collation": "codePoint"}
+        ],
+    },
 ]
 CANONICAL_NORMALIZATION_BY_TAG = {
     item["domainTag"]: item.get("normalization") or [] for item in CANONICAL_DIGEST_DOMAINS
@@ -756,6 +765,8 @@ CANONICAL_GOLDEN_CASES = [
     "EscapeBoundary",
     "IntegerBoundary",
     "SchemaVersionChange",
+    "EmptyMappingSet",
+    "MappingOrderPermutation",
 ]
 
 
@@ -859,6 +870,15 @@ def capability_set_digest_input(capabilities: List[str]) -> Dict[str, Any]:
     return {"digestDomain": "CapabilitySetV1", "capabilities": list(capabilities)}
 
 
+def replication_mapping_set_digest_input(mappings: List[str]) -> Dict[str, Any]:
+    """ADR-045 section 2: the FullSnapshot/Delta `mappingSetHash` preimage.
+
+    The empty mapping set is not a special case and needs no sentinel constant:
+    an empty `mappings` array runs the same rule and yields a defined digest.
+    """
+    return {"digestDomain": "ReplicationMappingSetV1", "mappings": list(mappings)}
+
+
 def _golden(golden_id: str, case: str, value: Any) -> Dict[str, Any]:
     text = canonical_bytes(value)
     return {
@@ -933,6 +953,18 @@ def derive_canonical_profile(root: Path) -> Dict[str, Any]:
                 "targetProfileId": index.get("targetProfileId"),
                 "entries": entries[:1],
             },
+        ),
+        _golden(
+            "replication-mapping-set-empty",
+            "EmptyMappingSet",
+            replication_mapping_set_digest_input([]),
+        ),
+        _golden(
+            "replication-mapping-set-permutation",
+            "MappingOrderPermutation",
+            replication_mapping_set_digest_input(
+                ["mapping-voxel-chunk", "mapping-actor-transform", "mapping-actor-health"]
+            ),
         ),
     ]
     return {
