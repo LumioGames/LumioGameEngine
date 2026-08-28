@@ -3,6 +3,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod root_abi;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Binding {
     pub schema_id: &'static str,
@@ -19,6 +21,7 @@ pub const BINDINGS: &[Binding] = &[
     Binding { schema_id: "generated-contract-artifact", rust_type: "GeneratedContractArtifact", csharp_type: "GeneratedContractArtifact" },
     Binding { schema_id: "entity-identity", rust_type: "EntityIdentity", csharp_type: "EntityIdentity" },
     Binding { schema_id: "native-managed-abi", rust_type: "NativeManagedAbi", csharp_type: "NativeManagedAbi" },
+    Binding { schema_id: "root-abi-bundle", rust_type: "RootAbiBundle", csharp_type: "RootAbiBundle" },
     Binding { schema_id: "release-manifest", rust_type: "ReleaseManifest", csharp_type: "ReleaseManifest" },
     Binding { schema_id: "maintenance-command", rust_type: "MaintenanceCommand", csharp_type: "MaintenanceCommand" },
     Binding { schema_id: "snapshot-header", rust_type: "SnapshotHeader", csharp_type: "SnapshotHeader" },

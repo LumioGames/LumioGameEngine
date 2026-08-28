@@ -3,10 +3,43 @@ namespace Lumio.Gen.ContractTypes;
 public static class Catalog
 {
     public const string BaselineId = "LGE-V1.4-2026-08-27";
-    public static readonly string[] SchemaIds = { "session-revision-vector", "cross-world-txn", "replication-envelope", "client-authority-update", "protocol-permission-gate", "generated-contract-artifact", "entity-identity", "native-managed-abi", "release-manifest", "maintenance-command", "snapshot-header", "config-table", "logging-event", "processor-descriptor", "failure-bundle", "release-catalog", "replication-mapping", "host-capability", "id-registry", "target-profile", "artifact-index", "core-engine-manifest", "signature-envelope", "verified-package-descriptor", "voxel-world-port", "voxel-chunk-page", "voxel-revision-stamp", "voxel-query", "voxel-mutation-receipt", "tick-phase-contract", "gas-lifecycle", "txn-journal-record", "command-log-record", "wal-record-envelope", "gameplay-scope-activation", "state-machine-descriptor", "voxel-snapshot-payload", "voxel-durability-ack", "migration-manifest", "contract-result", "mod-manifest" };
+    public static readonly string[] SchemaIds = { "session-revision-vector", "cross-world-txn", "replication-envelope", "client-authority-update", "protocol-permission-gate", "generated-contract-artifact", "entity-identity", "native-managed-abi", "root-abi-bundle", "release-manifest", "maintenance-command", "snapshot-header", "config-table", "logging-event", "processor-descriptor", "failure-bundle", "release-catalog", "replication-mapping", "host-capability", "id-registry", "target-profile", "artifact-index", "core-engine-manifest", "signature-envelope", "verified-package-descriptor", "voxel-world-port", "voxel-chunk-page", "voxel-revision-stamp", "voxel-query", "voxel-mutation-receipt", "tick-phase-contract", "gas-lifecycle", "txn-journal-record", "command-log-record", "wal-record-envelope", "gameplay-scope-activation", "state-machine-descriptor", "voxel-snapshot-payload", "voxel-durability-ack", "migration-manifest", "contract-result", "mod-manifest" };
     public static readonly string[] StableErrorIds = { "RevisionConflict", "MaintenanceKick", "ReleaseMismatch", "NativeAbiMismatch", "StaleEpoch", "FencingTokenStale", "ManifestMalformed", "ManifestUnsupportedVersion", "ManifestDigestMismatch", "ArtifactMissing", "ArtifactDigestMismatch", "SignatureMissing", "SignatureInvalid", "TrustRootUnknown", "TrustPolicyRejected", "KeyRevoked", "EvidenceMissing", "EvidenceDigestMismatch", "TargetProfileMismatch", "CapabilityMissing", "SymbolMissing", "SymbolCollision", "PackageIdentityConflict", "WorkerPoolDuplicate", "LoaderTimeout", "LoaderCancelled", "LoaderOutOfMemory", "PartialLoadRolledBack", "InvalidHandle", "HandleDoubleRelease", "MessagePermissionDenied", "StaleConnectionGeneration", "ChunkUnavailable", "TargetRevisionUnavailable", "BudgetExceeded", "QueueFull", "CoordinateOutOfBounds", "DirtyChunkNotDurable", "SnapshotBaseMismatch", "SessionMismatch", "RoleMismatch", "ClaimNotGranted", "SessionAntiReplay" };
     public static readonly string[] ChunkPresence = { "Ready", "NotLoaded", "Pending", "Unavailable" };
     public static readonly string[] VoxelWorldRoles = { "Authority", "Replica" };
+    public const string AbiEntrySymbol = "lumio_core_get_api_v1";
+    public const string AbiSymbolPrefix = "lumio_";
+    public const uint AbiVersion = 1;
+    public const string AbiCallingConvention = "C";
+    public const uint AbiPointerWidth = 64;
+    public const string AbiEndianness = "Little";
+}
+
+public readonly record struct AbiTypeMapping(string TypeRef, string C, string Csharp, string Rust, int Size, int Align);
+public static class AbiTypeMappings
+{
+    public static readonly AbiTypeMapping[] All =
+    {
+        new AbiTypeMapping("u8", "uint8_t", "byte", "u8", 1, 1),
+        new AbiTypeMapping("u16", "uint16_t", "ushort", "u16", 2, 2),
+        new AbiTypeMapping("u32", "uint32_t", "uint", "u32", 4, 4),
+        new AbiTypeMapping("u64", "uint64_t", "ulong", "u64", 8, 8),
+        new AbiTypeMapping("i8", "int8_t", "sbyte", "i8", 1, 1),
+        new AbiTypeMapping("i16", "int16_t", "short", "i16", 2, 2),
+        new AbiTypeMapping("i32", "int32_t", "int", "i32", 4, 4),
+        new AbiTypeMapping("i64", "int64_t", "long", "i64", 8, 8),
+        new AbiTypeMapping("f32", "float", "float", "f32", 4, 4),
+        new AbiTypeMapping("f64", "double", "double", "f64", 8, 8),
+        new AbiTypeMapping("bool32", "uint32_t", "uint", "u32", 4, 4),
+        new AbiTypeMapping("status", "lumio_status_t", "LumioStatus", "LumioStatus", 4, 4),
+        new AbiTypeMapping("handle:<kind>", "lumio_handle_t", "LumioHandle", "LumioHandle", 16, 8),
+        new AbiTypeMapping("buffer:in", "lumio_buffer_t", "LumioBuffer", "LumioBuffer", 24, 8),
+        new AbiTypeMapping("buffer:out", "lumio_buffer_t", "LumioBuffer", "LumioBuffer", 24, 8),
+        new AbiTypeMapping("buffer:inout", "lumio_buffer_t", "LumioBuffer", "LumioBuffer", 24, 8),
+        new AbiTypeMapping("struct:<name>:v<N>", "const lumio_<name>_v<N>*", "IntPtr", "*const Lumio<Name>V<N>", 8, 8),
+        new AbiTypeMapping("ptr:const:<name>", "const lumio_<name>*", "IntPtr", "*const Lumio<Name>", 8, 8),
+        new AbiTypeMapping("ptr:mut:<name>", "lumio_<name>*", "IntPtr", "*mut Lumio<Name>", 8, 8),
+    };
 }
 
 public readonly record struct Transition(string Machine, string From, string To, string Event);

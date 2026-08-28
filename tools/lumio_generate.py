@@ -314,6 +314,7 @@ def emit_canonical(rust_dir: Path, cs_dir: Path) -> None:
 
 def emit_language_binding(rust_dir: Path, cs_dir: Path, schema_ids: List[str]) -> None:
     rust = rust_lib_header("LanguageBinding")
+    rust += "pub mod root_abi;\n\n"
     rust += (
         "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n"
         "pub struct Binding {\n"
@@ -352,6 +353,7 @@ def emit_contract_types(
     machines: List[Dict[str, Any]],
     schema_ids: List[str],
     errors: List[str],
+    abi: Dict[str, Any],
 ) -> None:
     rust = rust_lib_header("ContractTypes")
     rust += "pub const BASELINE_ID: &str = \"%s\";\n" % BASELINE
@@ -385,6 +387,30 @@ def emit_contract_types(
             seen.add(mid)
             machine_ids.append(mid)
     machine_ids.sort()
+    rust += "pub const ABI_ENTRY_SYMBOL: &str = \"%s\";\n" % abi["entrySymbol"]
+    rust += "pub const ABI_SYMBOL_PREFIX: &str = \"%s\";\n" % abi["symbolPrefix"]
+    rust += "pub const ABI_VERSION: u32 = %d;\n" % abi["abiVersion"]
+    rust += "pub const ABI_CALLING_CONVENTION: &str = \"%s\";\n" % abi["callingConvention"]
+    rust += "pub const ABI_POINTER_WIDTH: u32 = %d;\n" % abi["pointerWidth"]
+    rust += "pub const ABI_ENDIANNESS: &str = \"%s\";\n\n" % abi["endianness"]
+    rust += (
+        "#[derive(Clone, Copy, Debug)]\n"
+        "pub struct AbiTypeMapping {\n"
+        "    pub type_ref: &'static str,\n"
+        "    pub c: &'static str,\n"
+        "    pub csharp: &'static str,\n"
+        "    pub rust: &'static str,\n"
+        "    pub size: usize,\n"
+        "    pub align: usize,\n"
+        "}\n\n"
+    )
+    rust += "pub const ABI_TYPE_MAPPING: &[AbiTypeMapping] = &[\n"
+    for key, c_type, cs_type, rust_type, size, align in ABI_TYPE_MAPPING:
+        rust += (
+            "    AbiTypeMapping { type_ref: \"%s\", c: \"%s\", csharp: \"%s\", rust: \"%s\", size: %d, align: %d },\n"
+            % (key, c_type, cs_type, rust_type, size, align)
+        )
+    rust += "];\n\n"
     rust += "pub const MACHINE_IDS: &[&str] = &[\n"
     for mid in machine_ids:
         rust += "    \"%s\",\n" % mid
@@ -408,7 +434,21 @@ def emit_contract_types(
     cs.append("    public static readonly string[] SchemaIds = { %s };\n" % ", ".join("\"%s\"" % s for s in schema_ids))
     cs.append("    public static readonly string[] StableErrorIds = { %s };\n" % ", ".join("\"%s\"" % e for e in errors))
     cs.append("    public static readonly string[] ChunkPresence = { \"Ready\", \"NotLoaded\", \"Pending\", \"Unavailable\" };\n")
-    cs.append("    public static readonly string[] VoxelWorldRoles = { \"Authority\", \"Replica\" };\n}\n\n")
+    cs.append("    public static readonly string[] VoxelWorldRoles = { \"Authority\", \"Replica\" };\n")
+    cs.append("    public const string AbiEntrySymbol = \"%s\";\n" % abi["entrySymbol"])
+    cs.append("    public const string AbiSymbolPrefix = \"%s\";\n" % abi["symbolPrefix"])
+    cs.append("    public const uint AbiVersion = %d;\n" % abi["abiVersion"])
+    cs.append("    public const string AbiCallingConvention = \"%s\";\n" % abi["callingConvention"])
+    cs.append("    public const uint AbiPointerWidth = %d;\n" % abi["pointerWidth"])
+    cs.append("    public const string AbiEndianness = \"%s\";\n}\n\n" % abi["endianness"])
+    cs.append("public readonly record struct AbiTypeMapping(string TypeRef, string C, string Csharp, string Rust, int Size, int Align);\n")
+    cs.append("public static class AbiTypeMappings\n{\n    public static readonly AbiTypeMapping[] All =\n    {\n")
+    for key, c_type, cs_type, rust_type, size, align in ABI_TYPE_MAPPING:
+        cs.append(
+            "        new AbiTypeMapping(\"%s\", \"%s\", \"%s\", \"%s\", %d, %d),\n"
+            % (key, c_type, cs_type, rust_type, size, align)
+        )
+    cs.append("    };\n}\n\n")
     cs.append("public readonly record struct Transition(string Machine, string From, string To, string Event);\n")
     cs.append("public static class StateTransitionTable\n{\n    public static readonly Transition[] All =\n    {\n")
     for machine in machines:
@@ -526,6 +566,597 @@ def emit_contract_runtime(rust_dir: Path, cs_dir: Path) -> None:
     write_text(cs_dir / (CS_PROJ["ContractRuntime"] + ".csproj"), csproj(CS_PROJ["ContractRuntime"]))
 
 
+# --------------------------------------------------------------------------
+# ADR-040 Root ABI Generated Bundle
+# --------------------------------------------------------------------------
+
+ABI_COMPILER_NAME = "lumio-abi-compiler"
+ABI_COMPILER_VERSION = "1.0.0"
+ABI_BUNDLE_ID = "root-abi-v1"
+ABI_INPUT_SET = [
+    "schemas/native-managed-abi.schema.json",
+    "fixtures/valid/native-managed-abi.json",
+]
+ABI_DOCUMENT = "fixtures/valid/native-managed-abi.json"
+LAYOUT_PROFILE = {
+    "targetProfileId": "linux-x86_64-glibc",
+    "os": "LinuxServer",
+    "arch": "x86_64",
+    "abiRuntime": "glibc",
+    "pointerBytes": 8,
+    "maxAlignment": 8,
+    "rootHeaderBytes": 16,
+    "tableHeaderBytes": 16,
+}
+ABI_OUTPUT_FILES = [
+    ("abi/lumio_core.h", "CHeader"),
+    ("rust/lumio-gen-language-binding/src/root_abi.rs", "RustBinding"),
+    ("csharp/Lumio.Gen.LanguageBinding/RootAbi.cs", "CSharpBinding"),
+]
+ABI_BUNDLE_FILE = "abi/root-abi-bundle.json"
+
+# typeRef production -> (C, C#, Rust, size, align). Frozen by ADR-040 section 3;
+# the parametric families use their grammar spelling as the key.
+ABI_TYPE_MAPPING: List[Tuple[str, str, str, str, int, int]] = [
+    ("u8", "uint8_t", "byte", "u8", 1, 1),
+    ("u16", "uint16_t", "ushort", "u16", 2, 2),
+    ("u32", "uint32_t", "uint", "u32", 4, 4),
+    ("u64", "uint64_t", "ulong", "u64", 8, 8),
+    ("i8", "int8_t", "sbyte", "i8", 1, 1),
+    ("i16", "int16_t", "short", "i16", 2, 2),
+    ("i32", "int32_t", "int", "i32", 4, 4),
+    ("i64", "int64_t", "long", "i64", 8, 8),
+    ("f32", "float", "float", "f32", 4, 4),
+    ("f64", "double", "double", "f64", 8, 8),
+    ("bool32", "uint32_t", "uint", "u32", 4, 4),
+    ("status", "lumio_status_t", "LumioStatus", "LumioStatus", 4, 4),
+    ("handle:<kind>", "lumio_handle_t", "LumioHandle", "LumioHandle", 16, 8),
+    ("buffer:in", "lumio_buffer_t", "LumioBuffer", "LumioBuffer", 24, 8),
+    ("buffer:out", "lumio_buffer_t", "LumioBuffer", "LumioBuffer", 24, 8),
+    ("buffer:inout", "lumio_buffer_t", "LumioBuffer", "LumioBuffer", 24, 8),
+    ("struct:<name>:v<N>", "const lumio_<name>_v<N>*", "IntPtr", "*const Lumio<Name>V<N>", 8, 8),
+    ("ptr:const:<name>", "const lumio_<name>*", "IntPtr", "*const Lumio<Name>", 8, 8),
+    ("ptr:mut:<name>", "lumio_<name>*", "IntPtr", "*mut Lumio<Name>", 8, 8),
+]
+ABI_TYPE_MAPPING_KEYS = [row[0] for row in ABI_TYPE_MAPPING]
+
+ROOT_FIELDS = [
+    ("abi_version", 0, 4, "uint32_t", "uint", "u32"),
+    ("struct_size", 4, 4, "uint32_t", "uint", "u32"),
+    ("capability_bits", 8, 8, "uint64_t", "ulong", "u64"),
+]
+TABLE_FIELDS = [
+    ("version", 0, 4, "uint32_t", "uint", "u32"),
+    ("struct_size", 4, 4, "uint32_t", "uint", "u32"),
+    ("reserved0", 8, 8, "uint64_t", "ulong", "u64"),
+]
+
+
+class AbiError(RuntimeError):
+    """Raised when the ABI document cannot produce a bundle."""
+
+
+def pascal(snake: str) -> str:
+    return "".join(part[:1].upper() + part[1:] for part in snake.split("_") if part)
+
+
+def abi_struct_parts(type_ref: str) -> Tuple[str, str]:
+    """Split `struct:<name>:v<N>` into (name, version-suffix)."""
+    _, name, version = type_ref.split(":", 2)
+    return name, version
+
+
+def abi_c_type(type_ref: str) -> str:
+    if type_ref.startswith("handle:"):
+        return "lumio_handle_t"
+    if type_ref.startswith("buffer:"):
+        return "lumio_buffer_t"
+    if type_ref.startswith("struct:"):
+        name, version = abi_struct_parts(type_ref)
+        return "const struct lumio_{}_{}*".format(name, version)
+    if type_ref.startswith("ptr:const:"):
+        return "const struct lumio_{}*".format(type_ref.split(":", 2)[2])
+    if type_ref.startswith("ptr:mut:"):
+        return "struct lumio_{}*".format(type_ref.split(":", 2)[2])
+    for key, c_type, _cs, _rs, _size, _align in ABI_TYPE_MAPPING:
+        if key == type_ref:
+            return c_type
+    raise AbiError("typeRef {} is outside the ADR-017 grammar".format(type_ref))
+
+
+def abi_cs_type(type_ref: str) -> str:
+    if type_ref.startswith("handle:"):
+        return "LumioHandle"
+    if type_ref.startswith("buffer:"):
+        return "LumioBuffer"
+    if type_ref.startswith(("struct:", "ptr:")):
+        return "IntPtr"
+    for key, _c, cs_type, _rs, _size, _align in ABI_TYPE_MAPPING:
+        if key == type_ref:
+            return cs_type
+    raise AbiError("typeRef {} is outside the ADR-017 grammar".format(type_ref))
+
+
+def abi_rust_type(type_ref: str) -> str:
+    if type_ref.startswith("handle:"):
+        return "LumioHandle"
+    if type_ref.startswith("buffer:"):
+        return "LumioBuffer"
+    if type_ref.startswith("struct:"):
+        name, version = abi_struct_parts(type_ref)
+        return "*const Lumio{}{}".format(pascal(name), version.upper())
+    if type_ref.startswith("ptr:const:"):
+        return "*const Lumio{}".format(pascal(type_ref.split(":", 2)[2]))
+    if type_ref.startswith("ptr:mut:"):
+        return "*mut Lumio{}".format(pascal(type_ref.split(":", 2)[2]))
+    for key, _c, _cs, rust_type, _size, _align in ABI_TYPE_MAPPING:
+        if key == type_ref:
+            return rust_type
+    raise AbiError("typeRef {} is outside the ADR-017 grammar".format(type_ref))
+
+
+def abi_opaque_types(abi: Dict[str, Any]) -> List[Tuple[str, str, str]]:
+    """Collect (c_tag, rust_name, origin) for every named struct/ptr target."""
+    seen: Dict[str, Tuple[str, str, str]] = {}
+    for table in abi.get("apiTable", []):
+        for slot in table.get("slots", []):
+            refs = [slot.get("returns", "")] + [p.get("type", "") for p in slot.get("params", [])]
+            for ref in refs:
+                if ref.startswith("struct:"):
+                    name, version = abi_struct_parts(ref)
+                    tag = "lumio_{}_{}".format(name, version)
+                    seen[tag] = (tag, "Lumio{}{}".format(pascal(name), version.upper()), ref)
+                elif ref.startswith("ptr:"):
+                    name = ref.split(":", 2)[2]
+                    tag = "lumio_{}".format(name)
+                    seen[tag] = (tag, "Lumio{}".format(pascal(name)), ref)
+    return [seen[key] for key in sorted(seen)]
+
+
+def abi_minimum_table_size(table: Dict[str, Any], profile: Dict[str, Any]) -> int:
+    slots = int(table.get("functionCount", 0)) + int(table.get("reservedSlots", 0))
+    return int(profile["tableHeaderBytes"]) + slots * int(profile["pointerBytes"])
+
+
+def abi_minimum_root_size(abi: Dict[str, Any], profile: Dict[str, Any]) -> int:
+    tables = len(abi.get("apiTable", []))
+    return int(profile["rootHeaderBytes"]) + tables * int(profile["pointerBytes"])
+
+
+def abi_c_signature(slot: Dict[str, Any]) -> str:
+    params = ", ".join(
+        "{} {}".format(abi_c_type(p["type"]), p["name"]) for p in slot.get("params", [])
+    ) or "void"
+    return "{} (*{})({})".format(abi_c_type(slot["returns"]), slot["name"], params)
+
+
+def abi_cs_signature(slot: Dict[str, Any]) -> str:
+    params = ", ".join(
+        "{} {}".format(abi_cs_type(p["type"]), p["name"]) for p in slot.get("params", [])
+    )
+    return "{} {}({})".format(abi_cs_type(slot["returns"]), slot["name"], params)
+
+
+def abi_rust_signature(slot: Dict[str, Any]) -> str:
+    params = ", ".join(
+        "{}: {}".format(p["name"], abi_rust_type(p["type"])) for p in slot.get("params", [])
+    )
+    return "extern \"C\" fn({}) -> {}".format(params, abi_rust_type(slot["returns"]))
+
+
+def abi_input_hash(root: Path) -> str:
+    items = []
+    for rel in ABI_INPUT_SET:
+        blob = (root / rel).read_bytes()
+        items.append(rel.encode() + b"\0" + blob)
+    return sha256_bytes(b"\n".join(items))
+
+
+def derive_bundle(
+    abi: Dict[str, Any],
+    compiler_digest: str,
+    input_digest: str,
+    output_digests: List[Tuple[str, str, str]],
+) -> Dict[str, Any]:
+    """Derive the ADR-040 generation record from a validated ABI document."""
+    profile = dict(LAYOUT_PROFILE)
+    pointer = int(profile["pointerBytes"])
+    if int(abi.get("pointerWidth", 0)) != pointer * 8:
+        raise AbiError(
+            "ABI document pointerWidth {} does not match layout profile {}".format(
+                abi.get("pointerWidth"), pointer * 8
+            )
+        )
+    tables: List[Dict[str, Any]] = []
+    for table in abi.get("apiTable", []):
+        slots = []
+        for slot in table.get("slots", []):
+            slots.append(
+                {
+                    "slotIndex": slot["slotIndex"],
+                    "name": slot["name"],
+                    "offset": int(profile["tableHeaderBytes"]) + int(slot["slotIndex"]) * pointer,
+                    "returns": slot["returns"],
+                    "params": [
+                        {"name": p["name"], "typeRef": p["type"]} for p in slot.get("params", [])
+                    ],
+                    "cSignature": abi_c_signature(slot),
+                    "csharpSignature": abi_cs_signature(slot),
+                    "rustSignature": abi_rust_signature(slot),
+                }
+            )
+        tables.append(
+            {
+                "name": table["name"],
+                "version": table["version"],
+                "declaredStructSize": table["structSize"],
+                "minimumStructSize": abi_minimum_table_size(table, profile),
+                "reservedSlots": table["reservedSlots"],
+                "functionCount": table["functionCount"],
+                "fields": [
+                    {"name": n, "offset": o, "size": s, "c": c, "csharp": cs, "rust": rs}
+                    for n, o, s, c, cs, rs in TABLE_FIELDS
+                ],
+                "slots": slots,
+            }
+        )
+    return {
+        "bundleId": ABI_BUNDLE_ID,
+        "baselineId": BASELINE,
+        "schemaEpoch": 1,
+        "compiler": {
+            "name": ABI_COMPILER_NAME,
+            "version": ABI_COMPILER_VERSION,
+            "digest": compiler_digest,
+        },
+        "inputSet": list(ABI_INPUT_SET),
+        "inputHash": input_digest,
+        "abi": {
+            "abiVersion": abi["abiVersion"],
+            "entrySymbol": abi["entrySymbol"],
+            "symbolPrefix": abi["symbolPrefix"],
+            "callingConvention": abi["callingConvention"],
+            "pointerWidth": abi["pointerWidth"],
+            "endianness": abi["endianness"],
+            "capabilityBits": abi["capabilityBits"],
+        },
+        "layoutProfile": profile,
+        "typeMapping": [
+            {"typeRef": k, "c": c, "csharp": cs, "rust": rs, "size": size, "align": align}
+            for k, c, cs, rs, size, align in ABI_TYPE_MAPPING
+        ],
+        "root": {
+            "declaredStructSize": abi["structSize"],
+            "minimumStructSize": abi_minimum_root_size(abi, profile),
+            "fields": [
+                {"name": n, "offset": o, "size": s, "c": c, "csharp": cs, "rust": rs}
+                for n, o, s, c, cs, rs in ROOT_FIELDS
+            ],
+            "tables": [
+                {
+                    "name": table["name"],
+                    "offset": int(profile["rootHeaderBytes"]) + index * pointer,
+                }
+                for index, table in enumerate(abi.get("apiTable", []))
+            ],
+        },
+        "tables": tables,
+        "outputFiles": [
+            {"path": path, "role": role, "digest": digest} for path, role, digest in output_digests
+        ],
+    }
+
+
+def emit_c_header(abi: Dict[str, Any]) -> str:
+    profile = LAYOUT_PROFILE
+    pointer = int(profile["pointerBytes"])
+    out = [
+        "/* Generated Root ABI header. Do not hand-edit. */\n",
+        "/* Publisher: LumioGameEngineArchitecture / {}. */\n".format(BASELINE),
+        "/* Compiler: {} {}. ADR-040. */\n".format(ABI_COMPILER_NAME, ABI_COMPILER_VERSION),
+        "/* Layout profile: {} (pointer {} bytes, max align {}). */\n\n".format(
+            profile["targetProfileId"], pointer, profile["maxAlignment"]
+        ),
+        "#ifndef LUMIO_CORE_H\n#define LUMIO_CORE_H\n\n",
+        "#include <stdint.h>\n#include <stddef.h>\n\n",
+        "#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n",
+        "#define LUMIO_ABI_VERSION {}\n".format(abi["abiVersion"]),
+        "#define LUMIO_ENTRY_SYMBOL \"{}\"\n".format(abi["entrySymbol"]),
+        "#define LUMIO_SYMBOL_PREFIX \"{}\"\n".format(abi["symbolPrefix"]),
+        "#define LUMIO_CAPABILITY_BITS {}u\n\n".format(abi["capabilityBits"]),
+        "typedef int32_t lumio_status_t;\n\n",
+        "typedef struct lumio_handle_t {\n"
+        "    uint32_t index;\n"
+        "    uint32_t generation;\n"
+        "    uint64_t context;\n"
+        "} lumio_handle_t;\n\n",
+        "typedef struct lumio_buffer_t {\n"
+        "    void* ptr;\n"
+        "    uint64_t len;\n"
+        "    uint64_t capacity;\n"
+        "} lumio_buffer_t;\n\n",
+    ]
+    opaque = abi_opaque_types(abi)
+    if opaque:
+        out.append("/* Opaque caller-owned payloads; bodies are guarded by their own struct_size. */\n")
+        for tag, _rust_name, _origin in opaque:
+            out.append("struct {};\n".format(tag))
+        out.append("\n")
+    for table in abi.get("apiTable", []):
+        minimum = abi_minimum_table_size(table, profile)
+        declared = int(table["structSize"])
+        out.append("typedef struct {} {{\n".format(table["name"]))
+        out.append("    uint32_t version;\n    uint32_t struct_size;\n    uint64_t reserved0;\n")
+        for slot in table["slots"]:
+            out.append("    {};\n".format(abi_c_signature(slot)))
+        if int(table["reservedSlots"]) > 0:
+            out.append("    void* reserved[{}];\n".format(table["reservedSlots"]))
+        if declared > minimum:
+            out.append("    unsigned char reserved_tail[{}];\n".format(declared - minimum))
+        out.append("}} {};\n\n".format(table["name"]))
+    root_minimum = abi_minimum_root_size(abi, profile)
+    root_declared = int(abi["structSize"])
+    out.append("typedef struct lumio_root_api {\n")
+    out.append("    uint32_t abi_version;\n    uint32_t struct_size;\n    uint64_t capability_bits;\n")
+    for table in abi.get("apiTable", []):
+        out.append("    const {}* {};\n".format(table["name"], table["name"]))
+    if root_declared > root_minimum:
+        out.append("    unsigned char reserved_tail[{}];\n".format(root_declared - root_minimum))
+    out.append("} lumio_root_api;\n\n")
+    out.append(
+        "lumio_status_t {}(uint32_t requested_version, const lumio_root_api** out_table);\n\n".format(
+            abi["entrySymbol"]
+        )
+    )
+    out.append("/* Layout Golden assertions: a mismatch is a build failure, never a runtime discovery. */\n")
+    out.append("#define LUMIO_STATIC_ASSERT(cond, tag) typedef char lumio_assert_##tag[(cond) ? 1 : -1]\n")
+    out.append("LUMIO_STATIC_ASSERT(sizeof(lumio_handle_t) == 16, handle_size);\n")
+    out.append("LUMIO_STATIC_ASSERT(sizeof(lumio_buffer_t) == 24, buffer_size);\n")
+    out.append("LUMIO_STATIC_ASSERT(sizeof(lumio_status_t) == 4, status_size);\n")
+    out.append("LUMIO_STATIC_ASSERT(sizeof(void*) == {}, pointer_size);\n".format(pointer))
+    for table in abi.get("apiTable", []):
+        tag = table["name"]
+        out.append(
+            "LUMIO_STATIC_ASSERT(sizeof({}) == {}, {}_size);\n".format(tag, table["structSize"], tag)
+        )
+        for slot in table["slots"]:
+            offset = int(profile["tableHeaderBytes"]) + int(slot["slotIndex"]) * pointer
+            out.append(
+                "LUMIO_STATIC_ASSERT(offsetof({}, {}) == {}, {}_offset);\n".format(
+                    tag, slot["name"], offset, slot["name"]
+                )
+            )
+    out.append(
+        "LUMIO_STATIC_ASSERT(sizeof(lumio_root_api) == {}, root_size);\n".format(root_declared)
+    )
+    for index, table in enumerate(abi.get("apiTable", [])):
+        offset = int(profile["rootHeaderBytes"]) + index * pointer
+        out.append(
+            "LUMIO_STATIC_ASSERT(offsetof(lumio_root_api, {}) == {}, root_{}_offset);\n".format(
+                table["name"], offset, table["name"]
+            )
+        )
+    out.append("\n#ifdef __cplusplus\n}\n#endif\n\n#endif /* LUMIO_CORE_H */\n")
+    return "".join(out)
+
+
+def emit_rust_root_abi(abi: Dict[str, Any]) -> str:
+    profile = LAYOUT_PROFILE
+    pointer = int(profile["pointerBytes"])
+    out = [
+        "//! Generated Root ABI binding. Do not hand-edit.\n",
+        "//! Publisher: LumioGameEngineArchitecture / {}. ADR-040.\n".format(BASELINE),
+        "//! Layout profile: {}.\n\n".format(profile["targetProfileId"]),
+        "#![allow(non_camel_case_types)]\n\n",
+        "pub const ABI_VERSION: u32 = {};\n".format(abi["abiVersion"]),
+        "pub const ENTRY_SYMBOL: &str = \"{}\";\n".format(abi["entrySymbol"]),
+        "pub const SYMBOL_PREFIX: &str = \"{}\";\n".format(abi["symbolPrefix"]),
+        "pub const CALLING_CONVENTION: &str = \"{}\";\n".format(abi["callingConvention"]),
+        "pub const CAPABILITY_BITS: u64 = {};\n".format(abi["capabilityBits"]),
+        "pub const TARGET_PROFILE_ID: &str = \"{}\";\n".format(profile["targetProfileId"]),
+        "pub const POINTER_BYTES: usize = {};\n".format(pointer),
+        "pub const MAX_ALIGNMENT: usize = {};\n".format(profile["maxAlignment"]),
+        "pub const ROOT_HEADER_BYTES: usize = {};\n".format(profile["rootHeaderBytes"]),
+        "pub const TABLE_HEADER_BYTES: usize = {};\n\n".format(profile["tableHeaderBytes"]),
+        "pub type LumioStatus = i32;\n\n",
+        "#[repr(C)]\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct LumioHandle {\n"
+        "    pub index: u32,\n    pub generation: u32,\n    pub context: u64,\n}\n\n",
+        "#[repr(C)]\n#[derive(Clone, Copy, Debug)]\npub struct LumioBuffer {\n"
+        "    pub ptr: *mut core::ffi::c_void,\n    pub len: u64,\n    pub capacity: u64,\n}\n\n",
+    ]
+    for _tag, rust_name, _origin in abi_opaque_types(abi):
+        out.append(
+            "#[repr(C)]\npub struct {} {{\n    _opaque: [u8; 0],\n}}\n\n".format(rust_name)
+        )
+    for table in abi.get("apiTable", []):
+        minimum = abi_minimum_table_size(table, profile)
+        declared = int(table["structSize"])
+        out.append("#[repr(C)]\npub struct {} {{\n".format(pascal(table["name"])))
+        out.append("    pub version: u32,\n    pub struct_size: u32,\n    pub reserved0: u64,\n")
+        for slot in table["slots"]:
+            out.append(
+                "    pub {}: Option<{}>,\n".format(slot["name"], abi_rust_signature(slot))
+            )
+        if int(table["reservedSlots"]) > 0:
+            out.append(
+                "    pub reserved: [*mut core::ffi::c_void; {}],\n".format(table["reservedSlots"])
+            )
+        if declared > minimum:
+            out.append("    pub reserved_tail: [u8; {}],\n".format(declared - minimum))
+        out.append("}\n\n")
+    root_minimum = abi_minimum_root_size(abi, profile)
+    root_declared = int(abi["structSize"])
+    out.append("#[repr(C)]\npub struct LumioRootApi {\n")
+    out.append("    pub abi_version: u32,\n    pub struct_size: u32,\n    pub capability_bits: u64,\n")
+    for table in abi.get("apiTable", []):
+        out.append("    pub {}: *const {},\n".format(table["name"], pascal(table["name"])))
+    if root_declared > root_minimum:
+        out.append("    pub reserved_tail: [u8; {}],\n".format(root_declared - root_minimum))
+    out.append("}\n\n")
+    out.append("/// Layout Golden: `(struct, field, offset)` triples the consumer asserts.\n")
+    out.append("pub const SLOT_OFFSETS: &[(&str, &str, usize)] = &[\n")
+    for table in abi.get("apiTable", []):
+        for slot in table["slots"]:
+            out.append(
+                "    (\"{}\", \"{}\", {}),\n".format(
+                    table["name"],
+                    slot["name"],
+                    int(profile["tableHeaderBytes"]) + int(slot["slotIndex"]) * pointer,
+                )
+            )
+    out.append("];\n\n")
+    out.append("pub const STRUCT_SIZES: &[(&str, usize)] = &[\n")
+    out.append("    (\"lumio_handle_t\", 16),\n    (\"lumio_buffer_t\", 24),\n")
+    for table in abi.get("apiTable", []):
+        out.append("    (\"{}\", {}),\n".format(table["name"], table["structSize"]))
+    out.append("    (\"lumio_root_api\", {}),\n".format(root_declared))
+    out.append("];\n\n")
+    out.append("const _: () = {\n")
+    out.append("    assert!(core::mem::size_of::<LumioHandle>() == 16);\n")
+    out.append("    assert!(core::mem::size_of::<LumioBuffer>() == 24);\n")
+    for table in abi.get("apiTable", []):
+        out.append(
+            "    assert!(core::mem::size_of::<{}>() == {});\n".format(
+                pascal(table["name"]), table["structSize"]
+            )
+        )
+    out.append(
+        "    assert!(core::mem::size_of::<LumioRootApi>() == {});\n".format(root_declared)
+    )
+    for table in abi.get("apiTable", []):
+        for slot in table["slots"]:
+            out.append(
+                "    assert!(core::mem::offset_of!({}, {}) == {});\n".format(
+                    pascal(table["name"]),
+                    slot["name"],
+                    int(profile["tableHeaderBytes"]) + int(slot["slotIndex"]) * pointer,
+                )
+            )
+    for index, table in enumerate(abi.get("apiTable", [])):
+        out.append(
+            "    assert!(core::mem::offset_of!(LumioRootApi, {}) == {});\n".format(
+                table["name"], int(profile["rootHeaderBytes"]) + index * pointer
+            )
+        )
+    out.append("};\n")
+    return "".join(out)
+
+
+def emit_csharp_root_abi(abi: Dict[str, Any]) -> str:
+    profile = LAYOUT_PROFILE
+    pointer = int(profile["pointerBytes"])
+    out = [
+        "// Generated Root ABI binding. Do not hand-edit.\n",
+        "// Publisher: LumioGameEngineArchitecture / {}. ADR-040.\n".format(BASELINE),
+        "// Pure managed layout description; the consumer binds the entry symbol itself.\n",
+        "using System;\nusing System.Runtime.InteropServices;\n\n",
+        "namespace Lumio.Gen.LanguageBinding;\n\n",
+        "public static class RootAbi\n{\n",
+        "    public const uint AbiVersion = {};\n".format(abi["abiVersion"]),
+        "    public const string EntrySymbol = \"{}\";\n".format(abi["entrySymbol"]),
+        "    public const string SymbolPrefix = \"{}\";\n".format(abi["symbolPrefix"]),
+        "    public const string CallingConvention = \"{}\";\n".format(abi["callingConvention"]),
+        "    public const ulong CapabilityBits = {};\n".format(abi["capabilityBits"]),
+        "    public const string TargetProfileId = \"{}\";\n".format(profile["targetProfileId"]),
+        "    public const int PointerBytes = {};\n".format(pointer),
+        "    public const int MaxAlignment = {};\n".format(profile["maxAlignment"]),
+        "    public const int RootHeaderBytes = {};\n".format(profile["rootHeaderBytes"]),
+        "    public const int TableHeaderBytes = {};\n".format(profile["tableHeaderBytes"]),
+        "}\n\n",
+        "public enum LumioStatus : int { Ok = 0 }\n\n",
+        "[StructLayout(LayoutKind.Sequential)]\npublic struct LumioHandle\n{\n"
+        "    public uint Index;\n    public uint Generation;\n    public ulong Context;\n}\n\n",
+        "[StructLayout(LayoutKind.Sequential)]\npublic struct LumioBuffer\n{\n"
+        "    public IntPtr Ptr;\n    public ulong Len;\n    public ulong Capacity;\n}\n\n",
+    ]
+    for table in abi.get("apiTable", []):
+        minimum = abi_minimum_table_size(table, profile)
+        declared = int(table["structSize"])
+        out.append("[StructLayout(LayoutKind.Sequential)]\npublic struct {}\n{{\n".format(pascal(table["name"])))
+        out.append("    public uint Version;\n    public uint StructSize;\n    public ulong Reserved0;\n")
+        for slot in table["slots"]:
+            out.append("    // {}\n".format(abi_cs_signature(slot)))
+            out.append("    public IntPtr {};\n".format(pascal(slot["name"])))
+        if int(table["reservedSlots"]) > 0:
+            out.append(
+                "    [MarshalAs(UnmanagedType.ByValArray, SizeConst = {})]\n"
+                "    public IntPtr[] Reserved;\n".format(table["reservedSlots"])
+            )
+        if declared > minimum:
+            out.append(
+                "    [MarshalAs(UnmanagedType.ByValArray, SizeConst = {})]\n"
+                "    public byte[] ReservedTail;\n".format(declared - minimum)
+            )
+        out.append("}\n\n")
+    root_minimum = abi_minimum_root_size(abi, profile)
+    root_declared = int(abi["structSize"])
+    out.append("[StructLayout(LayoutKind.Sequential)]\npublic struct LumioRootApi\n{\n")
+    out.append("    public uint AbiVersion;\n    public uint StructSize;\n    public ulong CapabilityBits;\n")
+    for table in abi.get("apiTable", []):
+        out.append("    public IntPtr {};\n".format(pascal(table["name"])))
+    if root_declared > root_minimum:
+        out.append(
+            "    [MarshalAs(UnmanagedType.ByValArray, SizeConst = {})]\n"
+            "    public byte[] ReservedTail;\n".format(root_declared - root_minimum)
+        )
+    out.append("}\n\n")
+    out.append("public readonly record struct SlotOffset(string Table, string Slot, int Offset);\n")
+    out.append("public static class RootAbiLayout\n{\n    public static readonly SlotOffset[] SlotOffsets =\n    {\n")
+    for table in abi.get("apiTable", []):
+        for slot in table["slots"]:
+            out.append(
+                "        new SlotOffset(\"{}\", \"{}\", {}),\n".format(
+                    table["name"],
+                    slot["name"],
+                    int(profile["tableHeaderBytes"]) + int(slot["slotIndex"]) * pointer,
+                )
+            )
+    out.append("    };\n\n    public static readonly (string Name, int Size)[] StructSizes =\n    {\n")
+    out.append("        (\"lumio_handle_t\", 16),\n        (\"lumio_buffer_t\", 24),\n")
+    for table in abi.get("apiTable", []):
+        out.append("        (\"{}\", {}),\n".format(table["name"], table["structSize"]))
+    out.append("        (\"lumio_root_api\", {}),\n".format(root_declared))
+    out.append("    };\n}\n")
+    return "".join(out)
+
+
+def validate_abi_document(root: Path, abi: Dict[str, Any]) -> None:
+    """ADR-040: reject an invalid ABI document before a single output byte is written."""
+    import lumio_contract  # local import: lumio_contract imports this module at load time
+
+    schema_file = root / "schemas" / "native-managed-abi.schema.json"
+    schema = json.loads(schema_file.read_text(encoding="utf-8"))
+    errors = lumio_contract.structural_errors(
+        abi, schema, schema_file, lumio_contract.SchemaResolver()
+    )
+    errors.extend(lumio_contract.semantic_errors("native-managed-abi", abi))
+    if errors:
+        raise AbiError(
+            "ABI document {} is invalid; no bundle is emitted: {}".format(
+                ABI_DOCUMENT, "; ".join(errors)
+            )
+        )
+
+
+def emit_root_abi(root: Path, out_dir: Path, compiler_digest: str) -> Dict[str, Any]:
+    """Emit the ADR-040 bundle: C header, Rust and C# bindings, generation record."""
+    abi = json.loads((root / ABI_DOCUMENT).read_text(encoding="utf-8"))
+    validate_abi_document(root, abi)
+    contents = {
+        "abi/lumio_core.h": emit_c_header(abi),
+        "rust/lumio-gen-language-binding/src/root_abi.rs": emit_rust_root_abi(abi),
+        "csharp/Lumio.Gen.LanguageBinding/RootAbi.cs": emit_csharp_root_abi(abi),
+    }
+    for rel, text in contents.items():
+        write_text(out_dir / rel, text)
+    digests = [
+        (rel, role, sha256_file(out_dir / rel)) for rel, role in ABI_OUTPUT_FILES
+    ]
+    bundle = derive_bundle(abi, compiler_digest, abi_input_hash(root), digests)
+    write_text(out_dir / ABI_BUNDLE_FILE, canonical_json(bundle) + "\n")
+    return bundle
+
+
 def emit_workspace(rust_root: Path) -> None:
     members = ",\n    ".join("\"{}\"".format(name) for name in RUST_CRATES.values())
     write_text(
@@ -570,6 +1201,9 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         raise RuntimeError("expected 12 state-machine fixtures, got {}".format(len(machines)))
     schema_ids = load_schema_ids(root)
     errors = load_error_ids(root)
+    abi = json.loads((root / ABI_DOCUMENT).read_text(encoding="utf-8"))
+    comp = compiler_hash(root)
+    inh = input_hash(root)
     rust_root = out_dir / "rust"
     cs_root = out_dir / "csharp"
     desc_dir = out_dir / "descriptors"
@@ -594,6 +1228,7 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         machines,
         schema_ids,
         errors,
+        abi,
     )
     emit_contract_runtime(
         rust_root / RUST_CRATES["ContractRuntime"],
@@ -601,9 +1236,8 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
     )
     emit_workspace(rust_root)
     write_text(out_dir / ".gitignore", "rust/target/\ncsharp/**/bin/\ncsharp/**/obj/\n")
+    bundle = emit_root_abi(root, out_dir, comp)
 
-    comp = compiler_hash(root)
-    inh = input_hash(root)
     inventory = []
     for kind in KINDS:
         rust_pkg = rust_root / RUST_CRATES[kind]
@@ -633,12 +1267,23 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         ],
         "stateMachineCount": len(machines),
         "stateMachineIds": [m.get("machineId") for m in machines],
+        "rootAbi": {
+            "bundleId": bundle["bundleId"],
+            "bundlePath": ABI_BUNDLE_FILE,
+            "bundleDigest": sha256_file(out_dir / ABI_BUNDLE_FILE),
+            "compiler": dict(bundle["compiler"]),
+            "inputHash": bundle["inputHash"],
+            "layoutProfileId": bundle["layoutProfile"]["targetProfileId"],
+            "outputFiles": [dict(item) for item in bundle["outputFiles"]],
+        },
     }
     write_text(out_dir / "index.json", canonical_json(index) + "\n")
     write_text(
         out_dir / "README.md",
         "Generated V1.4 contract artifacts. Do not hand-edit package sources.\n"
-        "Regenerate with `python tools/lumio_contract.py generate --out packages`.\n",
+        "Regenerate with `python tools/lumio_contract.py generate --out packages`.\n"
+        "`abi/` is the ADR-040 Root ABI bundle: `lumio_core.h`, the layout Golden\n"
+        "record `root-abi-bundle.json`, and the digests of the Rust and C# bindings.\n",
     )
     return index
 
