@@ -1,7 +1,7 @@
 # 2026-08-28 · P0 Gate 交付结果与待裁决项
 
 > 交付会话：`lumiogameenginearchitecture-6a`。基线 `LGE-V1.4-2026-08-27` 未变。
-> 本文分两部分：**已完成**（三张卡，已合入 main）与**待架构所有者裁决**（**九项**：原九项中 D-8 已修复落地，新增 D-10，见下）。
+> 本文分两部分：**已完成**（三张卡，已合入 main）与**待架构所有者裁决**（**十一项**：D-8 已修复落地并移出；新增 D-10 / D-11 / D-12）。
 
 > **【状态更新 · 2026-08-28 · 会话 `practical-lehmann-145b88`】**
 > 本文正文是写作当时（`origin/main = a4a7956`）的快照，**正文不改写**，此后变化统一记在这里：
@@ -206,6 +206,38 @@ $ endianness 命中全在 native ABI 语境（ADR-006 / ADR-020 / ADR-040），�
 前者定了，Runtime 的 `Directory.Packages.props` 里 `MessagePack 3.1.8` 的去留也跟着定；后者定了，R-00141 需要一份「Runtime 持久化域 primitive 编码」的域级 ADR 才能开工。**两条路 Runtime 都能走，但不能没有裁决就自己选一条**——那正是发明公共合同。
 
 **附带**：`snapshot-header.checksum` 的 B 档权威 `CHECKSUM_DOMAIN.md` 只有一行，**没有 Golden、没有 domain tag，也没说与 `checksum` 并列的那个 required `hash` 字段的口径**。比 A 档薄得多，下游照它实现仍有歧义空间，建议一并补。
+
+### D-11 · R-00009 需要 BaselineId 跃迁 —— 一张 P1 卡承担不了
+
+**本会话实测的漂移**（与卡面描述一致）：
+
+```
+schemas/target-profile.schema.json  loadBackend = ["StaticLinked", "DynamicLibrary"]
+架构正文 v1.4 §10                    LoadBackend = DynamicLibrary / StaticLink / NoNative
+schemas/target-profile.schema.json  packaging   = object{libraryFileName, debugSymbolFormat, archiveFormat}
+架构正文 v1.4 §10                    PackagingProfile = LooseFiles / Archive / EmbeddedInApp
+```
+
+三处差异属实：`StaticLinked` vs `StaticLink` 是**改名**；Schema **缺 `NoNative`**（而 `PureHeadless` preset 明文声明它）；`packaging` 在 Schema 里是打包细节对象、在正文里是三值枚举 —— **两者是不同概念，不只是拼写**。
+
+**为什么本会话不动它**：`schemas/README.md` 的变更规则明写「Changing a required field, **enum** … requires … **a new baseline id**, and synchronized repository mirrors」。改 `loadBackend` 枚举与把 `packaging` 改成 `PackagingProfile` 都是 enum 变更。而 `LGE-V1.4-2026-08-27` 被 `generated-contract-artifact.schema.json` 的 `const`、CI 的多处 grep、七仓镜像与 lock、以及所有在途实现卡的卡面共同钉死。**一次基线跃迁是七仓事件**，不该由一张 P1 卡或一个未获授权的会话发起。
+
+**建议**：把 R-00009 并进一次 **`LGE-V1.5` 跃迁**，与①ADR-020 refine 统一三轴命名、②Schema/Fixture/`targetProfileDigest` Golden 同步（ADR-041 的 `TargetProfileV1` 域已就绪可直接复用）、③七仓镜像同步、④**五张 Draft ADR（040–044）一并转 Accepted** 同批规划。这样**只跳一次基线**，而不是为本卡跳一次、再为 Draft ADR 跳一次。
+
+### D-12 · R-00257 前提不成立 —— Voxel P2 决策门的测量从未执行
+
+**本会话实测**（LumioVoxelEngine HEAD `13d515f`）：
+
+- `docs/evidence/decision-gates/` 的 8 个 `approvalStatus`：4 个 `approved`（VOX-D-001..004，已由 D-013 确认书裁决），**4 个 `blocked`（VOX-D-005..008）**。
+- **8 个证据文件全部提到 `link.exe`**。R-00061/R-00062 的交付评论原文：`cargo test -p lumio-voxel-test-support --all-features` → **exit 101, linker `link.exe` not found**；只有 `cargo build --lib` 与 `rustc --crate-type rlib` 通过。
+- blockedReason 原文含 **`cargo test unlinked (no link.exe)`**。
+- VOX-D-005 证据文档自述「records candidates and a **measurement seam**… does not freeze numeric defaults」，其 §4 标题是 **"Measurement plan (harness seam)"** —— 是计划，不是结果。
+
+R-00257 卡面写「R-00061..R-00064 **已完成测量**、停在验收中等待架构所有者裁决」，**与事实不符**。卡面要求「以 VoxelEngine benchmarks 测量缝的证据为据」逐门裁决 —— **没有测量就没有据**，因此本会话**不签发确认书**，也不做「D-014 临时默认反正说这些 stay implementation-level、照抄一遍」的省事处理：那会把未经测量的结论伪装成经过测量的裁决。
+
+**真正的阻塞点不在架构所有者**，而在 VoxelEngine 的测量从未链接执行 —— 即本仓 `lessons.md` 已收录的「Windows 缺 `link.exe`，2.4 万行代码只过了 cargo check」那条。2026-08-28 的 W0 派活提示词已要求在 macOS 本机首次真实跑通，正是为了打破它。
+
+**需要决定 / 解除条件**：① VoxelEngine 在可链接宿主上真跑 decision-gate 测量，产出真实数字与 host triple；② 四张卡的 evidence §4 从 plan 变成 results；③ 届时按 D-013 模式逐门裁决。在此之前 R-00257 应停留 backlog，**并修正其卡面「已完成测量」一句**，否则下一个接手的人会重复这次核对。
 
 ---
 
