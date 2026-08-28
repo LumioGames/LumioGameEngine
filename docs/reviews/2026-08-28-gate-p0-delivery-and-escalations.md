@@ -1,7 +1,7 @@
 # 2026-08-28 · P0 Gate 交付结果与待裁决项
 
 > 交付会话：`lumiogameenginearchitecture-6a`。基线 `LGE-V1.4-2026-08-27` 未变。
-> 本文分两部分：**已完成**（三张卡，已合入 main）与**待架构所有者裁决**（九项，全部有下游实证）。
+> 本文分两部分：**已完成**（三张卡，已合入 main）与**待架构所有者裁决**（**九项**：原九项中 D-8 已修复落地，新增 D-10，见下）。
 
 > **【状态更新 · 2026-08-28 · 会话 `practical-lehmann-145b88`】**
 > 本文正文是写作当时（`origin/main = a4a7956`）的快照，**正文不改写**，此后变化统一记在这里：
@@ -9,7 +9,10 @@
 > - **§三.4 的「尚未合入 main」与其禁令已失效**：K[28] 修复已在 main，该实现现可用于核对 Golden / digest。详见该条的更新标注。
 > - **D-8 已落地并经独立复核**：仅凭已发布 profile 数据（不读 ADR 正文）的净室实现，8/8 Golden 的 bytes 与 sha256 全中；此前静默算错的两条 permutation 用例已转通过。
 > - **D-2 的排序约束③（「卡② 不得在 K[28] 合入前落地」）已自动解除。**
-> - R-00003 / R-00004 已流转 `done`（D-7 因此关闭），两卡均已补记独立复核证据评论；R-00005 已 `in_progress`。
+> - **2026-08-28 收工状态**：`origin/main = c712ff4`，CI completed/success。此后又叠加 `c712ff4` R-00005（ADR-042 Signature/Trust Profile）。
+> - **三张 P0 Gate 全部关闭**：R-00003 `44f617b` / R-00004 `a4a7956` / R-00005 `c712ff4`，卡状态均为 `done`；R-00258 亦 `done`。**`LumioCoreEngine` R-00015 的前置至此齐备**（但仍需先升 architecture lock，见 D-2）。
+> - **D-8 已修复并合入**（`7bdad78`）：`digestDomains[].normalization` 现为可执行声明，生成器与门禁执行它本身；三个下游仓各自用零仓库知识的净室实现复核 8/8，剥空后精确退回 6/8。**该项已从待裁决移除。**
+> - 卡状态流转（D-7）在用户全权授权下执行，**独立审查仍未发生** —— 每张卡的关闭评论都如实记录了这一点，未写成「审过了」。
 > - 其余待裁决项（D-1、D-3、D-4、D-5、D-6、D-9）**仍未裁决**。
 
 ## 一、已完成并合入 `origin/main`
@@ -64,8 +67,8 @@ CoreEngine 不读架构仓工作区，只读钉死的只读镜像。`packages/ab
 
 | 项 | 卡① 现五前缀（不含 packages/） | 卡② 加 packages/ 后 |
 | --- | --- | --- |
-| requiredPaths | 131 → **270**（新增 140 / 删除 1 / 共有路径漂移 65） | 270 → **332**（packages/ 新增 62） |
-| 镜像文件数 | 133 → 272 | — |
+| requiredPaths（按 `c712ff4` 重算） | 131 → **277**（新增 147 / 删除 1 / 共有路径漂移 67） | +5（consumers 收敛后的 `packages/`，非全量 62） → **282** |
+| 镜像文件数 | 133 → **279** | — |
 
 **已备两张卡草稿（带精确行号、陷阱与验收项），可直接落单：**
 
@@ -78,7 +81,15 @@ CoreEngine 不读架构仓工作区，只读钉死的只读镜像。`packages/ab
 3. **卡② 不得在 K[28] 修复合入 main 之前落地**，否则会把一个**已知算错摘要**的 sha256 实现字节级冻结进 CoreEngine 只读镜像，并用它的 SHA-256 登记进 lock。若 K[28] 能在卡①之前合，两张卡都取修复后的 commit 最干净；否则卡② 会顺带再动一次 pin，须在卡面写明这是预期行为而非范围蔓延。
 4. **ADR-040 / ADR-041 仍是 Draft**（见 D-6）。把 Draft 状态的公共构造冻进只读镜像并钉进 lock，等它们转 Accepted 时会再触发一次 300+ 条路径重新登记。**是否等转 Accepted 再做卡②，请一并裁决。**
 
-**需要决定**：是否落这两张卡草稿（草稿已由 `lumiocoreengine-93` 备好，等落单授权）；以及上面三条排序约束怎么排。
+**卡② 范围已因 `b8f8c50` 的 consumers 登记大幅收敛**：`rootAbi.consumers = [LumioCoreEngine, LumioNativeCore]`，而 12 个六类 artifact 的 consumers 不含 CoreEngine。因此 CoreEngine 只需镜像 **3 条**（`packages/abi/lumio_core.h`、`packages/abi/root-abi-bundle.json`、`packages/index.json`），不是 62 条；requiredPaths 合计从 332 降到 **274**。`packages/rust/Cargo.lock`（已在 `b8f8c50` 移除）与 `packages/.gitignore` / `README.md` 两个待澄清项因此自动消解。
+
+**`lumiocoreengine-93` 的设计改进，本会话背书**：卡② 的投影规则**不要硬编码 `packages/` 前缀**，而是**按 `packages/index.json` 的 consumers 关系收敛**，验收项写成「镜像内 `packages/` 文件集 == `index.json` 中 consumers 含 `LumioCoreEngine` 的条目所指文件集，多一个少一个都 FAIL」。这把镜像范围变成上游数据的函数，上游以后增删消费面时下游镜像自动跟随，不必再开卡改投影规则。
+
+**由此暴露的 `consumers` 缺口已补齐（本次收工提交）**：`packages/index.json` 原先只有 `rootAbi` 节带 `consumers`，`canonicalDigest` 与 `trust` 两节没有，收敛规则对它们无从判断，实现方只能猜 —— 而「猜」正是这套设计要消灭的东西。现按 ADR-041 / ADR-042 的 Owner 行补为 `["LumioCoreEngine"]`。CoreEngine 侧的镜像因此是 **5 条**而非 3 条。
+
+**pin 目标**：现在应取 **`c712ff4`**（三张 Gate + K[28] + D-8 全在其中）。`lumiocoreengine-93` 将按此重算两张卡的数字。
+
+**需要决定**：是否落这两张卡草稿；上面三条排序约束怎么排。（`consumers` 补齐一项已在收工提交中完成，不再需要裁决。）**并见 D-10：卡面修订必须与这两张卡同批，否则 R-00015 仍不可执行。**
 
 > **注意**：即使 R-00005 关闭、三张 Gate 齐备，CoreEngine 侧仍要先过这道坎才能真正开工。不要以为 Gate 一关下游就自动通了。
 
@@ -106,14 +117,19 @@ CoreEngine 不读架构仓工作区，只读钉死的只读镜像。`packages/ab
 
 附一条改进建议（`lumiogameenginearchitecture-53` 提出）：`compilerHash` 现在把生成器源码与产物身份绑死（SHA-256 的 K 表就写在 `lumio_generate.py` 里，而 `compiler_hash` 正是对该文件算的），**工具改一行就让全下游 churn**。可考虑拆成「生成器版本号（人工递增）+ 内容哈希」。
 
-**需要决定**：给下游一个冻结引用点——tag / 版本号 / artifact digest 三选一或组合；以及是否采纳 `compilerHash` 拆分。
+**新增一条同族问题（`lumiocoreengine-93` 提出，本会话确认）**：`tools/lumio_contract.py` 与 `tools/lumio_generate.py` **都在 CoreEngine 契约镜像的 required paths 里**（`tools/` 是五个投影前缀之一）。含义是**架构仓每次改生成器或校验器，都会打断 CoreEngine 的 `check-contracts`，即使契约本身没变** —— 工具实现变了、契约没变，下游门禁照样红。`tools/lumio_generate.py` 今天漂移了三次（K[28]、D-8、R-00005），频率远高于 schema/fixture，这条耦合是真实且高频的。
+
+同族的还有 `packages/rust/Cargo.lock`（每次 `generate` 必被 `rmtree` 删掉，已在 `b8f8c50` 移除）。**共同的口径问题是：契约镜像收什么、不收什么 —— 凡是「会被上游工具重新生成或删除」的文件，都会把下游门禁绑在上游的操作纪律上。** 建议一次性划清。
+
+**需要决定**：给下游一个冻结引用点（tag / 版本号 / artifact digest）；是否采纳 `compilerHash` 拆分；以及 `tools/**` 是否真该进契约镜像。
 
 ### D-6 · 两张 Draft ADR 转 Accepted
 
 - **ADR-040**：`lumio_handle_t` = 16B(4+4+8)/align 8、`lumio_buffer_t` = 24B(ptr+u64+u64)/align 8、root 与 api table 各 16 字节表头、`structSize >= 派生最小值`。**16 字节表头是从 V1.4 ABI 文档两张表的 `structSize` 反推**（48 = 16+4×8、32 = 16+2×8，两表精确吻合），依据与被拒替代已写进 ADR。
-- **ADR-041**：`CanonicalJsonV1` 与五个摘要域。
+- **ADR-041**：`CanonicalJsonV1` 与五个摘要域，外加 §4 的 `normalization` 可执行声明。
+- **ADR-042**：`LumioSignatureV1` —— 域分离 preimage 布局、`keyId` 派生规则、五级拒绝优先级。
 
-两者都是**首次冻结的公共构造**，需架构所有者确认后随下一基线转 `Accepted`。
+三者都是**首次冻结的公共构造**，需架构所有者确认后随下一基线转 `Accepted`。注意 D-2 的排序约束 3：把 Draft 状态的公共构造冻进 CoreEngine 只读镜像并钉进 lock，等它们转 `Accepted` 时会再触发一次全量重新登记。
 
 ### D-7 · 卡状态 `acceptance` → `done`
 
@@ -123,7 +139,7 @@ CoreEngine 不读架构仓工作区，只读钉死的只读镜像。`packages/ab
 
 **需要决定**：是否先做独立审查再流转，还是直接流转。
 
-### D-8 · 已发布 Profile 的 pre-sort 规则不是机器可读的 —— 照它实现会静默算错
+### D-8 · ~~已发布 Profile 的 pre-sort 规则不是机器可读的~~ —— **已修复，合入 `7bdad78`**
 
 **提出**：`lumioclient-a9`（端到端实测）。**本会话独立复现，结果一致。**
 
@@ -140,7 +156,33 @@ CoreEngine 不读架构仓工作区，只读钉死的只读镜像。`packages/ab
 `[{"path":"entries","sortBy":"path","order":"Ascending"}]` / `[{"path":"capabilities","sortBy":"$self","order":"CodePointAscending"}]`，
 并把 `artifactSetDigest` 的「省略自身成员」也表述成同一套结构化规则（现为 `omitMembers`，可并入）。
 
-**需要决定**：是否现在改。ADR-041 还是 Draft，**现在改最便宜**；代价是再动一次 `packages/`——与 D-5「下游要冻结点」和 K[28] 的合并顺序相互牵制，见下方排序问题。
+**已修复，无需裁决。** `digestDomains[].normalization` 发布为可执行步骤序列（`path` / `op` / `by` / `collation`），**生成器与门禁执行这份声明本身**，不再走硬编码分支 —— 发布的数据可证明就是实际跑的东西。`sortRule` 降级为人读注释；空数组表示「无规则」，与「作者忘了写」可区分，后者由新增负例 `canonical/missing-normalization` 抓。
+
+纯增量：8 条 Golden 的 `sha256` 与 `canonicalBytes` 逐条不变，已正确实现 sort 的消费方不受影响。三个下游仓各自用零仓库知识的净室实现复核：修复后 8/8，剥空 `normalization` 后精确退回 6/8 且失败集合不变。
+
+### D-10 · R-00015 卡面自相矛盾 —— 三张 Gate 全关也没有解锁它
+
+**提出**：`lumiocoreengine-93`。**本会话独立复核，逐条属实。**
+
+R-00015（LCE-P0-003）的目标是「用一个只读、可审计的运行时 crate 消费架构源 ContractTypes / ErrorCode / Capability / Schema registry」，实现要求写明「generated 文件**逐字节来自上游制品**」。而同一张卡面又写着：
+
+> 本单固定消费 `LGE-V1.2-2026-08-27` / `2d7980d95b163404e33cc6212db13ac948d30d40`。**不得因为 README 或相邻仓已经出现 V1.4 而静默升级** architecture lock、Schema、Fixture 或生成输出。
+
+实测那个被钉死的基线上有什么：
+
+| | `2d7980d9`（卡面钉死的消费基线） | `c712ff4`（当前 main） |
+| --- | --- | --- |
+| `packages/` 路径 | **0** | 63 |
+| `packages/abi/` | **0** | 2 |
+| ADR-040 / 041 / 042 | **0** | 3 |
+
+**卡面要求实现方去消费一个在其指定基线上根本不存在的东西。** 照卡面做只能交空壳；违反卡面则是静默升级 lock，而那是卡面明文禁止的。实现方无法自行解决。
+
+真实状态因此是：R-00015 的五个前置（R-00012 / R-00013 / R-00003 / R-00004 / R-00005）**全部 done**，但它**依然不可执行** —— 缺口从「Gate 未关」变成了「卡面基线与交付物不自洽」。
+
+**需要决定**：解法必须三件一起 —— ① 升 lock（D-2 卡①）；② 按 consumers 收敛纳入 `packages/`（D-2 卡②）；③ **同时修订 R-00015 卡面那句消费基线**（`2d7980d9` → 升级后的 pin）。**第三件最容易被漏**：前两张落地后若不改卡面，R-00015 还是卡着，只是理由变了。R-00012 卡面有同款句子，一并检查。
+
+---
 
 ### D-9 · `ADR-010:20` 的「the same canonical codec rules」当前无指向物
 
@@ -170,7 +212,7 @@ $ endianness 命中全在 native ABI 语境（ADR-006 / ADR-020 / ADR-040），�
 ## 三、非阻塞但应处理
 
 1. **本会话误判「R-00141 可开工」，已撤回（本会话缺陷）**：我据 A 档结论告诉 `lumiogameruntime-22` 其 R-00141（canonical encode/decode）可以开工。**错了** —— 我按卡名推断，没读卡面。R-00141 要的是二进制线编码（UInt64/端序/长度策略/MessagePack primitive），而 `CanonicalJsonV1` 是 JSON 文本形态，层次错配；且 ADR-041 的 Owner 行列的消费方是 CoreEngine 的 manifest/platform/runtime-verifier，本就不含 Runtime。A/B/C 三档划分本身成立，错的是我把它套到一张没读过的卡上。`lumiogameenginearchitecture-53` 半小时前得出过同一错误结论并已撤回 —— 两个架构仓会话独立踩同一个坑，说明 ADR-041 的适用边界需要写得更显眼。
-2. **R-00258 文档措辞越界（本会话缺陷）**：§0 写的是「现有 Envelope…已经完整覆盖 MVP A1 所需的公共语义」，但 12 项核对**只覆盖传输语义**。那句话把「WebSocket 档不需要公共契约变更」这个正确结论，扩写成了「A1 不需要公共契约变更」这个错误结论。拟改：收窄为「不需要任何公共**传输面**契约变更」，并新增一节列出未覆盖、但对 A1 是硬前置的两项（即 D-1），指向新卡。
+2. **R-00258 文档措辞越界（本会话缺陷）—— 已修正**：§0 曾写「现有 Envelope…已经完整覆盖 MVP A1 所需的公共语义」，但 12 项核对**只覆盖传输语义**。那句话把「WebSocket 档不需要公共契约变更」这个正确结论，扩写成了「A1 不需要公共契约变更」这个错误结论，由 `lumioserver-2d` 读准并上报。已收窄为「就传输面而言」，并新增 §6b 明确列出未覆盖、但对 A1 是硬前置的两项（即 D-1），附范围更正说明。
 3. **`forbiddenDependents` 命名误导**：字面是「依赖它的人」，实际语义是「本 artifact 不得依赖这些仓」。三个下游仓因此误判为「自相矛盾、无法机器判定」并一度停工；经本会话给出 validator + fixture + schema 三处证据后，`lumioserver-2d` 与 `lumioclient-a9` 均已独立复核并撤回。**只当命名改进项，不当缺陷**（改名会动已发布 Schema 枚举，需权衡）。
 4. **SHA-256 `K[28]` 错常量**：`packages/rust/lumio-gen-contract-runtime/src/sha256.rs` 第 29 个常量为 `0xc6eabbdc`，FIPS 180-4 规定 `0xc6e00bf3`——该实现**对任意输入都算出错误摘要**。修复在 `fix/sha256-k28-round-constant` @ `c862682`（`lumiogameenginearchitecture-53` 交付，已推 origin，基于 a4a7956，`git merge-tree` 实测无冲突，28 files / +28 / −28）。~~**尚未合入 main**，合并权在用户。在它落地前不得用该实现核对任何 Golden 或 digest。~~ **【已失效 · 2026-08-28】** 该修复已作为 `bcc8eb9` 合入 main（PR #5，rebase 后 SHA 变更，树与 `c862682` 逐字节相同）。独立复核：64 个常量对 FIPS 180-4 立方根推导零不符；5 组标准 KAT（含 1MB 多块）修复前 0/5、修复后 5/5。**禁令解除，该实现可用于核对 Golden 与 digest。**
 5. **`generate` 会 rmtree 掉已入库的 `packages/rust/Cargo.lock`**（既有行为）。当前树已手工复原。修法：`generate()` 在 rmtree 前保留并回写。 **【已发生 · 2026-08-28】** 本条预测的失效已在 `b8f8c50`（PR #7）真实发生：`packages/rust/Cargo.lock` 被从版本库删除，且该文件未被 `.gitignore` 覆盖。删除是有意还是 rmtree 副作用未经确认——它同时是 D-2 卡②「Cargo.lock 是否进镜像」这项待澄清的对象，**请连同该待澄清项一并裁决**，不要在裁决前擅自恢复或补 ignore。

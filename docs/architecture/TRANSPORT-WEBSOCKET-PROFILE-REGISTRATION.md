@@ -8,7 +8,9 @@
 
 ## 0. 结论（一句话）
 
-**WebSocket 档不需要任何公共契约变更。** 现有 Envelope、`transportPolicy`、MessageType 集合、ErrorCode 命名空间与 Host Capability 面已经完整覆盖 MVP A1（`LocalSplitProcess`，WSS）所需的公共语义；本次只做「登记」——落一份 Host Capability 记录 + 一条补齐既有规则覆盖的失败 Fixture，并列出 A1 可依赖的字段与错误码清单。
+**WebSocket 档不需要任何公共契约变更 —— 就传输面而言。** 现有 Envelope、`transportPolicy`、MessageType 集合、ErrorCode 命名空间与 Host Capability 面已经完整覆盖 MVP A1（`LocalSplitProcess`，WSS）所需的**传输**公共语义；本次只做「登记」——落一份 Host Capability 记录 + 一条补齐既有规则覆盖的失败 Fixture，并列出 A1 可依赖的字段与错误码清单。
+
+> **范围更正（2026-08-28，本文作者）**：本节初版写的是「已经完整覆盖 MVP A1 所需的公共语义」，**那句话越界了**。§2 的 12 项核对覆盖的全是传输语义（可靠性、大小、分片、反重放、authBinding、错误分级、完整性、消息类型集合、重连、权限门、Host 能力），**没有一项问「世界状态本身怎么传」**。把「WebSocket 档不需要契约变更」这个正确结论，扩写成「A1 不需要契约变更」这个错误结论，是本文的缺陷，由 `LumioServer` 在 R-00260 设计中读准并上报。A1 真正缺的那一块见 §6。
 
 **D-009（RPC/Message dispatch）与 D-011（Auth wire）未被触碰**，仍是「Not frozen / 有意阻塞」，见 §5。
 
@@ -109,7 +111,34 @@ WSS 提供的是「全可靠、有序、带帧」的字节通道 —— 它落�
 - **D-012（Session Resume Token）**：未触碰，V1 仍不提供。
 - **架构正文 v1.4 未改动**，`docs/architecture/.baseline.sha256` 校验通过。
 
-## 6. 验证
+## 6. 本次未覆盖、但对 A1 是硬前置的两项
+
+这两项**不在本卡范围内**，本文不裁决，列出是为了让读者不把 §0 的结论当成「A1 全绿」。
+
+### 6.1 下行：被复制值的线编码整层未定义
+
+8 条正向 replication fixture 的 body 键集恰好等于 `_REPLICATION_BODY_REQUIRED`，**全是标识与版本**：
+
+- `FullSnapshot` = `snapshotId` / `tickId` / `sessionRevisionVector` / `schemaEpoch` / `mappingSetHash`
+- `Delta` = `baseSnapshotId` / `fromRevision` / `toRevision` / `mappingSetHash` / `confirmationSequence` / `tombstones`
+
+`replication-mapping.schema.json` 冻结的是**哪些字段复制**（source/target component+field、delivery、visibility、prediction、quantization），Envelope 只带 `mappingSetHash`。**映射描述符冻结了，被映射值的线编码没有。** 所以这不是「body 少一个字段」，补字段不能了结。
+
+一个不携带状态的 `FullSnapshot` 在语义上是空的 —— 第二个客户端看不见第一个客户端挖掉的方块，而那正是 MVP 计划 §2 的目标与 §6 验收 1。
+
+### 6.2 上行：客户端 gameplay 输入无处安放
+
+8 个 MessageType 里没有一个表示 client→server 的 gameplay 命令。`body` 在 Schema 上是开放对象（`{"type":"object"}`，无 `additionalProperties: false`），所以把命令塞进 `BaselineAck.body` / `DeltaAck.body` **机器上能通过**；但 ADR-028（Accepted）的 Alternatives 明文否决 free-form payload（"two implementations can pass the gate and disagree on Snapshot identity"），各仓不得自行加字段。
+
+`LumioServer` 曾裁决加私有字段 `mvpAuthorityPayload`，经三路对抗审查判为越界并**已整体撤销**，落地断言升级为「出站 body 字段集恰好等于必填集」—— 这是「缺口→停、不本地绕过」的正确执行。
+
+### 6.3 后果与去向
+
+A1 已被拆成 **A1-α**（WSS 握手 → admission → FullSnapshot → BaselineAck → revision 严格前进 → DeltaAck → 断连重连 Full Resync；只依赖已冻结的传输面，可交付）与 **A1-β**（「第二个客户端看见方块被挖」，**BLOCKED**）。
+
+两项均已作为 **D-1（最高优先级）** 上报架构所有者，见 [`../reviews/2026-08-28-gate-p0-delivery-and-escalations.md`](../reviews/2026-08-28-gate-p0-delivery-and-escalations.md)。在裁决落地前，`LumioServer` 与 `LumioClient` 按 A1-α 推进，不得本地发明状态载荷字段。
+
+## 7. 验证
 
 - `fixtures/valid/host-capability-local-split-process.json`（`host/local-split-process`）—— WebSocket 档的 Host Capability 登记记录。
 - `fixtures/invalid/replication-unreliable-full-snapshot.json`（`replication/unreliable-full-snapshot`）—— WSS「全可靠有序」这一属性的失败面：`FullSnapshot` 声明 `Unreliable` 必须被拒。该规则（`FullSnapshot must use Reliable delivery`）此前**没有任何 Fixture 覆盖**，本次补上。
