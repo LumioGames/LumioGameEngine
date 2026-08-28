@@ -32,6 +32,7 @@
 - **并行边界与合入:** 任务文件集**互不重叠**才可并行(最小化冲突),重叠必串行;拆解产物按 wave 分批扇出,批间串行。并行 worker 各在独立 git worktree 实现(Claude Code 用 Agent 工具的 worktree 隔离),reviewer 审 worktree 相对基线的完整 diff,通过后主 loop 合入主工作区,未过审不合入,冲突退回实现方。多宿主并存时共享任务真值是 `.spec/tasks/`,宿主内置任务工具只作个人草稿。
 - **派活模板:** worker 派遣与 reviewer 触发的 prompt 骨架见 [`knowledge/standards/dispatch.md`](knowledge/standards/dispatch.md)。
 - **跨仓交付:** 向七个实现仓提需求、派活、核验交回物、聚合验收走 [`skills/cross-repo-delivery`](skills/cross-repo-delivery/SKILL.md)——Workflow(lumiogamesengine)是跨仓需求真值,主 loop 是唯一 Workflow 写入方。
+- **定期盘点(TD 职能):** 盘进度/对账 Workflow 与仓库真实状态/产出本地评估报告/编排派活走 [`skills/td-progress-audit`](skills/td-progress-audit/SKILL.md);发现状态漂移或证据不可复核也用它。技能按职能前缀命名(td- = 引擎总监/技术 Owner)。
 - **交回物格式(全仓单一权威):** ① 改动清单;② **验证证据**——命令与关键输出,不得只声称「已通过」;③ known gaps;④ 知识沉淀落点(或声明无需沉淀)。拆解类交任务卡集合,②以自检结论 + 待澄清项代替;reviewer 交审查报告(见 [`agents/reviewer.agent.md`](agents/reviewer.agent.md))。
 - **谁来调度:** 只有主 loop 派活;子 Agent 只执行,各自上下文只拿任务卡 + 相关文件。
 - **失败处理:** P0 / P1 → 附审查报告退回重做;同一问题三次不过 → 质疑方案:拆解问题重修卡,方向问题升级用户。
