@@ -1,7 +1,7 @@
 # ADR-040: Root ABI Generated Bundle
 
 - **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
-- **Owner**: `LumioGameEngineArchitecture` (bundle publisher), `LumioCoreEngine` (`root-abi` consumer)
+- **Owner**: `LumioGameEngineArchitecture` (bundle publisher), `LumioCoreEngine` and `LumioNativeCore` (`root-abi` consumers)
 - **Baseline**: `LGE-V1.4-2026-08-27` (additive; no existing required field, enum or ID changes)
 - **Relation**: Implements the generatable half of [ADR-017](ADR-017-root-abi-generatable-contract.md) and the "generated headers and bindings include layout assertions and compiler/input hashes" clause of [ADR-006](ADR-006-native-managed-abi.md); publishes through the artifact rules of [ADR-023](ADR-023-generated-contract-artifact.md) / [ADR-039](ADR-039-contract-runtime-artifact.md).
 
@@ -69,6 +69,8 @@ Slot function-pointer offsets are exact and are the Golden a consumer's layout t
 | `csharp/Lumio.Gen.LanguageBinding/RootAbi.cs` | C# sequential-layout structs and layout constants |
 
 `abi/root-abi-bundle.json` records the digest of every other output file. The C# binding stays pure managed — it publishes layouts and signatures, never a native import — so the `packages/csharp` no-native policy of ADR-023/ADR-039 is unchanged: `LumioCoreEngine` binds the single `entrySymbol` itself and asserts the published layout.
+
+The `rootAbi` entry in `packages/index.json` (the language-neutral directory of §"Alternatives") carries its own `consumers` list, distinct from the six Rust/C# `artifactKind`s' `consumers`: `["LumioCoreEngine", "LumioNativeCore"]`. Both are native-toolchain repositories that bind `lumio_core.h` directly; neither consumes the Rust/C# generated crates, so they are deliberately absent from the six kinds' `CONSUMERS` list and present only here. A repository not in this list has no standing to depend on `packages/abi/`.
 
 ### 6. The generation record has a schema
 

@@ -20,6 +20,10 @@ KINDS = [
 ]
 FORBIDDEN = ["LumioClient", "LumioGame"]
 CONSUMERS = ["LumioClient", "LumioGame", "LumioGameRuntime", "LumioServer"]
+# The Root ABI bundle (abi/) is a C-level FFI surface, not a Rust/C# generated
+# package: its consumers are the native-toolchain repositories named by
+# ADR-040's Owner line, not the six kinds above.
+ROOT_ABI_CONSUMERS = ["LumioCoreEngine", "LumioNativeCore"]
 RUST_CRATES = {
     "ProtocolPermissionValidator": "lumio-gen-protocol-permission-validator",
     "MappingTable": "lumio-gen-mapping-table",
@@ -1658,6 +1662,7 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
             "inputHash": bundle["inputHash"],
             "layoutProfileId": bundle["layoutProfile"]["targetProfileId"],
             "outputFiles": [dict(item) for item in bundle["outputFiles"]],
+            "consumers": list(ROOT_ABI_CONSUMERS),
         },
     }
     write_text(out_dir / "index.json", canonical_json(index) + "\n")
