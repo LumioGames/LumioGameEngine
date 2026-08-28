@@ -1,9 +1,17 @@
 # MVP 大纲：多浏览器联机体素世界
 
 > **基线**：`LGE-V1.4-2026-08-27`（本文不改公共契约，只是对既有架构的 MVP 级裁剪与排期）
-> **状态**：Draft（讨论共识沉淀，未立项）
-> **日期**：2026-08-27
+> **状态**：Adopted（2026-08-28 经用户确认正式立项）
+> **日期**：2026-08-27（立项 2026-08-28）
 > **来源**：架构可行性讨论——C# 热更双端执行、无引擎 MVP、浏览器客户端、在线/离线形态
+
+## 0. 立项说明（2026-08-28）
+
+- **定位**：MVP 是架构里程碑 3（Vertical Slice）的宿主变体——「一份工作两份验收」（见 §2）。MVP 立项不新增里程碑阶段，不改任何公共契约。
+- **总纲**：下一阶段跨仓工作以本文两轨四阶段（轨道 A：A0–A3 C# 逻辑闭环；轨道 B：B0–B2 Rust 体素权威）组织；各仓 Foundation 收口是 MVP 的天然前置。
+- **Workflow 锚点**：统一里程碑 `MS-00001`「MVP · 多浏览器联机体素世界」（目标日 2026-10-31），项目 lumiogamesengine.workflow.games；跨仓需求真值在 Workflow，公共契约真值在本仓。
+- **归属裁决**：MVP C# 宿主（WebSocket transport / auth 存根 / session / world-slot 最小实现）归 **LumioServer 仓独立目录**——session/world-slot 语义所有权在 Server，与其 Rust Host 51 卡物理隔离、互不阻塞；Rust Host 主线推迟到 Production Hardening 立项。
+- **进度与漂移现状**：见 `docs/reviews/2026-08-28-seven-repo-progress-assessment.md`（七仓完成度评估与 Workflow 对账报告）。
 
 ## 1. 讨论确认的五个结论
 
