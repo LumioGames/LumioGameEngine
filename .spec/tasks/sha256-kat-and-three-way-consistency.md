@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in_progress
 ---
 
 # 为生成的 SHA-256 实现补 known-answer 测试与 Rust ⇄ C# ⇄ Python 三方一致性断言，并纳入 CI 必跑集合
@@ -21,13 +21,13 @@ status: pending
 
 ## 验收标准
 
-- [ ] 生成的 `tests/chain.rs` 含三条 KAT，期望值为 FIPS 180-4 公布值：`sha256("")` = `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`；`sha256("abc")` = `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`；一条长度 > 55 字节因而跨两个压缩块的向量（取 FIPS 180-4 的 `"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"` 之 448-bit 双块串，或等价的自定义向量并在注释中记录其 Python `hashlib` 求值来源）。
-- [ ] 把 `tools/lumio_generate.py` 的 `SHA256_RS` 中 `K[28]` 改回 `0xc6eabbdc` 后重新 `generate`，`cargo test --manifest-path packages/rust/Cargo.toml` 失败；改回 `0xc6e00bf3` 后通过——证明该测试确实守护此常量（先失败后通过，见 `test-driven-development`）。
-- [ ] `tools/lumio_kat.py` 在三方一致时退出 0；人为篡改任一侧常量后退出非 0。
-- [ ] `.github/workflows/repository-policy.yml` 中 `cargo test` 与三方一致性步骤均为必跑步骤（非 `continue-on-error`），且在 workflow 的 `baseline` job 内。
-- [ ] `packages/` 与 `generate` 一致：CI 现有的 outputHash / compilerHash 稳定性步骤通过。
-- [ ] 收口门槛全绿：`node .spec/tools/spec-lint.mjs && node --test .spec/tools/spec-lint.test.mjs && python3 -m py_compile tools/lumio_contract.py && python3 tools/lumio_contract.py validate`。
-- [ ] BaselineId 保持 `LGE-V1.4-2026-08-27` 不变；无 Schema / ID / Fixture 变更。
+- [x] 生成的 `tests/chain.rs` 含三条 KAT，期望值为 FIPS 180-4 公布值：`sha256("")` = `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`；`sha256("abc")` = `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`；一条长度 > 55 字节因而跨两个压缩块的向量（取 FIPS 180-4 的 `"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"` 之 448-bit 双块串，或等价的自定义向量并在注释中记录其 Python `hashlib` 求值来源）。
+- [x] 把 `tools/lumio_generate.py` 的 `SHA256_RS` 中 `K[28]` 改回 `0xc6eabbdc` 后重新 `generate`，`cargo test --manifest-path packages/rust/Cargo.toml` 失败；改回 `0xc6e00bf3` 后通过——证明该测试确实守护此常量（先失败后通过，见 `test-driven-development`）。
+- [x] `tools/lumio_kat.py` 在三方一致时退出 0；人为篡改任一侧常量后退出非 0。
+- [x] `.github/workflows/repository-policy.yml` 中 `cargo test` 与三方一致性步骤均为必跑步骤（非 `continue-on-error`），且在 workflow 的 `baseline` job 内。
+- [x] `packages/` 与 `generate` 一致：CI 现有的 outputHash / compilerHash 稳定性步骤通过。
+- [x] 收口门槛全绿：`node .spec/tools/spec-lint.mjs && node --test .spec/tools/spec-lint.test.mjs && python3 -m py_compile tools/lumio_contract.py && python3 tools/lumio_contract.py validate`。
+- [x] BaselineId 保持 `LGE-V1.4-2026-08-27` 不变；无 Schema / ID / Fixture 变更。
 - [ ] compilerHash 与 `contract-runtime-rust` outputHash 的新旧值写入交回物，并按 `cross-repo-delivery` 向七仓发一次协调 re-pin 通知——本次 churn 是有正当理由的一次性移动，须与 `LumioVoxelEngine` 已完成的镜像同步（其 `main` = `4ced801`）协调，不得静默发布。
 
 ## 依赖
