@@ -45,6 +45,9 @@ _CANONICAL_FORM = dict(_abi.CANONICAL_FORM)
 _CANONICAL_DIGEST_ALGORITHM = dict(_abi.CANONICAL_DIGEST_ALGORITHM)
 _CANONICAL_DIGEST_KEYS = [item["digest"] for item in _abi.CANONICAL_DIGEST_DOMAINS]
 _CANONICAL_DOMAIN_TAGS = {item["digest"]: item["domainTag"] for item in _abi.CANONICAL_DIGEST_DOMAINS}
+_CANONICAL_NORMALIZATION = {
+    item["digest"]: item.get("normalization") or [] for item in _abi.CANONICAL_DIGEST_DOMAINS
+}
 _CANONICAL_GOLDEN_CASES = set(_abi.CANONICAL_GOLDEN_CASES)
 _CANONICAL_PROFILE_FILE = _abi.CANONICAL_PROFILE_FILE
 
@@ -1085,6 +1088,13 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             if expected_tag is not None and item.get("domainTag") != expected_tag:
                 errors.append(
                     "digest {} must use domain tag {}".format(item.get("digest"), expected_tag)
+                )
+            expected_norm = _CANONICAL_NORMALIZATION.get(item.get("digest"))
+            if expected_norm is not None and (item.get("normalization") or []) != expected_norm:
+                errors.append(
+                    "digest {} must publish the frozen machine-readable normalization {}".format(
+                        item.get("digest"), expected_norm
+                    )
                 )
         goldens = value.get("goldens", [])
         ids = [item.get("id") for item in goldens]
