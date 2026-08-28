@@ -25,6 +25,21 @@ FIXTURE_DIR = ROOT / "fixtures"
 ID_REGISTRY_FILE = ROOT / "ids" / "index.json"
 SCHEMA_INDEX = SCHEMA_DIR / "index.json"
 FIXTURE_INDEX = FIXTURE_DIR / "index.json"
+PACKAGE_DIR = ROOT / "packages"
+
+# ADR-040 Root ABI bundle freezes: the generator in ``lumio_generate`` is the single
+# authority for these values; the gate imports them so a drift is impossible.
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lumio_generate as _abi  # noqa: E402
+
+_ABI_LAYOUT_PROFILE = dict(_abi.LAYOUT_PROFILE)
+_ABI_ROOT_HEADER_BYTES = int(_abi.LAYOUT_PROFILE["rootHeaderBytes"])
+_ABI_TABLE_HEADER_BYTES = int(_abi.LAYOUT_PROFILE["tableHeaderBytes"])
+_ABI_TYPE_MAPPING_KEYS = set(_abi.ABI_TYPE_MAPPING_KEYS)
+_ABI_OUTPUT_PATHS = [path for path, _role in _abi.ABI_OUTPUT_FILES]
+_ABI_OUTPUT_ROLES = [role for _path, role in _abi.ABI_OUTPUT_FILES]
+_ABI_BUNDLE_FILE = _abi.ABI_BUNDLE_FILE
 
 
 class ContractError(Exception):
@@ -665,6 +680,62 @@ def state_machine_consistency_errors(
     return errors
 
 
+def published_root_abi_bundle_errors() -> List[str]:
+    """ADR-040: the published bundle must be re-derivable from the ABI document."""
+    published = PACKAGE_DIR / _ABI_BUNDLE_FILE
+    if not published.is_file():
+        return []
+    document = load_json(published)
+    abi = load_json(ROOT / _abi.ABI_DOCUMENT)
+    expected_compiler = _abi.compiler_hash(ROOT)
+    if document.get("compiler", {}).get("digest") != expected_compiler:
+        return [
+            "published Root ABI bundle records compiler digest {} but the locked compiler hashes to {};"
+            " regenerate with `python3 tools/lumio_contract.py generate --out packages`".format(
+                document.get("compiler", {}).get("digest"), expected_compiler
+            )
+        ]
+    expected_input = _abi.abi_input_hash(ROOT)
+    if document.get("inputHash") != expected_input:
+        return [
+            "published Root ABI bundle records inputHash {} but the frozen input set hashes to {};"
+            " regenerate with `python3 tools/lumio_contract.py generate --out packages`".format(
+                document.get("inputHash"), expected_input
+            )
+        ]
+    try:
+        derived = _abi.derive_bundle(
+            abi,
+            document.get("compiler", {}).get("digest", ""),
+            document.get("inputHash", ""),
+            [
+                (item.get("path"), item.get("role"), item.get("digest"))
+                for item in document.get("outputFiles", [])
+            ],
+        )
+    except _abi.AbiError as exc:
+        return ["published Root ABI bundle cannot be derived: {}".format(exc)]
+    if canonical_json(derived) != canonical_json(document):
+        return [
+            "published {} does not match the bundle derived from {};"
+            " regenerate with `python3 tools/lumio_contract.py generate --out packages`".format(
+                _ABI_BUNDLE_FILE, _abi.ABI_DOCUMENT
+            )
+        ]
+    for item in document.get("outputFiles", []):
+        target = PACKAGE_DIR / str(item.get("path", ""))
+        if not target.is_file():
+            return ["published Root ABI output file is missing: {}".format(item.get("path"))]
+        digest = hashlib.sha256(target.read_bytes()).hexdigest()
+        if digest != item.get("digest"):
+            return [
+                "published Root ABI output {} digest {} does not match the bundle".format(
+                    item.get("path"), digest
+                )
+            ]
+    return []
+
+
 def semantic_errors(schema_id: str, value: Any) -> List[str]:
     errors: List[str] = []
 
@@ -849,6 +920,12 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         errors.extend(correlation_scope_errors(value.get("correlation")))
 
     elif schema_id == "native-managed-abi":
+        # ADR-040 freezes the linux-x86_64-glibc layout profile: a 16-byte root and
+        # api-table header, then one pointer-sized word per declared and reserved slot.
+        pointer_bytes = int(value.get("pointerWidth", 64)) // 8
+        table_names = [table.get("name") for table in value.get("apiTable", [])]
+        if len(table_names) != len(set(table_names)):
+            errors.append("apiTable names must be unique")
         for table in value.get("apiTable", []):
             slots = table.get("slots", [])
             if table.get("functionCount") != len(slots):
@@ -859,6 +936,93 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             slot_names = [slot.get("name") for slot in slots]
             if len(slot_names) != len(set(slot_names)):
                 errors.append("api table {} slot names must be unique".format(table.get("name")))
+            declared = int(table.get("structSize", 0))
+            minimum = _ABI_TABLE_HEADER_BYTES + (
+                int(table.get("functionCount", 0)) + int(table.get("reservedSlots", 0))
+            ) * pointer_bytes
+            if declared < minimum:
+                errors.append(
+                    "api table {} structSize {} is below the derived minimum {}".format(
+                        table.get("name"), declared, minimum
+                    )
+                )
+            if pointer_bytes and declared % pointer_bytes != 0:
+                errors.append(
+                    "api table {} structSize must be a multiple of the pointer alignment".format(
+                        table.get("name")
+                    )
+                )
+        root_declared = int(value.get("structSize", 0))
+        root_minimum = _ABI_ROOT_HEADER_BYTES + len(value.get("apiTable", [])) * pointer_bytes
+        if root_declared < root_minimum:
+            errors.append(
+                "root structSize {} is below the derived minimum {}".format(root_declared, root_minimum)
+            )
+        if pointer_bytes and root_declared % pointer_bytes != 0:
+            errors.append("root structSize must be a multiple of the pointer alignment")
+
+    elif schema_id == "root-abi-bundle":
+        profile = value.get("layoutProfile", {})
+        if profile != _ABI_LAYOUT_PROFILE:
+            errors.append("layoutProfile must equal the ADR-040 frozen profile")
+        pointer_bytes = int(profile.get("pointerBytes") or 0)
+        table_header = int(profile.get("tableHeaderBytes") or 0)
+        root_header = int(profile.get("rootHeaderBytes") or 0)
+        mapped = [row.get("typeRef") for row in value.get("typeMapping", [])]
+        if len(mapped) != len(set(mapped)):
+            errors.append("typeMapping entries must be unique")
+        if set(mapped) != _ABI_TYPE_MAPPING_KEYS:
+            missing = sorted(_ABI_TYPE_MAPPING_KEYS - set(mapped))
+            extra = sorted(set(mapped) - _ABI_TYPE_MAPPING_KEYS)
+            errors.append(
+                "typeMapping must cover the frozen typeRef grammar"
+                " (missing: {}, unregistered: {})".format(missing, extra)
+            )
+        root = value.get("root", {})
+        if root.get("minimumStructSize", 0) > root.get("declaredStructSize", 0):
+            errors.append("root minimumStructSize cannot exceed declaredStructSize")
+        expected_root_minimum = root_header + len(root.get("tables", [])) * pointer_bytes
+        if root.get("minimumStructSize") != expected_root_minimum:
+            errors.append(
+                "root minimumStructSize must equal {}".format(expected_root_minimum)
+            )
+        for index, entry in enumerate(root.get("tables", [])):
+            if entry.get("offset") != root_header + index * pointer_bytes:
+                errors.append(
+                    "root table {} offset must follow the frozen root header".format(entry.get("name"))
+                )
+        declared_tables = [entry.get("name") for entry in root.get("tables", [])]
+        if declared_tables != [table.get("name") for table in value.get("tables", [])]:
+            errors.append("root table pointers must match the api table list in document order")
+        for table in value.get("tables", []):
+            expected_minimum = table_header + (
+                int(table.get("functionCount", 0)) + int(table.get("reservedSlots", 0))
+            ) * pointer_bytes
+            if table.get("minimumStructSize") != expected_minimum:
+                errors.append(
+                    "table {} minimumStructSize must equal {}".format(table.get("name"), expected_minimum)
+                )
+            if int(table.get("minimumStructSize", 0)) > int(table.get("declaredStructSize", 0)):
+                errors.append(
+                    "table {} minimumStructSize cannot exceed declaredStructSize".format(table.get("name"))
+                )
+            slots = table.get("slots", [])
+            if table.get("functionCount") != len(slots):
+                errors.append("table {} functionCount must equal the number of slots".format(table.get("name")))
+            for slot in slots:
+                expected_offset = table_header + int(slot.get("slotIndex", 0)) * pointer_bytes
+                if slot.get("offset") != expected_offset:
+                    errors.append(
+                        "table {} slot {} offset must equal {}".format(
+                            table.get("name"), slot.get("name"), expected_offset
+                        )
+                    )
+        roles = [item.get("role") for item in value.get("outputFiles", [])]
+        if sorted(roles) != sorted(_ABI_OUTPUT_ROLES):
+            errors.append("outputFiles must publish exactly the frozen ADR-040 role set")
+        paths = [item.get("path") for item in value.get("outputFiles", [])]
+        if paths != _ABI_OUTPUT_PATHS:
+            errors.append("outputFiles must publish exactly the frozen ADR-040 path list")
 
     elif schema_id == "artifact-index":
         paths = [entry.get("path") for entry in value.get("entries", [])]
@@ -1264,6 +1428,7 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     consistency = message_type_consistency_errors(schemas, fixtures, id_registry)
     consistency.extend(vocabulary_consistency_errors(schemas, id_registry))
     consistency.extend(state_machine_consistency_errors(schemas, fixtures))
+    consistency.extend(published_root_abi_bundle_errors())
     if consistency:
         raise ContractError("; ".join(consistency))
     return schemas, fixtures
@@ -1372,6 +1537,9 @@ def command_generate(out: str) -> int:
         if mismatches:
             print("error: unstable generate {}".format(mismatches), file=sys.stderr)
             return 1
+        if canonical_json(first.get("rootAbi")) != canonical_json(second.get("rootAbi")):
+            print("error: unstable Root ABI bundle between generate runs", file=sys.stderr)
+            return 1
         if out_dir.exists():
             shutil.rmtree(out_dir)
         shutil.copytree(tmp_root / "a", out_dir)
@@ -1404,6 +1572,10 @@ def command_generate(out: str) -> int:
     print("compilerHash {}".format(index["compilerHash"]))
     print("inputHash {}".format(index["inputHash"]))
     print("stateMachines {}".format(",".join(index["stateMachineIds"])))
+    root_abi = index.get("rootAbi") or {}
+    print("rootAbi bundle {} digest {}".format(root_abi.get("bundlePath"), root_abi.get("bundleDigest")))
+    print("rootAbi compiler {} {}".format(
+        root_abi.get("compiler", {}).get("name"), root_abi.get("compiler", {}).get("version")))
     print("stable outputHash: yes")
     return 0
 

@@ -13,6 +13,7 @@ pub const SCHEMA_IDS: &[&str] = &[
     "generated-contract-artifact",
     "entity-identity",
     "native-managed-abi",
+    "root-abi-bundle",
     "release-manifest",
     "maintenance-command",
     "snapshot-header",
@@ -112,6 +113,45 @@ pub fn state_transition_table() -> &'static [Transition] {
 pub fn machine_ids() -> impl Iterator<Item = &'static str> {
     MACHINE_IDS.iter().copied()
 }
+pub const ABI_ENTRY_SYMBOL: &str = "lumio_core_get_api_v1";
+pub const ABI_SYMBOL_PREFIX: &str = "lumio_";
+pub const ABI_VERSION: u32 = 1;
+pub const ABI_CALLING_CONVENTION: &str = "C";
+pub const ABI_POINTER_WIDTH: u32 = 64;
+pub const ABI_ENDIANNESS: &str = "Little";
+
+#[derive(Clone, Copy, Debug)]
+pub struct AbiTypeMapping {
+    pub type_ref: &'static str,
+    pub c: &'static str,
+    pub csharp: &'static str,
+    pub rust: &'static str,
+    pub size: usize,
+    pub align: usize,
+}
+
+pub const ABI_TYPE_MAPPING: &[AbiTypeMapping] = &[
+    AbiTypeMapping { type_ref: "u8", c: "uint8_t", csharp: "byte", rust: "u8", size: 1, align: 1 },
+    AbiTypeMapping { type_ref: "u16", c: "uint16_t", csharp: "ushort", rust: "u16", size: 2, align: 2 },
+    AbiTypeMapping { type_ref: "u32", c: "uint32_t", csharp: "uint", rust: "u32", size: 4, align: 4 },
+    AbiTypeMapping { type_ref: "u64", c: "uint64_t", csharp: "ulong", rust: "u64", size: 8, align: 8 },
+    AbiTypeMapping { type_ref: "i8", c: "int8_t", csharp: "sbyte", rust: "i8", size: 1, align: 1 },
+    AbiTypeMapping { type_ref: "i16", c: "int16_t", csharp: "short", rust: "i16", size: 2, align: 2 },
+    AbiTypeMapping { type_ref: "i32", c: "int32_t", csharp: "int", rust: "i32", size: 4, align: 4 },
+    AbiTypeMapping { type_ref: "i64", c: "int64_t", csharp: "long", rust: "i64", size: 8, align: 8 },
+    AbiTypeMapping { type_ref: "f32", c: "float", csharp: "float", rust: "f32", size: 4, align: 4 },
+    AbiTypeMapping { type_ref: "f64", c: "double", csharp: "double", rust: "f64", size: 8, align: 8 },
+    AbiTypeMapping { type_ref: "bool32", c: "uint32_t", csharp: "uint", rust: "u32", size: 4, align: 4 },
+    AbiTypeMapping { type_ref: "status", c: "lumio_status_t", csharp: "LumioStatus", rust: "LumioStatus", size: 4, align: 4 },
+    AbiTypeMapping { type_ref: "handle:<kind>", c: "lumio_handle_t", csharp: "LumioHandle", rust: "LumioHandle", size: 16, align: 8 },
+    AbiTypeMapping { type_ref: "buffer:in", c: "lumio_buffer_t", csharp: "LumioBuffer", rust: "LumioBuffer", size: 24, align: 8 },
+    AbiTypeMapping { type_ref: "buffer:out", c: "lumio_buffer_t", csharp: "LumioBuffer", rust: "LumioBuffer", size: 24, align: 8 },
+    AbiTypeMapping { type_ref: "buffer:inout", c: "lumio_buffer_t", csharp: "LumioBuffer", rust: "LumioBuffer", size: 24, align: 8 },
+    AbiTypeMapping { type_ref: "struct:<name>:v<N>", c: "const lumio_<name>_v<N>*", csharp: "IntPtr", rust: "*const Lumio<Name>V<N>", size: 8, align: 8 },
+    AbiTypeMapping { type_ref: "ptr:const:<name>", c: "const lumio_<name>*", csharp: "IntPtr", rust: "*const Lumio<Name>", size: 8, align: 8 },
+    AbiTypeMapping { type_ref: "ptr:mut:<name>", c: "lumio_<name>*", csharp: "IntPtr", rust: "*mut Lumio<Name>", size: 8, align: 8 },
+];
+
 pub const MACHINE_IDS: &[&str] = &[
     "ClientReplicaSession",
     "CoreEngineLoader",

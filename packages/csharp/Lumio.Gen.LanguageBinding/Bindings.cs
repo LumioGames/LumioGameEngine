@@ -12,6 +12,7 @@ public static class Bindings
         new Binding("generated-contract-artifact", "GeneratedContractArtifact", "GeneratedContractArtifact"),
         new Binding("entity-identity", "EntityIdentity", "EntityIdentity"),
         new Binding("native-managed-abi", "NativeManagedAbi", "NativeManagedAbi"),
+        new Binding("root-abi-bundle", "RootAbiBundle", "RootAbiBundle"),
         new Binding("release-manifest", "ReleaseManifest", "ReleaseManifest"),
         new Binding("maintenance-command", "MaintenanceCommand", "MaintenanceCommand"),
         new Binding("snapshot-header", "SnapshotHeader", "SnapshotHeader"),
