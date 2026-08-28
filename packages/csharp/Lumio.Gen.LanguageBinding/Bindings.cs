@@ -13,6 +13,7 @@ public static class Bindings
         new Binding("entity-identity", "EntityIdentity", "EntityIdentity"),
         new Binding("native-managed-abi", "NativeManagedAbi", "NativeManagedAbi"),
         new Binding("root-abi-bundle", "RootAbiBundle", "RootAbiBundle"),
+        new Binding("canonical-digest-profile", "CanonicalDigestProfile", "CanonicalDigestProfile"),
         new Binding("release-manifest", "ReleaseManifest", "ReleaseManifest"),
         new Binding("maintenance-command", "MaintenanceCommand", "MaintenanceCommand"),
         new Binding("snapshot-header", "SnapshotHeader", "SnapshotHeader"),

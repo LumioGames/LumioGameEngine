@@ -11,6 +11,7 @@
     { "id": "entity-identity", "file": "entity-identity.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "native-managed-abi", "file": "native-managed-abi.schema.json", "priority": "P0", "owner": "CoreEngine" },
     { "id": "root-abi-bundle", "file": "root-abi-bundle.schema.json", "priority": "P0", "owner": "Architecture" },
+    { "id": "canonical-digest-profile", "file": "canonical-digest-profile.schema.json", "priority": "P0", "owner": "Architecture" },
     { "id": "release-manifest", "file": "release-manifest.schema.json", "priority": "P0", "owner": "Game" },
     { "id": "maintenance-command", "file": "maintenance-command.schema.json", "priority": "P0", "owner": "Server" },
     { "id": "snapshot-header", "file": "snapshot-header.schema.json", "priority": "P0", "owner": "GameRuntime" },

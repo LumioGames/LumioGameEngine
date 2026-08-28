@@ -289,7 +289,7 @@ def emit_mapping(rust_dir: Path, cs_dir: Path) -> None:
     write_text(cs_dir / (CS_PROJ["MappingTable"] + ".csproj"), csproj(CS_PROJ["MappingTable"]))
 
 
-def emit_canonical(rust_dir: Path, cs_dir: Path) -> None:
+def emit_canonical(rust_dir: Path, cs_dir: Path, profile: Dict[str, Any]) -> None:
     rust = rust_lib_header("CanonicalSerializer")
     rust += (
         "/// snapshot-header.checksum covers SHA-256 of the canonical JSON of the header\n"
@@ -302,6 +302,44 @@ def emit_canonical(rust_dir: Path, cs_dir: Path) -> None:
     )
     write_text(rust_dir / "src" / "lib.rs", rust)
     write_text(rust_dir / "Cargo.toml", rust_cargo(RUST_CRATES["CanonicalSerializer"]))
+    rust += "\n"
+    rust += "/// ADR-041 CanonicalJsonV1: the canonical form is defined by the architecture source,\n"
+    rust += "/// never inherited from a generic JCS library's defaults.\n"
+    form = profile["canonicalForm"]
+    rust += "pub const CANONICAL_FORM_ID: &str = \"%s\";\n" % form["formId"]
+    rust += "pub const CANONICAL_ENCODING: &str = \"%s\";\n" % form["encoding"]
+    rust += "pub const CANONICAL_MEMBER_ORDER: &str = \"%s\";\n" % form["memberOrder"]
+    rust += "pub const CANONICAL_ARRAY_ORDER: &str = \"%s\";\n" % form["arrayOrder"]
+    rust += "pub const CANONICAL_ITEM_SEPARATOR: char = ',';\n"
+    rust += "pub const CANONICAL_KEY_VALUE_SEPARATOR: char = ':';\n"
+    rust += "pub const CANONICAL_NUMBERS: &str = \"%s\";\n" % form["numbers"]
+    rust += "pub const CANONICAL_UNKNOWN_MEMBERS: &str = \"%s\";\n" % form["unknownMembers"]
+    rust += "pub const CANONICAL_DUPLICATE_MEMBERS: &str = \"%s\";\n" % form["duplicateMembers"]
+    rust += "pub const DIGEST_ALGORITHM: &str = \"%s\";\n" % profile["digestAlgorithm"]["name"]
+    rust += "pub const DIGEST_FRAMING: &str = \"%s\";\n\n" % profile["digestAlgorithm"]["framing"]
+    rust += (
+        "#[derive(Clone, Copy, Debug)]\n"
+        "pub struct DigestDomain {\n"
+        "    pub digest: &'static str,\n"
+        "    pub domain_tag: &'static str,\n"
+        "    pub sort_rule: &'static str,\n"
+        "    pub omit_members: &'static [&'static str],\n"
+        "}\n\n"
+    )
+    rust += "pub const DIGEST_DOMAINS: &[DigestDomain] = &[\n"
+    for domain in profile["digestDomains"]:
+        omit = ", ".join("\"%s\"" % name for name in domain.get("omitMembers", []))
+        rust += (
+            "    DigestDomain { digest: \"%s\", domain_tag: \"%s\", sort_rule: \"%s\", omit_members: &[%s] },\n"
+            % (domain["digest"], domain["domainTag"], domain["sortRule"], omit)
+        )
+    rust += "];\n\n"
+    rust += "/// Golden vectors: `(id, case, sha256)`. Full inputs and canonical bytes are in\n"
+    rust += "/// the published `canonical/canonical-digest-profile.json`.\n"
+    rust += "pub const CANONICAL_GOLDENS: &[(&str, &str, &str)] = &[\n"
+    for golden in profile["goldens"]:
+        rust += "    (\"%s\", \"%s\", \"%s\"),\n" % (golden["id"], golden["case"], golden["sha256"])
+    rust += "];\n"
     write_text(rust_dir / "CHECKSUM_DOMAIN.md", "checksum = SHA-256(canonical_json(header without checksum,hash))\n")
     write_text(
         cs_dir / "CanonicalSerializer.cs",
@@ -309,6 +347,40 @@ def emit_canonical(rust_dir: Path, cs_dir: Path) -> None:
         "    public const string Domain = \"SHA-256 over canonical JSON of snapshot-header minus checksum and hash fields\";\n"
         "    public const string Magic = \"LUMIOSNP1\";\n}\n",
     )
+    cs_extra = ["\n"]
+    cs_extra.append("public static class CanonicalForm\n{\n")
+    cs_extra.append("    public const string FormId = \"%s\";\n" % form["formId"])
+    cs_extra.append("    public const string Encoding = \"%s\";\n" % form["encoding"])
+    cs_extra.append("    public const string MemberOrder = \"%s\";\n" % form["memberOrder"])
+    cs_extra.append("    public const string ArrayOrder = \"%s\";\n" % form["arrayOrder"])
+    cs_extra.append("    public const char ItemSeparator = ',';\n")
+    cs_extra.append("    public const char KeyValueSeparator = ':';\n")
+    cs_extra.append("    public const string Numbers = \"%s\";\n" % form["numbers"])
+    cs_extra.append("    public const string UnknownMembers = \"%s\";\n" % form["unknownMembers"])
+    cs_extra.append("    public const string DuplicateMembers = \"%s\";\n" % form["duplicateMembers"])
+    cs_extra.append("    public const string DigestAlgorithm = \"%s\";\n" % profile["digestAlgorithm"]["name"])
+    cs_extra.append("    public const string DigestFraming = \"%s\";\n}\n\n" % profile["digestAlgorithm"]["framing"])
+    cs_extra.append("public readonly record struct DigestDomain(string Digest, string DomainTag, string SortRule, string[] OmitMembers);\n")
+    cs_extra.append("public static class DigestDomains\n{\n    public static readonly DigestDomain[] All =\n    {\n")
+    for domain in profile["digestDomains"]:
+        omit = ", ".join("\"%s\"" % name for name in domain.get("omitMembers", []))
+        cs_extra.append(
+            "        new DigestDomain(\"%s\", \"%s\", \"%s\", new[] { %s }),\n"
+            % (domain["digest"], domain["domainTag"], domain["sortRule"], omit)
+            if omit
+            else "        new DigestDomain(\"%s\", \"%s\", \"%s\", System.Array.Empty<string>()),\n"
+            % (domain["digest"], domain["domainTag"], domain["sortRule"])
+        )
+    cs_extra.append("    };\n}\n\n")
+    cs_extra.append("public readonly record struct CanonicalGolden(string Id, string Case, string Sha256);\n")
+    cs_extra.append("public static class CanonicalGoldens\n{\n    public static readonly CanonicalGolden[] All =\n    {\n")
+    for golden in profile["goldens"]:
+        cs_extra.append(
+            "        new CanonicalGolden(\"%s\", \"%s\", \"%s\"),\n"
+            % (golden["id"], golden["case"], golden["sha256"])
+        )
+    cs_extra.append("    };\n}\n")
+    write_text(cs_dir / "CanonicalProfile.cs", "using System;\n\nnamespace Lumio.Gen.CanonicalSerializer;\n" + "".join(cs_extra))
     write_text(cs_dir / (CS_PROJ["CanonicalSerializer"] + ".csproj"), csproj(CS_PROJ["CanonicalSerializer"]))
 
 
@@ -564,6 +636,237 @@ def emit_contract_runtime(rust_dir: Path, cs_dir: Path) -> None:
         "}\n",
     )
     write_text(cs_dir / (CS_PROJ["ContractRuntime"] + ".csproj"), csproj(CS_PROJ["ContractRuntime"]))
+
+
+# --------------------------------------------------------------------------
+# ADR-041 Canonical and Digest Profiles
+# --------------------------------------------------------------------------
+
+CANONICAL_PROFILE_ID = "canonical-digest-v1"
+CANONICAL_PROFILE_FILE = "canonical/canonical-digest-profile.json"
+CANONICAL_FORM = {
+    "formId": "CanonicalJsonV1",
+    "encoding": "AsciiEscaped",
+    "memberOrder": "CodePointAscending",
+    "arrayOrder": "DocumentOrder",
+    "separators": {"item": ",", "keyValue": ":"},
+    "numbers": "IntegerOnly",
+    "unknownMembers": "Reject",
+    "duplicateMembers": "Reject",
+}
+CANONICAL_DIGEST_ALGORITHM = {"name": "SHA-256", "framing": "PrefixFreeOverCanonicalBytes"}
+CANONICAL_DIGEST_DOMAINS = [
+    {
+        "digest": "manifestDigest",
+        "domainTag": "CoreEngineManifestBody",
+        "input": "the CoreEngineManifestBody document itself (ADR-018; the one input with no digestDomain member)",
+        "sortRule": "member order only; the body has no array whose order is semantic",
+    },
+    {
+        "digest": "artifactSetDigest",
+        "domainTag": "ArtifactSetV1",
+        "input": "the ArtifactIndex with artifactSetDigest omitted, wrapped as {digestDomain,indexVersion,targetProfileId,entries}",
+        "sortRule": "entries sorted ascending by path (code point); paths are unique within an index",
+        "omitMembers": ["artifactSetDigest"],
+    },
+    {
+        "digest": "artifactIndexDigest",
+        "domainTag": "ArtifactIndexV1",
+        "input": "the complete ArtifactIndex document including artifactSetDigest, wrapped as {digestDomain,index}",
+        "sortRule": "index.entries sorted ascending by path (code point)",
+    },
+    {
+        "digest": "targetProfileDigest",
+        "domainTag": "TargetProfileV1",
+        "input": "the complete TargetProfile document, wrapped as {digestDomain,profile}",
+        "sortRule": "member order only; the profile has no array",
+    },
+    {
+        "digest": "capabilitySetDigest",
+        "domainTag": "CapabilitySetV1",
+        "input": "the capability id list, wrapped as {digestDomain,capabilities}",
+        "sortRule": "capabilities sorted ascending by code point; the array is uniqueItems so ties are impossible",
+    },
+]
+CANONICAL_DOMAIN_TAGS = {item["domainTag"] for item in CANONICAL_DIGEST_DOMAINS}
+CANONICAL_GOLDEN_CASES = [
+    "EmptyArtifactSet",
+    "SingleArtifact",
+    "MultiArtifact",
+    "PathOrderPermutation",
+    "CapabilityOrderPermutation",
+    "EscapeBoundary",
+    "IntegerBoundary",
+    "SchemaVersionChange",
+]
+
+
+class CanonicalError(RuntimeError):
+    """Raised when a value cannot be put into CanonicalJsonV1 form."""
+
+
+def assert_canonicalizable(value: Any, path: str = "$") -> None:
+    """ADR-041 section 1: integers only, no float, no non-string member name."""
+    if value is None or isinstance(value, bool) or isinstance(value, (str, int)):
+        return
+    if isinstance(value, float):
+        raise CanonicalError("{} is a non-integer number; CanonicalJsonV1 is integer-only".format(path))
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            assert_canonicalizable(item, "{}[{}]".format(path, index))
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise CanonicalError("{} has a non-string member name".format(path))
+            assert_canonicalizable(item, "{}.{}".format(path, key))
+        return
+    raise CanonicalError("{} has a type CanonicalJsonV1 does not define".format(path))
+
+
+def apply_digest_domain_sort(value: Any) -> Any:
+    """Apply the ADR-041 section 3 sort rule for a recognised digest domain."""
+    if not isinstance(value, dict):
+        return value
+    tag = value.get("digestDomain")
+    if tag not in CANONICAL_DOMAIN_TAGS:
+        return value
+    out = dict(value)
+    if tag == "ArtifactSetV1" and isinstance(out.get("entries"), list):
+        out["entries"] = sorted(out["entries"], key=lambda entry: str(entry.get("path", "")))
+    elif tag == "ArtifactIndexV1" and isinstance(out.get("index"), dict):
+        index = dict(out["index"])
+        if isinstance(index.get("entries"), list):
+            index["entries"] = sorted(index["entries"], key=lambda entry: str(entry.get("path", "")))
+        out["index"] = index
+    elif tag == "CapabilitySetV1" and isinstance(out.get("capabilities"), list):
+        out["capabilities"] = sorted(out["capabilities"], key=str)
+    return out
+
+
+def canonical_bytes(value: Any) -> str:
+    """CanonicalJsonV1 bytes of a digest input, with the domain sort applied first."""
+    prepared = apply_digest_domain_sort(value)
+    assert_canonicalizable(prepared)
+    return canonical_json(prepared)
+
+
+def canonical_digest(value: Any) -> str:
+    return sha256_bytes(canonical_bytes(value).encode("ascii"))
+
+
+def artifact_set_digest_input(index: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "digestDomain": "ArtifactSetV1",
+        "indexVersion": index.get("indexVersion"),
+        "targetProfileId": index.get("targetProfileId"),
+        "entries": list(index.get("entries") or []),
+    }
+
+
+def artifact_index_digest_input(index: Dict[str, Any]) -> Dict[str, Any]:
+    return {"digestDomain": "ArtifactIndexV1", "index": dict(index)}
+
+
+def target_profile_digest_input(profile: Dict[str, Any]) -> Dict[str, Any]:
+    return {"digestDomain": "TargetProfileV1", "profile": dict(profile)}
+
+
+def capability_set_digest_input(capabilities: List[str]) -> Dict[str, Any]:
+    return {"digestDomain": "CapabilitySetV1", "capabilities": list(capabilities)}
+
+
+def _golden(golden_id: str, case: str, value: Any) -> Dict[str, Any]:
+    text = canonical_bytes(value)
+    return {
+        "id": golden_id,
+        "case": case,
+        "input": value,
+        "canonicalBytes": text,
+        "sha256": sha256_bytes(text.encode("ascii")),
+    }
+
+
+ESCAPE_BOUNDARY_SAMPLE = "\"\\/\b\f\n\r\t\u001f\u00e9\u4e16\U0001d11e"  # quote, backslash, solidus, shorthand controls, C0, Latin-1, BMP, astral
+
+
+def derive_canonical_profile(root: Path) -> Dict[str, Any]:
+    """Derive the ADR-041 profile and its self-verifying Golden vectors."""
+    index = json.loads((root / "fixtures" / "valid" / "artifact-index.json").read_text(encoding="utf-8"))
+    entries = list(index.get("entries") or [])
+    goldens = [
+        _golden(
+            "artifact-set-empty",
+            "EmptyArtifactSet",
+            {
+                "digestDomain": "ArtifactSetV1",
+                "indexVersion": 1,
+                "targetProfileId": index.get("targetProfileId"),
+                "entries": [],
+            },
+        ),
+        _golden(
+            "artifact-set-single",
+            "SingleArtifact",
+            {
+                "digestDomain": "ArtifactSetV1",
+                "indexVersion": 1,
+                "targetProfileId": index.get("targetProfileId"),
+                "entries": entries[:1],
+            },
+        ),
+        _golden("artifact-set-multi", "MultiArtifact", artifact_set_digest_input(index)),
+        _golden(
+            "artifact-set-path-permutation",
+            "PathOrderPermutation",
+            {
+                "digestDomain": "ArtifactSetV1",
+                "indexVersion": index.get("indexVersion"),
+                "targetProfileId": index.get("targetProfileId"),
+                "entries": list(reversed(entries)),
+            },
+        ),
+        _golden(
+            "capability-set-permutation",
+            "CapabilityOrderPermutation",
+            capability_set_digest_input(["VoxelStreaming", "Native", "ReferenceVoxel", "VoxelSnapshot"]),
+        ),
+        _golden(
+            "escape-boundary",
+            "EscapeBoundary",
+            {"sample": ESCAPE_BOUNDARY_SAMPLE, "empty": ""},
+        ),
+        _golden(
+            "integer-boundary",
+            "IntegerBoundary",
+            {"sample": [0, 1, -1, 9007199254740993, 18446744073709551615, -9007199254740993]},
+        ),
+        _golden(
+            "artifact-set-schema-version",
+            "SchemaVersionChange",
+            {
+                "digestDomain": "ArtifactSetV1",
+                "indexVersion": 2,
+                "targetProfileId": index.get("targetProfileId"),
+                "entries": entries[:1],
+            },
+        ),
+    ]
+    return {
+        "profileId": CANONICAL_PROFILE_ID,
+        "baselineId": BASELINE,
+        "schemaEpoch": 1,
+        "canonicalForm": json.loads(json.dumps(CANONICAL_FORM)),
+        "digestAlgorithm": dict(CANONICAL_DIGEST_ALGORITHM),
+        "digestDomains": json.loads(json.dumps(CANONICAL_DIGEST_DOMAINS)),
+        "goldens": goldens,
+    }
+
+
+def emit_canonical_profile(root: Path, out_dir: Path) -> Dict[str, Any]:
+    profile = derive_canonical_profile(root)
+    write_text(out_dir / CANONICAL_PROFILE_FILE, canonical_json(profile) + "\n")
+    return profile
 
 
 # --------------------------------------------------------------------------
@@ -1213,9 +1516,11 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         cs_root / CS_PROJ["ProtocolPermissionValidator"],
     )
     emit_mapping(rust_root / RUST_CRATES["MappingTable"], cs_root / CS_PROJ["MappingTable"])
+    canonical_profile = derive_canonical_profile(root)
     emit_canonical(
         rust_root / RUST_CRATES["CanonicalSerializer"],
         cs_root / CS_PROJ["CanonicalSerializer"],
+        canonical_profile,
     )
     emit_language_binding(
         rust_root / RUST_CRATES["LanguageBinding"],
@@ -1237,6 +1542,7 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
     emit_workspace(rust_root)
     write_text(out_dir / ".gitignore", "rust/target/\ncsharp/**/bin/\ncsharp/**/obj/\n")
     bundle = emit_root_abi(root, out_dir, comp)
+    write_text(out_dir / CANONICAL_PROFILE_FILE, canonical_json(canonical_profile) + "\n")
 
     inventory = []
     for kind in KINDS:
@@ -1267,6 +1573,14 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         ],
         "stateMachineCount": len(machines),
         "stateMachineIds": [m.get("machineId") for m in machines],
+        "canonicalDigest": {
+            "profileId": canonical_profile["profileId"],
+            "profilePath": CANONICAL_PROFILE_FILE,
+            "profileDigest": sha256_file(out_dir / CANONICAL_PROFILE_FILE),
+            "formId": canonical_profile["canonicalForm"]["formId"],
+            "digestAlgorithm": dict(canonical_profile["digestAlgorithm"]),
+            "goldenCount": len(canonical_profile["goldens"]),
+        },
         "rootAbi": {
             "bundleId": bundle["bundleId"],
             "bundlePath": ABI_BUNDLE_FILE,

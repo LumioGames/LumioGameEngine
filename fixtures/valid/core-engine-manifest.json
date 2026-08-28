@@ -21,7 +21,7 @@
   "abiIdentity": "NativeManagedAbiV1",
   "capabilitySet": ["Native"],
   "artifactIndexDigest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-  "artifactSetDigest": "7777777777777777777777777777777777777777777777777777777777777777",
+  "artifactSetDigest": "7d851d441b751469da4c5e935736fe7684b18db9387d195a3dcbd48684d9a365",
   "evidenceSet": {
     "sbom": { "format": "CycloneDX", "digest": "3333333333333333333333333333333333333333333333333333333333333333" },
     "license": { "format": "SPDX", "digest": "1111111111111111111111111111111111111111111111111111111111111111" },
