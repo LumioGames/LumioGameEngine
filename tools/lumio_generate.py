@@ -675,6 +675,7 @@ def emit_contract_runtime(rust_dir: Path, cs_dir: Path) -> None:
 
 CANONICAL_PROFILE_ID = "canonical-digest-v1"
 CANONICAL_PROFILE_FILE = "canonical/canonical-digest-profile.json"
+TRUST_PROFILE_FILE = "trust/trust-profile.json"
 CANONICAL_FORM = {
     "formId": "CanonicalJsonV1",
     "encoding": "AsciiEscaped",
@@ -934,6 +935,16 @@ def derive_canonical_profile(root: Path) -> Dict[str, Any]:
         "digestDomains": json.loads(json.dumps(CANONICAL_DIGEST_DOMAINS)),
         "goldens": goldens,
     }
+
+
+def emit_trust_profile(root: Path, out_dir: Path) -> Dict[str, Any]:
+    """Publish the ADR-042 trust profile. The gate validates it; this only copies
+    the validated record into the consumable package tree."""
+    profile = json.loads(
+        (root / "fixtures" / "valid" / "trust-profile.json").read_text(encoding="utf-8")
+    )
+    write_text(out_dir / TRUST_PROFILE_FILE, canonical_json(profile) + "\n")
+    return profile
 
 
 def emit_canonical_profile(root: Path, out_dir: Path) -> Dict[str, Any]:
@@ -1616,6 +1627,7 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
     write_text(out_dir / ".gitignore", "rust/target/\ncsharp/**/bin/\ncsharp/**/obj/\n")
     bundle = emit_root_abi(root, out_dir, comp)
     write_text(out_dir / CANONICAL_PROFILE_FILE, canonical_json(canonical_profile) + "\n")
+    trust_profile = emit_trust_profile(root, out_dir)
 
     inventory = []
     for kind in KINDS:
@@ -1646,6 +1658,14 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         ],
         "stateMachineCount": len(machines),
         "stateMachineIds": [m.get("machineId") for m in machines],
+        "trust": {
+            "profileId": trust_profile["profileId"],
+            "profilePath": TRUST_PROFILE_FILE,
+            "profileDigest": sha256_file(out_dir / TRUST_PROFILE_FILE),
+            "signatureProfileId": trust_profile["signatureProfile"]["profileId"],
+            "trustDomain": trust_profile["trustPolicy"]["trustDomain"],
+            "vectorCount": len(trust_profile["vectors"]),
+        },
         "canonicalDigest": {
             "profileId": canonical_profile["profileId"],
             "profilePath": CANONICAL_PROFILE_FILE,

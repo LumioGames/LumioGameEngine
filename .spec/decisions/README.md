@@ -56,5 +56,6 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-039](ADR-039-contract-runtime-artifact.md) | ContractRuntime Artifact 类别（refine ADR-023） | Accepted |
 | [ADR-040](ADR-040-root-abi-generated-bundle.md) | Root ABI Generated Bundle（编译器身份、typeRef 映射、布局 Golden） | Draft |
 | [ADR-041](ADR-041-canonical-digest-profiles.md) | Canonical 与 Digest Profiles（CanonicalJsonV1、四类 Digest 域、自引用规则、Golden） | Draft |
+| [ADR-042](ADR-042-signature-trust-profile.md) | Signature 与 Trust Profile（LumioSignatureV1、域分离 preimage、keyId 派生、拒绝优先级） | Draft |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。

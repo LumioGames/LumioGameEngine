@@ -23,6 +23,7 @@ pub const BINDINGS: &[Binding] = &[
     Binding { schema_id: "native-managed-abi", rust_type: "NativeManagedAbi", csharp_type: "NativeManagedAbi" },
     Binding { schema_id: "root-abi-bundle", rust_type: "RootAbiBundle", csharp_type: "RootAbiBundle" },
     Binding { schema_id: "canonical-digest-profile", rust_type: "CanonicalDigestProfile", csharp_type: "CanonicalDigestProfile" },
+    Binding { schema_id: "trust-profile", rust_type: "TrustProfile", csharp_type: "TrustProfile" },
     Binding { schema_id: "release-manifest", rust_type: "ReleaseManifest", csharp_type: "ReleaseManifest" },
     Binding { schema_id: "maintenance-command", rust_type: "MaintenanceCommand", csharp_type: "MaintenanceCommand" },
     Binding { schema_id: "snapshot-header", rust_type: "SnapshotHeader", csharp_type: "SnapshotHeader" },

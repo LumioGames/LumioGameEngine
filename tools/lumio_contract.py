@@ -51,6 +51,25 @@ _CANONICAL_NORMALIZATION = {
 _CANONICAL_GOLDEN_CASES = set(_abi.CANONICAL_GOLDEN_CASES)
 _CANONICAL_PROFILE_FILE = _abi.CANONICAL_PROFILE_FILE
 
+_TRUST_PREIMAGE_FIELDS = ["domainSeparator", "trustDomain", "payloadType", "payloadDigest"]
+_TRUST_REJECT_PRIORITY = [
+    (1, "SignatureMissing"),
+    (2, "TrustRootUnknown"),
+    (3, "KeyRevoked"),
+    (4, "SignatureInvalid"),
+    (5, "TrustPolicyRejected"),
+]
+_TRUST_VECTOR_CASES = {
+    "Accept",
+    "TamperedSignature",
+    "TamperedPayloadDigest",
+    "WrongTrustDomain",
+    "UnknownKey",
+    "RevokedKey",
+    "BeforeNotBefore",
+    "AfterNotAfter",
+}
+
 
 class ContractError(Exception):
     """Raised for malformed registry data or an unreadable contract file."""
@@ -690,6 +709,174 @@ def state_machine_consistency_errors(
     return errors
 
 
+# --------------------------------------------------------------------------
+# ADR-042 Ed25519 (RFC 8032 PureEdDSA) verification.
+#
+# A verifier, never a signer: the gate only checks published vectors, so no
+# private key is needed and none is committed. Self-tested against the RFC 8032
+# section 7.1 vectors on every run, so a defect here cannot silently pass a bad
+# vector -- the SHA-256 K[28] incident is the reason that self-test is not
+# optional.
+# --------------------------------------------------------------------------
+
+_ED_P = 2 ** 255 - 19
+_ED_L = 2 ** 252 + 27742317777372353535851937790883648493
+_ED_D = -121665 * pow(121666, _ED_P - 2, _ED_P) % _ED_P
+_ED_I = pow(2, (_ED_P - 1) // 4, _ED_P)
+
+
+def _ed_recover_x(y: int, sign: int) -> Optional[int]:
+    if y >= _ED_P:
+        return None
+    xx = (y * y - 1) * pow(_ED_D * y * y + 1, _ED_P - 2, _ED_P) % _ED_P
+    x = pow(xx, (_ED_P + 3) // 8, _ED_P)
+    if (x * x - xx) % _ED_P != 0:
+        x = x * _ED_I % _ED_P
+    if (x * x - xx) % _ED_P != 0:
+        return None
+    if x % 2 != sign:
+        x = _ED_P - x
+    return x
+
+
+def _ed_add(point: Tuple[int, int, int, int], other: Tuple[int, int, int, int]) -> Tuple[int, int, int, int]:
+    x1, y1, z1, t1 = point
+    x2, y2, z2, t2 = other
+    a = (y1 - x1) * (y2 - x2) % _ED_P
+    b = (y1 + x1) * (y2 + x2) % _ED_P
+    c = 2 * t1 * t2 * _ED_D % _ED_P
+    d = 2 * z1 * z2 % _ED_P
+    e, f, g, h = b - a, d - c, d + c, b + a
+    return (e * f % _ED_P, g * h % _ED_P, f * g % _ED_P, e * h % _ED_P)
+
+
+def _ed_mul(point: Tuple[int, int, int, int], scalar: int) -> Tuple[int, int, int, int]:
+    result = (0, 1, 1, 0)
+    while scalar > 0:
+        if scalar & 1:
+            result = _ed_add(result, point)
+        point = _ed_add(point, point)
+        scalar >>= 1
+    return result
+
+
+_ED_GY = 4 * pow(5, _ED_P - 2, _ED_P) % _ED_P
+_ED_GX = _ed_recover_x(_ED_GY, 0)
+_ED_G = (_ED_GX, _ED_GY, 1, _ED_GX * _ED_GY % _ED_P)
+
+
+def _ed_decompress(data: bytes) -> Optional[Tuple[int, int, int, int]]:
+    if len(data) != 32:
+        return None
+    y = int.from_bytes(data, "little")
+    sign = y >> 255
+    y &= (1 << 255) - 1
+    x = _ed_recover_x(y, sign)
+    return None if x is None else (x, y, 1, x * y % _ED_P)
+
+
+def _ed_equal(point: Tuple[int, int, int, int], other: Tuple[int, int, int, int]) -> bool:
+    x1, y1, z1, _ = point
+    x2, y2, z2, _ = other
+    return (x1 * z2 - x2 * z1) % _ED_P == 0 and (y1 * z2 - y2 * z1) % _ED_P == 0
+
+
+def ed25519_verify(public_key: bytes, message: bytes, signature: bytes) -> bool:
+    """RFC 8032 PureEdDSA verification. Returns False for any malformed input."""
+    if len(public_key) != 32 or len(signature) != 64:
+        return False
+    point = _ed_decompress(public_key)
+    if point is None:
+        return False
+    r = _ed_decompress(signature[:32])
+    if r is None:
+        return False
+    scalar = int.from_bytes(signature[32:], "little")
+    if scalar >= _ED_L:
+        return False
+    digest = hashlib.sha512(signature[:32] + public_key + message).digest()
+    h = int.from_bytes(digest, "little") % _ED_L
+    return _ed_equal(_ed_mul(_ED_G, scalar), _ed_add(r, _ed_mul(point, h)))
+
+
+# RFC 8032 section 7.1, tests 1-3: (public key, message, signature), all hex.
+_RFC8032_VECTORS = (
+    (
+        "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+        "",
+        "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
+    ),
+    (
+        "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+        "72",
+        "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+    ),
+    (
+        "fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025",
+        "af82",
+        "6291d657deec24024827e69c3abe01a30ce548a284743a445e3680d7db5ac3ac18ff9b538d16f290ae67f760984dc6594a7c15e9716ed28dc027beceea1ec40a",
+    ),
+)
+
+
+def ed25519_self_test_errors() -> List[str]:
+    """The verifier must reproduce RFC 8032 and reject a one-bit mutation."""
+    errors: List[str] = []
+    for index, (public_hex, message_hex, signature_hex) in enumerate(_RFC8032_VECTORS, start=1):
+        public = bytes.fromhex(public_hex)
+        message = bytes.fromhex(message_hex)
+        signature = bytes.fromhex(signature_hex)
+        if not ed25519_verify(public, message, signature):
+            errors.append("Ed25519 verifier rejects RFC 8032 test {}".format(index))
+        mutated = bytearray(signature)
+        mutated[-1] ^= 0x01
+        if ed25519_verify(public, message, bytes(mutated)):
+            errors.append("Ed25519 verifier accepts a mutated RFC 8032 test {}".format(index))
+    return errors
+
+
+def trust_key_id(trust_domain: str, public_key: bytes) -> str:
+    """ADR-042 section 3: keyId is a function of the key, never a chosen name."""
+    return "{}-{}".format(trust_domain.lower(), hashlib.sha256(public_key).hexdigest()[:16])
+
+
+def trust_preimage(envelope: Dict[str, Any]) -> bytes:
+    """ADR-042 section 2: the domain-separated bytes that are actually signed."""
+    return b"\x00".join(
+        [
+            b"LumioSignatureV1",
+            str(envelope.get("trustDomain", "")).encode("utf-8"),
+            str(envelope.get("payloadType", "")).encode("utf-8"),
+            str(envelope.get("payloadDigest", "")).encode("utf-8"),
+        ]
+    )
+
+
+def evaluate_trust(envelope: Dict[str, Any], policy: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+    """Run the ADR-042 section 4 rejection order and report the first failure."""
+    keys = {key.get("keyId"): key for key in policy.get("keys", [])}
+    if str(policy.get("trustDomain")) != str(envelope.get("trustDomain")):
+        return "Rejected", "TrustRootUnknown"
+    if not envelope.get("signature"):
+        return "Rejected", "SignatureMissing"
+    key = keys.get(envelope.get("keyId"))
+    if key is None:
+        return "Rejected", "TrustRootUnknown"
+    if key.get("status") == "Revoked":
+        return "Rejected", "KeyRevoked"
+    try:
+        public = bytes.fromhex(str(key.get("publicKey", "")))
+        signature = bytes.fromhex(str(envelope.get("signature", "")))
+    except ValueError:
+        return "Rejected", "SignatureInvalid"
+    if not ed25519_verify(public, trust_preimage(envelope), signature):
+        return "Rejected", "SignatureInvalid"
+    signed_at = str(envelope.get("signedAt", ""))
+    if signed_at < str(key.get("notBefore", "")) or signed_at > str(key.get("notAfter", "")):
+        return "Rejected", "TrustPolicyRejected"
+    return "Trusted", None
+
+
 def published_canonical_profile_errors() -> List[str]:
     """ADR-041: the published profile must be re-derivable from the fixture inputs."""
     published = PACKAGE_DIR / _CANONICAL_PROFILE_FILE
@@ -1069,6 +1256,53 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
                 errors.append(
                     "artifactSetDigest must equal the ADR-041 recomputation {}".format(expected)
                 )
+
+    elif schema_id == "trust-profile":
+        signature_profile = value.get("signatureProfile", {})
+        if signature_profile.get("preimageFields") != _TRUST_PREIMAGE_FIELDS:
+            errors.append("preimageFields must equal the ADR-042 frozen order {}".format(_TRUST_PREIMAGE_FIELDS))
+        order = [(item.get("order"), item.get("rejectReason")) for item in value.get("rejectPriority", [])]
+        if order != _TRUST_REJECT_PRIORITY:
+            errors.append("rejectPriority must equal the ADR-042 frozen order {}".format(_TRUST_REJECT_PRIORITY))
+        policy = value.get("trustPolicy", {})
+        domain = str(policy.get("trustDomain", ""))
+        for key in policy.get("keys", []):
+            try:
+                public = bytes.fromhex(str(key.get("publicKey", "")))
+            except ValueError:
+                errors.append("policy key {} publicKey is not hex".format(key.get("keyId")))
+                continue
+            expected = trust_key_id(domain, public)
+            if key.get("keyId") != expected:
+                errors.append(
+                    "policy key {} keyId must be the ADR-042 derivation {}".format(key.get("keyId"), expected)
+                )
+            if key.get("notBefore", "") >= key.get("notAfter", ""):
+                errors.append("policy key {} validity window is empty".format(key.get("keyId")))
+            if domain == "Production" and str(key.get("keyId", "")).startswith("test-"):
+                errors.append("a Production trust policy cannot carry a test key")
+        seen_cases = set()
+        for vector in value.get("vectors", []):
+            seen_cases.add(vector.get("case"))
+            decision, reason = evaluate_trust(vector.get("envelope", {}), policy)
+            if decision != vector.get("expected"):
+                errors.append(
+                    "vector {} expects {} but evaluating the frozen order yields {}".format(
+                        vector.get("vectorId"), vector.get("expected"), decision
+                    )
+                )
+            elif reason != vector.get("rejectReason"):
+                errors.append(
+                    "vector {} declares rejectReason {} but the frozen order yields {}".format(
+                        vector.get("vectorId"), vector.get("rejectReason"), reason
+                    )
+                )
+        if seen_cases != _TRUST_VECTOR_CASES:
+            missing = sorted(_TRUST_VECTOR_CASES - seen_cases)
+            extra = sorted(seen_cases - _TRUST_VECTOR_CASES)
+            errors.append(
+                "vectors must cover every frozen case (missing: {}, unregistered: {})".format(missing, extra)
+            )
 
     elif schema_id == "canonical-digest-profile":
         if value.get("canonicalForm") != _CANONICAL_FORM:
@@ -1533,6 +1767,7 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     consistency.extend(state_machine_consistency_errors(schemas, fixtures))
     consistency.extend(published_root_abi_bundle_errors())
     consistency.extend(published_canonical_profile_errors())
+    consistency.extend(ed25519_self_test_errors())
     if consistency:
         raise ContractError("; ".join(consistency))
     return schemas, fixtures

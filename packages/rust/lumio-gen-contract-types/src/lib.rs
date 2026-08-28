@@ -15,6 +15,7 @@ pub const SCHEMA_IDS: &[&str] = &[
     "native-managed-abi",
     "root-abi-bundle",
     "canonical-digest-profile",
+    "trust-profile",
     "release-manifest",
     "maintenance-command",
     "snapshot-header",

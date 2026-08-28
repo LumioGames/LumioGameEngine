@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-042-signature-trust-profile.md
