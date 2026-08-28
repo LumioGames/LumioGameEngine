@@ -3,6 +3,15 @@
 > 交付会话：`lumiogameenginearchitecture-6a`。基线 `LGE-V1.4-2026-08-27` 未变。
 > 本文分两部分：**已完成**（三张卡，已合入 main）与**待架构所有者裁决**（九项，全部有下游实证）。
 
+> **【状态更新 · 2026-08-28 · 会话 `practical-lehmann-145b88`】**
+> 本文正文是写作当时（`origin/main = a4a7956`）的快照，**正文不改写**，此后变化统一记在这里：
+> - `origin/main` 已前进至 **`b8f8c50`**，依次叠加：`bcc8eb9` K[28] SHA-256 修复、`4f36d92` 本文、`7bdad78` ADR-041 normalization 可机器读（D-8）、`b8f8c50` Root ABI consumers 登记。四次 Architecture Policy 均 success。
+> - **§三.4 的「尚未合入 main」与其禁令已失效**：K[28] 修复已在 main，该实现现可用于核对 Golden / digest。详见该条的更新标注。
+> - **D-8 已落地并经独立复核**：仅凭已发布 profile 数据（不读 ADR 正文）的净室实现，8/8 Golden 的 bytes 与 sha256 全中；此前静默算错的两条 permutation 用例已转通过。
+> - **D-2 的排序约束③（「卡② 不得在 K[28] 合入前落地」）已自动解除。**
+> - R-00003 / R-00004 已流转 `done`（D-7 因此关闭），两卡均已补记独立复核证据评论；R-00005 已 `in_progress`。
+> - 其余待裁决项（D-1、D-3、D-4、D-5、D-6、D-9）**仍未裁决**。
+
 ## 一、已完成并合入 `origin/main`
 
 | 卡 | 提交 | PR | CI | Workflow 状态 |
@@ -163,8 +172,8 @@ $ endianness 命中全在 native ABI 语境（ADR-006 / ADR-020 / ADR-040），�
 1. **本会话误判「R-00141 可开工」，已撤回（本会话缺陷）**：我据 A 档结论告诉 `lumiogameruntime-22` 其 R-00141（canonical encode/decode）可以开工。**错了** —— 我按卡名推断，没读卡面。R-00141 要的是二进制线编码（UInt64/端序/长度策略/MessagePack primitive），而 `CanonicalJsonV1` 是 JSON 文本形态，层次错配；且 ADR-041 的 Owner 行列的消费方是 CoreEngine 的 manifest/platform/runtime-verifier，本就不含 Runtime。A/B/C 三档划分本身成立，错的是我把它套到一张没读过的卡上。`lumiogameenginearchitecture-53` 半小时前得出过同一错误结论并已撤回 —— 两个架构仓会话独立踩同一个坑，说明 ADR-041 的适用边界需要写得更显眼。
 2. **R-00258 文档措辞越界（本会话缺陷）**：§0 写的是「现有 Envelope…已经完整覆盖 MVP A1 所需的公共语义」，但 12 项核对**只覆盖传输语义**。那句话把「WebSocket 档不需要公共契约变更」这个正确结论，扩写成了「A1 不需要公共契约变更」这个错误结论。拟改：收窄为「不需要任何公共**传输面**契约变更」，并新增一节列出未覆盖、但对 A1 是硬前置的两项（即 D-1），指向新卡。
 3. **`forbiddenDependents` 命名误导**：字面是「依赖它的人」，实际语义是「本 artifact 不得依赖这些仓」。三个下游仓因此误判为「自相矛盾、无法机器判定」并一度停工；经本会话给出 validator + fixture + schema 三处证据后，`lumioserver-2d` 与 `lumioclient-a9` 均已独立复核并撤回。**只当命名改进项，不当缺陷**（改名会动已发布 Schema 枚举，需权衡）。
-4. **SHA-256 `K[28]` 错常量**：`packages/rust/lumio-gen-contract-runtime/src/sha256.rs` 第 29 个常量为 `0xc6eabbdc`，FIPS 180-4 规定 `0xc6e00bf3`——该实现**对任意输入都算出错误摘要**。修复在 `fix/sha256-k28-round-constant` @ `c862682`（`lumiogameenginearchitecture-53` 交付，已推 origin，基于 a4a7956，`git merge-tree` 实测无冲突，28 files / +28 / −28）。**尚未合入 main**，合并权在用户。在它落地前不得用该实现核对任何 Golden 或 digest。
-5. **`generate` 会 rmtree 掉已入库的 `packages/rust/Cargo.lock`**（既有行为）。当前树已手工复原。修法：`generate()` 在 rmtree 前保留并回写。
+4. **SHA-256 `K[28]` 错常量**：`packages/rust/lumio-gen-contract-runtime/src/sha256.rs` 第 29 个常量为 `0xc6eabbdc`，FIPS 180-4 规定 `0xc6e00bf3`——该实现**对任意输入都算出错误摘要**。修复在 `fix/sha256-k28-round-constant` @ `c862682`（`lumiogameenginearchitecture-53` 交付，已推 origin，基于 a4a7956，`git merge-tree` 实测无冲突，28 files / +28 / −28）。~~**尚未合入 main**，合并权在用户。在它落地前不得用该实现核对任何 Golden 或 digest。~~ **【已失效 · 2026-08-28】** 该修复已作为 `bcc8eb9` 合入 main（PR #5，rebase 后 SHA 变更，树与 `c862682` 逐字节相同）。独立复核：64 个常量对 FIPS 180-4 立方根推导零不符；5 组标准 KAT（含 1MB 多块）修复前 0/5、修复后 5/5。**禁令解除，该实现可用于核对 Golden 与 digest。**
+5. **`generate` 会 rmtree 掉已入库的 `packages/rust/Cargo.lock`**（既有行为）。当前树已手工复原。修法：`generate()` 在 rmtree 前保留并回写。 **【已发生 · 2026-08-28】** 本条预测的失效已在 `b8f8c50`（PR #7）真实发生：`packages/rust/Cargo.lock` 被从版本库删除，且该文件未被 `.gitignore` 覆盖。删除是有意还是 rmtree 副作用未经确认——它同时是 D-2 卡②「Cargo.lock 是否进镜像」这项待澄清的对象，**请连同该待澄清项一并裁决**，不要在裁决前擅自恢复或补 ignore。
 6. **本机 `python3` 是 3.9，`generate` 需要 3.10+**（`Path.write_text(newline=)`）。本机须用 `python3.11`；CI 不受影响，`validate` 在 3.9 正常。
 7. **跨仓核实纪律候选**（`lumioclient-a9` 提出，今日在三个仓同时发生，已越过 `lessons.md` 的「第二次出现」准入线）：**看到可疑数据先找约束它的 validator 与 schema，再下结论；只读值等于只读了一半。** 前两类误报（读自己仓落后的检出、读别人仓移动中的工作区）靠「只读 `origin/<branch>` 已提交对象」能拦，这一类拦不住。
 8. **多会话共用工作区**：今日已真实发生一次分支被切换。约定已在各会话间达成——动手前必开隔离 `git worktree`，不在共享工作区切分支或提交。
