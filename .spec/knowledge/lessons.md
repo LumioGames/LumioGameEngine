@@ -33,4 +33,18 @@ metadata:
 
 ## 条目
 
-（暂无；从第一条复发问题开始。）
+### 跨仓 / 跨会话引用交付时，锚点用 `origin/main:<路径>`，不用裸 commit SHA
+
+- 日期：2026-08-28
+- 现象：证据评论与设计文档里把本地 commit SHA 当作可复核锚点，锚点随后失效。一天内在四个仓以**四种不同形态**发生：本仓 R-00011..R-00014 四张卡的证据评论引用 `015035b`/`d668426`/`06c954f`/`68e1442`，推送前 rebase 导致四个 SHA 全被重写，且 ADR-0004 正文两处引用同步悬空——而 ADR §4「现状对照」正是 R-00013 验收项的核心依据；LumioGameRuntime 11 张卡引用的 6 个 SHA 只存在于未推送的本地分支；LumioServer 跨仓设计文档引用架构仓分支 SHA `f426278`，合并时被重写成 `a738524`；LumioNativeCore 从「不在 origin/main」推出「未推送」，而该提交其实在特性分支上已推送。
+- 根因：commit SHA 不是稳定标识符。rebase、squash merge 都会重写它，而「已提交」「已推送」「已进 main」是三种不同状态，单一 git 命令只能证伪其中一种。更隐蔽的是跨仓引用——它不在任务系统里，没人会去验证它。
+- 规避：① **锚点优先用 `origin/main:<路径>`**（分支 + 路径），rebase 打不掉；必须写 SHA 时只写已进 `origin/main` 的。② 引用前按需组合判据，各挡一种形态：`git cat-file -t`（对象存在）→ `git branch -r --contains`（已推送，但读本地 ref 会因未 fetch 而骗人）→ `git ls-remote --heads`（直连远端，且要看**全部分支**不只 main）→ `git merge-base --is-ancestor <sha> origin/main`（已进主干）。③ 结论里带上**测量时刻**——跨仓状态分钟级变化，本轮实测架构仓 40 分钟内 `origin/main` 前进三次、特性分支两次改名、PR 从 OPEN 变 MERGED。④ 扫描历史 SHA 时正则要加 commit 语境限定，裸 `\b[0-9a-f]{7,40}\b` 会把 Workflow UUID 前缀与 sha256 片段当成假阳性，反向导致不必要的返工。
+- 来源：本仓 R-00011..R-00014 的 macOS 复核（订正提交 `d87e12e`）；跨会话通报回执 lumiogameruntime-22 / lumioserver-2d / lumionativecore-79。
+
+### 在本机产出的构建与性能证据，必须标注宿主人格
+
+- 日期：2026-08-28
+- 现象：开发机是 Apple M5（arm64），但 `rustup` 钉定的 1.89.0 只有 `x86_64-apple-darwin`，`.NET SDK` 整个是 `RID: osx-x64`。于是本机产出的一切构建产物与时延数字都是 x64-on-Rosetta，若不标注就会被当成原生 arm64 结果。派生问题：`uname -m` 在同一台机器上因调用路径不同得出两个值——经 x86_64 二进制（如 `just`）间接调用得 `x86_64`，直接 `bash` 调用得 `arm64`，任何按 `uname -m` 推导 host key 的门禁都会因此不稳定。
+- 根因：Rosetta 翻译的是二进制而非 shell（`sysctl.proc_translated` = 0），但 x86_64 进程派生的子 shell 会继承 x86_64 人格。工具链的 host 三元组与机器真实架构脱钩，而脚本通常只问后者。
+- 规避：① 证据里显式写明宿主三元组（如 `x86_64-apple-darwin under Rosetta on arm64`、`RID: osx-x64 (Rosetta on arm64)`），不得声称原生。② host 推导改用编译期目标三元组或显式配置，不用 `uname -m`。③ 偏离钉定工具链的验证只能作**补充证据**单列，不得顶替正式验收证据——本轮用本机已有的 `1.94.0-aarch64-apple-darwin` 做过一次原生 arm64 交叉复验（全 workspace 构建通过、7 个 CLI 行为与 x86_64 腿一致），但正式证据仍以钉定的 1.89.0 为准。
+- 来源：本仓 R-00011 macOS 复核发现 F3（`tools/verify-tool-lock.sh` 的 host key 同机两值）；跨会话回执 lumionativecore-79（arm64 腿未覆盖）、lumioserver-2d（.NET RID 同构问题）。
