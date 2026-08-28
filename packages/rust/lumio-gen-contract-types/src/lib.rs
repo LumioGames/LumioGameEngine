@@ -97,6 +97,16 @@ pub const STABLE_ERROR_IDS: &[&str] = &[
     "RoleMismatch",
     "ClaimNotGranted",
     "SessionAntiReplay",
+    "InvalidArgument",
+    "WrongContext",
+    "BufferTooSmall",
+    "CapacityExceeded",
+    "Cancelled",
+    "TimedOut",
+    "ContextClosing",
+    "ContextDestroyed",
+    "PanicBoundary",
+    "InternalInvariant",
 ];
 
 pub const VOXEL_WORLD_ROLES: &[&str] = &["Authority", "Replica"];

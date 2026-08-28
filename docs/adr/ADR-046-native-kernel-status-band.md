@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-046-native-kernel-status-band.md

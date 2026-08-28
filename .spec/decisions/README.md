@@ -60,5 +60,6 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-043](ADR-043-loader-reentry-error-priority.md) | Loader 重入与错误优先级（终态即终态、身份闩锁、根因优先于回滚） | Draft |
 | [ADR-044](ADR-044-evidence-profiles.md) | Evidence Profiles（三档格式/版本/媒体类型、原始字节摘要、双向覆盖） | Draft |
 | [ADR-045](ADR-045-replication-body-closure.md) | Replication body 闭合、mappingSetHash 摘要域与 length 上界（ADR-028 立论的机器强制） | Draft |
+| [ADR-046](ADR-046-native-kernel-status-band.md) | Native Kernel Status Band（ErrorCode 内核 band 1044–1053、状态值 int32 范围门） | Draft |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。

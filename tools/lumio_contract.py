@@ -431,6 +431,10 @@ def correlation_scope_errors(correlation: Any) -> List[str]:
 
 
 _CURRENT_BASELINE = "LGE-V1.4-2026-08-27"
+# ADR-040 section 3 freezes lumio_status_t as int32 carrying the ErrorCode
+# numeric, with 0 reserved for success.  ADR-046 makes the resulting range a
+# gate: a registered ErrorCode above int32 max cannot cross the Root ABI.
+_STATUS_NUMERIC_MAX = 2147483647
 _GENESIS_HASH = "0" * 64
 _TICK_PHASES = [
     "IngressCapture",
@@ -1593,6 +1597,15 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
                 errors.append("ID Registry ids must be unique in {}".format(namespace.get("namespace")))
             if len(numerics) != len(set(numerics)):
                 errors.append("ID Registry numeric values must be unique in {}".format(namespace.get("namespace")))
+            if namespace.get("namespace") == "ErrorCode":
+                out_of_range = sorted(
+                    numeric for numeric in numerics
+                    if isinstance(numeric, int) and numeric > _STATUS_NUMERIC_MAX
+                )
+                if out_of_range:
+                    errors.append(
+                        "ErrorCode numerics must fit lumio_status_t (int32): {}".format(out_of_range)
+                    )
 
     elif schema_id == "contract-result":
         failures = value.get("failures", 0)
