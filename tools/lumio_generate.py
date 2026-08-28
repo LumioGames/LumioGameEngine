@@ -24,6 +24,11 @@ CONSUMERS = ["LumioClient", "LumioGame", "LumioGameRuntime", "LumioServer"]
 # package: its consumers are the native-toolchain repositories named by
 # ADR-040's Owner line, not the six kinds above.
 ROOT_ABI_CONSUMERS = ["LumioCoreEngine", "LumioNativeCore"]
+# The canonical/digest and trust profiles name LumioCoreEngine as their consumer
+# in the ADR-041 and ADR-042 Owner lines. Without this a downstream that
+# converges its mirror on the consumers relation cannot judge these two files.
+CANONICAL_PROFILE_CONSUMERS = ["LumioCoreEngine"]
+TRUST_PROFILE_CONSUMERS = ["LumioCoreEngine"]
 RUST_CRATES = {
     "ProtocolPermissionValidator": "lumio-gen-protocol-permission-validator",
     "MappingTable": "lumio-gen-mapping-table",
@@ -1665,6 +1670,7 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
             "signatureProfileId": trust_profile["signatureProfile"]["profileId"],
             "trustDomain": trust_profile["trustPolicy"]["trustDomain"],
             "vectorCount": len(trust_profile["vectors"]),
+            "consumers": list(TRUST_PROFILE_CONSUMERS),
         },
         "canonicalDigest": {
             "profileId": canonical_profile["profileId"],
@@ -1673,6 +1679,7 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
             "formId": canonical_profile["canonicalForm"]["formId"],
             "digestAlgorithm": dict(canonical_profile["digestAlgorithm"]),
             "goldenCount": len(canonical_profile["goldens"]),
+            "consumers": list(CANONICAL_PROFILE_CONSUMERS),
         },
         "rootAbi": {
             "bundleId": bundle["bundleId"],
