@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/loader-profile.schema.json",
+  "type": "object",
+  "required": ["profileId", "baselineId", "schemaEpoch", "reentry", "errorPriority", "acquireVectors", "failureVectors"],
+  "properties": {
+    "profileId": { "$ref": "common.schema.json#/$defs/id" },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
+    "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" },
+    "reentry": {
+      "type": "object",
+      "required": ["afterFailedRolledBack", "afterReleased", "latchScope", "latchClearedOnRelease", "sameIdentityAcquire", "differentIdentityAcquire"],
+      "properties": {
+        "afterFailedRolledBack": { "type": "string", "const": "NewInstanceFromUninitialized" },
+        "afterReleased": { "type": "string", "const": "NewInstanceFromUninitialized" },
+        "latchScope": { "type": "string", "const": "Process" },
+        "latchClearedOnRelease": { "type": "boolean", "const": false },
+        "sameIdentityAcquire": { "type": "string", "const": "ReturnExistingLease" },
+        "differentIdentityAcquire": { "type": "string", "const": "PackageIdentityConflict" }
+      },
+      "additionalProperties": false
+    },
+    "errorPriority": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["rank", "errorCode"],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1 },
+          "errorCode": { "$ref": "common.schema.json#/$defs/id" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "acquireVectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["vectorId", "case", "latchedIdentity", "requestedIdentity", "expected"],
+        "properties": {
+          "vectorId": { "$ref": "common.schema.json#/$defs/id" },
+          "case": {
+            "type": "string",
+            "enum": [
+              "FirstAcquire",
+              "ConcurrentSameIdentity",
+              "ConcurrentDifferentIdentity",
+              "AfterReleasedSameIdentity",
+              "AfterReleasedDifferentIdentity",
+              "RetryAfterFailedRolledBack"
+            ]
+          },
+          "latchedIdentity": { "type": ["string", "null"], "maxLength": 128 },
+          "requestedIdentity": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "priorState": { "type": "string", "enum": ["Uninitialized", "Leased", "Released", "FailedRolledBack"] },
+          "expected": { "type": "string", "enum": ["NewLease", "ExistingLease", "Rejected"] },
+          "rejectReason": { "$ref": "common.schema.json#/$defs/id" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "failureVectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["vectorId", "causes", "reported"],
+        "properties": {
+          "vectorId": { "$ref": "common.schema.json#/$defs/id" },
+          "causes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "common.schema.json#/$defs/id" }
+          },
+          "reported": { "$ref": "common.schema.json#/$defs/id" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

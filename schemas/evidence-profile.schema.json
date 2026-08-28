@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/evidence-profile.schema.json",
+  "type": "object",
+  "required": ["profileId", "baselineId", "schemaEpoch", "profiles", "coverage", "vectors"],
+  "properties": {
+    "profileId": { "$ref": "common.schema.json#/$defs/id" },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
+    "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" },
+    "profiles": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["kind", "artifactKind", "format", "specVersion", "mediaType", "digestObject", "validation", "pathPrefix"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["sbom", "license", "provenance"] },
+          "artifactKind": { "type": "string", "enum": ["Sbom", "License", "Provenance"] },
+          "format": { "type": "string", "enum": ["CycloneDX", "SPDX", "SLSA-v1"] },
+          "specVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+          "mediaType": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "digestObject": { "type": "string", "const": "RawBytes" },
+          "validation": { "type": "string", "const": "DigestOnly" },
+          "pathPrefix": { "type": "string", "const": "evidence/" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["direction", "entriesPerKind", "licenceDecisionBelongsTo"],
+      "properties": {
+        "direction": { "type": "string", "const": "Bidirectional" },
+        "entriesPerKind": { "type": "integer", "const": 1 },
+        "licenceDecisionBelongsTo": { "type": "string", "const": "TrustPolicyRejected" }
+      },
+      "additionalProperties": false
+    },
+    "vectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["vectorId", "case", "expected"],
+        "properties": {
+          "vectorId": { "$ref": "common.schema.json#/$defs/id" },
+          "case": {
+            "type": "string",
+            "enum": [
+              "Valid",
+              "MissingKind",
+              "DigestMismatch",
+              "UnknownFormat",
+              "IndexEntryWithoutManifestReference",
+              "ManifestReferenceWithoutIndexEntry"
+            ]
+          },
+          "evidenceSet": {
+            "type": "object",
+            "properties": {
+              "sbom": { "$ref": "#/$defs/ref" },
+              "license": { "$ref": "#/$defs/ref" },
+              "provenance": { "$ref": "#/$defs/ref" }
+            },
+            "additionalProperties": false
+          },
+          "indexEntries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "kind", "sha256"],
+              "properties": {
+                "path": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$" },
+                "kind": { "type": "string", "enum": ["Sbom", "License", "Provenance"] },
+                "sha256": { "$ref": "common.schema.json#/$defs/hash256" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "expected": { "type": "string", "enum": ["Accepted", "Rejected"] },
+          "rejectReason": { "type": "string", "enum": ["EvidenceMissing", "EvidenceDigestMismatch"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "required": ["format", "digest"],
+      "properties": {
+        "format": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "digest": { "$ref": "common.schema.json#/$defs/hash256" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

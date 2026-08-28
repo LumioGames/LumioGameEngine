@@ -1,0 +1,150 @@
+{
+  "profileId": "loader-profile-v1",
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "schemaEpoch": 1,
+  "reentry": {
+    "afterFailedRolledBack": "NewInstanceFromUninitialized",
+    "afterReleased": "NewInstanceFromUninitialized",
+    "latchScope": "Process",
+    "latchClearedOnRelease": false,
+    "sameIdentityAcquire": "ReturnExistingLease",
+    "differentIdentityAcquire": "PackageIdentityConflict"
+  },
+  "errorPriority": [
+    {
+      "rank": 1,
+      "errorCode": "PackageIdentityConflict"
+    },
+    {
+      "rank": 2,
+      "errorCode": "NativeAbiMismatch"
+    },
+    {
+      "rank": 3,
+      "errorCode": "SymbolMissing"
+    },
+    {
+      "rank": 4,
+      "errorCode": "SymbolCollision"
+    },
+    {
+      "rank": 5,
+      "errorCode": "CapabilityMissing"
+    },
+    {
+      "rank": 6,
+      "errorCode": "TargetProfileMismatch"
+    },
+    {
+      "rank": 7,
+      "errorCode": "LoaderOutOfMemory"
+    },
+    {
+      "rank": 8,
+      "errorCode": "LoaderTimeout"
+    },
+    {
+      "rank": 9,
+      "errorCode": "LoaderCancelled"
+    },
+    {
+      "rank": 10,
+      "errorCode": "PartialLoadRolledBack"
+    }
+  ],
+  "acquireVectors": [
+    {
+      "vectorId": "first-acquire",
+      "case": "FirstAcquire",
+      "latchedIdentity": null,
+      "requestedIdentity": "coreengine-linux-server-x86_64@1",
+      "priorState": "Uninitialized",
+      "expected": "NewLease"
+    },
+    {
+      "vectorId": "concurrent-same-identity",
+      "case": "ConcurrentSameIdentity",
+      "latchedIdentity": "coreengine-linux-server-x86_64@1",
+      "requestedIdentity": "coreengine-linux-server-x86_64@1",
+      "priorState": "Leased",
+      "expected": "NewLease"
+    },
+    {
+      "vectorId": "concurrent-different-identity",
+      "case": "ConcurrentDifferentIdentity",
+      "latchedIdentity": "coreengine-linux-server-x86_64@1",
+      "requestedIdentity": "coreengine-linux-server-x86_64@2",
+      "priorState": "Leased",
+      "expected": "Rejected",
+      "rejectReason": "PackageIdentityConflict"
+    },
+    {
+      "vectorId": "after-released-same-identity",
+      "case": "AfterReleasedSameIdentity",
+      "latchedIdentity": "coreengine-linux-server-x86_64@1",
+      "requestedIdentity": "coreengine-linux-server-x86_64@1",
+      "priorState": "Released",
+      "expected": "ExistingLease"
+    },
+    {
+      "vectorId": "after-released-different-identity",
+      "case": "AfterReleasedDifferentIdentity",
+      "latchedIdentity": "coreengine-linux-server-x86_64@1",
+      "requestedIdentity": "coreengine-linux-server-x86_64@2",
+      "priorState": "Released",
+      "expected": "Rejected",
+      "rejectReason": "PackageIdentityConflict"
+    },
+    {
+      "vectorId": "retry-after-failed",
+      "case": "RetryAfterFailedRolledBack",
+      "latchedIdentity": null,
+      "requestedIdentity": "coreengine-linux-server-x86_64@1",
+      "priorState": "FailedRolledBack",
+      "expected": "NewLease"
+    }
+  ],
+  "failureVectors": [
+    {
+      "vectorId": "binding-root-cause-outranks-rollback",
+      "causes": [
+        "SymbolMissing",
+        "PartialLoadRolledBack"
+      ],
+      "reported": "SymbolMissing"
+    },
+    {
+      "vectorId": "abi-outranks-symbol",
+      "causes": [
+        "SymbolCollision",
+        "NativeAbiMismatch",
+        "PartialLoadRolledBack"
+      ],
+      "reported": "NativeAbiMismatch"
+    },
+    {
+      "vectorId": "capability-outranks-resource",
+      "causes": [
+        "LoaderOutOfMemory",
+        "CapabilityMissing"
+      ],
+      "reported": "CapabilityMissing"
+    },
+    {
+      "vectorId": "rollback-only",
+      "causes": [
+        "PartialLoadRolledBack"
+      ],
+      "reported": "PartialLoadRolledBack"
+    },
+    {
+      "vectorId": "identity-conflict-outranks-everything",
+      "causes": [
+        "PartialLoadRolledBack",
+        "SymbolMissing",
+        "PackageIdentityConflict"
+      ],
+      "reported": "PackageIdentityConflict"
+    }
+  ]
+}
