@@ -24,7 +24,8 @@
       "digest": "manifestDigest",
       "domainTag": "CoreEngineManifestBody",
       "input": "the CoreEngineManifestBody document itself (ADR-018; the one input with no digestDomain member)",
-      "sortRule": "member order only; the body has no array whose order is semantic"
+      "sortRule": "member order only; the body has no array whose order is semantic",
+      "normalization": []
     },
     {
       "digest": "artifactSetDigest",
@@ -33,25 +34,50 @@
       "sortRule": "entries sorted ascending by path (code point); paths are unique within an index",
       "omitMembers": [
         "artifactSetDigest"
+      ],
+      "normalization": [
+        {
+          "path": "entries",
+          "op": "sortAscending",
+          "by": "path",
+          "collation": "codePoint"
+        }
       ]
     },
     {
       "digest": "artifactIndexDigest",
       "domainTag": "ArtifactIndexV1",
       "input": "the complete ArtifactIndex document including artifactSetDigest, wrapped as {digestDomain,index}",
-      "sortRule": "index.entries sorted ascending by path (code point)"
+      "sortRule": "index.entries sorted ascending by path (code point)",
+      "normalization": [
+        {
+          "path": "index.entries",
+          "op": "sortAscending",
+          "by": "path",
+          "collation": "codePoint"
+        }
+      ]
     },
     {
       "digest": "targetProfileDigest",
       "domainTag": "TargetProfileV1",
       "input": "the complete TargetProfile document, wrapped as {digestDomain,profile}",
-      "sortRule": "member order only; the profile has no array"
+      "sortRule": "member order only; the profile has no array",
+      "normalization": []
     },
     {
       "digest": "capabilitySetDigest",
       "domainTag": "CapabilitySetV1",
       "input": "the capability id list, wrapped as {digestDomain,capabilities}",
-      "sortRule": "capabilities sorted ascending by code point; the array is uniqueItems so ties are impossible"
+      "sortRule": "capabilities sorted ascending by code point; the array is uniqueItems so ties are impossible",
+      "normalization": [
+        {
+          "path": "capabilities",
+          "op": "sortAscending",
+          "by": "$self",
+          "collation": "codePoint"
+        }
+      ]
     }
   ],
   "goldens": [

@@ -101,6 +101,7 @@
     { "id": "canonical/golden-digest-mismatch", "schema": "canonical-digest-profile", "file": "invalid/canonical-digest-golden-digest-mismatch.json", "expected": "invalid", "reason": "a golden sha256 must equal the digest of its canonical bytes" },
     { "id": "canonical/golden-bytes-mismatch", "schema": "canonical-digest-profile", "file": "invalid/canonical-digest-golden-bytes-mismatch.json", "expected": "invalid", "reason": "a golden canonicalBytes must re-canonicalize from its input" },
     { "id": "canonical/missing-domain", "schema": "canonical-digest-profile", "file": "invalid/canonical-digest-missing-domain.json", "expected": "invalid", "reason": "digestDomains must cover the frozen digest set" },
+    { "id": "canonical/missing-normalization", "schema": "canonical-digest-profile", "file": "invalid/canonical-digest-missing-normalization.json", "expected": "invalid", "reason": "each digest domain must publish its machine-readable normalization" },
     { "id": "cemanifest/linux-server", "schema": "core-engine-manifest", "file": "valid/core-engine-manifest.json", "expected": "valid" },
     { "id": "cemanifest/missing-native", "schema": "core-engine-manifest", "file": "invalid/core-engine-manifest-missing-native.json", "expected": "invalid", "reason": "a NativeLibrary package must declare the Native capability" },
     { "id": "envelope/ed25519", "schema": "signature-envelope", "file": "valid/signature-envelope.json", "expected": "valid" },
