@@ -33,6 +33,16 @@ This freeze is **not** a change to D-002 (rolling-update drain). ADR-037 §2.2 i
 - Rejected alternatives: checksum over raw file bytes; checksum that includes `checksum` or `hash`; non-canonical JSON (whitespace or unsorted keys); any non-SHA-256 algorithm (already rejected by the schema).
 - Affected: CanonicalSerializer artifact (`packages/rust/lumio-gen-canonical-serializer`, `packages/csharp/Lumio.Gen.CanonicalSerializer` and `CHECKSUM_DOMAIN.md`). Drain policy D-002 is unchanged. Protocol-dispatch (D-009) and Auth wire (D-011) stay blocked and do not receive Artifact names.
 
+### 2026-08-28 — TransportProfile WebSocket registration (`LGE-V1.4-TRANSPORT-WS-2026-08-28`)
+
+This is a **registration, not a confirmation of D-004**. It records that the MVP A1 WebSocket (WSS) transport is expressible with the published contract; which WebSocket library is adopted stays open under D-004 and is decided by `LumioServer` / `LumioClient` at their selection gate.
+
+- Date: 2026-08-28
+- Owner: LumioGameEngineArchitecture / Architecture source (Workflow `R-00258`)
+- Selected value: no public contract change. WSS is a `reliability: "Reliable"` channel and an adapter-level choice under D-004's "adapter-only choice does not change baseline". Envelope, `transportPolicy` (`maxMessageBytes`, `maxFragmentBytes`, `antiReplayWindow`, `authBinding=SessionAdmission`, `errorClass`), the eight MessageTypes, the ErrorCode namespace and the free-form host capability arrays already cover the profile. Registered as host capability `WebSocketTransport` (fixture `host/local-split-process`), following the existing `InMemoryTransport` naming. Full audit and the A1 dependable field/error list: [TRANSPORT-WEBSOCKET-PROFILE-REGISTRATION.md](TRANSPORT-WEBSOCKET-PROFILE-REGISTRATION.md).
+- Rejected alternatives: adding WebSocket-specific fields to the Envelope (breaks the §7.3 "swap the transport, never bypass the protocol" rule and `additionalProperties: false`); adding a `MessageTooLarge` ErrorCode before A1 proves it is needed (interim mapping is `Rejectable` + `BudgetExceeded`, consistent with VOX-D-003); registering transport capabilities in the ID Registry `Capability` namespace (that namespace holds CoreEngine package capabilities, and every existing transport/clock/renderer capability id already lives outside it).
+- Affected: D-004 row (unchanged, still pending); no Schema, ID Registry, BaselineId or mirror change. D-009 (protocol-dispatch) and D-011 (Auth wire) stay blocked and untouched; D-012 unchanged.
+
 ### 2026-08-28 — Voxel P0 gates D-013 / VOX-D-001..004 (`LGE-V1.4-VOX-D-P0-2026-08-28`)
 
 This freeze is **not** a Schema or BaselineId change. It confirms that V1.4 will not generate public Voxel numeric profile columns.

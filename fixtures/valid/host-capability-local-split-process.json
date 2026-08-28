@@ -1,0 +1,9 @@
+{
+  "preset": "LocalSplitProcess",
+  "roomMode": "Online",
+  "roles": ["Client"],
+  "capabilities": ["WebSocketTransport", "ReferenceVoxel"],
+  "platformProfile": "DesktopDev",
+  "faultProfile": "NoFault",
+  "requiredCapabilities": ["WebSocketTransport"]
+}
