@@ -1003,7 +1003,6 @@ def emit_canonical(
         "    \"SHA-256 over canonical JSON of snapshot-header minus checksum and hash fields\"\n"
         "}\n"
     )
-    write_text(rust_dir / "src" / "lib.rs", rust + "\n" + lumio_bin_rust(bin_profile))
     write_text(rust_dir / "Cargo.toml", rust_cargo(RUST_CRATES["CanonicalSerializer"]))
     rust += "\n"
     rust += "/// ADR-041 CanonicalJsonV1: the canonical form is defined by the architecture source,\n"
@@ -1057,6 +1056,10 @@ def emit_canonical(
     for golden in profile["goldens"]:
         rust += "    (\"%s\", \"%s\", \"%s\"),\n" % (golden["id"], golden["case"], golden["sha256"])
     rust += "];\n"
+    # One write, after the whole surface is built: the ADR-041 profile above is
+    # part of what the crate publishes, so an earlier write would drop it and
+    # leave Rust consumers a strictly smaller surface than the C# one.
+    write_text(rust_dir / "src" / "lib.rs", rust + "\n" + lumio_bin_rust(bin_profile))
     write_text(rust_dir / "CHECKSUM_DOMAIN.md", checksum_doc)
     write_text(
         cs_dir / "CanonicalSerializer.cs",

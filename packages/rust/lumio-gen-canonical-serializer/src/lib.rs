@@ -12,6 +12,62 @@ pub fn checksum_domain_doc() -> &'static str {
     "SHA-256 over canonical JSON of snapshot-header minus checksum and hash fields"
 }
 
+/// ADR-041 CanonicalJsonV1: the canonical form is defined by the architecture source,
+/// never inherited from a generic JCS library's defaults.
+pub const CANONICAL_FORM_ID: &str = "CanonicalJsonV1";
+pub const CANONICAL_ENCODING: &str = "AsciiEscaped";
+pub const CANONICAL_MEMBER_ORDER: &str = "CodePointAscending";
+pub const CANONICAL_ARRAY_ORDER: &str = "DocumentOrder";
+pub const CANONICAL_ITEM_SEPARATOR: char = ',';
+pub const CANONICAL_KEY_VALUE_SEPARATOR: char = ':';
+pub const CANONICAL_NUMBERS: &str = "IntegerOnly";
+pub const CANONICAL_UNKNOWN_MEMBERS: &str = "Reject";
+pub const CANONICAL_DUPLICATE_MEMBERS: &str = "Reject";
+pub const DIGEST_ALGORITHM: &str = "SHA-256";
+pub const DIGEST_FRAMING: &str = "PrefixFreeOverCanonicalBytes";
+
+#[derive(Clone, Copy, Debug)]
+pub struct NormalizationStep {
+    pub path: &'static str,
+    pub op: &'static str,
+    pub by: &'static str,
+    pub collation: &'static str,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct DigestDomain {
+    pub digest: &'static str,
+    pub domain_tag: &'static str,
+    pub sort_rule: &'static str,
+    pub omit_members: &'static [&'static str],
+    /// Executed in declared order, before canonicalization.
+    pub normalization: &'static [NormalizationStep],
+}
+
+pub const DIGEST_DOMAINS: &[DigestDomain] = &[
+    DigestDomain { digest: "manifestDigest", domain_tag: "CoreEngineManifestBody", sort_rule: "member order only; the body has no array whose order is semantic", omit_members: &[], normalization: &[] },
+    DigestDomain { digest: "artifactSetDigest", domain_tag: "ArtifactSetV1", sort_rule: "entries sorted ascending by path (code point); paths are unique within an index", omit_members: &["artifactSetDigest"], normalization: &[NormalizationStep { path: "entries", op: "sortAscending", by: "path", collation: "codePoint" }] },
+    DigestDomain { digest: "artifactIndexDigest", domain_tag: "ArtifactIndexV1", sort_rule: "index.entries sorted ascending by path (code point)", omit_members: &[], normalization: &[NormalizationStep { path: "index.entries", op: "sortAscending", by: "path", collation: "codePoint" }] },
+    DigestDomain { digest: "targetProfileDigest", domain_tag: "TargetProfileV1", sort_rule: "member order only; the profile has no array", omit_members: &[], normalization: &[] },
+    DigestDomain { digest: "capabilitySetDigest", domain_tag: "CapabilitySetV1", sort_rule: "capabilities sorted ascending by code point; the array is uniqueItems so ties are impossible", omit_members: &[], normalization: &[NormalizationStep { path: "capabilities", op: "sortAscending", by: "$self", collation: "codePoint" }] },
+    DigestDomain { digest: "mappingSetHash", domain_tag: "ReplicationMappingSetV1", sort_rule: "mappings sorted ascending by code point; mappingId is unique within a set so ties are impossible", omit_members: &[], normalization: &[NormalizationStep { path: "mappings", op: "sortAscending", by: "$self", collation: "codePoint" }] },
+];
+
+/// Golden vectors: `(id, case, sha256)`. Full inputs and canonical bytes are in
+/// the published `canonical/canonical-digest-profile.json`.
+pub const CANONICAL_GOLDENS: &[(&str, &str, &str)] = &[
+    ("artifact-set-empty", "EmptyArtifactSet", "7a92ee35f0ae0644282f438a675d7624800a8aeac5125c85d7796d844831ce69"),
+    ("artifact-set-single", "SingleArtifact", "b5102a58a8338bff3200949d01c341abaa66527628ea91cdaa7a928987e9a7e9"),
+    ("artifact-set-multi", "MultiArtifact", "7d851d441b751469da4c5e935736fe7684b18db9387d195a3dcbd48684d9a365"),
+    ("artifact-set-path-permutation", "PathOrderPermutation", "7d851d441b751469da4c5e935736fe7684b18db9387d195a3dcbd48684d9a365"),
+    ("capability-set-permutation", "CapabilityOrderPermutation", "6c0859b0a2c6624a7725bcbdb2d71b1e2a65bbf413cac6874875dc69fc54d19a"),
+    ("escape-boundary", "EscapeBoundary", "b7fb9362f56ca50b68969d61dd73ee73f31a23a64d4f15a898045c1f6c4cb5eb"),
+    ("integer-boundary", "IntegerBoundary", "a6135f19ccbcd596fb0bd7bc81fcd9770f49609c483812fc776bf71c28c2de73"),
+    ("artifact-set-schema-version", "SchemaVersionChange", "e0fd1f58d4435bec2365841d68280a6bf03aa158e99de07c3e970f7bc836968e"),
+    ("replication-mapping-set-empty", "EmptyMappingSet", "a805f7c841f708981cc82a93047d7b0c8e6bf923f3dba18e179036741a6d2ea7"),
+    ("replication-mapping-set-permutation", "MappingOrderPermutation", "4120cf666fec14f6bcaf703a5d10706d755f36fb0e354dfdec6e6d5bddc40e23"),
+];
+
 /// ADR-047 LumioBinV1: the binary canonical form for public payload bytes.
 /// `CanonicalJsonV1` stays the form for canonicalizable JSON documents; this is
 /// the primitive layer ADR-010 referred to and ADR-035 assumed.
