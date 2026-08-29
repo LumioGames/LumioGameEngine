@@ -25,44 +25,42 @@
 Workflow API:token 在 `~/.config/workflow/config.toml` 的 `[profiles.lumiogamesengine]`,base 加 `/api/v1`。
 **踩过的坑**:流转端点是 `POST /requirements/{id}/transition`(**单数**;复数路径只有 GET);`/search` 今日多次 500,改用 `GET /requirements?roomId=&limit=250` + cursor 全量枚举;响应偶发 chunked 截断,**失败后必须先读回确认是否已落库再重发**(否则重复评论)。
 
-## 2 · 当前状态(截至交接时刻)
+## 2 · 当前状态:**自己拉,不要读死数字**
 
-### 各仓 origin/main
+**本节刻意不写卡数与 HEAD。** 今天的教训之一就是「计数会随 additive 增补必然腐烂」(见 §5.3 ErrorCode 条);同一天里各仓 HEAD 移动过五次以上、卡态被多个并行会话推进,任何写死的快照在你读到时已经是错的。
 
-| 仓 | HEAD |
-|---|---|
-| LumioGameEngineArchitecture | `4303949` |
-| LumioNativeCore | `e192459` |
-| LumioVoxelEngine | `0466ffd` |
-| LumioCoreEngine | `25808f3` |
-| LumioGameRuntime | `6a2ab80` |
-| LumioServer | `506bca9` |
-| LumioClient | `219e1a4` |
-| LumioGame | `39f88c9` |
+**开工第一件事跑这个**(约 1 分钟,八室 + 工作项 + 八仓 HEAD):
 
-### Workflow 卡态(八室)
+```bash
+cd /Users/cui/LumioGames/LumioGameEngineArchitecture
+CONFIG="$HOME/.config/workflow/config.toml"
+BASE=$(sed -n "/^\[profiles\.lumiogamesengine\]$/,/^\[/s/^base_url = \"\(.*\)\"$/\1/p" "$CONFIG" | head -1)
+export WORKFLOW_TOKEN=$(sed -n "/^\[profiles\.lumiogamesengine\]$/,/^\[/s/^token = \"\(.*\)\"$/\1/p" "$CONFIG" | head -1)
+export WORKFLOW_API_BASE="$BASE/api/v1"
+# 逐室 cursor 全量枚举(/search 会 500,别用它);各仓 git fetch --prune 后取 origin/main
+```
 
-| Room | 仓 | 总数 | done | 待核销 | backlog |
-|---|---|--:|--:|--:|--:|
-| RM-00001 | Architecture | 11 | 9 | 0 | 2(R-00009 需 V1.5 跃迁 / R-00269 V1.5 规划) |
-| RM-00002 | NativeCore | 68 | 66 | 1(R-00083) | 1(R-00007 蓝图) |
-| RM-00003 | Voxel | 55 | 14 | **26** | 15 |
-| RM-00004 | CoreEngine | 40 | 7 | 4 | 29 |
-| RM-00005 | Runtime | 34 | 0 | 4 | 29(+1 in_progress R-00138) |
-| RM-00006 | Server | 67 | 0 | 8 | 59 |
-| RM-00007 | Client | 14 | 0 | 6 | 8 |
-| RM-00008 | Game | 2 | 0 | 2 | 0 |
+**Room ↔ 仓映射(这个是稳定的)**:
 
-工作项:done 3 / review 5(T-00001/2/6/7/8)/ todo 4(T-00003/4/5/9)。
+| Room | 仓 | roomId(UUID) |
+|---|---|---|
+| RM-00001 | Architecture | `01a04225-4fc2-737e-afb3-8aaa8ba80754` |
+| RM-00002 | NativeCore | `01a04225-58b8-7abc-84e1-da1e60e58102` |
+| RM-00003 | VoxelEngine | `01a04225-6499-71ad-8548-5807eb51f421` |
+| RM-00004 | CoreEngine | `01a04225-6ce8-75fd-bd3e-7535e9b232fd` |
+| RM-00005 | GameRuntime | `01a04225-7526-70be-8950-32f83dd061fd` |
+| RM-00006 | Server | `01a04225-7dfa-7968-8f03-fdff153fb727` |
+| RM-00007 | Client | `01a04225-86b1-7be9-870a-adcecb10807c` |
+| RM-00008 | Game | `01a04225-8f05-7e9a-aa9d-a0d7c5a685c6` |
 
-**待核销清单**(状态 acceptance 或 in_review,等你核验后流转 done):
-- NativeCore:R-00083 —— **现已可解锁**(ADR-040 §7.1 已发 capability 常量三形态,其 BLOCKED 依据的原句已被取代)
-- Voxel:R-00002 / 00034 / 00041 / 00045 / 00047 / 00066 / 00068 / 00070 / 00071 / 00073 / 00076 / 00078 / 00080 / 00081 / 00093 / 00096 / 00104 / 00116 / 00119 / 00121 / 00134 / 00135 / 00136 / 00137 / 00142(25 张 in_review)+ **R-00203**(SV-α 判 3/4,第 1 项不通过:mvp-review.md 未逐张覆盖全体 P0 卡,需在绿基线上补一轮含全 P0 对照的复审)
-- CoreEngine:R-00265 / R-00016 / R-00017 / R-00018
-- Runtime:R-00112 / R-00127 / R-00131 / R-00133
-- Server:R-00186 / R-00188 / R-00190 / R-00200 / R-00209 / R-00260 / R-00270 / R-00272
-- Client:R-00001 / R-00019 / R-00031 / R-00065 / R-00067 / R-00256(+ 5 个 review 态工作项)
-- Game:R-00259(模块脚手架设计)/ **R-00283(美术比稿——用户终裁,不要动)**
+**验收项判定用的 passed statusId**:`astat_ee91c1c5812a3def044bc2688f459241`(项目自定义值,变了就现查:从任一已通过卡的 `acceptance-items` 里读 `systemSemantic=="passed"` 那条的 `statusId`)。
+
+**几条到交接时刻为止的结构性观察**(方向性参考,数字自己核):
+- **NativeCore 已全部完成**,该室不再需要派活。
+- **CoreEngine / Architecture / Runtime / Server 的待核销队列都很短**,多数卡已流转 done——并行会话推进得比交接文档写作时快得多。
+- **Voxel 的 `in_review` 队列最长**,是当前最大的核销面;其中 **R-00203** 是唯一有明确退回理由的(SV-α 判 3/4:`mvp-review.md` 未逐张覆盖全体 P0 卡,需在绿基线上补一轮含全 P0 对照的复审)。
+- **Game 两张都在 `acceptance`**:R-00259 待核,**R-00283 是美术终裁、留用户、不要动**。
+- 工作项只剩 T-00003(review,待与 Client 其余卡一并核销)与 T-00004 / T-00005 / T-00009(todo)。
 
 ## 3 · 在途项状态(已闭环,无需接手)
 
@@ -89,15 +87,15 @@ Workflow API:token 在 `~/.config/workflow/config.toml` 的 `[profiles.lumiogame
 
 ### P0 · 解阻与核销
 1. ~~接手 PR #23~~ —— **已完成**(审查放行、已合入 `6637541`);其 5 条 P2 见 §3,**P2-1 与 P2-4 值得立卡**(待用户授权)。
-2. **核销 50 张待核销卡**。方法:每仓派一个 QA 会话(写的人 ≠ 判的人),按「锚点在 origin + 门禁实跑 + 验收项逐条判定 + 每卡一条证据评论」核销,卡保持验收中,**你复核后流转 done**。Voxel 26 张量最大,可拆两道(奇/偶卡号,今日用过该切法,互斥且好核对)。
+2. **核销待核销队列**(先跑 §2 的脚本拿当前清单)。方法:每仓派一个 QA 会话(写的人 ≠ 判的人),按「锚点在 origin + 门禁实跑 + 验收项逐条判定 + 每卡一条证据评论」核销,卡保持验收中,**你复核后流转 done**。**Voxel 队列最长,拆两道**(奇/偶卡号,今日用过该切法,互斥且好核对)。R-00203 是唯一带明确退回理由的,按其复审要求单独处理。
 3. **R-00083 解锁收敛**(NativeCore):ADR-040 §7.1 已发布 capability 常量,其原 BLOCKED 依据已被取代;派 NativeCore 会话按新发布物补「生成转换」半边(既有 crate-private 交付无需推倒),然后收口 R-00007 蓝图卡。
 
 ### P1 · 各仓下一批实现
 4. **CoreEngine**:R-00020(Root ABI 运行时绑定)→ R-00021(platform build)→ R-00022;**R-00021 卡面已写入信任根裁决**(见 §5.3),派活时让它读卡面。R-00266(P2 守护小卡)仍未动。
 5. **Server**:R-00271(契约镜像,**已 BLOCKED 于 ADR-045 漂移,裁决已落卡评论**)→ R-00273 起 wave 2..8;13 张 A1-α 卡(R-00270..R-00282)已全部挂 MS-00001。
 6. **Runtime**:26 张 C 类卡已逐卡登记 BLOCKED 引用 R-00267/R-00268——**这两张现已 done**,可解冻;复工前先重 pin 架构镜像(上游已前进,identity 变了),再核对各卡验收项是否仍字面成立。T-00138 残项(S03/S06/S07)同理。
-7. **Client**:**R-00291(vendor/mirror 消费通道)是硬前置**——T-00004/T-00005 在它落地前不开工。顺序:R-00291 → T-00003(WSS adapter,卡面已补三条必做项)→ T-00004 → T-00005。
-8. **新立的 8 张既有缺陷卡**(用户已授权,尚未派活):R-00284(供应链+生成契约闸门接入 CI,**P0**)、R-00285、R-00286、R-00287(CI 补 dotnet test,**P0**)、R-00288、R-00289、R-00290、R-00291。
+7. **Client**:**R-00291(vendor/mirror)与 T-00003(WSS adapter)均已交付**,T-00004 / T-00005 的阻塞**已由总调度核验解除**(镜像内 `replication-envelope.schema.json`、21 个 replication fixture、`ContractBodies.cs`、`ProtocolGate.cs`、`lumio-bin-profile.json` 齐备;`upstreamCorpusPin` 已 `mirrored`;pin 是 commit sha)。解除评论与开工注意已落两卡。顺序:T-00004 → T-00005;T-00009 仍 BLOCKED 于 R-00255(Unity 版本未锁,**不是** R-00268)。
+8. **既有缺陷卡**(用户已授权立卡;部分已被并行会话完成,开工前先查状态):R-00284(供应链+生成契约闸门接入 CI,**P0**)、R-00285、R-00286、R-00287、R-00288、R-00289、R-00290、R-00291,以及后立的三张——**R-00292**(Client 架构测试枚举改**版本库口径**消除 worktree 假红,**P0**)、**R-00293**(架构仓 canonical 门禁扩到**域内容**一致性)、**R-00294**(Client WSS 工厂迁出 `Internal/`)。
 
 ### P2 · 收尾
 9. **R-00269**:V1.5 跃迁批规划 + D-1 ADR 草案(同批:R-00009 枚举对齐、ADR-040..048 Draft 转 Accepted、~~OperationId namespace 发布~~**(已裁决出批)**、D-5 冻结点 tag、trust 两条 P2)。**D-1 方向已定音**(见 §5.1),只差执行。
