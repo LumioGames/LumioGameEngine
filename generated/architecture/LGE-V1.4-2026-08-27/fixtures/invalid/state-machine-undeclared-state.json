@@ -1,0 +1,13 @@
+{
+  "machineId": "ExampleUndeclaredState",
+  "owner": "Architecture",
+  "sourceAdr": "ADR-038",
+  "initialState": "Open",
+  "states": ["Open", "Closed"],
+  "terminalStates": ["Closed"],
+  "transitions": [
+    { "from": "Open", "to": "Ghost", "event": "Vanish" },
+    { "from": "Open", "to": "Closed", "event": "Close" }
+  ],
+  "notes": "Invalid: a transition targets a state that is not declared in states."
+}

@@ -1,0 +1,19 @@
+{
+  "indexVersion": 1,
+  "targetProfileId": "linux-server-x86_64-glibc",
+  "entries": [
+    {
+      "path": "lib/liblumio_core.so",
+      "kind": "NativeLibrary",
+      "size": 10485760,
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "path": "lib/liblumio_core.so",
+      "kind": "DebugSymbols",
+      "size": 5242880,
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  ],
+  "artifactSetDigest": "72b48a3a4c7f4efbeda40a59fea42d7bc87be8a91a60c9c8d5ab443d669ab53e"
+}

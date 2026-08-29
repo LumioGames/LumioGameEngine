@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/txn-journal-record.schema.json",
+  "type": "object",
+  "allOf": [
+    { "$ref": "common.schema.json#/$defs/recoveryRecordChain" },
+    { "$ref": "common.schema.json#/$defs/recoveryCommitFields" }
+  ],
+  "required": [
+    "recordVersion",
+    "recordSeq",
+    "sessionId",
+    "gameReleaseId",
+    "tickId",
+    "txnId",
+    "recordKind",
+    "idempotencyKey",
+    "previousHash",
+    "payloadHash",
+    "length",
+    "commitState",
+    "durabilityState",
+    "checksum"
+  ],
+  "properties": {
+    "recordVersion": { "type": "integer", "minimum": 1 },
+    "recordSeq": { "$ref": "common.schema.json#/$defs/revision" },
+    "sessionId": { "$ref": "common.schema.json#/$defs/id" },
+    "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
+    "tickId": { "$ref": "common.schema.json#/$defs/tickId" },
+    "txnId": { "$ref": "common.schema.json#/$defs/id" },
+    "commandId": { "$ref": "common.schema.json#/$defs/id" },
+    "recordKind": { "type": "string", "enum": ["Prepare", "CommitIntent", "ParticipantMarker", "Committed", "Aborted"] },
+    "idempotencyKey": { "$ref": "common.schema.json#/$defs/id" },
+    "previousHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "payloadHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "length": { "type": "integer", "minimum": 0 },
+    "commitState": { "type": "string", "enum": ["Pending", "Committed", "Aborted"] },
+    "durabilityState": { "type": "string", "enum": ["Buffered", "Durable"] },
+    "checksum": { "$ref": "common.schema.json#/$defs/hash256" }
+  },
+  "additionalProperties": false
+}

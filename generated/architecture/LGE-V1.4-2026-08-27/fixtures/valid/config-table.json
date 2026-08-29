@@ -1,0 +1,52 @@
+{
+  "tableId": "build-costs",
+  "schemaVersion": 1,
+  "configRevision": 4,
+  "generatedAt": "2026-08-27T01:05:00Z",
+  "sourceHash": "9e83762b53c79cb1ce53b1b4d3880379f4c658e8c2e8afe1d187d930c15e7d52",
+  "columns": [
+    { "name": "enabled", "type": "bool", "required": true },
+    { "name": "cost", "type": "u32", "required": true, "minimum": 0, "maximum": 1000 },
+    { "name": "signedDelta", "type": "i32", "required": true, "minimum": -10, "maximum": 10 },
+    { "name": "bigCount", "type": "i64", "required": true },
+    { "name": "wideCount", "type": "u64", "required": true },
+    { "name": "weight", "type": "f32", "required": true },
+    { "name": "ratio", "type": "f64", "required": true },
+    { "name": "blockType", "type": "string", "required": true },
+    { "name": "rarity", "type": "enum", "required": true, "enumValues": ["common", "rare"] },
+    { "name": "next", "type": "ref", "required": false, "refTarget": "build-costs" }
+  ],
+  "rows": [
+    {
+      "key": "stone",
+      "values": {
+        "enabled": true,
+        "cost": 1,
+        "signedDelta": -1,
+        "bigCount": 100,
+        "wideCount": 8,
+        "weight": 1.5,
+        "ratio": 0.25,
+        "blockType": "stone",
+        "rarity": "common",
+        "next": "wood"
+      }
+    },
+    {
+      "key": "wood",
+      "values": {
+        "enabled": true,
+        "cost": 2,
+        "signedDelta": 2,
+        "bigCount": 50,
+        "wideCount": 4,
+        "weight": 0.75,
+        "ratio": 0.5,
+        "blockType": "wood",
+        "rarity": "rare"
+      }
+    }
+  ],
+  "activation": "ProductionSignedSwitch",
+  "signature": "config-signature-placeholder-00000000000000000000000000000000"
+}

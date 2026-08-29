@@ -1,0 +1,16 @@
+{
+  "recordVersion": 1,
+  "recordSeq": 0,
+  "sessionId": "session-001",
+  "gameReleaseId": "A-1.1.0",
+  "tickId": 42,
+  "commandId": "cmd-0001",
+  "recordKind": "Append",
+  "idempotencyKey": "cmd-0001",
+  "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "payloadHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "length": 64,
+  "commitState": "Pending",
+  "durabilityState": "Buffered",
+  "checksum": "4ca1a7f2e690207f7b936e08b6382a973f7797283cd73ebe8ba63fc52870271b"
+}

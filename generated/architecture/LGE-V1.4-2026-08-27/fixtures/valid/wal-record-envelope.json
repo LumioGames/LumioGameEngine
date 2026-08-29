@@ -1,0 +1,25 @@
+{
+  "recordVersion": 1,
+  "recordSeq": 0,
+  "innerKind": "TxnJournal",
+  "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "payloadHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "length": 256,
+  "inner": {
+    "recordVersion": 1,
+    "recordSeq": 0,
+    "sessionId": "session-001",
+    "gameReleaseId": "A-1.1.0",
+    "tickId": 42,
+    "txnId": "txn-place-0001",
+    "recordKind": "Committed",
+    "idempotencyKey": "txn-place-0001",
+    "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "payloadHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "length": 128,
+    "commitState": "Committed",
+    "durabilityState": "Durable",
+    "checksum": "68e666bdfca306df7c522c0c18e5ef26086fcad298c81cc18b317d42bc493999"
+  },
+  "checksum": "be6f002030518f49da900d34b14991bc86d38f40cf0fc5b9e61ed12015c52540"
+}

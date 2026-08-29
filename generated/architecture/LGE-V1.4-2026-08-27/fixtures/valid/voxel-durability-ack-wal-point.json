@@ -1,0 +1,9 @@
+{
+  "kind": "DurabilityAck",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "ackId": "dack-0002",
+  "durabilityPoint": { "walSegmentId": "wal-seg-000042", "walOffset": 8388608 },
+  "coveredWorldRevision": 26,
+  "coveredChunks": [{ "chunkId": "c:0:0:0", "upToChunkRevision": 11 }]
+}

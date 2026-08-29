@@ -1,0 +1,402 @@
+{
+  "bundleId": "root-abi-v1",
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "schemaEpoch": 1,
+  "compiler": {
+    "name": "lumio-abi-compiler",
+    "version": "1.0.0",
+    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "inputSet": [
+    "schemas/native-managed-abi.schema.json",
+    "fixtures/valid/native-managed-abi.json"
+  ],
+  "inputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "abi": {
+    "abiVersion": 1,
+    "entrySymbol": "lumio_core_get_api_v1",
+    "symbolPrefix": "lumio_",
+    "callingConvention": "C",
+    "pointerWidth": 64,
+    "endianness": "Little",
+    "capabilityBits": 7
+  },
+  "layoutProfile": {
+    "targetProfileId": "linux-x86_64-glibc",
+    "os": "LinuxServer",
+    "arch": "x86_64",
+    "abiRuntime": "glibc",
+    "pointerBytes": 8,
+    "maxAlignment": 8,
+    "rootHeaderBytes": 16,
+    "tableHeaderBytes": 16
+  },
+  "typeMapping": [
+    {
+      "typeRef": "u8",
+      "c": "uint8_t",
+      "csharp": "byte",
+      "rust": "u8",
+      "size": 1,
+      "align": 1
+    },
+    {
+      "typeRef": "u16",
+      "c": "uint16_t",
+      "csharp": "ushort",
+      "rust": "u16",
+      "size": 2,
+      "align": 2
+    },
+    {
+      "typeRef": "u32",
+      "c": "uint32_t",
+      "csharp": "uint",
+      "rust": "u32",
+      "size": 4,
+      "align": 4
+    },
+    {
+      "typeRef": "u64",
+      "c": "uint64_t",
+      "csharp": "ulong",
+      "rust": "u64",
+      "size": 8,
+      "align": 8
+    },
+    {
+      "typeRef": "i8",
+      "c": "int8_t",
+      "csharp": "sbyte",
+      "rust": "i8",
+      "size": 1,
+      "align": 1
+    },
+    {
+      "typeRef": "i16",
+      "c": "int16_t",
+      "csharp": "short",
+      "rust": "i16",
+      "size": 2,
+      "align": 2
+    },
+    {
+      "typeRef": "i32",
+      "c": "int32_t",
+      "csharp": "int",
+      "rust": "i32",
+      "size": 4,
+      "align": 4
+    },
+    {
+      "typeRef": "i64",
+      "c": "int64_t",
+      "csharp": "long",
+      "rust": "i64",
+      "size": 8,
+      "align": 8
+    },
+    {
+      "typeRef": "f32",
+      "c": "float",
+      "csharp": "float",
+      "rust": "f32",
+      "size": 4,
+      "align": 4
+    },
+    {
+      "typeRef": "f64",
+      "c": "double",
+      "csharp": "double",
+      "rust": "f64",
+      "size": 8,
+      "align": 8
+    },
+    {
+      "typeRef": "bool32",
+      "c": "uint32_t",
+      "csharp": "uint",
+      "rust": "u32",
+      "size": 4,
+      "align": 4
+    },
+    {
+      "typeRef": "status",
+      "c": "lumio_status_t",
+      "csharp": "LumioStatus",
+      "rust": "LumioStatus",
+      "size": 4,
+      "align": 4
+    },
+    {
+      "typeRef": "handle:<kind>",
+      "c": "lumio_handle_t",
+      "csharp": "LumioHandle",
+      "rust": "LumioHandle",
+      "size": 16,
+      "align": 8
+    },
+    {
+      "typeRef": "buffer:in",
+      "c": "lumio_buffer_t",
+      "csharp": "LumioBuffer",
+      "rust": "LumioBuffer",
+      "size": 24,
+      "align": 8
+    },
+    {
+      "typeRef": "buffer:out",
+      "c": "lumio_buffer_t",
+      "csharp": "LumioBuffer",
+      "rust": "LumioBuffer",
+      "size": 24,
+      "align": 8
+    },
+    {
+      "typeRef": "struct:<name>:v<N>",
+      "c": "const lumio_<name>_v<N>*",
+      "csharp": "IntPtr",
+      "rust": "*const Lumio<Name>V<N>",
+      "size": 8,
+      "align": 8
+    },
+    {
+      "typeRef": "ptr:const:<name>",
+      "c": "const lumio_<name>*",
+      "csharp": "IntPtr",
+      "rust": "*const Lumio<Name>",
+      "size": 8,
+      "align": 8
+    },
+    {
+      "typeRef": "ptr:mut:<name>",
+      "c": "lumio_<name>*",
+      "csharp": "IntPtr",
+      "rust": "*mut Lumio<Name>",
+      "size": 8,
+      "align": 8
+    }
+  ],
+  "root": {
+    "declaredStructSize": 64,
+    "minimumStructSize": 32,
+    "fields": [
+      {
+        "name": "abi_version",
+        "offset": 0,
+        "size": 4,
+        "c": "uint32_t",
+        "csharp": "uint",
+        "rust": "u32"
+      },
+      {
+        "name": "struct_size",
+        "offset": 4,
+        "size": 4,
+        "c": "uint32_t",
+        "csharp": "uint",
+        "rust": "u32"
+      },
+      {
+        "name": "capability_bits",
+        "offset": 8,
+        "size": 8,
+        "c": "uint64_t",
+        "csharp": "ulong",
+        "rust": "u64"
+      }
+    ],
+    "tables": [
+      {
+        "name": "lumio_core_api",
+        "offset": 16
+      },
+      {
+        "name": "lumio_voxel_api",
+        "offset": 24
+      }
+    ]
+  },
+  "tables": [
+    {
+      "name": "lumio_core_api",
+      "version": 1,
+      "declaredStructSize": 48,
+      "minimumStructSize": 48,
+      "reservedSlots": 1,
+      "functionCount": 3,
+      "fields": [
+        {
+          "name": "version",
+          "offset": 0,
+          "size": 4,
+          "c": "uint32_t",
+          "csharp": "uint",
+          "rust": "u32"
+        },
+        {
+          "name": "struct_size",
+          "offset": 4,
+          "size": 4,
+          "c": "uint32_t",
+          "csharp": "uint",
+          "rust": "u32"
+        },
+        {
+          "name": "reserved0",
+          "offset": 8,
+          "size": 8,
+          "c": "uint64_t",
+          "csharp": "ulong",
+          "rust": "u64"
+        }
+      ],
+      "slots": [
+        {
+          "slotIndex": 0,
+          "name": "lumio_core_init",
+          "offset": 16,
+          "returns": "status",
+          "params": [
+            {
+              "name": "config",
+              "typeRef": "struct:core_config:v1"
+            },
+            {
+              "name": "out_context",
+              "typeRef": "handle:core_context"
+            }
+          ],
+          "cSignature": "lumio_status_t (*lumio_core_init)(const struct lumio_core_config_v1* config, lumio_handle_t out_context)",
+          "csharpSignature": "LumioStatus lumio_core_init(IntPtr config, LumioHandle out_context)",
+          "rustSignature": "extern \"C\" fn(config: *const LumioCoreConfigV1, out_context: LumioHandle) -> LumioStatus"
+        },
+        {
+          "slotIndex": 1,
+          "name": "lumio_core_shutdown",
+          "offset": 24,
+          "returns": "status",
+          "params": [
+            {
+              "name": "context",
+              "typeRef": "handle:core_context"
+            }
+          ],
+          "cSignature": "lumio_status_t (*lumio_core_shutdown)(lumio_handle_t context)",
+          "csharpSignature": "LumioStatus lumio_core_shutdown(LumioHandle context)",
+          "rustSignature": "extern \"C\" fn(context: LumioHandle) -> LumioStatus"
+        },
+        {
+          "slotIndex": 2,
+          "name": "lumio_core_last_error_detail",
+          "offset": 32,
+          "returns": "status",
+          "params": [
+            {
+              "name": "context",
+              "typeRef": "handle:core_context"
+            },
+            {
+              "name": "out_detail",
+              "typeRef": "buffer:out"
+            }
+          ],
+          "cSignature": "lumio_status_t (*lumio_core_last_error_detail)(lumio_handle_t context, lumio_buffer_t out_detail)",
+          "csharpSignature": "LumioStatus lumio_core_last_error_detail(LumioHandle context, LumioBuffer out_detail)",
+          "rustSignature": "extern \"C\" fn(context: LumioHandle, out_detail: LumioBuffer) -> LumioStatus"
+        }
+      ]
+    },
+    {
+      "name": "lumio_voxel_api",
+      "version": 1,
+      "declaredStructSize": 32,
+      "minimumStructSize": 32,
+      "reservedSlots": 0,
+      "functionCount": 2,
+      "fields": [
+        {
+          "name": "version",
+          "offset": 0,
+          "size": 4,
+          "c": "uint32_t",
+          "csharp": "uint",
+          "rust": "u32"
+        },
+        {
+          "name": "struct_size",
+          "offset": 4,
+          "size": 4,
+          "c": "uint32_t",
+          "csharp": "uint",
+          "rust": "u32"
+        },
+        {
+          "name": "reserved0",
+          "offset": 8,
+          "size": 8,
+          "c": "uint64_t",
+          "csharp": "ulong",
+          "rust": "u64"
+        }
+      ],
+      "slots": [
+        {
+          "slotIndex": 0,
+          "name": "lumio_voxel_world_create",
+          "offset": 16,
+          "returns": "status",
+          "params": [
+            {
+              "name": "context",
+              "typeRef": "handle:core_context"
+            },
+            {
+              "name": "desc",
+              "typeRef": "struct:voxel_world_desc:v1"
+            },
+            {
+              "name": "out_world",
+              "typeRef": "handle:voxel_world"
+            }
+          ],
+          "cSignature": "lumio_status_t (*lumio_voxel_world_create)(lumio_handle_t context, const struct lumio_voxel_world_desc_v1* desc, lumio_handle_t out_world)",
+          "csharpSignature": "LumioStatus lumio_voxel_world_create(LumioHandle context, IntPtr desc, LumioHandle out_world)",
+          "rustSignature": "extern \"C\" fn(context: LumioHandle, desc: *const LumioVoxelWorldDescV1, out_world: LumioHandle) -> LumioStatus"
+        },
+        {
+          "slotIndex": 1,
+          "name": "lumio_voxel_world_destroy",
+          "offset": 24,
+          "returns": "status",
+          "params": [
+            {
+              "name": "world",
+              "typeRef": "handle:voxel_world"
+            }
+          ],
+          "cSignature": "lumio_status_t (*lumio_voxel_world_destroy)(lumio_handle_t world)",
+          "csharpSignature": "LumioStatus lumio_voxel_world_destroy(LumioHandle world)",
+          "rustSignature": "extern \"C\" fn(world: LumioHandle) -> LumioStatus"
+        }
+      ]
+    }
+  ],
+  "outputFiles": [
+    {
+      "path": "abi/lumio_core.h",
+      "role": "CHeader",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "path": "rust/lumio-gen-language-binding/src/root_abi.rs",
+      "role": "RustBinding",
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "path": "csharp/Lumio.Gen.LanguageBinding/RootAbi.cs",
+      "role": "CSharpBinding",
+      "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ]
+}

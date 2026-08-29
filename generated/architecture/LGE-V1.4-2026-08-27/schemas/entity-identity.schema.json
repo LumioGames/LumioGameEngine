@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/entity-identity.schema.json",
+  "type": "object",
+  "required": [
+    "netEntityId",
+    "authorityDomain",
+    "worldEpoch",
+    "sequence",
+    "generation",
+    "namespace",
+    "lifecycle"
+  ],
+  "properties": {
+    "netEntityId": { "$ref": "common.schema.json#/$defs/netEntityId" },
+    "authorityDomain": { "$ref": "common.schema.json#/$defs/id" },
+    "worldEpoch": { "$ref": "common.schema.json#/$defs/revision" },
+    "sequence": { "$ref": "common.schema.json#/$defs/revision" },
+    "generation": { "$ref": "common.schema.json#/$defs/revision" },
+    "localEntityId": { "type": "string", "pattern": "^[0-9]+:[0-9]+$" },
+    "namespace": { "type": "string", "enum": ["Authoritative", "Provisional", "Replay"] },
+    "lifecycle": { "type": "string", "enum": ["Reserved", "Alive", "Tombstoned", "Destroyed"] },
+    "tombstoneUntilRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "remappedFrom": { "$ref": "common.schema.json#/$defs/netEntityId" },
+    "sourceRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "sourceReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" }
+  },
+  "additionalProperties": false
+}

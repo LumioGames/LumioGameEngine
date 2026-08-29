@@ -1,0 +1,21 @@
+{
+  "processorId": "inventory-mutator",
+  "role": "Server",
+  "phase": "ApplyInputs",
+  "query": "Inventory",
+  "readSet": [
+    "Inventory"
+  ],
+  "writeSet": [
+    "Inventory"
+  ],
+  "mayEmitStructuralCommands": false,
+  "before": [],
+  "after": [],
+  "determinismClass": "Stable",
+  "budget": {
+    "maxMicros": 100,
+    "maxCommands": 4
+  },
+  "diagnosticName": "Gameplay.Inventory.Mutate"
+}

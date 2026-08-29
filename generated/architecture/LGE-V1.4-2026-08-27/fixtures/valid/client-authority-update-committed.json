@@ -1,0 +1,36 @@
+{
+  "sessionId": "session-001",
+  "txnId": "auth-upd-0001",
+  "tickId": 42,
+  "updateKind": "Delta",
+  "stepOrder": [
+    "ValidateBaselineAndRevision",
+    "RestoreConfirmedPredictionFrame",
+    "ApplyAuthoritativeEcsGasVoxel",
+    "DropConfirmedCommands",
+    "ReplayUnconfirmedInOrder",
+    "EmitPresentationDiff"
+  ],
+  "stepResults": {
+    "validateBaselineAndRevision": true,
+    "restoreConfirmedPredictionFrame": true,
+    "applyAuthoritativeEcsGasVoxel": true,
+    "dropConfirmedCommands": true,
+    "replayUnconfirmedInOrder": true,
+    "emitPresentationDiff": true
+  },
+  "state": "Committed",
+  "visibleSideEffects": true,
+  "ackAllowed": true,
+  "baselineAdvanced": true,
+  "confirmedPointAdvanced": true,
+  "resultRevisionVector": {
+    "tickId": 42,
+    "gameRevision": 18,
+    "voxelWorldRevision": 24,
+    "chunkRevisionSet": { "c:0:0:0": 9 },
+    "replicationRevision": 13,
+    "configRevision": 4,
+    "schemaEpoch": 1
+  }
+}

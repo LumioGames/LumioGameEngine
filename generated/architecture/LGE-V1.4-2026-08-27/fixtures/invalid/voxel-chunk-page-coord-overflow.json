@@ -1,0 +1,17 @@
+{
+  "chunkId": "c:2147483647:0:0",
+  "coord": { "x": 2147483648, "y": 0, "z": 0 },
+  "chunkState": "Ready",
+  "dataGeneration": 1,
+  "chunkRevision": 2,
+  "pages": [
+    {
+      "pageIndex": 0,
+      "pageVersion": 2,
+      "encoding": "Dense",
+      "payloadLength": 32768,
+      "hash": "5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d",
+      "compression": "Lz4"
+    }
+  ]
+}

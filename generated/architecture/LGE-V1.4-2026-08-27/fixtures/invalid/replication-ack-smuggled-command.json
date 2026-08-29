@@ -1,0 +1,30 @@
+{
+  "protocolVersion": 1,
+  "length": 256,
+  "sequence": 102,
+  "sessionId": "session-001",
+  "productId": "A",
+  "gameReleaseId": "A-1.1.0",
+  "messageType": "BaselineAck",
+  "reliability": "Reliable",
+  "integrity": {
+    "algorithm": "SHA256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "traceId": "trace-baselineack-smuggled-command",
+  "transportPolicy": {
+    "maxMessageBytes": 65536,
+    "maxFragmentBytes": 4096,
+    "antiReplayWindow": 1024,
+    "authBinding": "SessionAdmission",
+    "errorClass": "Rejectable"
+  },
+  "body": {
+    "snapshotId": "snapshot-100",
+    "confirmedRevision": 13,
+    "playerCommand": {
+      "op": "PlaceBlock",
+      "blockId": 7
+    }
+  }
+}

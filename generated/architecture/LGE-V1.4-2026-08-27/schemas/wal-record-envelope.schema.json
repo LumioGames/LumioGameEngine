@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/wal-record-envelope.schema.json",
+  "type": "object",
+  "allOf": [
+    { "$ref": "common.schema.json#/$defs/recoveryRecordChain" }
+  ],
+  "required": ["recordVersion", "recordSeq", "innerKind", "previousHash", "payloadHash", "length", "checksum", "inner"],
+  "properties": {
+    "recordVersion": { "type": "integer", "minimum": 1 },
+    "recordSeq": { "$ref": "common.schema.json#/$defs/revision" },
+    "innerKind": { "type": "string", "enum": ["TxnJournal", "CommandLog"] },
+    "previousHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "payloadHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "length": { "type": "integer", "minimum": 0 },
+    "checksum": { "$ref": "common.schema.json#/$defs/hash256" },
+    "inner": { "type": "object" }
+  },
+  "additionalProperties": false
+}

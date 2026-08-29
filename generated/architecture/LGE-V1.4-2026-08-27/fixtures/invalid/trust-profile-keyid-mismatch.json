@@ -1,0 +1,215 @@
+{
+  "profileId": "trust-profile-v1",
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "schemaEpoch": 1,
+  "signatureProfile": {
+    "profileId": "LumioSignatureV1",
+    "algorithm": "Ed25519",
+    "variant": "PureEdDSA",
+    "signatureEncoding": "RawHexLower",
+    "signatureBytes": 64,
+    "publicKeyEncoding": "RawHexLower",
+    "publicKeyBytes": 32,
+    "domainSeparator": "LumioSignatureV1",
+    "preimageFields": [
+      "domainSeparator",
+      "trustDomain",
+      "payloadType",
+      "payloadDigest"
+    ],
+    "fieldSeparator": "0x00"
+  },
+  "keyIdRule": {
+    "scheme": "TrustDomainPrefixedPublicKeyDigest",
+    "digest": "SHA-256",
+    "hexPrefixLength": 16,
+    "separator": "-"
+  },
+  "rejectPriority": [
+    {
+      "order": 1,
+      "condition": "no SignatureEnvelope accompanies the package",
+      "rejectReason": "SignatureMissing"
+    },
+    {
+      "order": 2,
+      "condition": "keyId is not in the trust policy for the envelope trustDomain",
+      "rejectReason": "TrustRootUnknown"
+    },
+    {
+      "order": 3,
+      "condition": "the key is present but its status is Revoked",
+      "rejectReason": "KeyRevoked"
+    },
+    {
+      "order": 4,
+      "condition": "Ed25519 verification of the domain-separated preimage fails",
+      "rejectReason": "SignatureInvalid"
+    },
+    {
+      "order": 5,
+      "condition": "signedAt is outside the key validity window or another policy constraint fails",
+      "rejectReason": "TrustPolicyRejected"
+    }
+  ],
+  "trustPolicy": {
+    "policyVersion": 1,
+    "trustDomain": "Test",
+    "keys": [
+      {
+        "keyId": "test-929ebec145050e2a",
+        "algorithm": "Ed25519",
+        "publicKey": "026d0a4e76097c8da2e9797d7908d3bd42f441971d32b7c997395e999f97f121",
+        "status": "Active",
+        "notBefore": "2026-08-01T00:00:00Z",
+        "notAfter": "2027-08-01T00:00:00Z"
+      },
+      {
+        "keyId": "test-93cab97e65c1e5ff",
+        "algorithm": "Ed25519",
+        "publicKey": "9268206c7455ce52dc4a5c21eef4e9807abcd8f41df1dd4ee3c853cd72cc6ac9",
+        "status": "Revoked",
+        "notBefore": "2026-08-01T00:00:00Z",
+        "notAfter": "2027-08-01T00:00:00Z",
+        "revokedAt": "2026-08-20T00:00:00Z"
+      },
+      {
+        "keyId": "test-0000000000000000",
+        "algorithm": "Ed25519",
+        "publicKey": "c280be02071f0592e67dc5c2ccf589e1f11eee0992780eb48ad00d8733fe46ee",
+        "status": "Active",
+        "notBefore": "2026-08-01T00:00:00Z",
+        "notAfter": "2027-08-01T00:00:00Z"
+      }
+    ]
+  },
+  "vectors": [
+    {
+      "vectorId": "accept",
+      "case": "Accept",
+      "envelope": {
+        "envelopeVersion": 1,
+        "payloadType": "CoreEngineManifestBody",
+        "payloadDigest": "f74a9ee90e79a89ff3531225211305b2055a14af4bbaccc4ec6ef468162a6804",
+        "algorithm": "Ed25519",
+        "keyId": "test-929ebec145050e2a",
+        "trustDomain": "Test",
+        "signature": "15227baac409d2feed7284d9de72e7fcd1ee07bb246df92f2cb82271513aa4366b31bc0cf34863313d535e0836ca98f903f8fcd3b341b6877f19afb1a477bb05",
+        "signedAt": "2026-08-28T00:00:00Z"
+      },
+      "expected": "Trusted"
+    },
+    {
+      "vectorId": "tampered-signature",
+      "case": "TamperedSignature",
+      "envelope": {
+        "envelopeVersion": 1,
+        "payloadType": "CoreEngineManifestBody",
+        "payloadDigest": "f74a9ee90e79a89ff3531225211305b2055a14af4bbaccc4ec6ef468162a6804",
+        "algorithm": "Ed25519",
+        "keyId": "test-929ebec145050e2a",
+        "trustDomain": "Test",
+        "signature": "15227baac409d2feed7284d9de72e7fcd1ee07bb246df92f2cb82271513aa4366b31bc0cf34863313d535e0836ca98f903f8fcd3b341b6877f19afb1a477bb04",
+        "signedAt": "2026-08-28T00:00:00Z"
+      },
+      "expected": "Rejected",
+      "rejectReason": "SignatureInvalid"
+    },
+    {
+      "vectorId": "tampered-payload-digest",
+      "case": "TamperedPayloadDigest",
+      "envelope": {
+        "envelopeVersion": 1,
+        "payloadType": "CoreEngineManifestBody",
+        "payloadDigest": "5d2f3a3f140086f08ac12aa2be99e182f2b610ae90af7dd411019da9b8e87f55",
+        "algorithm": "Ed25519",
+        "keyId": "test-929ebec145050e2a",
+        "trustDomain": "Test",
+        "signature": "15227baac409d2feed7284d9de72e7fcd1ee07bb246df92f2cb82271513aa4366b31bc0cf34863313d535e0836ca98f903f8fcd3b341b6877f19afb1a477bb05",
+        "signedAt": "2026-08-28T00:00:00Z"
+      },
+      "expected": "Rejected",
+      "rejectReason": "SignatureInvalid"
+    },
+    {
+      "vectorId": "wrong-trust-domain",
+      "case": "WrongTrustDomain",
+      "envelope": {
+        "envelopeVersion": 1,
+        "payloadType": "CoreEngineManifestBody",
+        "payloadDigest": "f74a9ee90e79a89ff3531225211305b2055a14af4bbaccc4ec6ef468162a6804",
+        "algorithm": "Ed25519",
+        "keyId": "test-929ebec145050e2a",
+        "trustDomain": "Staging",
+        "signature": "15227baac409d2feed7284d9de72e7fcd1ee07bb246df92f2cb82271513aa4366b31bc0cf34863313d535e0836ca98f903f8fcd3b341b6877f19afb1a477bb05",
+        "signedAt": "2026-08-28T00:00:00Z"
+      },
+      "expected": "Rejected",
+      "rejectReason": "TrustRootUnknown"
+    },
+    {
+      "vectorId": "unknown-key",
+      "case": "UnknownKey",
+      "envelope": {
+        "envelopeVersion": 1,
+        "payloadType": "CoreEngineManifestBody",
+        "payloadDigest": "f74a9ee90e79a89ff3531225211305b2055a14af4bbaccc4ec6ef468162a6804",
+        "algorithm": "Ed25519",
+        "keyId": "test-e320d64edde15468",
+        "trustDomain": "Test",
+        "signature": "237b7399cedb09b845f5b6cc79a225cec59c9e5e733512728bce733fb4b326afdbbb726da24470f6ae6282a6e9670c820ee30df806a631a5b668799cc45cb507",
+        "signedAt": "2026-08-28T00:00:00Z"
+      },
+      "expected": "Rejected",
+      "rejectReason": "TrustRootUnknown"
+    },
+    {
+      "vectorId": "revoked-key",
+      "case": "RevokedKey",
+      "envelope": {
+        "envelopeVersion": 1,
+        "payloadType": "CoreEngineManifestBody",
+        "payloadDigest": "f74a9ee90e79a89ff3531225211305b2055a14af4bbaccc4ec6ef468162a6804",
+        "algorithm": "Ed25519",
+        "keyId": "test-93cab97e65c1e5ff",
+        "trustDomain": "Test",
+        "signature": "b96a7899f68946f850b213da2994f11e6cbf4be9782efe828a4cd8652c322fb80cc1eb0536de3394bac576fd9ad8f21e6ab5980211f8f7cdb1f33b6ce7af3201",
+        "signedAt": "2026-08-28T00:00:00Z"
+      },
+      "expected": "Rejected",
+      "rejectReason": "KeyRevoked"
+    },
+    {
+      "vectorId": "before-not-before",
+      "case": "BeforeNotBefore",
+      "envelope": {
+        "envelopeVersion": 1,
+        "payloadType": "CoreEngineManifestBody",
+        "payloadDigest": "f74a9ee90e79a89ff3531225211305b2055a14af4bbaccc4ec6ef468162a6804",
+        "algorithm": "Ed25519",
+        "keyId": "test-929ebec145050e2a",
+        "trustDomain": "Test",
+        "signature": "15227baac409d2feed7284d9de72e7fcd1ee07bb246df92f2cb82271513aa4366b31bc0cf34863313d535e0836ca98f903f8fcd3b341b6877f19afb1a477bb05",
+        "signedAt": "2026-01-01T00:00:00Z"
+      },
+      "expected": "Rejected",
+      "rejectReason": "TrustPolicyRejected"
+    },
+    {
+      "vectorId": "after-not-after",
+      "case": "AfterNotAfter",
+      "envelope": {
+        "envelopeVersion": 1,
+        "payloadType": "CoreEngineManifestBody",
+        "payloadDigest": "f74a9ee90e79a89ff3531225211305b2055a14af4bbaccc4ec6ef468162a6804",
+        "algorithm": "Ed25519",
+        "keyId": "test-929ebec145050e2a",
+        "trustDomain": "Test",
+        "signature": "15227baac409d2feed7284d9de72e7fcd1ee07bb246df92f2cb82271513aa4366b31bc0cf34863313d535e0836ca98f903f8fcd3b341b6877f19afb1a477bb05",
+        "signedAt": "2030-01-01T00:00:00Z"
+      },
+      "expected": "Rejected",
+      "rejectReason": "TrustPolicyRejected"
+    }
+  ]
+}

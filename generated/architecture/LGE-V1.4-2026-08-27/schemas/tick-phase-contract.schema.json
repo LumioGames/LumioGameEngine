@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/tick-phase-contract.schema.json",
+  "type": "object",
+  "required": ["tickModel", "commitPoint", "phases"],
+  "properties": {
+    "tickModel": { "type": "string", "enum": ["FailStop"] },
+    "commitPoint": { "type": "string", "const": "GasAndEventFinalize" },
+    "phases": {
+      "type": "array",
+      "minItems": 13,
+      "maxItems": 13,
+      "items": {
+        "type": "object",
+        "required": [
+          "phase",
+          "inputs",
+          "writableDomains",
+          "failureClass",
+          "cancelPoint",
+          "overBudgetAction",
+          "visibleToLaterPhases",
+          "repeatTickResult",
+          "isAuthoritativeCommitPoint"
+        ],
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": [
+              "IngressCapture",
+              "DecodeAndCanonicalize",
+              "ApplyInputs",
+              "ProcessorPlan",
+              "CrossWorldPrepare",
+              "NativeJobBarrier",
+              "CommitDecision",
+              "VoxelCommit",
+              "EcsCommandBufferCommit",
+              "GasAndEventFinalize",
+              "ReplicationProjection",
+              "SnapshotHashMetrics",
+              "EgressPublish"
+            ]
+          },
+          "inputs": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" } },
+          "writableDomains": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" } },
+          "failureClass": { "type": "string", "enum": ["BusinessReject", "SessionFault", "ProcessFault"] },
+          "cancelPoint": { "type": "string", "enum": ["BeforeCommit", "NotCancellable"] },
+          "overBudgetAction": { "type": "string", "enum": ["FailStop"] },
+          "visibleToLaterPhases": { "type": "string", "enum": ["WithinTickPrivate", "AfterCommit"] },
+          "repeatTickResult": { "type": "string", "enum": ["IdempotentSame"] },
+          "isAuthoritativeCommitPoint": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

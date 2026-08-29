@@ -1,0 +1,28 @@
+{
+  "machineId": "VoxelSnapshotCapture",
+  "owner": "VoxelEngine",
+  "sourceAdr": "ADR-035",
+  "initialState": "Requested",
+  "states": [
+    "Requested",
+    "Cutting",
+    "Pinned",
+    "Encoding",
+    "Verified",
+    "Ready",
+    "Released",
+    "Cancelled",
+    "Failed"
+  ],
+  "terminalStates": ["Released", "Cancelled", "Failed"],
+  "anyActiveTo": ["Cancelled", "Failed"],
+  "transitions": [
+    { "from": "Requested", "to": "Cutting", "event": "BeginCut" },
+    { "from": "Cutting", "to": "Pinned", "event": "PinEstablished" },
+    { "from": "Pinned", "to": "Encoding", "event": "BeginEncode" },
+    { "from": "Encoding", "to": "Verified", "event": "PayloadVerified" },
+    { "from": "Verified", "to": "Ready", "event": "Publish" },
+    { "from": "Ready", "to": "Released", "event": "ReleasePin" }
+  ],
+  "notes": "Voxel snapshot capture per ADR-035. Ready requires a live pin; an expired pin can never coexist with Ready, and release drops the eviction protection."
+}

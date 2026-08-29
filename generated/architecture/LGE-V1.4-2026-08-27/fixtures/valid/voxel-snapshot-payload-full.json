@@ -1,0 +1,52 @@
+{
+  "kind": "SnapshotPayload",
+  "snapshotId": "snap-srv-arena-24",
+  "scope": "Full",
+  "payloadFormatVersion": 1,
+  "chunkOrder": "CoordXYZAscending",
+  "determinism": "SameCutSameBytes",
+  "cutProjection": {
+    "worldId": "world-srv-arena-01",
+    "context": { "contextId": "wctx-srv-01", "generation": 4 },
+    "tickId": 48,
+    "worldRevision": 24,
+    "chunkRevisionSet": { "c:-1:0:0": 7, "c:0:0:0": 9 },
+    "schemaEpoch": 1
+  },
+  "chunks": [
+    {
+      "chunkId": "c:-1:0:0",
+      "chunkRevision": 7,
+      "byteOffset": 0,
+      "byteLength": 544,
+      "pages": [
+        {
+          "pageIndex": 0,
+          "pageVersion": 7,
+          "encoding": "Sparse",
+          "payloadLength": 512,
+          "hash": "9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c",
+          "compression": "None"
+        }
+      ]
+    },
+    {
+      "chunkId": "c:0:0:0",
+      "chunkRevision": 9,
+      "byteOffset": 544,
+      "byteLength": 32800,
+      "pages": [
+        {
+          "pageIndex": 0,
+          "pageVersion": 9,
+          "encoding": "Dense",
+          "payloadLength": 32768,
+          "hash": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b",
+          "compression": "Zstd"
+        }
+      ]
+    }
+  ],
+  "payloadLength": 33344,
+  "payloadHash": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4"
+}

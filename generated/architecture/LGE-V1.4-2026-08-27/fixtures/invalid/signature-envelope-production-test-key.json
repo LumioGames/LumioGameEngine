@@ -1,0 +1,10 @@
+{
+  "envelopeVersion": 1,
+  "payloadType": "CoreEngineManifestBody",
+  "payloadDigest": "f74a9ee90e79a89ff3531225211305b2055a14af4bbaccc4ec6ef468162a6804",
+  "algorithm": "Ed25519",
+  "keyId": "test-929ebec145050e2a",
+  "trustDomain": "Production",
+  "signature": "15227baac409d2feed7284d9de72e7fcd1ee07bb246df92f2cb82271513aa4366b31bc0cf34863313d535e0836ca98f903f8fcd3b341b6877f19afb1a477bb05",
+  "signedAt": "2026-08-28T00:00:00Z"
+}

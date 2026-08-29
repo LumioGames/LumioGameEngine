@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/trust-profile.schema.json",
+  "type": "object",
+  "required": [
+    "profileId",
+    "baselineId",
+    "schemaEpoch",
+    "signatureProfile",
+    "keyIdRule",
+    "rejectPriority",
+    "trustPolicy",
+    "vectors"
+  ],
+  "properties": {
+    "profileId": { "$ref": "common.schema.json#/$defs/id" },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
+    "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" },
+    "signatureProfile": {
+      "type": "object",
+      "required": [
+        "profileId",
+        "algorithm",
+        "variant",
+        "signatureEncoding",
+        "signatureBytes",
+        "publicKeyEncoding",
+        "publicKeyBytes",
+        "domainSeparator",
+        "preimageFields",
+        "fieldSeparator"
+      ],
+      "properties": {
+        "profileId": { "type": "string", "const": "LumioSignatureV1" },
+        "algorithm": { "type": "string", "const": "Ed25519" },
+        "variant": { "type": "string", "const": "PureEdDSA" },
+        "signatureEncoding": { "type": "string", "const": "RawHexLower" },
+        "signatureBytes": { "type": "integer", "const": 64 },
+        "publicKeyEncoding": { "type": "string", "const": "RawHexLower" },
+        "publicKeyBytes": { "type": "integer", "const": 32 },
+        "domainSeparator": { "type": "string", "const": "LumioSignatureV1" },
+        "preimageFields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "enum": ["domainSeparator", "trustDomain", "payloadType", "payloadDigest"] }
+        },
+        "fieldSeparator": { "type": "string", "const": "0x00" }
+      },
+      "additionalProperties": false
+    },
+    "keyIdRule": {
+      "type": "object",
+      "required": ["scheme", "digest", "hexPrefixLength", "separator"],
+      "properties": {
+        "scheme": { "type": "string", "const": "TrustDomainPrefixedPublicKeyDigest" },
+        "digest": { "type": "string", "const": "SHA-256" },
+        "hexPrefixLength": { "type": "integer", "const": 16 },
+        "separator": { "type": "string", "const": "-" }
+      },
+      "additionalProperties": false
+    },
+    "rejectPriority": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["order", "condition", "rejectReason"],
+        "properties": {
+          "order": { "type": "integer", "minimum": 1 },
+          "condition": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "rejectReason": {
+            "type": "string",
+            "enum": [
+              "SignatureMissing",
+              "TrustRootUnknown",
+              "KeyRevoked",
+              "SignatureInvalid",
+              "TrustPolicyRejected"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "trustPolicy": {
+      "type": "object",
+      "required": ["policyVersion", "trustDomain", "keys"],
+      "properties": {
+        "policyVersion": { "type": "integer", "minimum": 1 },
+        "trustDomain": { "$ref": "common.schema.json#/$defs/trustDomain" },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["keyId", "algorithm", "publicKey", "status", "notBefore", "notAfter"],
+            "properties": {
+              "keyId": { "$ref": "common.schema.json#/$defs/id" },
+              "algorithm": { "$ref": "common.schema.json#/$defs/signatureAlgorithm" },
+              "publicKey": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "status": { "type": "string", "enum": ["Active", "Revoked"] },
+              "notBefore": { "$ref": "common.schema.json#/$defs/timestamp" },
+              "notAfter": { "$ref": "common.schema.json#/$defs/timestamp" },
+              "revokedAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "vectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["vectorId", "case", "envelope", "expected"],
+        "properties": {
+          "vectorId": { "$ref": "common.schema.json#/$defs/id" },
+          "case": {
+            "type": "string",
+            "enum": [
+              "Accept",
+              "TamperedSignature",
+              "TamperedPayloadDigest",
+              "WrongTrustDomain",
+              "UnknownKey",
+              "RevokedKey",
+              "BeforeNotBefore",
+              "AfterNotAfter"
+            ]
+          },
+          "envelope": {
+            "type": "object",
+            "required": ["envelopeVersion", "payloadType", "payloadDigest", "algorithm", "keyId", "trustDomain", "signature", "signedAt"],
+            "properties": {
+              "envelopeVersion": { "type": "integer", "minimum": 1 },
+              "payloadType": { "type": "string", "enum": ["CoreEngineManifestBody"] },
+              "payloadDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+              "algorithm": { "$ref": "common.schema.json#/$defs/signatureAlgorithm" },
+              "keyId": { "$ref": "common.schema.json#/$defs/id" },
+              "trustDomain": { "$ref": "common.schema.json#/$defs/trustDomain" },
+              "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+              "signedAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+            },
+            "additionalProperties": false
+          },
+          "expected": { "type": "string", "enum": ["Trusted", "Rejected"] },
+          "rejectReason": {
+            "type": "string",
+            "enum": [
+              "SignatureMissing",
+              "TrustRootUnknown",
+              "KeyRevoked",
+              "SignatureInvalid",
+              "TrustPolicyRejected"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

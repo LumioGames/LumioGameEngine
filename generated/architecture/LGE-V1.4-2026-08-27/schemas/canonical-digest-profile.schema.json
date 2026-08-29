@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/canonical-digest-profile.schema.json",
+  "type": "object",
+  "required": [
+    "profileId",
+    "baselineId",
+    "schemaEpoch",
+    "canonicalForm",
+    "digestAlgorithm",
+    "digestDomains",
+    "goldens"
+  ],
+  "properties": {
+    "profileId": { "$ref": "common.schema.json#/$defs/id" },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
+    "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" },
+    "canonicalForm": {
+      "type": "object",
+      "required": [
+        "formId",
+        "encoding",
+        "memberOrder",
+        "arrayOrder",
+        "separators",
+        "numbers",
+        "unknownMembers",
+        "duplicateMembers"
+      ],
+      "properties": {
+        "formId": { "type": "string", "const": "CanonicalJsonV1" },
+        "encoding": { "type": "string", "const": "AsciiEscaped" },
+        "memberOrder": { "type": "string", "const": "CodePointAscending" },
+        "arrayOrder": { "type": "string", "const": "DocumentOrder" },
+        "separators": {
+          "type": "object",
+          "required": ["item", "keyValue"],
+          "properties": {
+            "item": { "type": "string", "const": "," },
+            "keyValue": { "type": "string", "const": ":" }
+          },
+          "additionalProperties": false
+        },
+        "numbers": { "type": "string", "const": "IntegerOnly" },
+        "unknownMembers": { "type": "string", "const": "Reject" },
+        "duplicateMembers": { "type": "string", "const": "Reject" }
+      },
+      "additionalProperties": false
+    },
+    "digestAlgorithm": {
+      "type": "object",
+      "required": ["name", "framing"],
+      "properties": {
+        "name": { "type": "string", "const": "SHA-256" },
+        "framing": { "type": "string", "const": "PrefixFreeOverCanonicalBytes" }
+      },
+      "additionalProperties": false
+    },
+    "digestDomains": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["digest", "domainTag", "input", "sortRule", "normalization"],
+        "properties": {
+          "digest": {
+            "type": "string",
+            "enum": [
+              "manifestDigest",
+              "artifactSetDigest",
+              "artifactIndexDigest",
+              "targetProfileDigest",
+              "capabilitySetDigest",
+              "mappingSetHash"
+            ]
+          },
+          "domainTag": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "input": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "sortRule": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "omitMembers": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
+            "uniqueItems": true
+          },
+          "normalization": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "op", "by", "collation"],
+              "properties": {
+                "path": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*(\\.[A-Za-z][A-Za-z0-9]*)*$" },
+                "op": { "type": "string", "enum": ["sortAscending"] },
+                "by": { "type": "string", "pattern": "^(\\$self|[A-Za-z][A-Za-z0-9]*)$" },
+                "collation": { "type": "string", "enum": ["codePoint"] }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "goldens": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "case", "input", "canonicalBytes", "sha256"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/id" },
+          "case": {
+            "type": "string",
+            "enum": [
+              "EmptyArtifactSet",
+              "SingleArtifact",
+              "MultiArtifact",
+              "PathOrderPermutation",
+              "CapabilityOrderPermutation",
+              "EscapeBoundary",
+              "IntegerBoundary",
+              "SchemaVersionChange",
+              "EmptyMappingSet",
+              "MappingOrderPermutation"
+            ]
+          },
+          "input": {},
+          "canonicalBytes": { "type": "string", "minLength": 2, "maxLength": 8192 },
+          "sha256": { "$ref": "common.schema.json#/$defs/hash256" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -21,7 +21,7 @@
 #   → <仓根>/../../LumioGameEngineArchitecture（覆盖主仓与 git worktree 两种布局）。
 #   源仓 origin 远程必须与 lock.repository 一致（允许 .git 后缀差异）。
 #
-# 镜像投影（源路径 → generated/architecture/LGE-V1.2-2026-08-27/ 下相对路径）：
+# 镜像投影（源路径 → generated/architecture/LGE-V1.4-2026-08-27/ 下相对路径）：
 #   schemas/** → schemas/**；ids/** → ids/**；fixtures/** → fixtures/**；
 #   .spec/decisions/** → decisions/**；tools/** → tools/**。
 #   镜像根另有两个工具生成的元文件：generation-record.json（§3.6 生成记录，其 SHA-256 钉在
@@ -42,13 +42,13 @@ export LC_ALL=C
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 lock_file="$repo_root/architecture.lock.json"
 mirror_parent="$repo_root/generated/architecture"
-mirror_root="$mirror_parent/LGE-V1.2-2026-08-27"
-mirror_rel="generated/architecture/LGE-V1.2-2026-08-27"
+mirror_root="$mirror_parent/LGE-V1.4-2026-08-27"
+mirror_rel="generated/architecture/LGE-V1.4-2026-08-27"
 descriptor_rel="$mirror_rel/generation-record.json"
 expected_schema_version=1
 expected_repository="https://github.com/LumioGames/LumioGameEngineArchitecture"
-expected_commit="2d7980d95b163404e33cc6212db13ac948d30d40"
-expected_baseline="LGE-V1.2-2026-08-27"
+expected_commit="1f2ead332b3dfc3042e1495bfbe6febb8699df7e"
+expected_baseline="LGE-V1.4-2026-08-27"
 compiler_rel="tools/sync-architecture.sh"
 compiler_version=1
 record_argv="bash tools/sync-architecture.sh"
@@ -115,7 +115,7 @@ strip_git_suffix() { printf '%s\n' "${1%.git}"; }
     fail "架构源仓身份不符：origin=$origin_url，lock 固定 $expected_repository"
 
 git -C "$src_repo" cat-file -e "${expected_commit}^{commit}" 2>/dev/null ||
-    fail "锁定提交 $expected_commit 在架构源仓中不存在（V1.2 基线不可复现，立即阻塞上报）"
+    fail "锁定提交 $expected_commit 在架构源仓中不存在（V1.4 基线不可复现，立即阻塞上报）"
 
 # ── 读取 lock（默认模式） ──────────────────────────────────────────────────
 if [ "$update_lock" -eq 0 ]; then

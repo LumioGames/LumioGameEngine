@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/processor-descriptor.schema.json",
+  "type": "object",
+  "required": [
+    "processorId",
+    "role",
+    "phase",
+    "query",
+    "readSet",
+    "writeSet",
+    "mayEmitStructuralCommands",
+    "determinismClass",
+    "budget",
+    "diagnosticName"
+  ],
+  "properties": {
+    "processorId": { "$ref": "common.schema.json#/$defs/id" },
+    "role": { "type": "string", "enum": ["Server", "Client", "Shared", "Replay"] },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "IngressCapture",
+        "DecodeAndCanonicalize",
+        "ApplyInputs",
+        "ProcessorPlan",
+        "CrossWorldPrepare",
+        "NativeJobBarrier",
+        "CommitDecision",
+        "VoxelCommit",
+        "EcsCommandBufferCommit",
+        "GasAndEventFinalize",
+        "ReplicationProjection",
+        "SnapshotHashMetrics",
+        "EgressPublish"
+      ]
+    },
+    "query": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "readSet": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" }, "uniqueItems": true },
+    "writeSet": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" }, "uniqueItems": true },
+    "mayEmitStructuralCommands": { "type": "boolean" },
+    "before": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" }, "uniqueItems": true },
+    "after": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" }, "uniqueItems": true },
+    "determinismClass": { "type": "string", "enum": ["Stable", "StableWithOrderedMerge", "PlatformSemantic", "NonAuthoritative"] },
+    "budget": {
+      "type": "object",
+      "required": ["maxMicros", "maxCommands"],
+      "properties": {
+        "maxMicros": { "type": "integer", "minimum": 1 },
+        "maxCommands": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "diagnosticName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{1,127}$" }
+  },
+  "additionalProperties": false
+}

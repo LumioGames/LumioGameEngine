@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/root-abi-bundle.schema.json",
+  "type": "object",
+  "required": [
+    "bundleId",
+    "baselineId",
+    "schemaEpoch",
+    "compiler",
+    "inputSet",
+    "inputHash",
+    "abi",
+    "layoutProfile",
+    "typeMapping",
+    "root",
+    "tables",
+    "outputFiles"
+  ],
+  "properties": {
+    "bundleId": { "$ref": "common.schema.json#/$defs/id" },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
+    "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" },
+    "compiler": {
+      "type": "object",
+      "required": ["name", "version", "digest"],
+      "properties": {
+        "name": { "type": "string", "const": "lumio-abi-compiler" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "digest": { "$ref": "common.schema.json#/$defs/hash256" }
+      },
+      "additionalProperties": false
+    },
+    "inputSet": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][A-Za-z0-9._/-]{0,127}$" }
+    },
+    "inputHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "abi": {
+      "type": "object",
+      "required": [
+        "abiVersion",
+        "entrySymbol",
+        "symbolPrefix",
+        "callingConvention",
+        "pointerWidth",
+        "endianness",
+        "capabilityBits"
+      ],
+      "properties": {
+        "abiVersion": { "type": "integer", "minimum": 1 },
+        "entrySymbol": { "type": "string", "pattern": "^lumio_core_get_api_v[0-9]+$" },
+        "symbolPrefix": { "type": "string", "pattern": "^lumio_[a-z0-9_]*$" },
+        "callingConvention": { "type": "string", "enum": ["C"] },
+        "pointerWidth": { "type": "integer", "enum": [32, 64] },
+        "endianness": { "type": "string", "enum": ["Little", "Big"] },
+        "capabilityBits": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "layoutProfile": {
+      "type": "object",
+      "required": [
+        "targetProfileId",
+        "os",
+        "arch",
+        "abiRuntime",
+        "pointerBytes",
+        "maxAlignment",
+        "rootHeaderBytes",
+        "tableHeaderBytes"
+      ],
+      "properties": {
+        "targetProfileId": { "$ref": "common.schema.json#/$defs/id" },
+        "os": { "type": "string", "enum": ["LinuxServer", "WindowsServer", "WindowsDesktop", "MacDesktop", "iOS", "Android"] },
+        "arch": { "type": "string", "enum": ["x86_64", "arm64"] },
+        "abiRuntime": { "type": "string", "enum": ["glibc", "musl", "msvc", "darwin", "bionic"] },
+        "pointerBytes": { "type": "integer", "enum": [4, 8] },
+        "maxAlignment": { "type": "integer", "enum": [4, 8] },
+        "rootHeaderBytes": { "type": "integer", "minimum": 1 },
+        "tableHeaderBytes": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "typeMapping": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["typeRef", "c", "csharp", "rust", "size", "align"],
+        "properties": {
+          "typeRef": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "c": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "csharp": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "rust": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "size": { "type": "integer", "minimum": 1 },
+          "align": { "type": "integer", "minimum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "root": {
+      "type": "object",
+      "required": ["declaredStructSize", "minimumStructSize", "fields", "tables"],
+      "properties": {
+        "declaredStructSize": { "type": "integer", "minimum": 1 },
+        "minimumStructSize": { "type": "integer", "minimum": 1 },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/field" }
+        },
+        "tables": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "offset"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
+              "offset": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "tables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "declaredStructSize",
+          "minimumStructSize",
+          "reservedSlots",
+          "functionCount",
+          "fields",
+          "slots"
+        ],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
+          "version": { "type": "integer", "minimum": 1 },
+          "declaredStructSize": { "type": "integer", "minimum": 1 },
+          "minimumStructSize": { "type": "integer", "minimum": 1 },
+          "reservedSlots": { "type": "integer", "minimum": 0 },
+          "functionCount": { "type": "integer", "minimum": 1 },
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/field" }
+          },
+          "slots": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["slotIndex", "name", "offset", "returns", "params", "cSignature", "csharpSignature", "rustSignature"],
+              "properties": {
+                "slotIndex": { "type": "integer", "minimum": 0 },
+                "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
+                "offset": { "type": "integer", "minimum": 0 },
+                "returns": { "type": "string", "minLength": 1, "maxLength": 64 },
+                "params": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["name", "typeRef"],
+                    "properties": {
+                      "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+                      "typeRef": { "type": "string", "minLength": 1, "maxLength": 64 }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "cSignature": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                "csharpSignature": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                "rustSignature": { "type": "string", "minLength": 1, "maxLength": 1024 }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "outputFiles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["path", "role", "digest"],
+        "properties": {
+          "path": { "type": "string", "pattern": "^[a-z0-9][A-Za-z0-9._/-]{0,127}$" },
+          "role": { "type": "string", "enum": ["CHeader", "RustBinding", "CSharpBinding"] },
+          "digest": { "$ref": "common.schema.json#/$defs/hash256" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "field": {
+      "type": "object",
+      "required": ["name", "offset", "size", "c", "csharp", "rust"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "offset": { "type": "integer", "minimum": 0 },
+        "size": { "type": "integer", "minimum": 1 },
+        "c": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "csharp": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "rust": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

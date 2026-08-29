@@ -1,0 +1,31 @@
+{
+  "machineId": "ClientReplicaSession",
+  "owner": "Client",
+  "sourceAdr": "ADR-005",
+  "initialState": "Disconnected",
+  "states": [
+    "Disconnected",
+    "Connecting",
+    "Negotiating",
+    "Synchronizing",
+    "Active",
+    "Resyncing",
+    "Reconnecting",
+    "Closed",
+    "Faulted"
+  ],
+  "terminalStates": ["Closed", "Faulted"],
+  "anyActiveTo": ["Closed", "Faulted"],
+  "transitions": [
+    { "from": "Disconnected", "to": "Connecting", "event": "Connect" },
+    { "from": "Connecting", "to": "Negotiating", "event": "ChannelEstablished" },
+    { "from": "Negotiating", "to": "Synchronizing", "event": "HandshakeAccepted" },
+    { "from": "Synchronizing", "to": "Active", "event": "BaselineApplied" },
+    { "from": "Active", "to": "Resyncing", "event": "ResyncRequested" },
+    { "from": "Resyncing", "to": "Active", "event": "ResyncComplete" },
+    { "from": "Active", "to": "Reconnecting", "event": "ConnectionLost" },
+    { "from": "Resyncing", "to": "Reconnecting", "event": "ConnectionLost" },
+    { "from": "Reconnecting", "to": "Synchronizing", "event": "HandshakeAccepted" }
+  ],
+  "notes": "Client-side replica of one session. A sequence gap in Active forces Resyncing per ADR-005; reconnect re-enters through the handshake, never by patching deltas."
+}

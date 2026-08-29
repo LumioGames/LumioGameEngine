@@ -1,0 +1,9 @@
+{
+  "netEntityId": "0000000000000001000000000000000a",
+  "authorityDomain": "client-provisional",
+  "worldEpoch": 7,
+  "sequence": 21,
+  "generation": 1,
+  "namespace": "Authoritative",
+  "lifecycle": "Alive"
+}

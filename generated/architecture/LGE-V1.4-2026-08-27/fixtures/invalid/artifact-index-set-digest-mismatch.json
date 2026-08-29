@@ -1,0 +1,43 @@
+{
+  "indexVersion": 1,
+  "targetProfileId": "linux-server-x86_64-glibc",
+  "entries": [
+    {
+      "path": "evidence/license.spdx.json",
+      "kind": "License",
+      "size": 20480,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "path": "evidence/provenance.json",
+      "kind": "Provenance",
+      "size": 4096,
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "path": "evidence/sbom.cdx.json",
+      "kind": "Sbom",
+      "size": 65536,
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "path": "include/lumio_core.h",
+      "kind": "Header",
+      "size": 32768,
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "path": "lib/liblumio_core.so",
+      "kind": "NativeLibrary",
+      "size": 10485760,
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "path": "lib/liblumio_core.so.dwp",
+      "kind": "DebugSymbols",
+      "size": 5242880,
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  ],
+  "artifactSetDigest": "9999999999999999999999999999999999999999999999999999999999999999"
+}

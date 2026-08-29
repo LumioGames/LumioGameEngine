@@ -1,0 +1,42 @@
+{
+  "kind": "DiffPayload",
+  "snapshotId": "snap-srv-arena-24-stale-diff",
+  "scope": "Full",
+  "payloadFormatVersion": 1,
+  "chunkOrder": "CoordXYZAscending",
+  "determinism": "SameCutSameBytes",
+  "cutProjection": {
+    "worldId": "world-srv-arena-01",
+    "context": { "contextId": "wctx-srv-01", "generation": 4 },
+    "tickId": 48,
+    "worldRevision": 24,
+    "chunkRevisionSet": { "c:0:0:0": 9 },
+    "schemaEpoch": 1
+  },
+  "base": {
+    "baseSnapshotId": "snap-srv-arena-24",
+    "baseWorldRevision": 24
+  },
+  "worldRevisionAdvance": 0,
+  "chunks": [
+    {
+      "chunkId": "c:0:0:0",
+      "chunkRevision": 9,
+      "byteOffset": 0,
+      "byteLength": 32800,
+      "pages": [
+        {
+          "pageIndex": 0,
+          "pageVersion": 9,
+          "encoding": "Dense",
+          "payloadLength": 32768,
+          "hash": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b",
+          "compression": "Zstd"
+        }
+      ]
+    }
+  ],
+  "removedChunkIds": [],
+  "payloadLength": 32800,
+  "payloadHash": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+}

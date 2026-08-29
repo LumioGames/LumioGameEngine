@@ -1,0 +1,31 @@
+{
+  "queryId": "query-aoi-0001",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "consistency": "LatestAtBegin",
+  "boundWorldRevision": 24,
+  "ranges": [
+    {
+      "min": { "x": -64, "y": 0, "z": -64 },
+      "max": { "x": 63, "y": 127, "z": 63 }
+    }
+  ],
+  "limits": { "maxResults": 4096, "maxBatchBytes": 65536, "deadlineTick": 48 },
+  "status": "Pending",
+  "chunkStatuses": [
+    { "chunkId": "c:0:0:0", "presence": "Ready", "chunkRevision": 9 },
+    { "chunkId": "c:-1:0:0", "presence": "Ready", "chunkRevision": 7 },
+    { "chunkId": "c:-1:0:-1", "presence": "Pending" },
+    { "chunkId": "c:1:0:1", "presence": "NotLoaded" }
+  ],
+  "batches": [
+    {
+      "batchIndex": 0,
+      "reads": [
+        { "coord": { "x": -1, "y": 64, "z": 5 }, "value": 42 },
+        { "coord": { "x": 12, "y": 64, "z": -33 }, "value": 7 }
+      ]
+    }
+  ],
+  "continuation": { "token": "query-aoi-0001-c1", "boundWorldRevision": 24 }
+}

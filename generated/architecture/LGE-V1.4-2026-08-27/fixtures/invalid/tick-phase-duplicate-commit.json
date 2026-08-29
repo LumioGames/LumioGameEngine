@@ -1,0 +1,201 @@
+{
+  "tickModel": "FailStop",
+  "commitPoint": "GasAndEventFinalize",
+  "phases": [
+    {
+      "phase": "IngressCapture",
+      "inputs": [
+        "HostIngress"
+      ],
+      "writableDomains": [
+        "IngressQueue"
+      ],
+      "failureClass": "ProcessFault",
+      "cancelPoint": "BeforeCommit",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "WithinTickPrivate",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": true
+    },
+    {
+      "phase": "DecodeAndCanonicalize",
+      "inputs": [
+        "IngressQueue"
+      ],
+      "writableDomains": [
+        "CanonicalCommandSet"
+      ],
+      "failureClass": "BusinessReject",
+      "cancelPoint": "BeforeCommit",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "WithinTickPrivate",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "ApplyInputs",
+      "inputs": [
+        "CanonicalCommandSet"
+      ],
+      "writableDomains": [
+        "InputApplySet"
+      ],
+      "failureClass": "BusinessReject",
+      "cancelPoint": "BeforeCommit",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "WithinTickPrivate",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "ProcessorPlan",
+      "inputs": [
+        "ProcessorDescriptors"
+      ],
+      "writableDomains": [
+        "ProcessorPlan"
+      ],
+      "failureClass": "SessionFault",
+      "cancelPoint": "BeforeCommit",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "WithinTickPrivate",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "CrossWorldPrepare",
+      "inputs": [
+        "Commands"
+      ],
+      "writableDomains": [
+        "PreparedGameDelta"
+      ],
+      "failureClass": "BusinessReject",
+      "cancelPoint": "BeforeCommit",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "WithinTickPrivate",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "NativeJobBarrier",
+      "inputs": [
+        "NativeJobs"
+      ],
+      "writableDomains": [
+        "NativeCompletions"
+      ],
+      "failureClass": "ProcessFault",
+      "cancelPoint": "BeforeCommit",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "WithinTickPrivate",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "CommitDecision",
+      "inputs": [
+        "PreparedGameDelta"
+      ],
+      "writableDomains": [
+        "CommitIntent"
+      ],
+      "failureClass": "SessionFault",
+      "cancelPoint": "BeforeCommit",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "WithinTickPrivate",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "VoxelCommit",
+      "inputs": [
+        "CommitIntent"
+      ],
+      "writableDomains": [
+        "VoxelWorld"
+      ],
+      "failureClass": "ProcessFault",
+      "cancelPoint": "NotCancellable",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "WithinTickPrivate",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "EcsCommandBufferCommit",
+      "inputs": [
+        "CommitIntent"
+      ],
+      "writableDomains": [
+        "GameWorld"
+      ],
+      "failureClass": "ProcessFault",
+      "cancelPoint": "NotCancellable",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "WithinTickPrivate",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "GasAndEventFinalize",
+      "inputs": [
+        "GameWorld"
+      ],
+      "writableDomains": [
+        "GasEvents"
+      ],
+      "failureClass": "ProcessFault",
+      "cancelPoint": "NotCancellable",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "AfterCommit",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": true
+    },
+    {
+      "phase": "ReplicationProjection",
+      "inputs": [
+        "GasEvents"
+      ],
+      "writableDomains": [
+        "ReplicationView"
+      ],
+      "failureClass": "ProcessFault",
+      "cancelPoint": "NotCancellable",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "AfterCommit",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "SnapshotHashMetrics",
+      "inputs": [
+        "ReplicationView"
+      ],
+      "writableDomains": [
+        "SnapshotHash"
+      ],
+      "failureClass": "ProcessFault",
+      "cancelPoint": "NotCancellable",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "AfterCommit",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    },
+    {
+      "phase": "EgressPublish",
+      "inputs": [
+        "ReplicationView"
+      ],
+      "writableDomains": [
+        "EgressQueue"
+      ],
+      "failureClass": "ProcessFault",
+      "cancelPoint": "NotCancellable",
+      "overBudgetAction": "FailStop",
+      "visibleToLaterPhases": "AfterCommit",
+      "repeatTickResult": "IdempotentSame",
+      "isAuthoritativeCommitPoint": false
+    }
+  ]
+}

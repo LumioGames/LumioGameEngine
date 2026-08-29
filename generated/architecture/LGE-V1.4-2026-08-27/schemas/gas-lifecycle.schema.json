@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/gas-lifecycle.schema.json",
+  "type": "object",
+  "allOf": [
+    { "$ref": "common.schema.json#/$defs/stateTransitionEvent" }
+  ],
+  "required": ["machine", "instanceId", "fromState", "toState", "event"],
+  "properties": {
+    "machine": { "type": "string", "enum": ["Ability", "Effect"] },
+    "instanceId": { "$ref": "common.schema.json#/$defs/id" },
+    "fromState": { "$ref": "common.schema.json#/$defs/stateName" },
+    "toState": { "$ref": "common.schema.json#/$defs/stateName" },
+    "event": { "$ref": "common.schema.json#/$defs/id" },
+    "handleValid": { "type": "boolean" },
+    "predicted": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}
