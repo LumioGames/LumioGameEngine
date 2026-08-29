@@ -12,3 +12,10 @@ publish.workspace = true
 # 禁止 KMS/Signer/测试密钥/网络 client/build-tool feature。
 [features]
 default = []
+
+[dependencies]
+# ADR 0004 第 3 条冻结的允许边：root-abi -> contracts。
+# 公共 ErrorCode 与已发布 ABI 标量的唯一来源，本 crate 不发明任何一项（规格 §6.2）。
+# 带 version 而非纯 path：deny.toml 的 `wildcards = "deny"` 把无版本的 path
+# 依赖判为通配符依赖。版本与 [workspace.package] 的 0.1.0 一致。
+lumio-core-contracts = { path = "../contracts", version = "0.1.0" }
