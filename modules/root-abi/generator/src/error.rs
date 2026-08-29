@@ -12,6 +12,10 @@ pub enum AbiGenerationErrorKind {
     /// 锁定 compiler 的 SHA-256 与上游 bundle 声明的 `compiler.digest` 不符。
     CompilerDigestMismatch,
     /// 调用锁定 compiler 失败（进程起不来、非零退出、输出不可解析）。
+    ///
+    /// 这一桶同时覆盖两类：**宿主环境缺失**（python3 没装）与 **ABI 内容非法**
+    /// （上游 validator 拒绝了 ABI 文档）。都归 exit 3，不要按码值反推语义——
+    /// 为前者单开一条码路，收益不抵成本，而错误消息本身一眼可辨。
     CompilerInvocationFailed,
     /// 输入集合摘要与上游 bundle 声明的 `inputHash` 不符。
     InputHashMismatch,

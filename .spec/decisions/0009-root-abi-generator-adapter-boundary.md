@@ -66,9 +66,15 @@ LCE-P0-005 要把架构源的 Root ABI 制品接进本仓。规格 §8.3 给了 
 规则：`AbiCompatibilityReport` 的每个字段只能反映**本次真的做过**的检查。做不到的项要么
 补上检查，要么改成能表达「未做此项」的形式，不得填 `true`。
 
-`verify_generated` 不跑 validator（回读校验必须能在没有工具链的机器上进行），它的
-schema/semantic 依据是 descriptor 记录的 `validatorRan` —— 而 descriptor 已被逐字节重建
-校验，这条记录改不动。
+`verify_generated` 不跑 validator（回读校验必须能在没有工具链的机器上进行）。它的
+schema/semantic 依据是「descriptor 以 `validatorRan: true` 重建后逐字节相符」——重建时传的是
+**字面量** `true`，不是从 descriptor 读回来的值。
+
+这个区别是本 ADR 第 1 节判据的直接应用，也是第一版修复踩过的坑：把 `validatorRan` 与
+`entrySymbol` 从被校验对象自己取回去参与重建，逐字节比对对这两个字段就恒真，改它们
+`verify-generated` 直接 exit 0。**回读期无法外部重建的字段，不要假装它受保护**——要么以
+字面量参与重建（等于「取值不符即拒收」），要么换一个有外部真值的来源。`entrySymbol` 属
+后者：它的外部真值是镜像里的 ABI 文档，已被 inputHash → bundle → lock 钉死。
 
 ### 4. 上游输出集合以上游为准
 
@@ -88,7 +94,9 @@ contract root，用完即删。镜像本身不动（受 lock 约束且已置只�
 - 生成与回读各多读一次 lock 与镜像输入，代价是几个文件的 I/O，换来锚点不可被就地移动。
 - `check-generated` 与 `check-contracts` 的职责仍然分离（后者管镜像整体完整性），但本卡不再
   依赖调用者「记得两条都跑」——bundle 对 lock 的校验在生成器内部完成。
-- LCE-P0-014 / LCE-P0-008 等消费 `AbiCompatibilityReport` 的卡，可以按字段面信任它，因为每个
-  字段都对应一次真实检查。
+- LCE-P0-014 / LCE-P0-008 等消费 `AbiCompatibilityReport` 的卡，可以按字段面信任它：每个字段
+  要么对应本次真实执行的检查（`symbols_valid`、三项 layout、两个 hash），要么对应一条
+  「不满足即在返回之前失败」的前置（`schema_valid` / `semantic_rules_valid`——它们为 true
+  的唯一路径是 descriptor 以 `validatorRan: true` 重建成功）。没有字段是无条件常量。
 - 本 ADR 不改变 ADR 0001—0004、0006、0008 的任何边界，不新增依赖边（`root-abi-generator ->
   composition` 在 ADR 0004 第 3 条冻结的允许边内），不定义任何公共 Schema / ID / FFI 语义。

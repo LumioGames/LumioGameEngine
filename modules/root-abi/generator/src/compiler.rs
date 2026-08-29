@@ -99,13 +99,19 @@ pub(crate) struct CompilerOutput {
     pub(crate) compiler_version: String,
     #[serde(rename = "bundleId")]
     pub(crate) bundle_id: String,
-    /// 上游 ABI 文档在架构源树内的相对路径——本仓据此把它锚回 `inputSet`。
+    /// compiler 自报的 ABI 文档路径。**不作为路径来源**（那份由
+    /// `input_set::abi_document_path` 给出并断言在 `inputSet` 内），只用来交叉核对：
+    /// 两者不一致说明上游改了 `ABI_DOCUMENT` 而本仓常量没跟上。
     #[serde(rename = "abiDocumentPath")]
     pub(crate) abi_document_path: String,
     #[serde(rename = "entrySymbol")]
     pub(crate) entry_symbol: String,
     /// 上游 `validate_abi_document` 已执行的凭据。DRIVER 里它在任何 emit 之前调用，
-    /// 抛异常即整个进程非零退出，所以这个字段为 true 等价于「校验通过」。
+    /// 抛异常即整个进程非零退出——所以**在生成期**这个字段为 true 等价于校验通过。
+    ///
+    /// 回读期不同：它记录的是一个已经过去的事件，无法从任何外部真值重建。
+    /// `verify_generated` 因此不读它，而是以字面量 `true` 参与 descriptor 重建
+    /// ——自称没跑过 validator 的制品会因字节不符被拒收。
     #[serde(rename = "validatorRan")]
     pub(crate) validator_ran: bool,
 }
@@ -151,8 +157,8 @@ fn build_contract_root(
         format!("{:016x}", hasher.finish())
     };
     let root = std::env::temp_dir().join(format!("lce-abi-contract-root-{nonce}"));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).map_err(|e| {
+    // 排他创建，与 publish.rs 同一口径：撞名应当报错，不是静默复用别人的目录。
+    std::fs::create_dir(&root).map_err(|e| {
         err(
             AbiGenerationErrorKind::CompilerInvocationFailed,
             format!("创建 compiler 运行根目录失败：{e}"),

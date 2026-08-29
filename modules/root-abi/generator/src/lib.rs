@@ -237,7 +237,17 @@ fn build_files(request: &GenerateAbiRequest) -> Result<BuiltArtifacts, AbiGenera
     //    - ABI 文档锚回镜像里 `inputSet` 声明的那一份（已被 inputHash 钉死）；
     //    - layout report 锚回本次由上游 layoutProfile 现算的内容。
     let abi_document = produced.abi_document.into_bytes();
-    let mirrored_abi = mirror.join(&produced.abi_document_path);
+    let abi_document_path = input_set::abi_document_path(&bundle)?;
+    if produced.abi_document_path != abi_document_path {
+        return Err(err(
+            AbiGenerationErrorKind::BlockedOnArchitectureGate,
+            format!(
+                "上游 ABI_DOCUMENT 变成了 {}，本仓常量仍是 {abi_document_path}",
+                produced.abi_document_path
+            ),
+        ));
+    }
+    let mirrored_abi = mirror.join(abi_document_path);
     let mirrored_bytes = std::fs::read(&mirrored_abi)
         .map_err(|e| invalid(format!("读取 {} 失败：{e}", mirrored_abi.display())))?;
     if abi_document != mirrored_bytes {
@@ -427,7 +437,7 @@ pub fn verify_generated(
     // metadata/ 与 reports/ 的独立锚点。没有这两条，它们唯一的约束是 descriptor 的
     // fileDigests——而 descriptor 正是从同一批盘上字节重建出来的，被背书者与背书者同源，
     // 整份替换 ABI 文档再重建 descriptor 即可全绿（审查实测）。
-    let mirrored_abi = mirror.join(input_set::ABI_DOCUMENT_SOURCE_PATH);
+    let mirrored_abi = mirror.join(input_set::abi_document_path(&bundle)?);
     let mirrored_bytes = std::fs::read(&mirrored_abi)
         .map_err(|e| invalid(format!("读取 {} 失败：{e}", mirrored_abi.display())))?;
     let published_abi = files
@@ -462,20 +472,29 @@ pub fn verify_generated(
     // descriptor 自身也必须被校验。按同一规则重建后逐字节比对——
     // 「它记的每一条都对得上」证明不了「它自己没被改」：往末尾加一个空格，
     // 前一种检查全绿。
+    // 重建的每一个字段都必须来自**外部**真值，一个都不能从 descriptor 自己取回去
+    // ——那样逐字节比对对该字段恒真（ADR 0009 第 1 节：被背书者与背书者必须不同源）。
+    //
+    // entrySymbol：从镜像的 ABI 文档解析。那份已被 inputHash → bundle → lock 钉死，
+    // 是这里唯一的外部真值。
+    let mirrored_abi_document: serde_json::Value = serde_json::from_slice(&mirrored_bytes)
+        .map_err(|e| invalid(format!("解析 {} 失败：{e}", mirrored_abi.display())))?;
+    let entry_symbol = mirrored_abi_document
+        .get("entrySymbol")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| invalid("镜像 ABI 文档缺少 entrySymbol".to_string()))?;
+
+    // validatorRan 记录的是**生成期事件**，回读期不可能外部重建。所以不假装它受保护：
+    // 这里直接传字面量 true——descriptor 里任何非 true 的取值都会造成字节不符而硬失败，
+    // 语义上等于「自称 validator 没跑过的制品一律拒收」。
     let rebuilt = canonical_json(&build_descriptor(
         &bundle,
         &lock,
         &input_hash,
         &output_hash,
         &files,
-        descriptor
-            .get("validatorRan")
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false),
-        descriptor
-            .get("entrySymbol")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or_default(),
+        true,
+        entry_symbol,
         &input_file_digests,
     ))?;
     let actual_descriptor = std::fs::read(&descriptor_path)
@@ -498,18 +517,12 @@ pub fn verify_generated(
     // 报告只声称**本次真的做过**的检查。
     //
     // schema / semantic：`verify_generated` 不跑上游 validator（它需要锁定 compiler 在场，
-    // 而回读校验必须能在没有工具链的机器上进行）。这两项的依据是 descriptor 记录的
-    // `validatorRan` —— 生成期由上游 `validate_abi_document` 实际执行并在失败时中止；
-    // descriptor 本身已被逐字节重建校验过，所以这条记录改不动。
-    // symbols：真查一次——ABI 文档声明的 entrySymbol 必须出现在发布的 C Header 里。
-    let validator_ran = descriptor
-        .get("validatorRan")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false);
-    let entry_symbol = descriptor
-        .get("entrySymbol")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default();
+    // 而回读校验必须能在没有工具链的机器上进行）。这两项的依据是「descriptor 以
+    // `validatorRan: true` 重建后逐字节相符」——上面的 rebuild 传的是字面量 true，
+    // 所以走到这里就意味着该制品是在 validator 跑过的前提下产出的；否则已经失败返回。
+    let validator_ran = true;
+    // symbols：用**镜像**里的 entrySymbol（外部真值）去查发布的 C Header，
+    // 不用 descriptor 自报的那个——否则是拿被校验对象的说法去校验它自己。
     let header = files
         .get("include/lumio_core.h")
         .map(|bytes| String::from_utf8_lossy(bytes).into_owned())

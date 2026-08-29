@@ -363,3 +363,69 @@ fn baseline_id() -> String {
     let end = start + lock[start..].find('"').expect("引号结束");
     lock[start..end].to_string()
 }
+
+/// descriptor 里**任何**字段被替换都必须失败，包括那些回读期无法从外部重建的。
+///
+/// 首次修 P1-4 时，`validatorRan` 与 `entrySymbol` 在重建时是从 descriptor 自己取回去的
+/// ——逐字节比对对它们恒真，改这两个字段 `verify-generated` 直接 exit 0。这是 ADR 0009
+/// 第 1 节判据（被背书者与背书者必须不同源）的违例，也正好落在
+/// `hand_editing_…`（往文件**追加**一个空格）的形状之外：追加会被抓到，**替换**不会。
+#[test]
+fn replacing_a_self_reported_descriptor_field_is_caught() {
+    require_compiler!();
+    let lock = repo_root().join("architecture.lock.json");
+
+    for (which, (key, value)) in [
+        ("validatorRan", serde_json::Value::Bool(false)),
+        (
+            "entrySymbol",
+            serde_json::Value::String("lumio".to_string()),
+        ),
+        (
+            "entrySymbol",
+            serde_json::Value::String("definitely_not_in_header".to_string()),
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let out = temp_out(&format!("self-reported-{which}"));
+        generate(request(out.clone())).expect("生成成功");
+        let descriptor_path = out.join("generated-contract-artifact.json");
+
+        let mut permissions = std::fs::metadata(&descriptor_path)
+            .expect("取权限")
+            .permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        std::fs::set_permissions(&descriptor_path, permissions).expect("恢复写权限");
+
+        let mut descriptor: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&descriptor_path).expect("读 descriptor"))
+                .expect("解析 descriptor");
+        descriptor[key] = value.clone();
+        let mut bytes = serde_json::to_vec(&descriptor).expect("重新序列化");
+        bytes.push(b'\n');
+        std::fs::write(&descriptor_path, &bytes).expect("写回");
+
+        let error = verify_generated(&out, &lock)
+            .unwrap_err_or_panic(&format!("{key} 被替换为 {value} 后必须失败"));
+        assert_eq!(error.kind(), AbiGenerationErrorKind::OutputHashMismatch);
+        let _ = std::fs::remove_dir_all(&out);
+    }
+}
+
+/// `expect_err` 需要 Ok 侧实现 Debug；`AbiCompatibilityReport` 有，但这里想带上自定义
+/// 消息说明是哪一组输入，故自己写一个。
+trait UnwrapErrOrPanic<T, E> {
+    fn unwrap_err_or_panic(self, message: &str) -> E;
+}
+
+impl<T, E> UnwrapErrOrPanic<T, E> for Result<T, E> {
+    fn unwrap_err_or_panic(self, message: &str) -> E {
+        match self {
+            Ok(_) => panic!("{message}"),
+            Err(error) => error,
+        }
+    }
+}

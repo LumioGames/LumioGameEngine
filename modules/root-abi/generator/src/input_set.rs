@@ -74,8 +74,33 @@ pub(crate) fn mirror_root(workspace_root: &Path, lock: &ArchitectureLock) -> Pat
 /// 上游 bundle 在架构源树内的路径，也是它在 lock `requiredPathSha256` 里的键。
 pub(crate) const BUNDLE_SOURCE_PATH: &str = "packages/abi/root-abi-bundle.json";
 
-/// 上游 ABI 文档在架构源树内的路径（上游 `ABI_DOCUMENT`），也在 `inputSet` 内。
-pub(crate) const ABI_DOCUMENT_SOURCE_PATH: &str = "fixtures/valid/native-managed-abi.json";
+/// 上游 ABI 文档在架构源树内的路径（上游 `ABI_DOCUMENT`）。
+///
+/// 「它在 `inputSet` 内」是把它当锚点的**前提**——不在的话它就没被 inputHash 钉住，
+/// 拿它去锚 metadata/ 等于换了个自证。所以这条前提由 [`abi_document_path`] 每次断言，
+/// 不靠这行注释。
+const ABI_DOCUMENT_SOURCE_PATH: &str = "fixtures/valid/native-managed-abi.json";
+
+/// 取 ABI 文档路径，并断言它确实在 `inputSet` 里。
+pub(crate) fn abi_document_path(
+    bundle: &RootAbiBundle,
+) -> Result<&'static str, AbiGenerationError> {
+    if !bundle
+        .input_set
+        .iter()
+        .any(|entry| entry == ABI_DOCUMENT_SOURCE_PATH)
+    {
+        return Err(err(
+            AbiGenerationErrorKind::BlockedOnArchitectureGate,
+            format!(
+                "{ABI_DOCUMENT_SOURCE_PATH} 不在上游 inputSet {:?} 内：\
+                 它没有被 inputHash 钉住，不能充当 metadata/ 的锚点",
+                bundle.input_set
+            ),
+        ));
+    }
+    Ok(ABI_DOCUMENT_SOURCE_PATH)
+}
 
 /// 读取并**对着 lock 校验**上游 bundle。
 ///
@@ -122,24 +147,6 @@ pub(crate) fn read_bundle_verified(
             .map_err(|e| invalid(format!("{} 不是 UTF-8：{e}", path.display())))?,
     )
     .map_err(|e| invalid(format!("解析 {} 失败：{e}", path.display())))
-}
-
-#[allow(dead_code)]
-pub(crate) fn read_bundle(mirror: &Path) -> Result<RootAbiBundle, AbiGenerationError> {
-    let path = mirror.join("packages/abi/root-abi-bundle.json");
-    // bundle 不在镜像里 = 上游还没把本仓列为 Root ABI 的 consumer = AG-001 对本仓未关闭。
-    // 这时不得回退到本仓模板（卡面 blocked 行为）。
-    let text = std::fs::read_to_string(&path).map_err(|e| {
-        err(
-            AbiGenerationErrorKind::BlockedOnArchitectureGate,
-            format!(
-                "上游 Root ABI bundle 不可用（{}：{e}）；AG-001 对本仓未关闭，\
-                 不得回退本仓模板",
-                path.display()
-            ),
-        )
-    })?;
-    serde_json::from_str(&text).map_err(|e| invalid(format!("解析 {} 失败：{e}", path.display())))
 }
 
 /// 复算 Input Hash 与**逐文件**摘要（规格 §3.6「输入逐文件摘要」）。
