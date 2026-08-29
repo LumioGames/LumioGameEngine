@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/config-table.schema.json",
+  "type": "object",
+  "required": ["tableId", "schemaVersion", "configRevision", "generatedAt", "sourceHash", "columns", "rows", "activation"],
+  "properties": {
+    "tableId": { "$ref": "common.schema.json#/$defs/id" },
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "configRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "generatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "sourceHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "columns": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "required"],
+        "properties": {
+          "name": { "$ref": "common.schema.json#/$defs/id" },
+          "type": { "type": "string", "enum": ["bool", "i32", "i64", "u32", "u64", "f32", "f64", "string", "enum", "ref"] },
+          "required": { "type": "boolean" },
+          "minimum": { "type": "number" },
+          "maximum": { "type": "number" },
+          "enumValues": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true },
+          "refTarget": { "$ref": "common.schema.json#/$defs/id" },
+          "defaultValue": {}
+        },
+        "additionalProperties": false
+      },
+      "uniqueItems": true
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "values"],
+        "properties": {
+          "key": { "$ref": "common.schema.json#/$defs/id" },
+          "values": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "activation": { "type": "string", "enum": ["DevelopmentHotLoad", "ProductionSignedSwitch"] },
+    "signature": { "type": "string", "maxLength": 4096 }
+  },
+  "additionalProperties": false
+}

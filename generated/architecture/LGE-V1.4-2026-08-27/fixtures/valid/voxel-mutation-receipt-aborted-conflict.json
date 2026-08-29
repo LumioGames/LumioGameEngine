@@ -1,0 +1,16 @@
+{
+  "kind": "ParticipantReceipt",
+  "sessionId": "session-001",
+  "txnId": "txn-place-0002",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "state": "Aborted",
+  "preparedVoxelToken": "voxel-reservation-0002",
+  "leaseDeadlineTick": 55,
+  "expectedVoxelRevision": 23,
+  "expectedChunkRevisionSet": { "c:0:0:0": 8 },
+  "observedVoxelRevision": 25,
+  "observedChunkRevisionSet": { "c:0:0:0": 10 },
+  "abortReason": "RevisionConflict",
+  "durabilityModel": "CoDurableWithWorldState"
+}

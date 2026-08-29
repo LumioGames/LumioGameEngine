@@ -1,0 +1,29 @@
+{
+  "productId": "A",
+  "gameReleaseId": "A-1.1.0",
+  "manifestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "serverAssemblyHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "clientAssemblyHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "gameplayContractHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "runtimeApi": "RuntimeApiV1",
+  "coreEngineAbi": "NativeManagedAbiV1",
+  "networkProtocol": "LumioWireV1",
+  "voxelSchema": "VoxelSchemaV1",
+  "voxelMigration": "VoxelMigrationV1",
+  "configContentHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "coreEnginePackage": {
+    "packageId": "coreengine-linux-server-x86_64",
+    "manifestDigest": "9999999999999999999999999999999999999999999999999999999999999999",
+    "artifactSetDigest": "7777777777777777777777777777777777777777777777777777777777777777",
+    "abiIdentity": "NativeManagedAbiV1",
+    "targetProfileDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "capabilitySetDigest": "abababababababababababababababababababababababababababababababab",
+    "signatureEnvelopeDigest": "8888888888888888888888888888888888888888888888888888888888888888"
+  },
+  "signature": { "algorithm": "Ed25519", "keyId": "release-key-1", "signature": "sig-a-1.1-placeholder-00000000000000000000000000000000" },
+  "sbom": { "format": "CycloneDX", "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "dependencyCount": 42 },
+  "capabilities": ["Native", "Server", "Client", "Replay"],
+  "compatibilityPolicy": "ExactRelease",
+  "serverReleaseId": "A-1.1.0",
+  "clientReleaseId": "A-1.1.0"
+}

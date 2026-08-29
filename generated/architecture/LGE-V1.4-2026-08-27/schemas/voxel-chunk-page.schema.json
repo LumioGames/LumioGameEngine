@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/voxel-chunk-page.schema.json",
+  "type": "object",
+  "required": ["chunkId", "coord", "chunkState", "dataGeneration", "chunkRevision", "pages"],
+  "$defs": {
+    "voxelChunkState": {
+      "type": "string",
+      "enum": ["Unallocated", "Loading", "Ready", "Dirty", "Evicting", "Unloaded", "Failed"]
+    },
+    "voxelPageEncoding": {
+      "type": "string",
+      "enum": ["Dense", "Sparse"]
+    },
+    "voxelPage": {
+      "type": "object",
+      "required": ["pageIndex", "pageVersion", "encoding", "payloadLength", "hash", "compression"],
+      "properties": {
+        "pageIndex": { "type": "integer", "minimum": 0 },
+        "pageVersion": { "$ref": "common.schema.json#/$defs/revision" },
+        "encoding": { "$ref": "#/$defs/voxelPageEncoding" },
+        "payloadLength": { "type": "integer", "minimum": 0 },
+        "hash": { "$ref": "common.schema.json#/$defs/hash256" },
+        "compression": { "$ref": "common.schema.json#/$defs/compressionCodec" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "chunkId": { "$ref": "common.schema.json#/$defs/voxelChunkId" },
+    "coord": { "$ref": "common.schema.json#/$defs/voxelChunkCoord" },
+    "chunkState": { "$ref": "#/$defs/voxelChunkState" },
+    "dataGeneration": { "$ref": "common.schema.json#/$defs/revision" },
+    "chunkRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "pages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/voxelPage" },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/voxel-revision-stamp.schema.json",
+  "type": "object",
+  "required": ["worldId", "context", "worldRevision", "chunkRevisionSet"],
+  "properties": {
+    "worldId": { "$ref": "common.schema.json#/$defs/id" },
+    "context": { "$ref": "common.schema.json#/$defs/voxelContext" },
+    "tickId": { "$ref": "common.schema.json#/$defs/tickId" },
+    "worldRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "chunkRevisionSet": { "$ref": "common.schema.json#/$defs/voxelChunkRevisionSet" },
+    "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" }
+  },
+  "additionalProperties": false
+}

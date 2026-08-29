@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/failure-bundle.schema.json",
+  "type": "object",
+  "required": ["failureId", "reasonCode", "incidentKind", "createdAt", "correlation", "manifestHash", "artifacts", "reproducible"],
+  "properties": {
+    "failureId": { "$ref": "common.schema.json#/$defs/id" },
+    "reasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+    "incidentKind": { "type": "string", "enum": ["Simulation", "CoreEngineLoad", "SupplyChain", "BuildValidation"] },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "correlation": { "$ref": "common.schema.json#/$defs/correlation" },
+    "manifestHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "snapshotId": { "$ref": "common.schema.json#/$defs/id" },
+    "noSnapshotReason": { "type": "string", "enum": ["PreFirstSnapshot", "BootstrapFault", "LoaderFailed"] },
+    "bootstrapPhase": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "lastKnownRevision": { "$ref": "common.schema.json#/$defs/sessionRevisionVector" },
+    "lastKnownManifest": { "$ref": "common.schema.json#/$defs/hash256" },
+    "coreEngine": {
+      "type": "object",
+      "required": ["packageIdentity", "loaderState", "errorCode"],
+      "properties": {
+        "packageIdentity": { "$ref": "common.schema.json#/$defs/packageIdentity" },
+        "loaderState": { "type": "string", "enum": ["Uninitialized", "Preflighting", "Verified", "Binding", "ApiReady", "Leased", "Quiescing", "Released", "FailedRolledBack"] },
+        "errorCode": { "$ref": "common.schema.json#/$defs/id" },
+        "trustDecision": { "type": "string", "enum": ["Trusted", "Rejected"] }
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "sha256", "size"],
+        "properties": {
+          "name": { "$ref": "common.schema.json#/$defs/id" },
+          "sha256": { "$ref": "common.schema.json#/$defs/hash256" },
+          "size": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "reproducible": { "type": "boolean" },
+    "replayCommand": { "type": "string", "maxLength": 1024 },
+    "redacted": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/voxel-world-port.schema.json",
+  "type": "object",
+  "required": [
+    "portVersion",
+    "worldId",
+    "role",
+    "context",
+    "schemaEpoch",
+    "capabilities",
+    "resourceBudget",
+    "lifecycleState",
+    "handleModel",
+    "portMethods",
+    "portErrors"
+  ],
+  "$defs": {
+    "voxelWorldRole": {
+      "type": "string",
+      "enum": ["Authority", "Replica"]
+    },
+    "voxelWorldLifecycleState": {
+      "type": "string",
+      "enum": [
+        "Created",
+        "Initializing",
+        "Ready",
+        "Running",
+        "Quiescing",
+        "Snapshotting",
+        "Reloading",
+        "Migrating",
+        "Stopping",
+        "Destroyed",
+        "Faulted"
+      ]
+    },
+    "voxelPortMethod": {
+      "type": "string",
+      "enum": [
+        "createWorld",
+        "query",
+        "prepareMutation",
+        "commit",
+        "abort",
+        "status",
+        "capture",
+        "applyDurabilityAck",
+        "restore",
+        "quiesce",
+        "destroy"
+      ]
+    }
+  },
+  "properties": {
+    "portVersion": { "type": "integer", "minimum": 1 },
+    "worldId": { "$ref": "common.schema.json#/$defs/id" },
+    "role": { "$ref": "#/$defs/voxelWorldRole" },
+    "context": { "$ref": "common.schema.json#/$defs/voxelContext" },
+    "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "uniqueItems": true
+    },
+    "requiredCapabilities": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "uniqueItems": true
+    },
+    "resourceBudget": {
+      "type": "object",
+      "required": [
+        "maxResidentChunks",
+        "snapshotPinBudgetBytes",
+        "maxConcurrentQueries",
+        "maxPendingMutations",
+        "receiptRetentionEntries"
+      ],
+      "properties": {
+        "maxResidentChunks": { "type": "integer", "minimum": 1 },
+        "snapshotPinBudgetBytes": { "type": "integer", "minimum": 0 },
+        "maxConcurrentQueries": { "type": "integer", "minimum": 1 },
+        "maxPendingMutations": { "type": "integer", "minimum": 1 },
+        "receiptRetentionEntries": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "lifecycleState": { "$ref": "#/$defs/voxelWorldLifecycleState" },
+    "handleModel": {
+      "type": "object",
+      "required": ["encoding", "invalidation", "doubleRelease"],
+      "properties": {
+        "encoding": { "type": "string", "const": "IndexGenerationContext" },
+        "invalidation": { "type": "string", "const": "GenerationBump" },
+        "doubleRelease": { "type": "string", "const": "StableError" }
+      },
+      "additionalProperties": false
+    },
+    "portMethods": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/voxelPortMethod" },
+      "minItems": 11,
+      "uniqueItems": true
+    },
+    "portErrors": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

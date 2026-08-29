@@ -1,0 +1,25 @@
+{
+  "protocolVersion": 1,
+  "length": 256,
+  "sequence": 109,
+  "sessionId": "session-001",
+  "productId": "A",
+  "gameReleaseId": "A-1.1.0",
+  "messageType": "UnknownType",
+  "reliability": "Reliable",
+  "integrity": {
+    "algorithm": "SHA256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "traceId": "trace-unknowntype-109",
+  "transportPolicy": {
+    "maxMessageBytes": 65536,
+    "maxFragmentBytes": 4096,
+    "antiReplayWindow": 1024,
+    "authBinding": "SessionAdmission",
+    "errorClass": "Rejectable"
+  },
+  "body": {
+    "reason": "not-registered"
+  }
+}

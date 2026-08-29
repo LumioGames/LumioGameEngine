@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/voxel-snapshot-payload.schema.json",
+  "description": "Voxel-domain snapshot records: capture status, full/partial payload manifests and diff payload manifests (ADR-035). This payload is NOT the generic snapshot-header envelope and never replaces it; snapshot-header stays the envelope that carries, hashes and activates payload bytes, while this schema describes the voxel payload inside it. The Runtime coordinator fixes the SnapshotCut; the voxel domain only receives the immutable cut, projects it as its voxel-revision-stamp and emits canonical bytes: one cut yields byte-identical payloads.",
+  "type": "object",
+  "required": ["kind", "cutProjection"],
+  "$defs": {
+    "voxelCaptureState": {
+      "type": "string",
+      "enum": [
+        "Requested",
+        "Cutting",
+        "Pinned",
+        "Encoding",
+        "Verified",
+        "Ready",
+        "Released",
+        "Cancelled",
+        "Failed"
+      ]
+    },
+    "voxelSnapshotPinState": {
+      "type": "string",
+      "enum": ["Requested", "Pinned", "Released", "Expired", "Invalidated"]
+    },
+    "voxelChunkOrder": {
+      "type": "string",
+      "const": "CoordXYZAscending"
+    },
+    "voxelPayloadDeterminism": {
+      "type": "string",
+      "const": "SameCutSameBytes"
+    },
+    "voxelSnapshotChunkEntry": {
+      "type": "object",
+      "required": ["chunkId", "chunkRevision", "byteOffset", "byteLength", "pages"],
+      "properties": {
+        "chunkId": { "$ref": "common.schema.json#/$defs/voxelChunkId" },
+        "chunkRevision": { "$ref": "common.schema.json#/$defs/revision" },
+        "byteOffset": { "type": "integer", "minimum": 0 },
+        "byteLength": { "type": "integer", "minimum": 1 },
+        "pages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "voxel-chunk-page.schema.json#/$defs/voxelPage" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "voxelDiffBase": {
+      "type": "object",
+      "required": ["baseSnapshotId", "baseWorldRevision"],
+      "properties": {
+        "baseSnapshotId": { "$ref": "common.schema.json#/$defs/id" },
+        "baseWorldRevision": { "$ref": "common.schema.json#/$defs/revision" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "kind": { "type": "string", "enum": ["CaptureStatus", "SnapshotPayload", "DiffPayload"] },
+    "captureId": { "$ref": "common.schema.json#/$defs/id" },
+    "captureState": { "$ref": "#/$defs/voxelCaptureState" },
+    "pinState": { "$ref": "#/$defs/voxelSnapshotPinState" },
+    "failureReason": { "$ref": "common.schema.json#/$defs/id" },
+    "cutProjection": {
+      "$ref": "voxel-revision-stamp.schema.json",
+      "required": ["schemaEpoch"]
+    },
+    "snapshotId": { "$ref": "common.schema.json#/$defs/id" },
+    "scope": { "type": "string", "enum": ["Full", "Partial"] },
+    "payloadFormatVersion": { "type": "integer", "minimum": 1 },
+    "chunkOrder": { "$ref": "#/$defs/voxelChunkOrder" },
+    "determinism": { "$ref": "#/$defs/voxelPayloadDeterminism" },
+    "chunks": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/voxelSnapshotChunkEntry" }
+    },
+    "removedChunkIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "common.schema.json#/$defs/voxelChunkId" }
+    },
+    "base": { "$ref": "#/$defs/voxelDiffBase" },
+    "worldRevisionAdvance": { "type": "integer", "minimum": 1 },
+    "payloadLength": { "type": "integer", "minimum": 0 },
+    "payloadHash": { "$ref": "common.schema.json#/$defs/hash256" }
+  },
+  "oneOf": [
+    {
+      "properties": { "kind": { "const": "CaptureStatus" } },
+      "required": ["kind", "captureId", "captureState", "pinState", "cutProjection"],
+      "not": {
+        "anyOf": [
+          { "required": ["chunks"] },
+          { "required": ["removedChunkIds"] },
+          { "required": ["base"] },
+          { "required": ["scope"] },
+          { "required": ["worldRevisionAdvance"] },
+          { "required": ["chunkOrder"] },
+          { "required": ["determinism"] },
+          { "required": ["payloadFormatVersion"] }
+        ]
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "captureState": { "enum": ["Requested", "Cutting"] },
+                "pinState": { "const": "Requested" }
+              },
+              "required": ["captureState", "pinState"]
+            },
+            {
+              "properties": {
+                "captureState": { "enum": ["Pinned", "Encoding"] },
+                "pinState": { "const": "Pinned" }
+              },
+              "required": ["captureState", "pinState"]
+            },
+            {
+              "properties": {
+                "captureState": { "enum": ["Verified", "Ready"] },
+                "pinState": { "const": "Pinned" }
+              },
+              "required": ["captureState", "pinState", "payloadLength", "payloadHash"]
+            },
+            {
+              "properties": {
+                "captureState": { "const": "Released" },
+                "pinState": { "const": "Released" }
+              },
+              "required": ["captureState", "pinState"]
+            },
+            {
+              "properties": {
+                "captureState": { "const": "Cancelled" },
+                "pinState": { "enum": ["Released", "Expired", "Invalidated"] }
+              },
+              "required": ["captureState", "pinState"]
+            },
+            {
+              "properties": {
+                "captureState": { "const": "Failed" },
+                "pinState": { "enum": ["Released", "Expired", "Invalidated"] }
+              },
+              "required": ["captureState", "pinState", "failureReason"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "properties": { "kind": { "const": "SnapshotPayload" } },
+      "required": [
+        "kind",
+        "snapshotId",
+        "scope",
+        "payloadFormatVersion",
+        "chunkOrder",
+        "determinism",
+        "cutProjection",
+        "chunks",
+        "payloadLength",
+        "payloadHash"
+      ],
+      "not": {
+        "anyOf": [
+          { "required": ["captureState"] },
+          { "required": ["pinState"] },
+          { "required": ["failureReason"] },
+          { "required": ["base"] },
+          { "required": ["worldRevisionAdvance"] },
+          { "required": ["removedChunkIds"] }
+        ]
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": { "scope": { "const": "Full" } },
+              "required": ["scope"]
+            },
+            {
+              "properties": {
+                "scope": { "const": "Partial" },
+                "chunks": { "type": "array", "minItems": 1 }
+              },
+              "required": ["scope"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "properties": { "kind": { "const": "DiffPayload" } },
+      "required": [
+        "kind",
+        "snapshotId",
+        "scope",
+        "payloadFormatVersion",
+        "chunkOrder",
+        "determinism",
+        "cutProjection",
+        "base",
+        "worldRevisionAdvance",
+        "chunks",
+        "removedChunkIds",
+        "payloadLength",
+        "payloadHash"
+      ],
+      "not": {
+        "anyOf": [
+          { "required": ["captureState"] },
+          { "required": ["pinState"] },
+          { "required": ["failureReason"] }
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false
+}

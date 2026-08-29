@@ -1,0 +1,28 @@
+{
+  "machineId": "ReleasePool",
+  "owner": "Server",
+  "sourceAdr": "ADR-012",
+  "initialState": "Published",
+  "states": [
+    "Published",
+    "Verified",
+    "Warmup",
+    "Serving",
+    "Draining",
+    "Empty",
+    "Retired",
+    "Rollback",
+    "Faulted"
+  ],
+  "terminalStates": ["Retired", "Rollback", "Faulted"],
+  "anyActiveTo": ["Rollback", "Faulted"],
+  "transitions": [
+    { "from": "Published", "to": "Verified", "event": "VerifyManifest" },
+    { "from": "Verified", "to": "Warmup", "event": "Warm" },
+    { "from": "Warmup", "to": "Serving", "event": "Serve" },
+    { "from": "Serving", "to": "Draining", "event": "Drain" },
+    { "from": "Draining", "to": "Empty", "event": "LastSessionClosed" },
+    { "from": "Empty", "to": "Retired", "event": "Retire" }
+  ],
+  "notes": "Per-release serving pool. Existing sessions finish on their release while new sessions route to the successor; the state names must stay equal to release-catalog.entries.state."
+}

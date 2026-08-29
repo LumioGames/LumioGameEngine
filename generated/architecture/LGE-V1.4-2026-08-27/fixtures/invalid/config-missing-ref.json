@@ -1,0 +1,30 @@
+{
+  "tableId": "build-costs",
+  "schemaVersion": 1,
+  "configRevision": 5,
+  "generatedAt": "2026-08-27T03:23:00Z",
+  "sourceHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "columns": [
+    {
+      "name": "blockType",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "next",
+      "type": "ref",
+      "required": true,
+      "refTarget": "build-costs"
+    }
+  ],
+  "rows": [
+    {
+      "key": "stone",
+      "values": {
+        "blockType": "stone",
+        "next": "obsidian"
+      }
+    }
+  ],
+  "activation": "DevelopmentHotLoad"
+}

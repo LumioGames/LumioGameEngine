@@ -1,0 +1,488 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/replication-envelope.schema.json",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/sessionReleaseTriple"
+    },
+    {
+      "if": {
+        "properties": {
+          "messageType": {
+            "const": "Handshake"
+          }
+        },
+        "required": [
+          "messageType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "messageType": {
+            "const": "FullSnapshot"
+          }
+        },
+        "required": [
+          "messageType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "snapshotId",
+              "tickId",
+              "sessionRevisionVector",
+              "schemaEpoch",
+              "mappingSetHash"
+            ],
+            "properties": {
+              "mappingSetHash": {
+                "$ref": "common.schema.json#/$defs/hash256"
+              },
+              "schemaEpoch": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sessionRevisionVector": {
+                "type": "object"
+              },
+              "snapshotId": {
+                "$ref": "common.schema.json#/$defs/id"
+              },
+              "tickId": {
+                "$ref": "common.schema.json#/$defs/revision"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "messageType": {
+            "const": "BaselineAck"
+          }
+        },
+        "required": [
+          "messageType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "snapshotId",
+              "confirmedRevision"
+            ],
+            "properties": {
+              "confirmedRevision": {
+                "$ref": "common.schema.json#/$defs/revision"
+              },
+              "snapshotId": {
+                "$ref": "common.schema.json#/$defs/id"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "messageType": {
+            "const": "Delta"
+          }
+        },
+        "required": [
+          "messageType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "baseSnapshotId",
+              "fromRevision",
+              "toRevision",
+              "mappingSetHash",
+              "confirmationSequence",
+              "tombstones"
+            ],
+            "properties": {
+              "baseSnapshotId": {
+                "$ref": "common.schema.json#/$defs/id"
+              },
+              "confirmationSequence": {
+                "$ref": "common.schema.json#/$defs/revision"
+              },
+              "fromRevision": {
+                "$ref": "common.schema.json#/$defs/revision"
+              },
+              "gapDetected": {
+                "type": "boolean"
+              },
+              "mappingSetHash": {
+                "$ref": "common.schema.json#/$defs/hash256"
+              },
+              "resyncReason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "toRevision": {
+                "$ref": "common.schema.json#/$defs/revision"
+              },
+              "tombstones": {
+                "type": "array"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "messageType": {
+            "const": "DeltaAck"
+          }
+        },
+        "required": [
+          "messageType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "confirmationSequence",
+              "toRevision"
+            ],
+            "properties": {
+              "confirmationSequence": {
+                "$ref": "common.schema.json#/$defs/revision"
+              },
+              "toRevision": {
+                "$ref": "common.schema.json#/$defs/revision"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "messageType": {
+            "const": "ResyncRequest"
+          }
+        },
+        "required": [
+          "messageType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "resyncReason"
+            ],
+            "properties": {
+              "resyncReason": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "messageType": {
+            "const": "MaintenanceKick"
+          }
+        },
+        "required": [
+          "messageType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "reasonCode"
+            ],
+            "properties": {
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "messageType": {
+            "const": "Error"
+          }
+        },
+        "required": [
+          "messageType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "errorClass",
+              "reasonCode"
+            ],
+            "properties": {
+              "errorClass": {
+                "type": "string",
+                "enum": [
+                  "Retryable",
+                  "Rejectable",
+                  "Fatal"
+                ]
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  ],
+  "required": [
+    "protocolVersion",
+    "length",
+    "sequence",
+    "sessionId",
+    "productId",
+    "gameReleaseId",
+    "messageType",
+    "reliability",
+    "integrity",
+    "traceId",
+    "transportPolicy",
+    "body"
+  ],
+  "properties": {
+    "protocolVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "length": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sequence": {
+      "$ref": "common.schema.json#/$defs/revision"
+    },
+    "sessionId": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "productId": {
+      "$ref": "common.schema.json#/$defs/productId"
+    },
+    "gameReleaseId": {
+      "$ref": "common.schema.json#/$defs/releaseId"
+    },
+    "messageType": {
+      "type": "string",
+      "enum": [
+        "Handshake",
+        "FullSnapshot",
+        "BaselineAck",
+        "Delta",
+        "DeltaAck",
+        "ResyncRequest",
+        "MaintenanceKick",
+        "Error"
+      ]
+    },
+    "reliability": {
+      "type": "string",
+      "enum": [
+        "Reliable",
+        "Unreliable"
+      ]
+    },
+    "integrity": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "None",
+            "CRC32C",
+            "SHA256",
+            "AEAD"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "algorithm": {
+              "const": "None"
+            },
+            "value": {
+              "const": "none"
+            }
+          },
+          "required": [
+            "algorithm",
+            "value"
+          ]
+        },
+        {
+          "properties": {
+            "algorithm": {
+              "const": "CRC32C"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}$"
+            }
+          },
+          "required": [
+            "algorithm",
+            "value"
+          ]
+        },
+        {
+          "properties": {
+            "algorithm": {
+              "const": "SHA256"
+            },
+            "value": {
+              "$ref": "common.schema.json#/$defs/hash256"
+            }
+          },
+          "required": [
+            "algorithm",
+            "value"
+          ]
+        },
+        {
+          "properties": {
+            "algorithm": {
+              "const": "AEAD"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9+/=_-]{24,256}$"
+            }
+          },
+          "required": [
+            "algorithm",
+            "value"
+          ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "traceId": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "transportPolicy": {
+      "type": "object",
+      "required": [
+        "maxMessageBytes",
+        "maxFragmentBytes",
+        "antiReplayWindow",
+        "authBinding",
+        "errorClass"
+      ],
+      "properties": {
+        "maxMessageBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "maxFragmentBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "antiReplayWindow": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "authBinding": {
+          "type": "string",
+          "enum": [
+            "SessionAdmission",
+            "ConnectionGeneration"
+          ]
+        },
+        "errorClass": {
+          "type": "string",
+          "enum": [
+            "Retryable",
+            "Rejectable",
+            "Fatal"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "body": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

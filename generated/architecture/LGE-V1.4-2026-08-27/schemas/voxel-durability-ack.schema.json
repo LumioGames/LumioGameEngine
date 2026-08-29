@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/voxel-durability-ack.schema.json",
+  "description": "Streaming durability handshake records (ADR-036): host durability acknowledgments naming the covered chunk set and a snapshot and/or WAL durability point, per-world residency policy declarations, and the eviction durability fence. A Dirty chunk that no acknowledged durability point covers must never be unloaded; an AllResident world disables eviction entirely.",
+  "type": "object",
+  "required": ["kind", "worldId", "context"],
+  "$defs": {
+    "voxelResidencyMode": {
+      "type": "string",
+      "enum": ["AllResident", "DurableEviction", "VolatileAllowed"]
+    },
+    "voxelEvictionDecision": {
+      "type": "string",
+      "enum": ["Evict", "Deny"]
+    },
+    "voxelCoveredChunk": {
+      "type": "object",
+      "required": ["chunkId", "upToChunkRevision"],
+      "properties": {
+        "chunkId": { "$ref": "common.schema.json#/$defs/voxelChunkId" },
+        "upToChunkRevision": { "$ref": "common.schema.json#/$defs/revision" }
+      },
+      "additionalProperties": false
+    },
+    "voxelDurabilityPoint": {
+      "type": "object",
+      "properties": {
+        "snapshotId": { "$ref": "common.schema.json#/$defs/id" },
+        "walSegmentId": { "$ref": "common.schema.json#/$defs/id" },
+        "walOffset": { "type": "integer", "minimum": 0 }
+      },
+      "oneOf": [
+        {
+          "required": ["snapshotId"],
+          "not": {
+            "anyOf": [{ "required": ["walSegmentId"] }, { "required": ["walOffset"] }]
+          }
+        },
+        {
+          "required": ["walSegmentId", "walOffset"],
+          "not": { "required": ["snapshotId"] }
+        },
+        {
+          "required": ["snapshotId", "walSegmentId", "walOffset"]
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "kind": { "type": "string", "enum": ["DurabilityAck", "ResidencyPolicy", "EvictionFence"] },
+    "worldId": { "$ref": "common.schema.json#/$defs/id" },
+    "context": { "$ref": "common.schema.json#/$defs/voxelContext" },
+    "ackId": { "$ref": "common.schema.json#/$defs/id" },
+    "durabilityPoint": { "$ref": "#/$defs/voxelDurabilityPoint" },
+    "coveredWorldRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "coveredChunks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/voxelCoveredChunk" }
+    },
+    "mode": { "$ref": "#/$defs/voxelResidencyMode" },
+    "residencyCapability": {
+      "type": "string",
+      "enum": ["VoxelAllResident", "VoxelVolatileChunks"]
+    },
+    "chunkId": { "$ref": "common.schema.json#/$defs/voxelChunkId" },
+    "chunkState": { "$ref": "voxel-chunk-page.schema.json#/$defs/voxelChunkState" },
+    "decision": { "$ref": "#/$defs/voxelEvictionDecision" },
+    "coveringAckId": { "$ref": "common.schema.json#/$defs/id" },
+    "coveredUpToChunkRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "volatileCapability": { "type": "string", "const": "VoxelVolatileChunks" },
+    "denyReason": { "$ref": "common.schema.json#/$defs/id" }
+  },
+  "oneOf": [
+    {
+      "properties": { "kind": { "const": "DurabilityAck" } },
+      "required": ["kind", "ackId", "durabilityPoint", "coveredWorldRevision", "coveredChunks"],
+      "not": {
+        "anyOf": [
+          { "required": ["mode"] },
+          { "required": ["decision"] },
+          { "required": ["chunkId"] },
+          { "required": ["coveringAckId"] },
+          { "required": ["volatileCapability"] },
+          { "required": ["residencyCapability"] }
+        ]
+      }
+    },
+    {
+      "properties": { "kind": { "const": "ResidencyPolicy" } },
+      "required": ["kind", "mode"],
+      "not": {
+        "anyOf": [
+          { "required": ["ackId"] },
+          { "required": ["durabilityPoint"] },
+          { "required": ["coveredChunks"] },
+          { "required": ["coveredWorldRevision"] },
+          { "required": ["decision"] },
+          { "required": ["chunkId"] },
+          { "required": ["coveringAckId"] },
+          { "required": ["volatileCapability"] }
+        ]
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "mode": { "const": "AllResident" },
+                "residencyCapability": { "const": "VoxelAllResident" }
+              },
+              "required": ["mode", "residencyCapability"]
+            },
+            {
+              "properties": {
+                "mode": { "const": "VolatileAllowed" },
+                "residencyCapability": { "const": "VoxelVolatileChunks" }
+              },
+              "required": ["mode", "residencyCapability"]
+            },
+            {
+              "properties": { "mode": { "const": "DurableEviction" } },
+              "required": ["mode"],
+              "not": { "required": ["residencyCapability"] }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "properties": {
+        "kind": { "const": "EvictionFence" },
+        "chunkState": { "enum": ["Ready", "Dirty"] }
+      },
+      "required": ["kind", "chunkId", "chunkState", "mode", "decision"],
+      "not": {
+        "anyOf": [
+          { "required": ["ackId"] },
+          { "required": ["durabilityPoint"] },
+          { "required": ["coveredChunks"] },
+          { "required": ["coveredWorldRevision"] },
+          { "required": ["residencyCapability"] }
+        ]
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": { "decision": { "const": "Deny" } },
+              "required": ["decision"]
+            },
+            {
+              "properties": {
+                "decision": { "const": "Evict" },
+                "mode": { "enum": ["DurableEviction", "VolatileAllowed"] },
+                "chunkState": { "const": "Ready" }
+              },
+              "required": ["decision", "mode", "chunkState"],
+              "not": {
+                "anyOf": [
+                  { "required": ["coveringAckId"] },
+                  { "required": ["coveredUpToChunkRevision"] },
+                  { "required": ["volatileCapability"] }
+                ]
+              }
+            },
+            {
+              "properties": {
+                "decision": { "const": "Evict" },
+                "mode": { "enum": ["DurableEviction", "VolatileAllowed"] },
+                "chunkState": { "const": "Dirty" }
+              },
+              "required": ["decision", "mode", "chunkState", "coveringAckId", "coveredUpToChunkRevision"],
+              "not": { "required": ["volatileCapability"] }
+            },
+            {
+              "properties": {
+                "decision": { "const": "Evict" },
+                "mode": { "const": "VolatileAllowed" },
+                "chunkState": { "const": "Dirty" }
+              },
+              "required": ["decision", "mode", "chunkState", "volatileCapability"],
+              "not": {
+                "anyOf": [
+                  { "required": ["coveringAckId"] },
+                  { "required": ["coveredUpToChunkRevision"] }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "additionalProperties": false
+}

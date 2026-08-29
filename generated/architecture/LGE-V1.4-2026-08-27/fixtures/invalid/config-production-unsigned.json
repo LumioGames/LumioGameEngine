@@ -1,0 +1,23 @@
+{
+  "tableId": "build-costs",
+  "schemaVersion": 1,
+  "configRevision": 5,
+  "generatedAt": "2026-08-27T03:25:00Z",
+  "sourceHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "columns": [
+    {
+      "name": "cost",
+      "type": "u32",
+      "required": true
+    }
+  ],
+  "rows": [
+    {
+      "key": "stone",
+      "values": {
+        "cost": 1
+      }
+    }
+  ],
+  "activation": "ProductionSignedSwitch"
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/release-manifest.schema.json",
+  "type": "object",
+  "required": [
+    "productId",
+    "gameReleaseId",
+    "manifestHash",
+    "serverAssemblyHash",
+    "clientAssemblyHash",
+    "gameplayContractHash",
+    "runtimeApi",
+    "coreEngineAbi",
+    "networkProtocol",
+    "voxelSchema",
+    "configContentHash",
+    "coreEnginePackage",
+    "signature",
+    "sbom",
+    "capabilities",
+    "compatibilityPolicy"
+  ],
+  "properties": {
+    "productId": { "$ref": "common.schema.json#/$defs/productId" },
+    "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
+    "manifestHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "serverAssemblyHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "clientAssemblyHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "gameplayContractHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "runtimeApi": { "type": "string", "pattern": "^RuntimeApiV[0-9]+$" },
+    "coreEngineAbi": { "$ref": "common.schema.json#/$defs/abiIdentity" },
+    "networkProtocol": { "type": "string", "pattern": "^LumioWireV[0-9]+$" },
+    "voxelSchema": { "type": "string", "pattern": "^VoxelSchemaV[0-9]+$" },
+    "voxelMigration": { "type": "string", "pattern": "^VoxelMigrationV[0-9]+$" },
+    "configContentHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "coreEnginePackage": {
+      "type": "object",
+      "required": ["packageId", "manifestDigest", "artifactSetDigest", "abiIdentity", "targetProfileDigest", "capabilitySetDigest"],
+      "properties": {
+        "packageId": { "$ref": "common.schema.json#/$defs/id" },
+        "manifestDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "artifactSetDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "abiIdentity": { "$ref": "common.schema.json#/$defs/abiIdentity" },
+        "targetProfileDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "capabilitySetDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "signatureEnvelopeDigest": { "$ref": "common.schema.json#/$defs/hash256" }
+      },
+      "additionalProperties": false
+    },
+    "signature": { "$ref": "common.schema.json#/$defs/signatureBlock" },
+    "sbom": {
+      "type": "object",
+      "required": ["format", "digest", "dependencyCount"],
+      "properties": {
+        "format": { "type": "string", "enum": ["CycloneDX", "SPDX"] },
+        "digest": { "$ref": "common.schema.json#/$defs/hash256" },
+        "dependencyCount": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "uniqueItems": true
+    },
+    "compatibilityPolicy": { "type": "string", "enum": ["ExactRelease", "DeclaredNMinusOne"] },
+    "serverReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
+    "clientReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" }
+  },
+  "additionalProperties": false
+}

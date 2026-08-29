@@ -1,0 +1,31 @@
+{
+  "machineId": "SimulationSession",
+  "owner": "Server",
+  "sourceAdr": "ADR-001",
+  "initialState": "Created",
+  "states": [
+    "Created",
+    "Initialized",
+    "Ready",
+    "Running",
+    "Paused",
+    "Draining",
+    "Snapshotted",
+    "Disposed",
+    "Faulted"
+  ],
+  "terminalStates": ["Disposed", "Faulted"],
+  "anyActiveTo": ["Faulted"],
+  "transitions": [
+    { "from": "Created", "to": "Initialized", "event": "Initialize" },
+    { "from": "Initialized", "to": "Ready", "event": "Prime" },
+    { "from": "Ready", "to": "Running", "event": "Start" },
+    { "from": "Running", "to": "Paused", "event": "Pause" },
+    { "from": "Paused", "to": "Running", "event": "Resume" },
+    { "from": "Running", "to": "Draining", "event": "Drain" },
+    { "from": "Paused", "to": "Draining", "event": "Drain" },
+    { "from": "Draining", "to": "Snapshotted", "event": "FinalSnapshotTaken" },
+    { "from": "Snapshotted", "to": "Disposed", "event": "Dispose" }
+  ],
+  "notes": "The session lifecycle inside a world slot. Draining stops accepting new commands, finishes in-flight ticks, then takes the final snapshot before disposal."
+}

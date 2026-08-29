@@ -1,0 +1,9 @@
+{
+  "resultVersion": 1,
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "command": "validate",
+  "passed": true,
+  "validated": 1,
+  "failures": -1,
+  "fixtureResults": []
+}

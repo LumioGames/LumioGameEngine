@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/signature-envelope.schema.json",
+  "type": "object",
+  "required": ["envelopeVersion", "payloadType", "payloadDigest", "algorithm", "keyId", "trustDomain", "signature", "signedAt"],
+  "properties": {
+    "envelopeVersion": { "type": "integer", "minimum": 1 },
+    "payloadType": { "type": "string", "enum": ["CoreEngineManifestBody"] },
+    "payloadDigest": { "$ref": "common.schema.json#/$defs/hash256" },
+    "algorithm": { "$ref": "common.schema.json#/$defs/signatureAlgorithm" },
+    "keyId": { "$ref": "common.schema.json#/$defs/id" },
+    "trustDomain": { "$ref": "common.schema.json#/$defs/trustDomain" },
+    "signature": { "$ref": "common.schema.json#/$defs/signatureValue" },
+    "signedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "certificateChain": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/hexOrBase64" }
+    },
+    "transparencyLogRef": { "$ref": "common.schema.json#/$defs/id" }
+  },
+  "additionalProperties": false
+}

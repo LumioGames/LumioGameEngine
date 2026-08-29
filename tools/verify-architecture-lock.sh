@@ -26,13 +26,13 @@ export LC_ALL=C
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 lock_file="$repo_root/architecture.lock.json"
-mirror_root="$repo_root/generated/architecture/LGE-V1.2-2026-08-27"
-mirror_rel="generated/architecture/LGE-V1.2-2026-08-27"
+mirror_root="$repo_root/generated/architecture/LGE-V1.4-2026-08-27"
+mirror_rel="generated/architecture/LGE-V1.4-2026-08-27"
 descriptor_rel="$mirror_rel/generation-record.json"
 expected_schema_version=1
 expected_repository="https://github.com/LumioGames/LumioGameEngineArchitecture"
-expected_commit="2d7980d95b163404e33cc6212db13ac948d30d40"
-expected_baseline="LGE-V1.2-2026-08-27"
+expected_commit="1f2ead332b3dfc3042e1495bfbe6febb8699df7e"
+expected_baseline="LGE-V1.4-2026-08-27"
 expected_record_kind="architecture-mirror-generation-record"
 compiler_rel="tools/sync-architecture.sh"
 expected_compiler_version=1

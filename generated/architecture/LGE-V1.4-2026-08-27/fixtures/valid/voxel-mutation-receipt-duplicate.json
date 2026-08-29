@@ -1,0 +1,13 @@
+{
+  "kind": "ParticipantReceipt",
+  "sessionId": "session-001",
+  "txnId": "txn-place-0001",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "state": "Duplicate",
+  "resultWorldRevision": 24,
+  "resultChunkRevisionSet": { "c:0:0:0": 9 },
+  "appliedAtTick": 42,
+  "durabilityModel": "CoDurableWithWorldState",
+  "pruneHorizonTick": 30
+}

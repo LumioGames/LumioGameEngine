@@ -1,0 +1,103 @@
+{
+  "registryVersion": 1,
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "namespaces": [
+    {
+      "namespace": "MessageType",
+      "owner": "GameRuntime",
+      "values": [
+        { "id": "Handshake", "numeric": 1, "status": "Active", "since": "V1" },
+        { "id": "FullSnapshot", "numeric": 2, "status": "Active", "since": "V1" },
+        { "id": "Delta", "numeric": 3, "status": "Active", "since": "V1" },
+        { "id": "ResyncRequest", "numeric": 4, "status": "Active", "since": "V1" },
+        { "id": "MaintenanceKick", "numeric": 5, "status": "Active", "since": "V1" },
+        { "id": "BaselineAck", "numeric": 6, "status": "Active", "since": "V1" },
+        { "id": "DeltaAck", "numeric": 7, "status": "Active", "since": "V1" },
+        { "id": "Error", "numeric": 8, "status": "Active", "since": "V1" }
+      ]
+    },
+    {
+      "namespace": "ErrorCode",
+      "owner": "Architecture",
+      "values": [
+        { "id": "RevisionConflict", "numeric": 1001, "status": "Active", "since": "V1" },
+        { "id": "MaintenanceKick", "numeric": 1002, "status": "Active", "since": "V1" },
+        { "id": "ReleaseMismatch", "numeric": 1003, "status": "Active", "since": "V1" },
+        { "id": "NativeAbiMismatch", "numeric": 1004, "status": "Active", "since": "V1" },
+        { "id": "StaleEpoch", "numeric": 1005, "status": "Active", "since": "V1" },
+        { "id": "FencingTokenStale", "numeric": 1006, "status": "Active", "since": "V1" },
+        { "id": "ManifestMalformed", "numeric": 1007, "status": "Active", "since": "V1" },
+        { "id": "ManifestUnsupportedVersion", "numeric": 1008, "status": "Active", "since": "V1" },
+        { "id": "ManifestDigestMismatch", "numeric": 1009, "status": "Active", "since": "V1" },
+        { "id": "ArtifactMissing", "numeric": 1010, "status": "Active", "since": "V1" },
+        { "id": "ArtifactDigestMismatch", "numeric": 1011, "status": "Active", "since": "V1" },
+        { "id": "SignatureMissing", "numeric": 1012, "status": "Active", "since": "V1" },
+        { "id": "SignatureInvalid", "numeric": 1013, "status": "Active", "since": "V1" },
+        { "id": "TrustRootUnknown", "numeric": 1014, "status": "Active", "since": "V1" },
+        { "id": "TrustPolicyRejected", "numeric": 1015, "status": "Active", "since": "V1" },
+        { "id": "KeyRevoked", "numeric": 1016, "status": "Active", "since": "V1" },
+        { "id": "EvidenceMissing", "numeric": 1017, "status": "Active", "since": "V1" },
+        { "id": "EvidenceDigestMismatch", "numeric": 1018, "status": "Active", "since": "V1" },
+        { "id": "TargetProfileMismatch", "numeric": 1019, "status": "Active", "since": "V1" },
+        { "id": "CapabilityMissing", "numeric": 1020, "status": "Active", "since": "V1" },
+        { "id": "SymbolMissing", "numeric": 1021, "status": "Active", "since": "V1" },
+        { "id": "SymbolCollision", "numeric": 1022, "status": "Active", "since": "V1" },
+        { "id": "PackageIdentityConflict", "numeric": 1023, "status": "Active", "since": "V1" },
+        { "id": "WorkerPoolDuplicate", "numeric": 1024, "status": "Active", "since": "V1" },
+        { "id": "LoaderTimeout", "numeric": 1025, "status": "Active", "since": "V1" },
+        { "id": "LoaderCancelled", "numeric": 1026, "status": "Active", "since": "V1" },
+        { "id": "LoaderOutOfMemory", "numeric": 1027, "status": "Active", "since": "V1" },
+        { "id": "PartialLoadRolledBack", "numeric": 1028, "status": "Active", "since": "V1" },
+        { "id": "InvalidHandle", "numeric": 1029, "status": "Active", "since": "V1" },
+        { "id": "HandleDoubleRelease", "numeric": 1030, "status": "Active", "since": "V1" },
+        { "id": "MessagePermissionDenied", "numeric": 1031, "status": "Active", "since": "V1" },
+        { "id": "StaleConnectionGeneration", "numeric": 1032, "status": "Active", "since": "V1" },
+        { "id": "ChunkUnavailable", "numeric": 1033, "status": "Active", "since": "V1" },
+        { "id": "TargetRevisionUnavailable", "numeric": 1034, "status": "Active", "since": "V1" },
+        { "id": "BudgetExceeded", "numeric": 1035, "status": "Active", "since": "V1" },
+        { "id": "QueueFull", "numeric": 1036, "status": "Active", "since": "V1" },
+        { "id": "CoordinateOutOfBounds", "numeric": 1037, "status": "Active", "since": "V1" },
+        { "id": "DirtyChunkNotDurable", "numeric": 1038, "status": "Active", "since": "V1" },
+        { "id": "SnapshotBaseMismatch", "numeric": 1039, "status": "Active", "since": "V1" },
+        { "id": "SessionMismatch", "numeric": 1040, "status": "Active", "since": "V1" },
+        { "id": "RoleMismatch", "numeric": 1041, "status": "Active", "since": "V1" },
+        { "id": "ClaimNotGranted", "numeric": 1042, "status": "Active", "since": "V1" },
+        { "id": "SessionAntiReplay", "numeric": 1043, "status": "Active", "since": "V1" },
+        { "id": "InvalidArgument", "numeric": 1044, "status": "Active", "since": "V1" },
+        { "id": "WrongContext", "numeric": 1045, "status": "Active", "since": "V1" },
+        { "id": "BufferTooSmall", "numeric": 1046, "status": "Active", "since": "V1" },
+        { "id": "CapacityExceeded", "numeric": 1047, "status": "Active", "since": "V1" },
+        { "id": "Cancelled", "numeric": 1048, "status": "Active", "since": "V1" },
+        { "id": "TimedOut", "numeric": 1049, "status": "Active", "since": "V1" },
+        { "id": "ContextClosing", "numeric": 1050, "status": "Active", "since": "V1" },
+        { "id": "ContextDestroyed", "numeric": 1051, "status": "Active", "since": "V1" },
+        { "id": "PanicBoundary", "numeric": 1052, "status": "Active", "since": "V1" },
+        { "id": "InternalInvariant", "numeric": 1053, "status": "Active", "since": "V1" }
+      ]
+    },
+    {
+      "namespace": "Capability",
+      "owner": "Architecture",
+      "values": [
+        { "id": "Native", "numeric": 1, "status": "Active", "since": "V1" },
+        { "id": "HybridCLR", "numeric": 2, "status": "Reserved", "since": "V1" },
+        { "id": "ReferenceVoxel", "numeric": 3, "status": "Active", "since": "V1" },
+        { "id": "VoxelSnapshot", "numeric": 4, "status": "Active", "since": "V1" },
+        { "id": "VoxelStreaming", "numeric": 5, "status": "Active", "since": "V1" },
+        { "id": "VoxelSpatial", "numeric": 6, "status": "Active", "since": "V1" },
+        { "id": "VoxelMeshCollision", "numeric": 7, "status": "Active", "since": "V1" },
+        { "id": "VoxelAllResident", "numeric": 8, "status": "Active", "since": "V1" },
+        { "id": "VoxelVolatileChunks", "numeric": 9, "status": "Active", "since": "V1" }
+      ]
+    },
+    {
+      "namespace": "FaultClass",
+      "owner": "GameRuntime",
+      "values": [
+        { "id": "SessionLocalProven", "numeric": 1, "status": "Active", "since": "V1" },
+        { "id": "SlotStateUnproven", "numeric": 2, "status": "Active", "since": "V1" },
+        { "id": "ProcessFault", "numeric": 3, "status": "Active", "since": "V1" }
+      ]
+    }
+  ]
+}

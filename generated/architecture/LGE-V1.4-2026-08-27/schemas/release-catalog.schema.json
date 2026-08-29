@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/release-catalog.schema.json",
+  "type": "object",
+  "required": ["catalogVersion", "baselineId", "generatedAt", "entries"],
+  "properties": {
+    "catalogVersion": { "type": "integer", "minimum": 1 },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
+    "generatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["productId", "gameReleaseId", "releasePoolId", "manifestHash", "state", "endpoint", "compatibilityPolicy"],
+        "properties": {
+          "productId": { "$ref": "common.schema.json#/$defs/productId" },
+          "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
+          "releasePoolId": { "$ref": "common.schema.json#/$defs/id" },
+          "manifestHash": { "$ref": "common.schema.json#/$defs/hash256" },
+          "state": { "type": "string", "enum": ["Published", "Verified", "Warmup", "Serving", "Draining", "Empty", "Retired", "Rollback", "Faulted"] },
+          "endpoint": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "compatibilityPolicy": { "type": "string", "enum": ["ExactRelease", "DeclaredNMinusOne"] },
+          "healthy": { "type": "boolean" },
+          "activeSessions": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

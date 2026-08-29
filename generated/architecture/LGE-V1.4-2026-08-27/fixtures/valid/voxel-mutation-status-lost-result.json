@@ -1,0 +1,13 @@
+{
+  "kind": "StatusResponse",
+  "sessionId": "session-001",
+  "txnId": "txn-place-0001",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "statusResult": "Applied",
+  "resultWorldRevision": 24,
+  "resultChunkRevisionSet": { "c:0:0:0": 9 },
+  "appliedAtTick": 42,
+  "pruneHorizonTick": 30,
+  "txnDeadlineTick": 50
+}

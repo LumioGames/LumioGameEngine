@@ -1,0 +1,16 @@
+{
+  "recordVersion": 1,
+  "recordSeq": 1,
+  "sessionId": "session-001",
+  "gameReleaseId": "A-1.1.0",
+  "tickId": 42,
+  "txnId": "txn-place-0001",
+  "recordKind": "CommitIntent",
+  "idempotencyKey": "txn-place-0001",
+  "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "payloadHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "length": 128,
+  "commitState": "Pending",
+  "durabilityState": "Durable",
+  "checksum": "a02eeb72d677337d35fc540a64bd2daadf2c479408b1ddd69bbcafa0063619d1"
+}

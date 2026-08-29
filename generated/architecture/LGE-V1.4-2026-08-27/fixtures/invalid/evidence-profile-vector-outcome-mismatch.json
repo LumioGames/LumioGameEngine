@@ -1,0 +1,260 @@
+{
+  "profileId": "evidence-profile-v1",
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "schemaEpoch": 1,
+  "profiles": [
+    {
+      "kind": "sbom",
+      "artifactKind": "Sbom",
+      "format": "CycloneDX",
+      "specVersion": "1.6",
+      "mediaType": "application/vnd.cyclonedx+json",
+      "digestObject": "RawBytes",
+      "validation": "DigestOnly",
+      "pathPrefix": "evidence/"
+    },
+    {
+      "kind": "license",
+      "artifactKind": "License",
+      "format": "SPDX",
+      "specVersion": "2.3",
+      "mediaType": "application/spdx+json",
+      "digestObject": "RawBytes",
+      "validation": "DigestOnly",
+      "pathPrefix": "evidence/"
+    },
+    {
+      "kind": "provenance",
+      "artifactKind": "Provenance",
+      "format": "SLSA-v1",
+      "specVersion": "1.0",
+      "mediaType": "application/vnd.in-toto+json",
+      "digestObject": "RawBytes",
+      "validation": "DigestOnly",
+      "pathPrefix": "evidence/"
+    }
+  ],
+  "coverage": {
+    "direction": "Bidirectional",
+    "entriesPerKind": 1,
+    "licenceDecisionBelongsTo": "TrustPolicyRejected"
+  },
+  "vectors": [
+    {
+      "vectorId": "valid",
+      "case": "Valid",
+      "evidenceSet": {
+        "sbom": {
+          "format": "CycloneDX",
+          "digest": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "license": {
+          "format": "SPDX",
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "provenance": {
+          "format": "SLSA-v1",
+          "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "indexEntries": [
+        {
+          "path": "evidence/sbom.cdx.json",
+          "kind": "Sbom",
+          "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        {
+          "path": "evidence/license.spdx.json",
+          "kind": "License",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "path": "evidence/provenance.json",
+          "kind": "Provenance",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "expected": "Accepted"
+    },
+    {
+      "vectorId": "missing-kind",
+      "case": "MissingKind",
+      "evidenceSet": {
+        "sbom": {
+          "format": "CycloneDX",
+          "digest": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "license": {
+          "format": "SPDX",
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      },
+      "indexEntries": [
+        {
+          "path": "evidence/sbom.cdx.json",
+          "kind": "Sbom",
+          "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        {
+          "path": "evidence/license.spdx.json",
+          "kind": "License",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "path": "evidence/provenance.json",
+          "kind": "Provenance",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "expected": "Accepted"
+    },
+    {
+      "vectorId": "digest-mismatch",
+      "case": "DigestMismatch",
+      "evidenceSet": {
+        "sbom": {
+          "format": "CycloneDX",
+          "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "license": {
+          "format": "SPDX",
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "provenance": {
+          "format": "SLSA-v1",
+          "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "indexEntries": [
+        {
+          "path": "evidence/sbom.cdx.json",
+          "kind": "Sbom",
+          "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        {
+          "path": "evidence/license.spdx.json",
+          "kind": "License",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "path": "evidence/provenance.json",
+          "kind": "Provenance",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "expected": "Rejected",
+      "rejectReason": "EvidenceDigestMismatch"
+    },
+    {
+      "vectorId": "unknown-format",
+      "case": "UnknownFormat",
+      "evidenceSet": {
+        "sbom": {
+          "format": "cyclonedx",
+          "digest": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "license": {
+          "format": "SPDX",
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "provenance": {
+          "format": "SLSA-v1",
+          "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "indexEntries": [
+        {
+          "path": "evidence/sbom.cdx.json",
+          "kind": "Sbom",
+          "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        {
+          "path": "evidence/license.spdx.json",
+          "kind": "License",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "path": "evidence/provenance.json",
+          "kind": "Provenance",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "expected": "Rejected",
+      "rejectReason": "EvidenceMissing"
+    },
+    {
+      "vectorId": "index-entry-without-manifest-reference",
+      "case": "IndexEntryWithoutManifestReference",
+      "evidenceSet": {
+        "sbom": {
+          "format": "CycloneDX",
+          "digest": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "license": {
+          "format": "SPDX",
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "provenance": {
+          "format": "SLSA-v1",
+          "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "indexEntries": [
+        {
+          "path": "evidence/sbom.cdx.json",
+          "kind": "Sbom",
+          "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        {
+          "path": "evidence/license.spdx.json",
+          "kind": "License",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "path": "evidence/provenance.json",
+          "kind": "Provenance",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        {
+          "path": "evidence/extra.sbom.json",
+          "kind": "Sbom",
+          "sha256": "c8dee78f8c7b466c881847accc196998bad00e2b96c5ef913dfbe454d3807c96"
+        }
+      ],
+      "expected": "Rejected",
+      "rejectReason": "EvidenceMissing"
+    },
+    {
+      "vectorId": "manifest-reference-without-index-entry",
+      "case": "ManifestReferenceWithoutIndexEntry",
+      "evidenceSet": {
+        "sbom": {
+          "format": "CycloneDX",
+          "digest": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "license": {
+          "format": "SPDX",
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "provenance": {
+          "format": "SLSA-v1",
+          "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "indexEntries": [
+        {
+          "path": "evidence/sbom.cdx.json",
+          "kind": "Sbom",
+          "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        {
+          "path": "evidence/license.spdx.json",
+          "kind": "License",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "expected": "Rejected",
+      "rejectReason": "EvidenceMissing"
+    }
+  ]
+}

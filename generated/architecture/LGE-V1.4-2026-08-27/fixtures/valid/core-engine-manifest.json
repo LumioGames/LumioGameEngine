@@ -1,0 +1,31 @@
+{
+  "manifestSchemaVersion": 1,
+  "packageId": "coreengine-linux-server-x86_64",
+  "packageVersion": "0.1.0",
+  "architectureBaselineId": "LGE-V1.4-2026-08-27",
+  "sourceLock": {
+    "nativeCoreCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "voxelEngineCommit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "sourceTreeDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "buildPlanDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "toolchain": {
+    "compiler": "rustc",
+    "compilerVersion": "1.89.0",
+    "linkerVersion": "lld-18.1.0",
+    "sdkVersion": "glibc-2.35"
+  },
+  "featureSet": ["server", "voxel"],
+  "targetProfileId": "linux-server-x86_64-glibc",
+  "targetProfileDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "abiIdentity": "NativeManagedAbiV1",
+  "capabilitySet": ["Native"],
+  "artifactIndexDigest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "artifactSetDigest": "7d851d441b751469da4c5e935736fe7684b18db9387d195a3dcbd48684d9a365",
+  "evidenceSet": {
+    "sbom": { "format": "CycloneDX", "digest": "3333333333333333333333333333333333333333333333333333333333333333" },
+    "license": { "format": "SPDX", "digest": "1111111111111111111111111111111111111111111111111111111111111111" },
+    "provenance": { "format": "SLSA-v1", "digest": "2222222222222222222222222222222222222222222222222222222222222222" }
+  },
+  "generator": { "name": "lumio-coreengine-manifest", "version": "0.1.0" }
+}

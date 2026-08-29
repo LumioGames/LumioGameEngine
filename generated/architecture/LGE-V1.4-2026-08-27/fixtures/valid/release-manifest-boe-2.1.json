@@ -1,0 +1,28 @@
+{
+  "productId": "BOE",
+  "gameReleaseId": "BOE-2.1.0",
+  "manifestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+  "serverAssemblyHash": "2222222222222222222222222222222222222222222222222222222222222222",
+  "clientAssemblyHash": "3333333333333333333333333333333333333333333333333333333333333333",
+  "gameplayContractHash": "4444444444444444444444444444444444444444444444444444444444444444",
+  "runtimeApi": "RuntimeApiV1",
+  "coreEngineAbi": "NativeManagedAbiV1",
+  "networkProtocol": "LumioWireV1",
+  "voxelSchema": "VoxelSchemaV1",
+  "voxelMigration": "VoxelMigrationV1",
+  "configContentHash": "5555555555555555555555555555555555555555555555555555555555555555",
+  "coreEnginePackage": {
+    "packageId": "coreengine-linux-server-x86_64",
+    "manifestDigest": "9999999999999999999999999999999999999999999999999999999999999999",
+    "artifactSetDigest": "7777777777777777777777777777777777777777777777777777777777777777",
+    "abiIdentity": "NativeManagedAbiV1",
+    "targetProfileDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "capabilitySetDigest": "abababababababababababababababababababababababababababababababab"
+  },
+  "signature": { "algorithm": "Ed25519", "keyId": "release-key-1", "signature": "sig-boe-2.1-placeholder-00000000000000000000000000000000" },
+  "sbom": { "format": "SPDX", "digest": "6666666666666666666666666666666666666666666666666666666666666666", "dependencyCount": 38 },
+  "capabilities": ["Native", "Server", "Client"],
+  "compatibilityPolicy": "ExactRelease",
+  "serverReleaseId": "BOE-2.1.0",
+  "clientReleaseId": "BOE-2.1.0"
+}

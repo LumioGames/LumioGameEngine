@@ -1,0 +1,35 @@
+{
+  "portVersion": 1,
+  "worldId": "world-srv-arena-02",
+  "role": "Host",
+  "context": { "contextId": "wctx-srv-02", "generation": 1 },
+  "schemaEpoch": 1,
+  "capabilities": ["Native"],
+  "resourceBudget": {
+    "maxResidentChunks": 1024,
+    "snapshotPinBudgetBytes": 67108864,
+    "maxConcurrentQueries": 16,
+    "maxPendingMutations": 64,
+    "receiptRetentionEntries": 2048
+  },
+  "lifecycleState": "Ready",
+  "handleModel": {
+    "encoding": "IndexGenerationContext",
+    "invalidation": "GenerationBump",
+    "doubleRelease": "StableError"
+  },
+  "portMethods": [
+    "createWorld",
+    "query",
+    "prepareMutation",
+    "commit",
+    "abort",
+    "status",
+    "capture",
+    "applyDurabilityAck",
+    "restore",
+    "quiesce",
+    "destroy"
+  ],
+  "portErrors": ["InvalidHandle", "RevisionConflict"]
+}

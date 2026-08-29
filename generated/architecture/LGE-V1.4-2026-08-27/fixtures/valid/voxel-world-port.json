@@ -1,0 +1,47 @@
+{
+  "portVersion": 1,
+  "worldId": "world-srv-arena-01",
+  "role": "Authority",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "schemaEpoch": 1,
+  "capabilities": ["Native", "VoxelSnapshot", "VoxelStreaming", "VoxelSpatial", "VoxelMeshCollision"],
+  "requiredCapabilities": ["Native", "VoxelSnapshot"],
+  "resourceBudget": {
+    "maxResidentChunks": 4096,
+    "snapshotPinBudgetBytes": 268435456,
+    "maxConcurrentQueries": 64,
+    "maxPendingMutations": 256,
+    "receiptRetentionEntries": 8192
+  },
+  "lifecycleState": "Ready",
+  "handleModel": {
+    "encoding": "IndexGenerationContext",
+    "invalidation": "GenerationBump",
+    "doubleRelease": "StableError"
+  },
+  "portMethods": [
+    "createWorld",
+    "query",
+    "prepareMutation",
+    "commit",
+    "abort",
+    "status",
+    "capture",
+    "applyDurabilityAck",
+    "restore",
+    "quiesce",
+    "destroy"
+  ],
+  "portErrors": [
+    "InvalidHandle",
+    "HandleDoubleRelease",
+    "RevisionConflict",
+    "ChunkUnavailable",
+    "TargetRevisionUnavailable",
+    "BudgetExceeded",
+    "QueueFull",
+    "CoordinateOutOfBounds",
+    "CapabilityMissing",
+    "StaleEpoch"
+  ]
+}

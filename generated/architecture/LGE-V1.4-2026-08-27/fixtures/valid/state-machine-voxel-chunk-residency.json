@@ -1,0 +1,19 @@
+{
+  "machineId": "VoxelChunkResidency",
+  "owner": "VoxelEngine",
+  "sourceAdr": "ADR-024",
+  "initialState": "Unallocated",
+  "states": ["Unallocated", "Loading", "Ready", "Dirty", "Evicting", "Unloaded", "Failed"],
+  "terminalStates": ["Failed"],
+  "transitions": [
+    { "from": "Unallocated", "to": "Loading", "event": "RequestLoad" },
+    { "from": "Loading", "to": "Ready", "event": "PagesLoaded" },
+    { "from": "Loading", "to": "Failed", "event": "LoadFailed" },
+    { "from": "Ready", "to": "Dirty", "event": "AuthoritativeWrite" },
+    { "from": "Dirty", "to": "Ready", "event": "DurabilityAckCovers" },
+    { "from": "Ready", "to": "Evicting", "event": "EvictApproved" },
+    { "from": "Evicting", "to": "Unloaded", "event": "EvictionComplete" },
+    { "from": "Unloaded", "to": "Loading", "event": "RequestLoad" }
+  ],
+  "notes": "Chunk residency per ADR-024 with the ADR-036 eviction fence: a Dirty chunk may not enter Evicting until a durability acknowledgment covers it, so the only path out of Dirty is back through Ready."
+}
