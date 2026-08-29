@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -340,7 +341,13 @@ def emit_mapping(rust_dir: Path, cs_dir: Path) -> None:
     write_text(cs_dir / (CS_PROJ["MappingTable"] + ".csproj"), csproj(CS_PROJ["MappingTable"]))
 
 
-def emit_canonical(rust_dir: Path, cs_dir: Path, profile: Dict[str, Any]) -> None:
+def emit_canonical(
+    rust_dir: Path,
+    cs_dir: Path,
+    profile: Dict[str, Any],
+    bin_profile: Dict[str, Any],
+    checksum_doc: str,
+) -> None:
     rust = rust_lib_header("CanonicalSerializer")
     rust += (
         "/// snapshot-header.checksum covers SHA-256 of the canonical JSON of the header\n"
@@ -351,7 +358,7 @@ def emit_canonical(rust_dir: Path, cs_dir: Path, profile: Dict[str, Any]) -> Non
         "    \"SHA-256 over canonical JSON of snapshot-header minus checksum and hash fields\"\n"
         "}\n"
     )
-    write_text(rust_dir / "src" / "lib.rs", rust)
+    write_text(rust_dir / "src" / "lib.rs", rust + "\n" + lumio_bin_rust(bin_profile))
     write_text(rust_dir / "Cargo.toml", rust_cargo(RUST_CRATES["CanonicalSerializer"]))
     rust += "\n"
     rust += "/// ADR-041 CanonicalJsonV1: the canonical form is defined by the architecture source,\n"
@@ -405,7 +412,7 @@ def emit_canonical(rust_dir: Path, cs_dir: Path, profile: Dict[str, Any]) -> Non
     for golden in profile["goldens"]:
         rust += "    (\"%s\", \"%s\", \"%s\"),\n" % (golden["id"], golden["case"], golden["sha256"])
     rust += "];\n"
-    write_text(rust_dir / "CHECKSUM_DOMAIN.md", "checksum = SHA-256(canonical_json(header without checksum,hash))\n")
+    write_text(rust_dir / "CHECKSUM_DOMAIN.md", checksum_doc)
     write_text(
         cs_dir / "CanonicalSerializer.cs",
         "namespace Lumio.Gen.CanonicalSerializer;\n\npublic static class SnapshotChecksum\n{\n"
@@ -459,6 +466,7 @@ def emit_canonical(rust_dir: Path, cs_dir: Path, profile: Dict[str, Any]) -> Non
         )
     cs_extra.append("    };\n}\n")
     write_text(cs_dir / "CanonicalProfile.cs", "using System;\n\nnamespace Lumio.Gen.CanonicalSerializer;\n" + "".join(cs_extra))
+    write_text(cs_dir / "LumioBinProfile.cs", lumio_bin_csharp(bin_profile))
     write_text(cs_dir / (CS_PROJ["CanonicalSerializer"] + ".csproj"), csproj(CS_PROJ["CanonicalSerializer"]))
 
 
@@ -1018,6 +1026,527 @@ def derive_canonical_profile(root: Path) -> Dict[str, Any]:
         "digestDomains": json.loads(json.dumps(CANONICAL_DIGEST_DOMAINS)),
         "goldens": goldens,
     }
+
+
+# --------------------------------------------------------------------------
+# ADR-047 LumioBinV1 binary canonical profile
+# --------------------------------------------------------------------------
+
+LUMIO_BIN_PROFILE_ID = "lumio-bin-v1"
+LUMIO_BIN_PROFILE_FILE = "binary/lumio-bin-profile.json"
+# ADR-010 names GameRuntime the format owner and Voxel/Game the domain payload
+# owners; ADR-035 makes the voxel payload bytes public to every conforming
+# encoder, and Server persists them. CoreEngine consumes CanonicalJsonV1 only.
+LUMIO_BIN_PROFILE_CONSUMERS = ["LumioGame", "LumioGameRuntime", "LumioServer", "LumioVoxelEngine"]
+LUMIO_BIN_FORM = {
+    "formId": "LumioBinV1",
+    "byteOrder": "LittleEndian",
+    "integers": {
+        "u8": {"bytes": 1, "signed": False},
+        "u16": {"bytes": 2, "signed": False},
+        "u32": {"bytes": 4, "signed": False},
+        "u64": {"bytes": 8, "signed": False},
+        "i32": {"bytes": 4, "signed": True, "encoding": "TwosComplement"},
+        "i64": {"bytes": 8, "signed": True, "encoding": "TwosComplement"},
+    },
+    "strings": {"encoding": "Utf8", "lengthPrefix": "u32", "lengthUnit": "Bytes"},
+    "bytes": {"lengthPrefix": "u32", "lengthUnit": "Bytes"},
+    "arrays": {"countPrefix": "u32", "order": "DocumentOrder"},
+    "structs": {
+        "fieldOrder": "SchemaDeclarationOrder",
+        "padding": "None",
+        "missingFields": "Reject",
+        "unknownFields": "Reject",
+    },
+    "floats": "None",
+}
+# `framing` keeps the ADR-041 spelling so the two profiles state one construction,
+# but that name alone reads as an instruction to *add* a prefix. `digestInput` says
+# the operative thing as data: the digest is over the encoded bytes and nothing
+# else. A clean-room implementation that prepended a length or the formId matched
+# every Golden's bytes and missed every digest, which is precisely the silent
+# failure D-8 exists to prevent.
+LUMIO_BIN_DIGEST_ALGORITHM = {
+    "name": "SHA-256",
+    "framing": "PrefixFreeOverEncodedBytes",
+    "digestInput": "EncodedBytesOnly",
+}
+# How a Golden's `value` member carries each layout kind inside the published
+# JSON. Without this a consumer cannot tell how to read the vectors it must
+# reproduce, and byte arrays in particular have no natural JSON spelling.
+LUMIO_BIN_VALUE_ENCODING = {
+    "integers": "JsonIntegerNumbers",
+    # A double-backed JSON reader (any stock JavaScript `JSON.parse`) rounds the
+    # u64 Golden's 18446744073709551615 to 2**64 and then rejects a valid vector.
+    # The requirement is therefore published, not assumed.
+    "integerPrecision": "ExactArbitraryPrecision",
+    "strings": "JsonStrings",
+    "bytes": "LowercaseHexJsonStrings",
+    "arrays": "JsonArraysDocumentOrder",
+    "structs": "JsonObjectsEveryDeclaredFieldNoExtras",
+}
+LUMIO_BIN_GOLDEN_CASES = [
+    "IntegerWidthsLittleEndian",
+    "StringUtf8ByteLength",
+    "BytesLengthPrefix",
+    "ArrayCountPrefix",
+    "DeclarationOrderNoPadding",
+    "NestedComposition",
+]
+LUMIO_BIN_REJECTION_CASES = [
+    "IntegerRangeOverflow",
+    "UnsignedNegative",
+    "NonIntegerNumber",
+    "IntegralFloat",
+    "BooleanForInteger",
+    "TypeMismatch",
+    "MalformedHexBytes",
+    "UnknownLayoutKind",
+    "MissingField",
+    "UnknownField",
+]
+# width in bytes, and the closed inclusive range the width admits.
+LUMIO_BIN_INTEGERS: Dict[str, Tuple[int, bool, int, int]] = {
+    "u8": (1, False, 0, 2 ** 8 - 1),
+    "u16": (2, False, 0, 2 ** 16 - 1),
+    "u32": (4, False, 0, 2 ** 32 - 1),
+    "u64": (8, False, 0, 2 ** 64 - 1),
+    "i32": (4, True, -(2 ** 31), 2 ** 31 - 1),
+    "i64": (8, True, -(2 ** 63), 2 ** 63 - 1),
+}
+_LUMIO_BIN_HEX = re.compile(r"^([0-9a-f]{2})*$")
+
+
+class LumioBinError(RuntimeError):
+    """Raised when a value cannot be encoded under LumioBinV1.
+
+    `code` is the published rejection reason: a downstream that reproduces the
+    profile's rejection vectors must refuse the same input for the same reason,
+    not merely fail somehow.
+    """
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__("{}: {}".format(code, message))
+        self.code = code
+
+
+def lumio_bin_encode(layout: Any, value: Any, path: str = "$") -> bytes:
+    """Encode one value under the LumioBinV1 layout. Little-endian, no padding."""
+    if not isinstance(layout, dict):
+        raise LumioBinError("UnknownLayoutKind", "{} has no layout object".format(path))
+    kind = layout.get("kind")
+
+    if kind in LUMIO_BIN_INTEGERS:
+        width, signed, low, high = LUMIO_BIN_INTEGERS[str(kind)]
+        if isinstance(value, float):
+            raise LumioBinError("NonIntegerNumber", "{} is not an integer".format(path))
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise LumioBinError("TypeMismatch", "{} must be an integer for {}".format(path, kind))
+        if value < low or value > high:
+            raise LumioBinError(
+                "IntegerRangeOverflow", "{} = {} is outside the {} range".format(path, value, kind)
+            )
+        return value.to_bytes(width, "little", signed=signed)
+
+    if kind == "string":
+        if not isinstance(value, str):
+            raise LumioBinError("TypeMismatch", "{} must be a string".format(path))
+        payload = value.encode("utf-8")
+        return lumio_bin_encode({"kind": "u32"}, len(payload), path + ".length") + payload
+
+    if kind == "bytes":
+        if not isinstance(value, str) or _LUMIO_BIN_HEX.match(value) is None:
+            raise LumioBinError(
+                "TypeMismatch", "{} must be a lower-case hex string of whole bytes".format(path)
+            )
+        payload = bytes.fromhex(value)
+        return lumio_bin_encode({"kind": "u32"}, len(payload), path + ".length") + payload
+
+    if kind == "array":
+        if not isinstance(value, list):
+            raise LumioBinError("TypeMismatch", "{} must be an array".format(path))
+        out = lumio_bin_encode({"kind": "u32"}, len(value), path + ".count")
+        for index, item in enumerate(value):
+            out += lumio_bin_encode(layout.get("items"), item, "{}[{}]".format(path, index))
+        return out
+
+    if kind == "struct":
+        if not isinstance(value, dict):
+            raise LumioBinError("TypeMismatch", "{} must be an object".format(path))
+        fields = layout.get("fields") or []
+        declared = [str(field.get("name")) for field in fields]
+        for name in declared:
+            if name not in value:
+                raise LumioBinError("MissingField", "{} is missing field {}".format(path, name))
+        for name in value:
+            if name not in declared:
+                raise LumioBinError("UnknownField", "{} carries unknown field {}".format(path, name))
+        out = b""
+        # Declaration order, never member-name order: this is the one rule that
+        # a JSON-shaped input cannot carry and a consumer cannot infer.
+        for field in fields:
+            out += lumio_bin_encode(
+                field.get("layout"), value[str(field.get("name"))], "{}.{}".format(path, field.get("name"))
+            )
+        return out
+
+    raise LumioBinError("UnknownLayoutKind", "{} has unknown layout kind {!r}".format(path, kind))
+
+
+def _lumio_bin_golden(golden_id: str, case: str, layout: Any, value: Any) -> Dict[str, Any]:
+    payload = lumio_bin_encode(layout, value)
+    return {
+        "id": golden_id,
+        "case": case,
+        "layout": layout,
+        "value": value,
+        "bytesHex": payload.hex(),
+        "sha256": sha256_bytes(payload),
+    }
+
+
+def _lumio_bin_rejection(rejection_id: str, case: str, layout: Any, value: Any, error: str) -> Dict[str, Any]:
+    """Record a vector the encoder must refuse — and prove it refuses it here."""
+    try:
+        lumio_bin_encode(layout, value)
+    except LumioBinError as exc:
+        if exc.code != error:
+            raise LumioBinError(
+                exc.code, "rejection {} expected {} but the encoder raised {}".format(rejection_id, error, exc.code)
+            )
+        return {"id": rejection_id, "case": case, "layout": layout, "value": value, "error": error}
+    raise LumioBinError(error, "rejection {} was accepted by the encoder".format(rejection_id))
+
+
+# A struct whose declaration order is deliberately not the member-name order and
+# whose widths do not align: an encoder that sorts members, or pads to natural
+# alignment, produces different bytes for it and reproduces no other vector.
+LUMIO_BIN_UNALIGNED_STRUCT = {
+    "kind": "struct",
+    "fields": [
+        {"name": "zeta", "layout": {"kind": "u8"}},
+        {"name": "alpha", "layout": {"kind": "u64"}},
+        {"name": "mid", "layout": {"kind": "u8"}},
+        {"name": "beta", "layout": {"kind": "u32"}},
+    ],
+}
+LUMIO_BIN_NESTED_STRUCT = {
+    "kind": "struct",
+    "fields": [
+        {"name": "chunkRevision", "layout": {"kind": "u64"}},
+        {
+            "name": "pages",
+            "layout": {
+                "kind": "array",
+                "items": {
+                    "kind": "struct",
+                    "fields": [
+                        {"name": "pageIndex", "layout": {"kind": "u32"}},
+                        {"name": "label", "layout": {"kind": "string"}},
+                        {"name": "digest", "layout": {"kind": "bytes"}},
+                    ],
+                },
+            },
+        },
+        {"name": "trailer", "layout": {"kind": "i32"}},
+    ],
+}
+
+
+def derive_lumio_bin_profile() -> Dict[str, Any]:
+    """Derive the ADR-047 LumioBinV1 profile with its self-verifying vectors.
+
+    Every Golden's bytes and digest, and every rejection, are recomputed from
+    the declared layout and value here, so a published vector cannot rot into a
+    lie the way a hand-copied byte string can.
+    """
+    goldens = [
+        _lumio_bin_golden(
+            "integer-widths",
+            "IntegerWidthsLittleEndian",
+            {
+                "kind": "struct",
+                "fields": [
+                    {"name": "u8Value", "layout": {"kind": "u8"}},
+                    {"name": "u16Value", "layout": {"kind": "u16"}},
+                    {"name": "u32Value", "layout": {"kind": "u32"}},
+                    {"name": "u64Value", "layout": {"kind": "u64"}},
+                    {"name": "i32Value", "layout": {"kind": "i32"}},
+                    {"name": "i64Value", "layout": {"kind": "i64"}},
+                ],
+            },
+            {
+                "u8Value": 255,
+                "u16Value": 258,
+                "u32Value": 16909060,
+                "u64Value": 18446744073709551615,
+                "i32Value": -2,
+                "i64Value": -9223372036854775808,
+            },
+        ),
+        # 10 code points, 16 UTF-8 bytes: an encoder that prefixes the character
+        # count, or that escapes to ASCII the way CanonicalJsonV1 does, misses.
+        _lumio_bin_golden(
+            "string-utf8",
+            "StringUtf8ByteLength",
+            {"kind": "string"},
+            "aé世\U0001d11e chunk",
+        ),
+        _lumio_bin_golden("bytes-prefixed", "BytesLengthPrefix", {"kind": "bytes"}, "00ff10a0"),
+        _lumio_bin_golden(
+            "array-count",
+            "ArrayCountPrefix",
+            {"kind": "array", "items": {"kind": "u32"}},
+            [1, 256, 65536],
+        ),
+        _lumio_bin_golden(
+            "struct-declaration-order",
+            "DeclarationOrderNoPadding",
+            LUMIO_BIN_UNALIGNED_STRUCT,
+            {"zeta": 1, "alpha": 2, "mid": 3, "beta": 4},
+        ),
+        _lumio_bin_golden(
+            "nested-composition",
+            "NestedComposition",
+            LUMIO_BIN_NESTED_STRUCT,
+            {
+                "chunkRevision": 24,
+                "pages": [
+                    {"pageIndex": 0, "label": "page-0", "digest": "0a0b"},
+                    {"pageIndex": 1, "label": "", "digest": ""},
+                ],
+                "trailer": -1,
+            },
+        ),
+    ]
+    rejections = [
+        _lumio_bin_rejection(
+            "u8-above-range", "IntegerRangeOverflow", {"kind": "u8"}, 256, "IntegerRangeOverflow"
+        ),
+        _lumio_bin_rejection(
+            "u32-negative", "UnsignedNegative", {"kind": "u32"}, -1, "IntegerRangeOverflow"
+        ),
+        _lumio_bin_rejection(
+            "u32-fractional", "NonIntegerNumber", {"kind": "u32"}, 1.5, "NonIntegerNumber"
+        ),
+        # `1.5` is refused by both a spelling-based and a value-based reading, so
+        # it does not discriminate. `1.0` is the case that does: it is an integer
+        # by value and a non-integer by JSON spelling, and LumioBinV1 reads the
+        # spelling. Without this vector two conforming encoders disagree.
+        _lumio_bin_rejection(
+            "u32-integral-float", "IntegralFloat", {"kind": "u32"}, 1.0, "NonIntegerNumber"
+        ),
+        _lumio_bin_rejection("u32-string", "TypeMismatch", {"kind": "u32"}, "7", "TypeMismatch"),
+        _lumio_bin_rejection(
+            "u32-boolean", "BooleanForInteger", {"kind": "u32"}, True, "TypeMismatch"
+        ),
+        # `bytes` values are lower-case hex; an odd-length, upper-case or non-hex
+        # string is a TypeMismatch, not a private error a downstream has to invent.
+        _lumio_bin_rejection(
+            "bytes-odd-length", "MalformedHexBytes", {"kind": "bytes"}, "0a0", "TypeMismatch"
+        ),
+        _lumio_bin_rejection(
+            "bytes-upper-case", "MalformedHexBytes", {"kind": "bytes"}, "0A0B", "TypeMismatch"
+        ),
+        _lumio_bin_rejection("f32-layout", "UnknownLayoutKind", {"kind": "f32"}, 1, "UnknownLayoutKind"),
+        _lumio_bin_rejection(
+            "struct-missing-field",
+            "MissingField",
+            LUMIO_BIN_UNALIGNED_STRUCT,
+            {"zeta": 1, "alpha": 2, "mid": 3},
+            "MissingField",
+        ),
+        _lumio_bin_rejection(
+            "struct-unknown-field",
+            "UnknownField",
+            LUMIO_BIN_UNALIGNED_STRUCT,
+            {"zeta": 1, "alpha": 2, "mid": 3, "beta": 4, "omega": 5},
+            "UnknownField",
+        ),
+    ]
+    return {
+        "profileId": LUMIO_BIN_PROFILE_ID,
+        "baselineId": BASELINE,
+        "schemaEpoch": 1,
+        "binaryForm": json.loads(json.dumps(LUMIO_BIN_FORM)),
+        "digestAlgorithm": dict(LUMIO_BIN_DIGEST_ALGORITHM),
+        "valueEncoding": dict(LUMIO_BIN_VALUE_ENCODING),
+        "goldens": goldens,
+        "rejections": rejections,
+    }
+
+
+# --------------------------------------------------------------------------
+# ADR-047 snapshot-header checksum domain (the B profile)
+# --------------------------------------------------------------------------
+
+SNAPSHOT_CHECKSUM_DOMAIN_TAG = "SnapshotHeaderV1"
+SNAPSHOT_CHECKSUM_OMIT = ["checksum", "hash"]
+
+
+def snapshot_checksum_input(header: Dict[str, Any]) -> Dict[str, Any]:
+    """The B-profile digest input: the header minus its two digest members,
+    wrapped in the same structural domain object ADR-041 section 2 uses."""
+    body = {key: value for key, value in header.items() if key not in SNAPSHOT_CHECKSUM_OMIT}
+    return {"digestDomain": SNAPSHOT_CHECKSUM_DOMAIN_TAG, "header": body}
+
+
+def snapshot_checksum(header: Dict[str, Any]) -> str:
+    return sha256_bytes(canonical_json(snapshot_checksum_input(header)).encode("ascii"))
+
+
+def checksum_domain_md(root: Path) -> str:
+    """Emit the B profile as a document with a worked Golden, not one line.
+
+    The A profile (canonical/digest) publishes form parameters and Goldens; the
+    B profile published a single sentence with no domain tag and no vector, so a
+    downstream could not tell whether its digest agreed with anyone else's.
+    """
+    header = json.loads(
+        (root / "fixtures" / "valid" / "snapshot-active.json").read_text(encoding="utf-8")
+    )
+    digest_input = snapshot_checksum_input(header)
+    bytes_text = canonical_json(digest_input)
+    return (
+        "# Snapshot Header Checksum Domain ({tag}, the B profile)\n"
+        "\n"
+        "Generated with the CanonicalSerializer artifact. Do not hand-edit.\n"
+        "Authority: ADR-047 section 4; form: `CanonicalJsonV1` (ADR-041).\n"
+        "\n"
+        "## The two digests are not the same digest\n"
+        "\n"
+        "- `hash` covers the **payload bytes** the header describes: `SHA-256(payload)`,\n"
+        "  where the payload is the uncompressed domain bytes (ADR-047: encoded under\n"
+        "  `LumioBinV1` when the payload is binary). It says nothing about the header.\n"
+        "- `checksum` covers the **header** with the {omit} members removed:\n"
+        "  `SHA-256(CanonicalJsonV1({{\"digestDomain\":\"{tag}\",\"header\":<header minus those two>}}))`.\n"
+        "  Omitting both is what makes the value computable at all — `checksum` cannot\n"
+        "  cover itself, and `hash` is omitted so a re-hash of the payload does not\n"
+        "  force a header rewrite.\n"
+        "\n"
+        "Domain tag: `{tag}`. The tag is a member of the digest input, exactly as in\n"
+        "ADR-041 section 2, so a B-profile digest can never collide with an A-profile one.\n"
+        "\n"
+        "## Golden\n"
+        "\n"
+        "Input (`fixtures/valid/snapshot-active.json`, the registered positive fixture):\n"
+        "\n"
+        "```json\n"
+        "{bytes_text}\n"
+        "```\n"
+        "\n"
+        "```text\n"
+        "checksum = {digest}\n"
+        "```\n"
+        "\n"
+        "The architecture gate recomputes this value from the fixture on every run, so\n"
+        "the Golden cannot drift away from the rule it documents.\n"
+    ).format(
+        tag=SNAPSHOT_CHECKSUM_DOMAIN_TAG,
+        omit=", ".join("`{}`".format(name) for name in SNAPSHOT_CHECKSUM_OMIT),
+        bytes_text=bytes_text,
+        digest=snapshot_checksum(header),
+    )
+
+
+def lumio_bin_rust(profile: Dict[str, Any]) -> str:
+    """Publish the LumioBinV1 form parameters and Golden digests to Rust.
+
+    Only the identifiers and digests are emitted; the layouts, values and bytes
+    live in the published `binary/lumio-bin-profile.json`, which is the single
+    place a conformance test reads them from.
+    """
+    form = profile["binaryForm"]
+    out = [
+        "/// ADR-047 LumioBinV1: the binary canonical form for public payload bytes.\n",
+        "/// `CanonicalJsonV1` stays the form for canonicalizable JSON documents; this is\n",
+        "/// the primitive layer ADR-010 referred to and ADR-035 assumed.\n",
+        "pub const LUMIO_BIN_FORM_ID: &str = \"%s\";\n" % form["formId"],
+        "pub const LUMIO_BIN_BYTE_ORDER: &str = \"%s\";\n" % form["byteOrder"],
+        "pub const LUMIO_BIN_STRING_ENCODING: &str = \"%s\";\n" % form["strings"]["encoding"],
+        "pub const LUMIO_BIN_STRING_LENGTH_PREFIX: &str = \"%s\";\n" % form["strings"]["lengthPrefix"],
+        "pub const LUMIO_BIN_BYTES_LENGTH_PREFIX: &str = \"%s\";\n" % form["bytes"]["lengthPrefix"],
+        "pub const LUMIO_BIN_ARRAY_COUNT_PREFIX: &str = \"%s\";\n" % form["arrays"]["countPrefix"],
+        "pub const LUMIO_BIN_FIELD_ORDER: &str = \"%s\";\n" % form["structs"]["fieldOrder"],
+        "pub const LUMIO_BIN_PADDING: &str = \"%s\";\n" % form["structs"]["padding"],
+        "pub const LUMIO_BIN_FLOATS: &str = \"%s\";\n" % form["floats"],
+        "pub const LUMIO_BIN_DIGEST_FRAMING: &str = \"%s\";\n\n"
+        % profile["digestAlgorithm"]["framing"],
+        "/// Integer widths, as `(kind, bytes, signed)`. Little-endian, no padding.\n",
+        "pub const LUMIO_BIN_INTEGER_WIDTHS: &[(&str, u32, bool)] = &[\n",
+    ]
+    for name in ("u8", "u16", "u32", "u64", "i32", "i64"):
+        spec = form["integers"][name]
+        out.append(
+            "    (\"%s\", %d, %s),\n" % (name, spec["bytes"], "true" if spec["signed"] else "false")
+        )
+    out.append("];\n\n")
+    out.append("/// Golden vectors: `(id, case, sha256)`. Layouts, values and bytes are in\n")
+    out.append("/// the published `binary/lumio-bin-profile.json`.\n")
+    out.append("pub const LUMIO_BIN_GOLDENS: &[(&str, &str, &str)] = &[\n")
+    for golden in profile["goldens"]:
+        out.append("    (\"%s\", \"%s\", \"%s\"),\n" % (golden["id"], golden["case"], golden["sha256"]))
+    out.append("];\n\n")
+    out.append("/// Inputs a conforming encoder must refuse: `(id, case, error)`.\n")
+    out.append("pub const LUMIO_BIN_REJECTIONS: &[(&str, &str, &str)] = &[\n")
+    for rejection in profile["rejections"]:
+        out.append(
+            "    (\"%s\", \"%s\", \"%s\"),\n"
+            % (rejection["id"], rejection["case"], rejection["error"])
+        )
+    out.append("];\n")
+    return "".join(out)
+
+
+def lumio_bin_csharp(profile: Dict[str, Any]) -> str:
+    form = profile["binaryForm"]
+    out = [
+        "using System;\n\nnamespace Lumio.Gen.CanonicalSerializer;\n\n",
+        "// ADR-047 LumioBinV1: the binary canonical form for public payload bytes.\n",
+        "public static class LumioBinForm\n{\n",
+        "    public const string FormId = \"%s\";\n" % form["formId"],
+        "    public const string ByteOrder = \"%s\";\n" % form["byteOrder"],
+        "    public const string StringEncoding = \"%s\";\n" % form["strings"]["encoding"],
+        "    public const string StringLengthPrefix = \"%s\";\n" % form["strings"]["lengthPrefix"],
+        "    public const string BytesLengthPrefix = \"%s\";\n" % form["bytes"]["lengthPrefix"],
+        "    public const string ArrayCountPrefix = \"%s\";\n" % form["arrays"]["countPrefix"],
+        "    public const string FieldOrder = \"%s\";\n" % form["structs"]["fieldOrder"],
+        "    public const string Padding = \"%s\";\n" % form["structs"]["padding"],
+        "    public const string Floats = \"%s\";\n" % form["floats"],
+        "    public const string DigestFraming = \"%s\";\n}\n\n" % profile["digestAlgorithm"]["framing"],
+        "public readonly record struct LumioBinIntegerWidth(string Kind, uint Bytes, bool Signed);\n",
+        "public static class LumioBinIntegerWidths\n{\n    public static readonly LumioBinIntegerWidth[] All =\n    {\n",
+    ]
+    for name in ("u8", "u16", "u32", "u64", "i32", "i64"):
+        spec = form["integers"][name]
+        out.append(
+            "        new LumioBinIntegerWidth(\"%s\", %d, %s),\n"
+            % (name, spec["bytes"], "true" if spec["signed"] else "false")
+        )
+    out.append("    };\n}\n\n")
+    out.append("public readonly record struct LumioBinGolden(string Id, string Case, string Sha256);\n")
+    out.append("public static class LumioBinGoldens\n{\n    public static readonly LumioBinGolden[] All =\n    {\n")
+    for golden in profile["goldens"]:
+        out.append(
+            "        new LumioBinGolden(\"%s\", \"%s\", \"%s\"),\n"
+            % (golden["id"], golden["case"], golden["sha256"])
+        )
+    out.append("    };\n}\n\n")
+    out.append("public readonly record struct LumioBinRejection(string Id, string Case, string Error);\n")
+    out.append("public static class LumioBinRejections\n{\n    public static readonly LumioBinRejection[] All =\n    {\n")
+    for rejection in profile["rejections"]:
+        out.append(
+            "        new LumioBinRejection(\"%s\", \"%s\", \"%s\"),\n"
+            % (rejection["id"], rejection["case"], rejection["error"])
+        )
+    out.append("    };\n}\n")
+    return "".join(out)
+
+
+def emit_lumio_bin_profile(out_dir: Path) -> Dict[str, Any]:
+    profile = derive_lumio_bin_profile()
+    write_text(out_dir / LUMIO_BIN_PROFILE_FILE, canonical_json(profile) + "\n")
+    return profile
 
 
 def emit_validated_profile(root: Path, out_dir: Path, fixture: str, target: str) -> Dict[str, Any]:
@@ -1691,10 +2220,13 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
     )
     emit_mapping(rust_root / RUST_CRATES["MappingTable"], cs_root / CS_PROJ["MappingTable"])
     canonical_profile = derive_canonical_profile(root)
+    lumio_bin_profile = derive_lumio_bin_profile()
     emit_canonical(
         rust_root / RUST_CRATES["CanonicalSerializer"],
         cs_root / CS_PROJ["CanonicalSerializer"],
         canonical_profile,
+        lumio_bin_profile,
+        checksum_domain_md(root),
     )
     emit_language_binding(
         rust_root / RUST_CRATES["LanguageBinding"],
@@ -1717,6 +2249,7 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
     write_text(out_dir / ".gitignore", "rust/target/\ncsharp/**/bin/\ncsharp/**/obj/\n")
     bundle = emit_root_abi(root, out_dir, comp)
     write_text(out_dir / CANONICAL_PROFILE_FILE, canonical_json(canonical_profile) + "\n")
+    emit_lumio_bin_profile(out_dir)
     trust_profile = emit_trust_profile(root, out_dir)
     loader_profile = emit_validated_profile(root, out_dir, "loader-profile.json", LOADER_PROFILE_FILE)
     evidence_profile = emit_validated_profile(root, out_dir, "evidence-profile.json", EVIDENCE_PROFILE_FILE)
@@ -1782,6 +2315,16 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
             "goldenCount": len(canonical_profile["goldens"]),
             "consumers": list(CANONICAL_PROFILE_CONSUMERS),
         },
+        "binary": {
+            "profileId": lumio_bin_profile["profileId"],
+            "profilePath": LUMIO_BIN_PROFILE_FILE,
+            "profileDigest": sha256_file(out_dir / LUMIO_BIN_PROFILE_FILE),
+            "formId": lumio_bin_profile["binaryForm"]["formId"],
+            "digestAlgorithm": dict(lumio_bin_profile["digestAlgorithm"]),
+            "goldenCount": len(lumio_bin_profile["goldens"]),
+            "rejectionCount": len(lumio_bin_profile["rejections"]),
+            "consumers": list(LUMIO_BIN_PROFILE_CONSUMERS),
+        },
         "rootAbi": {
             "bundleId": bundle["bundleId"],
             "bundlePath": ABI_BUNDLE_FILE,
@@ -1799,7 +2342,9 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         "Generated V1.4 contract artifacts. Do not hand-edit package sources.\n"
         "Regenerate with `python tools/lumio_contract.py generate --out packages`.\n"
         "`abi/` is the ADR-040 Root ABI bundle: `lumio_core.h`, the layout Golden\n"
-        "record `root-abi-bundle.json`, and the digests of the Rust and C# bindings.\n",
+        "record `root-abi-bundle.json`, and the digests of the Rust and C# bindings.\n"
+        "`binary/` is the ADR-047 LumioBinV1 profile: the primitive byte layout for\n"
+        "public payload bytes, with self-verifying Golden and rejection vectors.\n",
     )
     return index
 

@@ -51,6 +51,13 @@ _CANONICAL_NORMALIZATION = {
 _CANONICAL_GOLDEN_CASES = set(_abi.CANONICAL_GOLDEN_CASES)
 _CANONICAL_PROFILE_FILE = _abi.CANONICAL_PROFILE_FILE
 
+_LUMIO_BIN_FORM = dict(_abi.LUMIO_BIN_FORM)
+_LUMIO_BIN_DIGEST_ALGORITHM = dict(_abi.LUMIO_BIN_DIGEST_ALGORITHM)
+_LUMIO_BIN_VALUE_ENCODING = dict(_abi.LUMIO_BIN_VALUE_ENCODING)
+_LUMIO_BIN_GOLDEN_CASES = set(_abi.LUMIO_BIN_GOLDEN_CASES)
+_LUMIO_BIN_REJECTION_CASES = set(_abi.LUMIO_BIN_REJECTION_CASES)
+_LUMIO_BIN_PROFILE_FILE = _abi.LUMIO_BIN_PROFILE_FILE
+
 _LOADER_REENTRY = {
     "afterFailedRolledBack": "NewInstanceFromUninitialized",
     "afterReleased": "NewInstanceFromUninitialized",
@@ -1012,6 +1019,26 @@ def published_canonical_profile_errors() -> List[str]:
     return []
 
 
+def published_lumio_bin_profile_errors() -> List[str]:
+    """ADR-047: the published binary profile must be re-derivable from the tool."""
+    published = PACKAGE_DIR / _LUMIO_BIN_PROFILE_FILE
+    if not published.is_file():
+        return []
+    document = load_json(published)
+    try:
+        derived = _abi.derive_lumio_bin_profile()
+    except _abi.LumioBinError as exc:
+        return ["published LumioBinV1 profile cannot be derived: {}".format(exc)]
+    if canonical_json(derived) != canonical_json(document):
+        return [
+            "published {} does not match the profile derived from the frozen vectors;"
+            " regenerate with `python3 tools/lumio_contract.py generate --out packages`".format(
+                _LUMIO_BIN_PROFILE_FILE
+            )
+        ]
+    return []
+
+
 def published_root_abi_bundle_errors() -> List[str]:
     """ADR-040: the published bundle must be re-derivable from the ABI document."""
     published = PACKAGE_DIR / _ABI_BUNDLE_FILE
@@ -1194,6 +1221,14 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             digest = hashlib.sha256(payload).hexdigest()
             if value.get("hash") != digest:
                 errors.append("snapshot hash does not match uncompressed payload")
+        # ADR-047 section 4: `checksum` covers the header itself, in the B-profile
+        # domain. Documented as one sentence before, so nothing could fail it.
+        expected_checksum = _abi.snapshot_checksum(value)
+        if value.get("checksum") != expected_checksum:
+            errors.append(
+                "snapshot checksum does not match the SnapshotHeaderV1 digest of the header"
+                " (expected {})".format(expected_checksum)
+            )
         if value.get("activationState") == "Active" and value.get("encryption") is None:
             errors.append("Active snapshot must declare encryption metadata")
 
@@ -1556,6 +1591,65 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
         versioned = by_case.get("SchemaVersionChange") or []
         if single and versioned and single[0].get("sha256") == versioned[0].get("sha256"):
             errors.append("a schema version change must change the digest")
+
+    elif schema_id == "lumio-bin-profile":
+        if value.get("binaryForm") != _LUMIO_BIN_FORM:
+            errors.append("binaryForm must equal the ADR-047 frozen LumioBinV1 parameters")
+        if value.get("digestAlgorithm") != _LUMIO_BIN_DIGEST_ALGORITHM:
+            errors.append("digestAlgorithm must equal the ADR-047 frozen construction")
+        if value.get("valueEncoding") != _LUMIO_BIN_VALUE_ENCODING:
+            errors.append("valueEncoding must equal the ADR-047 frozen vector spelling")
+        goldens = value.get("goldens", [])
+        golden_ids = [item.get("id") for item in goldens]
+        if len(golden_ids) != len(set(golden_ids)):
+            errors.append("golden ids must be unique")
+        covered = {item.get("case") for item in goldens}
+        if covered != _LUMIO_BIN_GOLDEN_CASES:
+            errors.append(
+                "goldens must cover every frozen case (missing: {}, unregistered: {})".format(
+                    sorted(_LUMIO_BIN_GOLDEN_CASES - covered), sorted(covered - _LUMIO_BIN_GOLDEN_CASES)
+                )
+            )
+        for golden in goldens:
+            try:
+                payload = _abi.lumio_bin_encode(golden.get("layout"), golden.get("value"))
+            except _abi.LumioBinError as exc:
+                errors.append("golden {} does not encode: {}".format(golden.get("id"), exc))
+                continue
+            if golden.get("bytesHex") != payload.hex():
+                errors.append(
+                    "golden {} bytesHex does not re-encode from its layout and value".format(
+                        golden.get("id")
+                    )
+                )
+            digest = hashlib.sha256(payload).hexdigest()
+            if golden.get("sha256") != digest:
+                errors.append("golden {} sha256 must equal {}".format(golden.get("id"), digest))
+        rejections = value.get("rejections", [])
+        rejection_ids = [item.get("id") for item in rejections]
+        if len(rejection_ids) != len(set(rejection_ids)):
+            errors.append("rejection ids must be unique")
+        rejection_cases = {item.get("case") for item in rejections}
+        if not rejection_cases.issubset(_LUMIO_BIN_REJECTION_CASES):
+            errors.append(
+                "rejections carry unregistered cases: {}".format(
+                    sorted(rejection_cases - _LUMIO_BIN_REJECTION_CASES)
+                )
+            )
+        for rejection in rejections:
+            # A rejection vector earns its place only by actually being refused,
+            # and for the published reason: "fails somehow" is not a contract.
+            try:
+                _abi.lumio_bin_encode(rejection.get("layout"), rejection.get("value"))
+            except _abi.LumioBinError as exc:
+                if exc.code != rejection.get("error"):
+                    errors.append(
+                        "rejection {} declares error {} but the encoder raised {}".format(
+                            rejection.get("id"), rejection.get("error"), exc.code
+                        )
+                    )
+                continue
+            errors.append("rejection {} was accepted by the encoder".format(rejection.get("id")))
 
     elif schema_id == "core-engine-manifest":
         if "Native" not in value.get("capabilitySet", []):
@@ -1977,6 +2071,7 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     consistency.extend(state_machine_consistency_errors(schemas, fixtures))
     consistency.extend(published_root_abi_bundle_errors())
     consistency.extend(published_canonical_profile_errors())
+    consistency.extend(published_lumio_bin_profile_errors())
     consistency.extend(ed25519_self_test_errors())
     if consistency:
         raise ContractError("; ".join(consistency))

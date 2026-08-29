@@ -3,7 +3,7 @@
 - **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (format contract), `LumioVoxelEngine`/`LumioGame` (domain schemas), `LumioServer` (host durability)
 - **Baseline**: `LGE-V1.1-2026-08-27`
-- **Refined by**: [ADR-032](ADR-032-durable-recovery-records.md), [ADR-033](ADR-033-config-typed-columns.md)
+- **Refined by**: [ADR-032](ADR-032-durable-recovery-records.md), [ADR-033](ADR-033-config-typed-columns.md), [ADR-047](ADR-047-lumio-bin-canonical-profile.md)
 
 ## Context
 

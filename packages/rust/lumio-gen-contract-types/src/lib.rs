@@ -15,6 +15,7 @@ pub const SCHEMA_IDS: &[&str] = &[
     "native-managed-abi",
     "root-abi-bundle",
     "canonical-digest-profile",
+    "lumio-bin-profile",
     "trust-profile",
     "loader-profile",
     "evidence-profile",

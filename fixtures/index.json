@@ -487,6 +487,33 @@
       "expected": "valid"
     },
     {
+      "id": "lumiobin/golden-bytes-mismatch",
+      "schema": "lumio-bin-profile",
+      "file": "invalid/lumio-bin-golden-bytes-mismatch.json",
+      "expected": "invalid",
+      "reason": "a golden bytesHex must re-encode from its layout and value"
+    },
+    {
+      "id": "lumiobin/golden-digest-mismatch",
+      "schema": "lumio-bin-profile",
+      "file": "invalid/lumio-bin-golden-digest-mismatch.json",
+      "expected": "invalid",
+      "reason": "a golden sha256 must equal the digest of its encoded bytes"
+    },
+    {
+      "id": "lumiobin/profile",
+      "schema": "lumio-bin-profile",
+      "file": "valid/lumio-bin-profile.json",
+      "expected": "valid"
+    },
+    {
+      "id": "lumiobin/rejection-not-rejected",
+      "schema": "lumio-bin-profile",
+      "file": "invalid/lumio-bin-rejection-not-rejected.json",
+      "expected": "invalid",
+      "reason": "a rejection vector must actually be refused by the encoder with the declared error"
+    },
+    {
       "id": "machine/client-replica-session",
       "schema": "state-machine-descriptor",
       "file": "valid/state-machine-client-replica-session.json",
@@ -971,6 +998,13 @@
       "schema": "snapshot-header",
       "file": "valid/snapshot-active.json",
       "expected": "valid"
+    },
+    {
+      "id": "snapshot/checksum-mismatch",
+      "schema": "snapshot-header",
+      "file": "invalid/snapshot-header-checksum-mismatch.json",
+      "expected": "invalid",
+      "reason": "the header checksum must equal the recomputed SnapshotHeaderV1 digest"
     },
     {
       "id": "snapshot/legacy-checksum",

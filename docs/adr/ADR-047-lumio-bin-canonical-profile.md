@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-047-lumio-bin-canonical-profile.md
