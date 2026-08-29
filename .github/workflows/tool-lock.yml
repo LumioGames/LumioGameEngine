@@ -43,6 +43,15 @@ env:
         if fields.get("name") in {"rustc", "cargo", "cc"}:
             continue
         print(fields["name"], fields["source_url"], fields["artifact_sha256"], sep="\t")
+  # 取某个工具链条目（linux-x86_64-p0-build）的 artifact_sha256。
+  PARSE_ARTIFACT: |
+    import re, sys
+    text = open(sys.argv[1], encoding="utf-8").read()
+    for block in text.split("[[tools]]")[1:]:
+        fields = dict(re.findall(r'^(\w+) = "([^"]*)"', block, re.M))
+        if fields.get("name") == sys.argv[2] and "linux-x86_64-p0-build" in block:
+            print(fields["artifact_sha256"])
+            break
 
 jobs:
   linux-tool-lock:
@@ -124,24 +133,34 @@ jobs:
           done
           echo "::endgroup::"
 
-      - name: measure — 分发制品 SHA-256（锁内 artifact_sha256 的出处）
+      - name: 工具链三项的 artifact_sha256 对账（记录不等于校验）
         run: |
           set -euo pipefail
           work=$(mktemp -d)
-          echo "::group::rust 官方分发组件（artifact_sha256）"
+          # 四项校验器的 archive 在安装步骤已逐个对账；rustc/cargo/cc 走 rustup/apt 安装，
+          # 不经那条路径，其 artifact_sha256 若只打印不断言就只是「记录」而非「校验」。
+          printf '%s' "$PARSE_ARTIFACT" > "$work/parse_artifact.py"
+          check() {
+            name=$1 actual=$2
+            locked=$(python3 "$work/parse_artifact.py" tools/tools.lock.toml "$name")
+            echo "artifact $name: locked=$locked actual=$actual"
+            [ -n "$locked" ] || { echo "tools.lock.toml 缺少 $name 的 p0-build 条目" >&2; exit 1; }
+            [ "$locked" = "$actual" ] || { echo "artifact SHA-256 与 tools.lock.toml 不一致：$name" >&2; exit 1; }
+          }
           for comp in rustc cargo; do
             url="https://static.rust-lang.org/dist/${comp}-${RUST_TOOLCHAIN_VERSION}-${RUST_TOOLCHAIN_TARGET}.tar.xz"
-            printf '%s  %s\n' "$(curl -fsSL --retry 3 "${url}.sha256" | awk '{ print $1 }')" "$url"
+            echo "source: ${url}.sha256"
+            check "$comp" "$(curl -fsSL --retry 3 "${url}.sha256" | awk '{ print $1 }')"
           done
-          echo "::endgroup::"
-          echo "::group::ubuntu gcc-11 分发包（cc 的 artifact_sha256）"
           (cd "$work" && apt-get download "gcc-11=${GCC_11_APT_VERSION}")
           deb=$(find "$work" -name 'gcc-11_*.deb' | head -1)
-          printf '%s  %s\n' "$(sha256sum "$deb" | awk '{ print $1 }')" "$(basename "$deb")"
-          apt-get download --print-uris "gcc-11=${GCC_11_APT_VERSION}"
-          echo "::endgroup::"
+          echo "source: $(basename "$deb")"
+          check cc "$(sha256sum "$deb" | awk '{ print $1 }')"
 
-      - name: 二进制完整性校验（空跑即失败）
+      - name: 二进制完整性校验（空跑与缩水都判失败）
         env:
           LCE_REQUIRE_BINARY_VERIFICATION: '1'
+          # 校验器四项 + 工具链三项。改这个数之前先想清楚是不是有条目被悄悄改窄了。
+          LCE_EXPECT_VERIFIED_HASHES: '7'
+          LCE_BUILD_ENVIRONMENT: p0-build
         run: bash tools/verify-tool-lock.sh

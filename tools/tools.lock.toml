@@ -4,7 +4,9 @@
 #   artifact_sha256 = source_url 指向的分发制品（release archive）的 SHA-256；
 #   本机实际安装的二进制 SHA-256 登记在 tools/checksums.sha256（key = name@host），
 #   由 tools/verify-tool-lock.sh 双向校验。
-#   source_commit 为 release tag 对应 commit（git ls-remote 解析）。
+#   source_commit 为 `git ls-remote` 对 release tag ref 的解析值：轻量 tag 与直接引用
+#   分支时是 commit，标注 tag 时是 tag 对象 SHA。以 artifact_sha256 为准，commit 只用于
+#   定位上游源码。
 # 新增/升级工具必须走规格 §4 选型记录（候选、许可证、退出路径）并同步本文件与 checksums。
 #
 # 一个工具在多个 host 上是多条 [[tools]] 条目（R-00265）：十字段里 source_url 与
@@ -78,9 +80,16 @@ exit_tool = "直接调用 crate CLI（去掉 just 转发层）"
 # artifact_sha256 取自各分发制品的官方摘要；四项校验器由 CI 在解压前逐个对账，不一致
 # 即 exit 1（日志中的 `archive <name>: locked=… actual=…` 行即对账证据）。
 #
-# rustc/cargo 登记的是**工具链真身**（~/.rustup/toolchains/<ver>-<target>/bin/），不是
-# ~/.cargo/bin 下的 rustup shim——shim 的摘要是 rustup 版本的函数，锁它等于锁错对象。
-# 因此 linux 宿主跑 verify-tool-lock.sh 前须把该 bin 目录前置到 PATH（CI 已做）。
+# 两个 host key 的分工：
+#   linux-x86_64          校验器四项。摘要由 source_url 指向的 release 归档唯一决定，
+#                         任何 Linux 机器按 source_url 装都能得到同一份，故对所有
+#                         linux 宿主生效（含开发机）。
+#   linux-x86_64-p0-build 工具链三项。摘要只在**钉定的 P0 构建环境**内成立，默认不参与
+#                         判定，须显式 LCE_BUILD_ENVIRONMENT=p0-build（CI 已设）。
+#                         开发机上 `command -v rustc` 命中 ~/.cargo/bin 的 rustup shim，
+#                         而这里登记的是工具链真身（~/.rustup/toolchains/<ver>-<target>/bin/）
+#                         ——shim 的摘要是 rustup 版本的函数，锁它等于锁错对象；若让开发机
+#                         也判定这三条，`just check` 会永远红在一条与其无关的漂移上。
 
 [[tools]]
 name = "cargo-deny"
@@ -143,7 +152,7 @@ source_url = "https://static.rust-lang.org/dist/rustc-1.89.0-x86_64-unknown-linu
 source_commit = "29483883eed69d5fb4db01964cdf2af4d86e9cb2"
 license_spdx = "MIT OR Apache-2.0"
 artifact_sha256 = "b42c254e1349df86bd40bc28fdf386172a1a46f2eeabe3c7a08a75cf1fb60e27"
-supported_hosts = ["linux-x86_64"]
+supported_hosts = ["linux-x86_64-p0-build"]
 invocation = "rustc（由 platform 执行 FrozenBuildPlan 时经 cargo 调用，规格 §7.4）"
 owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
 exit_tool = "无——Rust 工具链是 ADR 0004 第 1 条选定的唯一构建执行路径，更换须改 ADR"
@@ -155,7 +164,7 @@ source_url = "https://static.rust-lang.org/dist/cargo-1.89.0-x86_64-unknown-linu
 source_commit = "c24e1064277fe51ab72011e2612e556ac56addf7"
 license_spdx = "MIT OR Apache-2.0"
 artifact_sha256 = "99fc10be2aeedf2c23a484f217bfa76458494495a0eee33e280d3616bb08282d"
-supported_hosts = ["linux-x86_64"]
+supported_hosts = ["linux-x86_64-p0-build"]
 invocation = "cargo build（由 platform 执行 FrozenBuildPlan 时调用，规格 §7.4）"
 owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
 exit_tool = "无——同 rustc 条目（构建编排选型见规格 §4「构建编排」行）"
@@ -174,7 +183,7 @@ source_url = "http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-11/gcc-11_11.4.0-
 source_commit = "c3ad455f8dbc4f92c24a4987e158f22242b50379"
 license_spdx = "GPL-3.0-or-later WITH GCC-exception-3.1"
 artifact_sha256 = "5422307110e695d62a2574c8b765bf38d48b2ed520206e5b7d2b9081a68008f3"
-supported_hosts = ["linux-x86_64"]
+supported_hosts = ["linux-x86_64-p0-build"]
 invocation = "cc（rustc 的默认 linker driver，x86_64-unknown-linux-gnu）"
 owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
 exit_tool = "lld / mold（更换 linker 须同步 TargetProfile 与新 ADR）"
