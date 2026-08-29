@@ -81,8 +81,10 @@
 5. **PR #23 遗留 P2-1**(门禁只校验域的存在、不校验内容,ADR-041 自己 Verification 段写明的缺陷)与 **P2-4**。
 6. **Voxel 五张卡的验收项 4 断言待补**(通路已解除,断言未写)。
 7. **`Observability` 的 `netstandard2.1` 目标编译失败**(Runtime,**对照 worktree 已证明是既有缺陷、源自 `0754da8`**)。
-8. **SPIKE-HYBRIDCLR P0-4**(Client,**必须与 R-00065/67 的哈希重算同轮做**,否则二次失真)。
-9. R-00289 Room 迁移(应属 RM-00008)· 禁用包清单历史清点 · LumioServer 全量 `pub use` 收敛为白名单 · `contracts/*.lock.toml` 的 Windows 绝对路径(致 `contracts verify` 在非 Windows 宿主整份失效)。
+8. ~~SPIKE-HYBRIDCLR P0-4~~ —— **已完成**(Client 三卡复修时按 TD 的执行约束**先做 P0-4 再算哈希**,design `:196` / `:1795` 的「8.12.0 候选」已改 `8.14.1`,合入 `45d804b`)。
+9. **Host 侧 snapshot 读入必须在物化前限长**(跨仓要求,**新登记**)—— 上限值归 Host / 部署侧,**不得下沉到 codec**。依据:VOX-D-008 已裁「Host owns DAG orchestration, fsync, and Active-pointer swap」,Host 拥有落盘自然也该拥有读入时的长度约束;而在 `&[u8]` 边界加检查是**假防御**(字节已物化,内存已花掉)。**此前无任何地方登记过,只存在于一次会话推理里** —— 详见 [`2026-08-29-canonical-object-pairs-adjudication.md`](2026-08-29-canonical-object-pairs-adjudication.md) §4.2。
+10. **Voxel 复杂度判据是计时测试**(`fe2b800`)—— 若日后在 CI 上抖动,**直接删判据、不要放宽阈值**(放宽会让它同时失去检出力);删掉会留下可见缺口,放宽留下不可见失效。届时需重新设计一条非计时的替代判据。
+11. R-00289 Room 迁移(应属 RM-00008)· 禁用包清单历史清点 · LumioServer 全量 `pub use` 收敛为白名单 · `contracts/*.lock.toml` 的 Windows 绝对路径(致 `contracts verify` 在非 Windows 宿主整份失效)· Client 两个 adapter 测试工程零测试方法且 `dotnet test` 返回 0(与 B-00001「零测试即失败」同族)· Voxel R-00119 的 `write_occupied` 死分支(补可达用例或删分支并改写证据为「由 `&mut` 独占 + `Drop` 保证」)。
 
 ### 5.3 多平台执行环境(合并议题,不要逐仓单独凑)
 
