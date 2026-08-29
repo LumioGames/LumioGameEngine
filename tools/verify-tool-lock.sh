@@ -17,6 +17,19 @@
 # 本机不在任何 supported_hosts（applicable=0）时二进制完整性是空跑：仍 exit 0
 # （P0 目标平台与 CI 为 Linux，不因未登记宿主阻断门禁），但输出显式 WARNING 并将
 # 末行 OK 与「已校验」区分，防止误读为工具链已被校验（B-00002 选项二）。
+#
+# 环境变量（均为 R-00265 引入，默认全不设 = 原有行为）：
+#   LCE_REQUIRE_BINARY_VERIFICATION=1
+#       要求本次运行**真的校验过二进制**，空跑即失败。CI 设此开关——否则「二进制校验
+#       已执行」只能靠人读日志判断，而空跑与已校验都是 exit 0。
+#   LCE_EXPECT_VERIFIED_HASHES=<n>
+#       期望校验条数。上一条只挡「全空跑」，挡不住有人把若干条目的 supported_hosts
+#       改窄后「校验了 1 条也算绿」。
+#   LCE_BUILD_ENVIRONMENT=p0-build
+#       额外把 `<host>-p0-build` 计入 applicable。该 host key 登记的是 rustc/cargo/cc
+#       这类**摘要只在钉定构建环境内成立**的工具：开发机上 `command -v rustc` 命中
+#       rustup shim，摘要必然不同，默认不参与判定，否则 Linux 开发机的 `just check`
+#       会永远红在一条与其无关的漂移上。
 
 set -eu
 
@@ -46,9 +59,29 @@ case "$rustc_host" in
     *) fail "未登记的 rustc host 三元组：$rustc_host（先在本脚本映射表补对应 host key）" ;;
 esac
 
+# 本次判定为 applicable 的 host key 集合。
+# 默认只有本机 host。`<host>-p0-build` 是**钉定的 P0 构建环境**（CI 的 ubuntu-22.04
+# runner + 钉定 apt/rustup 版本），它登记的是 rustc/cargo/cc 这类摘要只在该环境成立的
+# 工具：开发机上 `command -v rustc` 命中的是 rustup shim，摘要必然不同，把它算作本机
+# 漂移会让 Linux 开发机的 `just check` 永远红。要在该环境内校验，设
+# LCE_BUILD_ENVIRONMENT=p0-build（CI 已设）。
+applicable_hosts="$host"
+if [ "${LCE_BUILD_ENVIRONMENT:-}" = "p0-build" ]; then
+    applicable_hosts="$applicable_hosts $host-p0-build"
+fi
+
 # ── 1. 解析并校验锁条目 ────────────────────────────────────────────────────
 [ -f "$lock_file" ] || fail "缺少 $lock_file"
 [ -f "$checksums_file" ] || fail "缺少 $checksums_file"
+
+checksum_keys=$(awk 'NF { print $2 }' "$checksums_file" | tr '\n' ' ')
+
+# 重复键必须先于逐条哈希校验判掉：重复的若正好是本机 applicable 的键，取出的
+# expected_sum 会是两行拼在一起，比对失败后报出的「漂移」里实际值与登记值肉眼相同，
+# 把维护者带向错误方向。门禁结果一样是红，但诊断必须指对地方。
+duplicate=$(printf '%s\n' $checksum_keys | sort | uniq -d)
+[ -z "$duplicate" ] ||
+    fail "checksums.sha256 有重复键：$(printf '%s' "$duplicate" | tr '\n' ' ')"
 
 lock_entries=$(awk '
     BEGIN { RS = ""; FS = "\n" }
@@ -128,39 +161,46 @@ while IFS='|' read -r name version source_url source_commit license_spdx \
         expected_keys="$expected_keys $name@$h"
     done
 
-    case " $supported_hosts " in
-        *" $host "*)
-            applicable=$((applicable + 1))
-            bin_path=$(command -v "$name" 2>/dev/null || true)
-            [ -n "$bin_path" ] || fail "条目 $name: 本机（$host）未安装，invocation=$invocation"
-            expected_sum=$(awk -v key="$name@$host" '
-                $2 == key { print $1; found = 1 }
-                END { if (!found) print "" }
-            ' "$checksums_file")
-            [ -n "$expected_sum" ] || fail "条目 $name: checksums.sha256 缺少 $name@$host 登记"
-            # GNU sha256sum 对含反斜杠的文件名输出加前导 `\` 转义标记，取哈希前剥离。
-            actual_sum=$(sha256sum "$bin_path" | awk '{ sub(/^\\/, ""); print $1 }')
-            [ "$actual_sum" = "$expected_sum" ] ||
-                fail "条目 $name: 本机二进制 SHA-256 漂移（实际 $actual_sum，登记 $expected_sum）"
-            checked_hashes=$((checked_hashes + 1))
-            echo "  $name $version ($host): sha256 OK [$actual_sum]"
-            ;;
-    esac
+    for h in $applicable_hosts; do
+        case " $supported_hosts " in
+            *" $h "*)
+                applicable=$((applicable + 1))
+                bin_path=$(command -v "$name" 2>/dev/null || true)
+                [ -n "$bin_path" ] ||
+                    fail "条目 $name: 本机（$h）未安装，invocation=$invocation；按锁内 source_url 取分发制品安装：$source_url"
+                expected_sum=$(awk -v key="$name@$h" '
+                    $2 == key { print $1; found = 1 }
+                    END { if (!found) print "" }
+                ' "$checksums_file")
+                [ -n "$expected_sum" ] || fail "条目 $name: checksums.sha256 缺少 $name@$h 登记"
+                # GNU sha256sum 对含反斜杠的文件名输出加前导 `\` 转义标记，取哈希前剥离。
+                actual_sum=$(sha256sum "$bin_path" | awk '{ sub(/^\\/, ""); print $1 }')
+                [ "$actual_sum" = "$expected_sum" ] ||
+                    fail "条目 $name: 本机二进制 SHA-256 漂移（$bin_path 实际 $actual_sum，登记 $expected_sum）；本仓只认锁内分发制品那一份，按 source_url 重装：$source_url"
+                checked_hashes=$((checked_hashes + 1))
+                echo "  $name $version ($h): sha256 OK [$actual_sum]"
+                ;;
+        esac
+    done
 done <<EOF
 $lock_entries
 EOF
 
 # ── 3. checksums 与锁双向一致 ──────────────────────────────────────────────
-for ck in $(awk '{ print $2 }' "$checksums_file"); do
-    case " $expected_keys " in
-        *" $ck "*) : ;;
-        *) fail "checksums.sha256 条目 $ck 在 tools.lock.toml 中没有对应登记（孤儿校验和）" ;;
+# 逐键双向比对，不比行数：行数相等掩盖不了「缺一个键 + 重复另一个键」——
+# 这种组合会让某个 host 的登记静默消失而门禁仍绿。
+for key in $expected_keys; do
+    case " $checksum_keys " in
+        *" $key "*) : ;;
+        *) fail "checksums.sha256 缺少锁内登记 $key" ;;
     esac
 done
-ck_count=$(awk 'NF { count++ } END { print count + 0 }' "$checksums_file")
-exp_count=$(echo "$expected_keys" | wc -w | tr -d ' ')
-[ "$ck_count" -eq "$exp_count" ] ||
-    fail "checksums 条目数 $ck_count 与锁登记数 $exp_count 不一致（缺失登记）"
+for key in $checksum_keys; do
+    case " $expected_keys " in
+        *" $key "*) : ;;
+        *) fail "checksums.sha256 条目 $key 在 tools.lock.toml 中没有对应登记（孤儿校验和）" ;;
+    esac
+done
 
 # ── 4. 许可证策略完整性 ────────────────────────────────────────────────────
 [ -f "$deny_file" ] || fail "缺少 $deny_file"
@@ -186,8 +226,21 @@ for lic in GPL-1.0 GPL-2.0 GPL-3.0 LGPL-2.0 LGPL-2.1 LGPL-3.0 \
         fail "about.toml accepted 白名单混入传染许可证 $lic（需法务审核项不得进白名单）"
 done
 
-echo "tools.lock: $total entries OK (applicable on $host: $applicable, hashes verified: $checked_hashes)"
+# 失败先于总结输出，避免日志读成「OK / OK / FAIL」。
+if [ "${LCE_REQUIRE_BINARY_VERIFICATION:-0}" = "1" ]; then
+    [ "$checked_hashes" -gt 0 ] ||
+        fail "LCE_REQUIRE_BINARY_VERIFICATION=1 要求本次真实校验二进制，但 $host 上 hashes verified: 0（applicable: $applicable）——空跑不得计为通过"
+    # 只挡「全空跑」挡不住「部分空跑」：有人从若干条目里删掉本 host，门禁仍绿、
+    # 只是校验条数悄悄变少。调用方给出期望条数即可让缩水也变红。
+    if [ -n "${LCE_EXPECT_VERIFIED_HASHES:-}" ]; then
+        [ "$checked_hashes" -eq "$LCE_EXPECT_VERIFIED_HASHES" ] ||
+            fail "期望校验 $LCE_EXPECT_VERIFIED_HASHES 个二进制，实际 $checked_hashes（登记被删或 supported_hosts 被改窄）"
+    fi
+fi
+
+echo "tools.lock: $total entries OK (applicable hosts: $applicable_hosts, applicable entries: $applicable, hashes verified: $checked_hashes)"
 echo "license-policy: 白名单制（deny-by-default），GPL/AGPL/SSPL/MPL 等传染许可证 -> 拒绝（需法务审核），策略完整性 OK"
+
 if [ "$applicable" -eq 0 ]; then
     # 非绿灯信号（B-00002）：空跑不得与「已校验」共用同一句 OK。
     echo "tools/verify-tool-lock.sh: WARNING: $host 不在任何 supported_hosts，本机工具二进制完整性未校验（hashes verified: 0）；本次通过只覆盖锁结构、checksums 双向登记与许可证策略。要覆盖本机，按规格 §4 选型流程在 tools.lock.toml 与 checksums.sha256 登记 $host 制品。" >&2

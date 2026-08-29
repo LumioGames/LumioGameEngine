@@ -4,8 +4,14 @@
 #   artifact_sha256 = source_url 指向的分发制品（release archive）的 SHA-256；
 #   本机实际安装的二进制 SHA-256 登记在 tools/checksums.sha256（key = name@host），
 #   由 tools/verify-tool-lock.sh 双向校验。
-#   source_commit 为 release tag 对应 commit（git ls-remote 解析）。
+#   source_commit 为 `git ls-remote` 对 release tag ref 的解析值：轻量 tag 与直接引用
+#   分支时是 commit，标注 tag 时是 tag 对象 SHA。以 artifact_sha256 为准，commit 只用于
+#   定位上游源码。
 # 新增/升级工具必须走规格 §4 选型记录（候选、许可证、退出路径）并同步本文件与 checksums。
+#
+# 一个工具在多个 host 上是多条 [[tools]] 条目（R-00265）：十字段里 source_url 与
+# artifact_sha256 各只有一份，而不同 host 的分发制品是不同文件，合并登记必然要伪造
+# 其中一个。verify-tool-lock.sh 按 name@host 建立期望键，同名多条目天然并存。
 
 schema_version = 1
 
@@ -57,3 +63,127 @@ supported_hosts = ["windows-x86_64"]
 invocation = "just <recipe>（命令 facade，规格 §3.4）"
 owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
 exit_tool = "直接调用 crate CLI（去掉 just 转发层）"
+
+# ── linux-x86_64 制品（R-00265）────────────────────────────────────────────
+#
+# 取值环境（executable SHA-256 的唯一出处，取自 tool-lock.yml 的 measure 步骤日志）：
+#   runner       ImageOS=ubuntu22 ImageVersion=20260824.273.3
+#   kernel       Linux 6.8.0-1064-azure x86_64
+#   libc         Ubuntu GLIBC 2.35-0ubuntu3.14（对齐 TargetProfile sdk=glibc-2.35）
+#   gcc-11 apt   11.4.0-1ubuntu1~22.04.3
+#   rustc        1.89.0 (29483883e 2025-08-04) host x86_64-unknown-linux-gnu
+#   cargo        1.89.0 (c24e10642 2025-06-23)
+#   取值命令     sha256sum $(command -v <name>)
+# 换 runner 镜像或包版本后摘要会漂移：门禁会显式失败并打印候选版本，按同一流程重测重登，
+# 不得就地改数。
+#
+# artifact_sha256 取自各分发制品的官方摘要；四项校验器由 CI 在解压前逐个对账，不一致
+# 即 exit 1（日志中的 `archive <name>: locked=… actual=…` 行即对账证据）。
+#
+# 两个 host key 的分工：
+#   linux-x86_64          校验器四项。摘要由 source_url 指向的 release 归档唯一决定，
+#                         任何 Linux 机器按 source_url 装都能得到同一份，故对所有
+#                         linux 宿主生效（含开发机）。
+#   linux-x86_64-p0-build 工具链三项。摘要只在**钉定的 P0 构建环境**内成立，默认不参与
+#                         判定，须显式 LCE_BUILD_ENVIRONMENT=p0-build（CI 已设）。
+#                         开发机上 `command -v rustc` 命中 ~/.cargo/bin 的 rustup shim，
+#                         而这里登记的是工具链真身（~/.rustup/toolchains/<ver>-<target>/bin/）
+#                         ——shim 的摘要是 rustup 版本的函数，锁它等于锁错对象；若让开发机
+#                         也判定这三条，`just check` 会永远红在一条与其无关的漂移上。
+
+[[tools]]
+name = "cargo-deny"
+version = "0.20.2"
+source_url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz"
+source_commit = "87da103c554376c89a641116f835a41073a9d774"
+license_spdx = "Apache-2.0 OR MIT"
+artifact_sha256 = "9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f"
+supported_hosts = ["linux-x86_64"]
+invocation = "cargo deny check"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "cargo-audit + OSV-Scanner（候选见规格 §4「许可证/供应链门禁」行）"
+
+[[tools]]
+name = "cargo-about"
+version = "0.9.2"
+source_url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.2/cargo-about-0.9.2-x86_64-unknown-linux-musl.tar.gz"
+source_commit = "caf26fdd28970d9d0ef7ec84fcf3c1086ac971c8"
+license_spdx = "Apache-2.0 OR MIT"
+artifact_sha256 = "9099a59e820c38a68b9d65f300662a567d56562f9a10f6aa4c7e86c17c2566af"
+supported_hosts = ["linux-x86_64"]
+invocation = "cargo about generate --config about.toml about.hbs -o build/reports/licenses.md"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "cargo-cyclonedx / ORT（候选见规格 §4「SBOM/License/Provenance」行）"
+
+[[tools]]
+name = "cargo-nextest"
+version = "0.9.114"
+# 与 windows 条目同一 release tag commit；linux 用 gnu 归档（CI 与 P0 目标同为 glibc）。
+source_url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.114/cargo-nextest-0.9.114-x86_64-unknown-linux-gnu.tar.gz"
+source_commit = "8f10a6bd14ca92ecb6e6f0a77a5b8cf899794a39"
+license_spdx = "MIT OR Apache-2.0"
+artifact_sha256 = "897cedb3b4e7c6e0d0960216a45a4635c1bca8c6f65930eaaf452ceb1a3d7f5c"
+supported_hosts = ["linux-x86_64"]
+invocation = "cargo nextest run --workspace --profile ci"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "cargo test（libtest，规格 §4「测试/Fixture」行）"
+
+[[tools]]
+name = "just"
+version = "1.58.0"
+source_url = "https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-x86_64-unknown-linux-musl.tar.gz"
+source_commit = "ebedee5bafe1ce779e93d91a2eff0c1bf3687b9c"
+license_spdx = "MIT"
+artifact_sha256 = "4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d"
+supported_hosts = ["linux-x86_64"]
+invocation = "just <recipe>（命令 facade，规格 §3.4）"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "直接调用 crate CLI（去掉 just 转发层）"
+
+# ── P0 构建工具链三项（R-00265 扩范围）─────────────────────────────────────
+# 规格 §7.3 的 ToolchainLock 要求 rustc / cargo / linker 各带 executable_sha256，
+# §7.4 要求 platform 执行期解析主机实际路径并复核该摘要。这三条就是那次复核的登记源，
+# 也是 LCE-P0-004 的 P0 compose 配置里三个 ToolReference 的取值出处。
+
+[[tools]]
+name = "rustc"
+version = "1.89.0"
+source_url = "https://static.rust-lang.org/dist/rustc-1.89.0-x86_64-unknown-linux-gnu.tar.xz"
+source_commit = "29483883eed69d5fb4db01964cdf2af4d86e9cb2"
+license_spdx = "MIT OR Apache-2.0"
+artifact_sha256 = "b42c254e1349df86bd40bc28fdf386172a1a46f2eeabe3c7a08a75cf1fb60e27"
+supported_hosts = ["linux-x86_64-p0-build"]
+invocation = "rustc（由 platform 执行 FrozenBuildPlan 时经 cargo 调用，规格 §7.4）"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "无——Rust 工具链是 ADR 0004 第 1 条选定的唯一构建执行路径，更换须改 ADR"
+
+[[tools]]
+name = "cargo"
+version = "1.89.0"
+source_url = "https://static.rust-lang.org/dist/cargo-1.89.0-x86_64-unknown-linux-gnu.tar.xz"
+source_commit = "c24e1064277fe51ab72011e2612e556ac56addf7"
+license_spdx = "MIT OR Apache-2.0"
+artifact_sha256 = "99fc10be2aeedf2c23a484f217bfa76458494495a0eee33e280d3616bb08282d"
+supported_hosts = ["linux-x86_64-p0-build"]
+invocation = "cargo build（由 platform 执行 FrozenBuildPlan 时调用，规格 §7.4）"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "无——同 rustc 条目（构建编排选型见规格 §4「构建编排」行）"
+
+[[tools]]
+name = "cc"
+version = "11.4.0"
+# /usr/bin/cc -> /usr/bin/x86_64-linux-gnu-gcc-11（update-alternatives 指向 gcc-11）。
+# source_commit 记的是上游 GCC releases/gcc-11.4.0 标签提交（git ls-remote 解析）；
+# Ubuntu 在其上施加发行版补丁，故**以 artifact_sha256（.deb）为准**——与 cargo-nextest
+# 条目同一处理口径。
+# 许可证提示：GCC 是 GPL 工具，但它是**构建期宿主工具**，不进入发布产物的依赖闭包；
+# deny.toml / about.toml 的白名单管的是 Rust 依赖图，不覆盖本文件。GCC Runtime Library
+# Exception 亦使其产出的目标代码不因编译器而传染。
+source_url = "http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-11/gcc-11_11.4.0-1ubuntu1~22.04.3_amd64.deb"
+source_commit = "c3ad455f8dbc4f92c24a4987e158f22242b50379"
+license_spdx = "GPL-3.0-or-later WITH GCC-exception-3.1"
+artifact_sha256 = "5422307110e695d62a2574c8b765bf38d48b2ed520206e5b7d2b9081a68008f3"
+supported_hosts = ["linux-x86_64-p0-build"]
+invocation = "cc（rustc 的默认 linker driver，x86_64-unknown-linux-gnu）"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "lld / mold（更换 linker 须同步 TargetProfile 与新 ADR）"
