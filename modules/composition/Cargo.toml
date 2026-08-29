@@ -12,6 +12,16 @@ publish.workspace = true
 [features]
 default = []
 
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+# 测试自行重算摘要来证伪 sidecar / inputs_digest，不借用被测代码的实现。
+sha2.workspace = true
+
 [[bin]]
 name = "lumio-core-compose"
 path = "src/bin/lumio-core-compose.rs"

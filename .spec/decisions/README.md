@@ -33,3 +33,4 @@
 | [0003](0003-observation-validation-planes.md) | diagnostics 收窄为观测适配平面，smoke 定位为验证平面 | 生效 |
 | [0004](0004-workspace-runtime-boundary.md) | 固定单 Cargo workspace 15 crate，运行时发布闭包按规格 §3.7 白名单冻结 | 生效 |
 | [0006](0006-internal-build-plan-freeze.md) | BuildPlan 定为仓内确定性 JSON（plan_format_version=1），sidecar Digest 原子冻结，platform 只读 | 生效 |
+| [0007](0007-composition-config-toml-parser.md) | compose 配置解析选定 `toml` crate 并精确锁版，不自研 TOML 子集解析器 | 生效 |

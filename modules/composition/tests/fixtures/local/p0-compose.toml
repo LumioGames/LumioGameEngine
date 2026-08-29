@@ -1,0 +1,91 @@
+# 本地 Fixture（规格 §7.2）：compose 配置格式的**测试用**样本，明确非公共 Schema。
+#
+# 它只喂给 `tests/config_parsing.rs`，用来钉住 `ComposeRequest::from_config_file` 的
+# 解析口径——真正会被 `just compose p0-linux` 消费的是
+# `config/p0/linux-server-x86_64-glibc.compose.toml`。两者结构相同、取值不同：
+# 这里的 commit / tree / 摘要都是**显然的占位值**（全 0、全 1、全 a…），不冒充任何
+# 真实制品；解析层只看格式，取值真实性由 compose 的后续校验负责。
+#
+# supported_hosts 之类的多行数组写法在这里出现是刻意的：解析必须走 TOML 解析器，
+# 手写扫描会把合法的多行写法读成缺失（ADR 0007 §2 否决自研子集解析器的正是这条）。
+
+plan_format_version = 1
+
+architecture_lock = "architecture.lock.json"
+tools_lock = "tools/tools.lock.toml"
+
+[[sources]]
+component = "LumioNativeCore"
+repository = "https://example.invalid/native"
+checkout_root = "build/sources/lumio-native-core"
+expected_commit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+expected_tree_id = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+[[sources]]
+component = "LumioVoxelEngine"
+repository = "https://example.invalid/voxel"
+checkout_root = "build/sources/lumio-voxel-engine"
+expected_commit = "cccccccccccccccccccccccccccccccccccccccc"
+expected_tree_id = "dddddddddddddddddddddddddddddddddddddddd"
+
+# conflicts 这条互斥关系是**为测试构造的**，不代表这两个 feature 在 NativeCore 里
+# 真的互斥；解析层只负责把它读出来。
+[features]
+known = [
+  "experimental-codec",
+  "experimental-diagnostics",
+]
+requested = ["experimental-codec"]
+conflicts = [["experimental-codec", "experimental-diagnostics"]]
+
+[documents]
+target_profile = "fixtures/valid/target-profile-linux-server.json"
+root_abi_schema = "schemas/root-abi-bundle.schema.json"
+root_abi_generated_artifact_descriptor = "packages/abi/root-abi-bundle.json"
+
+[toolchain]
+target_triple = "x86_64-unknown-linux-gnu"
+
+[toolchain.rustc]
+tool_id = "rustc"
+version = "1.89.0"
+executable_sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+
+[toolchain.cargo]
+tool_id = "cargo"
+version = "1.89.0"
+executable_sha256 = "1111111111111111111111111111111111111111111111111111111111111111"
+
+[toolchain.linker]
+tool_id = "cc"
+version = "11.4.0"
+executable_sha256 = "2222222222222222222222222222222222222222222222222222222222222222"
+
+[build_profile]
+cargo_profile = "release"
+panic_strategy = "abort"
+lto = true
+codegen_units = 1
+debug_symbols = true
+
+[[build_invocations]]
+source_component = "LumioNativeCore"
+manifest_path = "build/sources/lumio-native-core/crates/lumio-native-ffi/Cargo.toml"
+package = "lumio-native-ffi"
+target = "x86_64-unknown-linux-gnu"
+profile = "release"
+features = ["experimental-codec"]
+no_default_features = true
+rustflags = ["-Csymbol-mangling-version=v0"]
+
+[build_invocations.environment]
+CARGO_NET_OFFLINE = "true"
+
+[package_layout]
+staging_root = "build/platform/linux-server-x86_64-glibc/staging"
+native_root = "build/platform/linux-server-x86_64-glibc/staging/native"
+include_root = "build/platform/linux-server-x86_64-glibc/staging/include"
+managed_root = "build/platform/linux-server-x86_64-glibc/staging/managed"
+metadata_root = "build/platform/linux-server-x86_64-glibc/staging/metadata"
+evidence_root = "build/platform/linux-server-x86_64-glibc/staging/evidence"
+symbols_root = "build/platform/linux-server-x86_64-glibc/staging/symbols"
