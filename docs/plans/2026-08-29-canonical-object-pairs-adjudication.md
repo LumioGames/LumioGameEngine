@@ -27,7 +27,7 @@ pub fn canonical_object_pairs(pairs: &mut [(String, String)]) -> String {
 }
 ```
 
-key 与 value 均不转义;value **不加引号直接拼接**;不拒重复 key。**碰撞有三条独立路径**:① value 侧 `[("a","1,\"b\":2")]` ≡ `[("a","1"),("b","2")]`;② key 侧 `[('a":1,"b','2')]`;③ Voxel 的 `fields` 是**裸拼接**,连引号都不需要——**一个逗号就够**。
+key 与 value 均不转义;value **不加引号直接拼接**;不拒重复 key。**碰撞有三条独立路径**:① value 侧 `[("a","1,\"b\":2")]` ≡ `[("a","1"),("b","2")]`;② key 侧 `[('a":1,"b','2')]`;③ Voxel 的 `fields` 是**裸拼接**——**无需逃逸出字符串,一个 `,\"k\":` 片段即可增删成员**。(2026-08-29 更正:原文写「一个逗号就够」不准确——注入串最少需 `,` + `"` + `:` 三字符,因为要写出被注入成员的**名字**就得有引号。真正省掉的是「先闭合一个字符串再逃逸」这一步,不是省掉引号本身。**这个区别重要**:「省掉引号」会让读者以为字段值有引号包裹就安全,而真相是裸推的字段连「需要先闭合」这道门槛都没有。)
 
 **它同时违反本仓自己已发布的两条冻结条款**:`CANONICAL_ENCODING=AsciiEscaped` 与 `CANONICAL_DUPLICATE_MEMBERS=Reject`。而它发明了一个**全仓任何文字中都不存在**的前置条件(「value 必须已是预编码 JSON」——`pre-encoded` / `预编码` 全仓零命中,crate 内 `///` 计数为 0),对应 ADR-048:16「a repository must not invent a public contract」。
 
@@ -103,6 +103,28 @@ key 与 value 均不转义;value **不加引号直接拼接**;不拒重复 key�
 **碰撞的实际后果**(已由调查方追出完整链路):先提交 B 并 finalize,再提交 A,`commit.rs:45-54` → `check_entry`(`receipt_ledger.rs:216-221`)指纹相等 → `Duplicate` → **直接返回 B 的 receipt,A 从未执行而调用方拿到成功回执**。正确转义下应是 `RevisionConflict`。
 
 **fingerprint 语义断代不可避免**:现有字节可伪造 ⇒ 必须变 ⇒ 全部历史幂等重放判据失效。**这是产品决策,须先于代码裁决。**
+
+### 3.4.1 W0 断代影响评估结论(2026-08-29,Voxel 会话逐条查证)
+
+**断代影响面比裁决时的预估窄得多。** 七个真实调用形态的前后 digest 对拍:**只有「mutation fingerprint 且 fields 非空」两行 CHANGED**,其余五行(receipt bytes、snapshot manifest / payload_hash、restore shadow candidate、query plan hash、空 fields 指纹)**全部 SAME**。
+
+原因:另外五处调用方**本来就把值分好了类型**(字符串走各自的 `quote()`、整数走 `to_string()`),故「补转义 + 类型化」对不含 `"`/`\`/控制字符的良构数据是**恒等变换**;只有 `fingerprint.rs:34-36` 的 `request.fields` 是 key 与 value 双双裸推,才必然改变。
+
+**五条逐条查证(非推断)的失效范围**:
+
+1. **本仓无任何持久化 ledger** —— 全 workspace 内 `fs::write` / `File::create` / `write_all` **只出现在两个测试文件**;`ReceiptLedger.entries` 是进程内 `BTreeMap`。⇒ **幂等重放窗口 = 进程生命周期**,跨版本重放判据本就不存在。
+2. **重放判定路径不读历史指纹** —— 「用当前请求现算 → 比内存中的 reservation」,两边同代码同版本,天然自洽。⇒ 升级不会让任何在途重放判错。
+3. **唯一外流的历史指纹是 receipt 字节**(`"fingerprint":"<hex>"` 随 receipt 交回 Host)。⇒ 失配的是**审计记录的可复算性**,不是重放正确性。
+4. **snapshot 字节是本仓唯一跨进程持久格式,而它 SAME** ⇒ **改动前写出的 snapshot,改动后仍可 restore,无需迁移。**
+5. 全仓无钉死这些 digest 的 golden 常量。
+
+> **这一步的价值**:若不先查而按最坏假设设计,会做一套没必要的数据迁移。**W0 先于代码的理由就在这里。**
+
+**断代方式裁决:硬切 + 形态标**(在指纹输入里加 `canonicalForm` 成员)。理由:它把 §5 gap 3 的「静默面」从**靠一张对拍表守护**变成**靠字节自身守护** —— **形态标是「让非法状态不可表达」在版本维度上的同一手法**,与本裁决选构造式值类型是同一判断的两次应用。代价(空 fields 那行也 CHANGED、同名 key 被拒)中的**后一项本来就是修复的一部分**。**加标必须与编码改动同批交付**,不得分两次合入——分两次会让第一版成为「无标的新编码」,恰是形态标要防的那种历史。
+
+**否决双读兼容**:旧编码一旦还活着,碰撞就还活着(与 §3.5 一致)。
+
+**receipt 审计回溯**:附一份旧编码复算脚本入仓,文件头注明「仅供旧编码回溯,不得被任何生产代码引用」。**Host 侧是否确有落盘历史 receipt 未核实**(Server mvp-host 本轮新建且 A1-α 自闭环、Runtime 三个 generated 重载在生产路径当前不可达,**推断大概率无,但不作为结论**)。
 
 ### 3.5 否决项
 
