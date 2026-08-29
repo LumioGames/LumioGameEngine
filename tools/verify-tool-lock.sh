@@ -17,6 +17,11 @@
 # 本机不在任何 supported_hosts（applicable=0）时二进制完整性是空跑：仍 exit 0
 # （P0 目标平台与 CI 为 Linux，不因未登记宿主阻断门禁），但输出显式 WARNING 并将
 # 末行 OK 与「已校验」区分，防止误读为工具链已被校验（B-00002 选项二）。
+#
+# LCE_REQUIRE_BINARY_VERIFICATION=1：要求本次运行**真的校验过二进制**，空跑即失败
+# （R-00265）。CI 的 linux-x86_64 作业设此开关——否则「二进制校验已执行」只能靠人
+# 读日志判断，而空跑与已校验都是 exit 0，绿灯无法区分跳过与通过。本机开发不设该
+# 变量，macOS/未登记宿主仍走 WARNING + exit 0 的原路径。
 
 set -eu
 
@@ -188,6 +193,10 @@ done
 
 echo "tools.lock: $total entries OK (applicable on $host: $applicable, hashes verified: $checked_hashes)"
 echo "license-policy: 白名单制（deny-by-default），GPL/AGPL/SSPL/MPL 等传染许可证 -> 拒绝（需法务审核），策略完整性 OK"
+if [ "${LCE_REQUIRE_BINARY_VERIFICATION:-0}" = "1" ] && [ "$checked_hashes" -eq 0 ]; then
+    fail "LCE_REQUIRE_BINARY_VERIFICATION=1 要求本次真实校验二进制，但 $host 上 hashes verified: 0（applicable: $applicable）——空跑不得计为通过"
+fi
+
 if [ "$applicable" -eq 0 ]; then
     # 非绿灯信号（B-00002）：空跑不得与「已校验」共用同一句 OK。
     echo "tools/verify-tool-lock.sh: WARNING: $host 不在任何 supported_hosts，本机工具二进制完整性未校验（hashes verified: 0）；本次通过只覆盖锁结构、checksums 双向登记与许可证策略。要覆盖本机，按规格 §4 选型流程在 tools.lock.toml 与 checksums.sha256 登记 $host 制品。" >&2

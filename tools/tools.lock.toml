@@ -6,6 +6,10 @@
 #   由 tools/verify-tool-lock.sh 双向校验。
 #   source_commit 为 release tag 对应 commit（git ls-remote 解析）。
 # 新增/升级工具必须走规格 §4 选型记录（候选、许可证、退出路径）并同步本文件与 checksums。
+#
+# 一个工具在多个 host 上是多条 [[tools]] 条目（R-00265）：十字段里 source_url 与
+# artifact_sha256 各只有一份，而不同 host 的分发制品是不同文件，合并登记必然要伪造
+# 其中一个。verify-tool-lock.sh 按 name@host 建立期望键，同名多条目天然并存。
 
 schema_version = 1
 
@@ -54,6 +58,61 @@ source_commit = "ebedee5bafe1ce779e93d91a2eff0c1bf3687b9c"
 license_spdx = "MIT"
 artifact_sha256 = "759f16fb7aa17c5c8b9594b6d4a8c1a6630dfd042cf2b3ff84841454d3d188dc"
 supported_hosts = ["windows-x86_64"]
+invocation = "just <recipe>（命令 facade，规格 §3.4）"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "直接调用 crate CLI（去掉 just 转发层）"
+
+# ── linux-x86_64 制品（R-00265）────────────────────────────────────────────
+# 取值环境与取值命令见 .github/workflows/tool-lock.yml 的 measure 步骤日志：
+# ubuntu-22.04 runner（对齐 TargetProfile minimumOs=ubuntu-22.04 / sdk=glibc-2.35），
+# executable SHA-256 = `sha256sum $(command -v <name>)`。artifact_sha256 取自各 release
+# 的官方资产摘要，CI 在解压前逐个对账，不一致即 exit 1。
+
+[[tools]]
+name = "cargo-deny"
+version = "0.20.2"
+source_url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz"
+source_commit = "87da103c554376c89a641116f835a41073a9d774"
+license_spdx = "Apache-2.0 OR MIT"
+artifact_sha256 = "9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f"
+supported_hosts = ["linux-x86_64"]
+invocation = "cargo deny check"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "cargo-audit + OSV-Scanner（候选见规格 §4「许可证/供应链门禁」行）"
+
+[[tools]]
+name = "cargo-about"
+version = "0.9.2"
+source_url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.2/cargo-about-0.9.2-x86_64-unknown-linux-musl.tar.gz"
+source_commit = "caf26fdd28970d9d0ef7ec84fcf3c1086ac971c8"
+license_spdx = "Apache-2.0 OR MIT"
+artifact_sha256 = "9099a59e820c38a68b9d65f300662a567d56562f9a10f6aa4c7e86c17c2566af"
+supported_hosts = ["linux-x86_64"]
+invocation = "cargo about generate --config about.toml about.hbs -o build/reports/licenses.md"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "cargo-cyclonedx / ORT（候选见规格 §4「SBOM/License/Provenance」行）"
+
+[[tools]]
+name = "cargo-nextest"
+version = "0.9.114"
+# 与 windows 条目同一 release tag commit；linux 用 gnu 归档（CI 与 P0 目标同为 glibc）。
+source_url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.114/cargo-nextest-0.9.114-x86_64-unknown-linux-gnu.tar.gz"
+source_commit = "8f10a6bd14ca92ecb6e6f0a77a5b8cf899794a39"
+license_spdx = "MIT OR Apache-2.0"
+artifact_sha256 = "897cedb3b4e7c6e0d0960216a45a4635c1bca8c6f65930eaaf452ceb1a3d7f5c"
+supported_hosts = ["linux-x86_64"]
+invocation = "cargo nextest run --workspace --profile ci"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "cargo test（libtest，规格 §4「测试/Fixture」行）"
+
+[[tools]]
+name = "just"
+version = "1.58.0"
+source_url = "https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-x86_64-unknown-linux-musl.tar.gz"
+source_commit = "ebedee5bafe1ce779e93d91a2eff0c1bf3687b9c"
+license_spdx = "MIT"
+artifact_sha256 = "4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d"
+supported_hosts = ["linux-x86_64"]
 invocation = "just <recipe>（命令 facade，规格 §3.4）"
 owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
 exit_tool = "直接调用 crate CLI（去掉 just 转发层）"
