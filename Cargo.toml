@@ -31,6 +31,12 @@ repository = "https://github.com/LumioGames/LumioCoreEngine"
 publish = false
 
 # 直接依赖统一在此固定精确版本；crate 只能经 `<dep>.workspace = true` 消费，
-# 不得自行漂移版本（规格 §3.2）。当前依赖图为空：本卡不引入任何第三方依赖，
-# 后续任务按其卡片与选型记录（规格 §4）逐项登记。
+# 不得自行漂移版本（规格 §3.2）。逐项选型记录见规格 §4 与 `.spec/decisions/`。
 [workspace.dependencies]
+# BuildPlan 的 typed 结构与确定性紧凑 JSON 编码（ADR 0006 第 2 条指定实现载体）。
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+# Digest：规格 §4「Digest」行选定 sha2 0.11.0。
+sha2 = "=0.11.0"
+# compose 配置（`*.compose.toml`）与 tools.lock.toml 的解析（ADR 0007）。
+toml = "=1.1.4"

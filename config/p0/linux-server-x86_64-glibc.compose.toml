@@ -1,0 +1,120 @@
+# P0 唯一 TargetProfile（linux-server-x86_64-glibc）的 compose 输入。
+#
+# 本文件是**本地配置，明确非公共 Schema**（规格 §7.2）：它只喂给 lumio-core-compose，
+# 不进入任何发布产物，也不与架构源共享字段口径。
+#
+# compose 不探测环境、不下载、不调用 cargo/rustc：下面每个值都是显式声明，compose 只做
+# 一致性与格式校验，再确定性编码冻结。因此改这里的任何一个字节，都会改变已发布计划的
+# build_plan_digest —— 计划已发布后不可覆盖，要换参数就冻结到新目录。
+#
+# 源 checkout 的预置约定（LCE-P0-008 一并消费）：
+#   落点   build/sources/lumio-native-core、build/sources/lumio-voxel-engine
+#          （build/ 已 gitignore；工作区内相对路径，满足 ADR-0006 第 4 条）
+#   谁负责 操作者/CI 预先 clone 或 symlink 到位。compose **不 clone、不 fetch、不联网**。
+#   校验项 repository / expected_commit / expected_tree_id 三者与 checkout 逐项一致，
+#          且已跟踪文件无未提交改动（未跟踪文件不算漂移）。任一不符即拒绝。
+
+plan_format_version = 1
+
+architecture_lock = "architecture.lock.json"
+tools_lock = "tools/tools.lock.toml"
+
+[[sources]]
+component = "LumioNativeCore"
+repository = "https://github.com/LumioGames/LumioNativeCore"
+checkout_root = "build/sources/lumio-native-core"
+expected_commit = "e1924591679c001edd84f8b71840d746b7094f12"
+expected_tree_id = "3ae61d72755bb86a5524acfc3c4ad6cdd216e644"
+
+[[sources]]
+component = "LumioVoxelEngine"
+repository = "https://github.com/LumioGames/LumioVoxelEngine"
+checkout_root = "build/sources/lumio-voxel-engine"
+expected_commit = "0466ffd95895285ee6f79ad41e6b84acc0a1d756"
+expected_tree_id = "90e0e9c0e711058534c42f7b4d06599e3b202789"
+
+# known 只登记两仓 Cargo.toml 里**真实存在**的 feature；compose 不认识 known 之外的名字。
+# P0 不启用任何实验性 feature，故 requested 为空、两项均落到 disabled——计划显式记下
+# 「关着」，不给下游留猜默认值的空间。
+[features]
+known = ["experimental-codec", "experimental-diagnostics"]
+requested = []
+conflicts = []
+
+# 架构源提交树内的路径；本仓只读镜像路径由 architecture.lock.json 的基线 id 投影得出，
+# 不在此重复声明（两处路径各自漂移是最难查的一类不一致）。
+[documents]
+target_profile = "fixtures/valid/target-profile-linux-server.json"
+root_abi_schema = "schemas/root-abi-bundle.schema.json"
+root_abi_generated_artifact_descriptor = "packages/abi/root-abi-bundle.json"
+
+# 三项摘要取自 tools/checksums.sha256 的 linux-x86_64-p0-build 登记（R-00265 在 CI 目标
+# 环境实测）。compose 会与该登记逐条对账，对不上即 ToolchainMismatch——这里填不进编造值。
+# sdk 缺省为 null：TargetProfile 的 sdk=glibc-2.35 是平台约束而非可执行工具，
+# 由 platform 执行期按 minimumOs 校验，本仓不为它编造可执行摘要。
+[toolchain]
+target_triple = "x86_64-unknown-linux-gnu"
+
+[toolchain.rustc]
+tool_id = "rustc"
+version = "1.89.0"
+executable_sha256 = "c6ac0142c05a60b0f6c15e1a118bd5ac3bd04924cd6dc0c328f501c5f86e4142"
+
+[toolchain.cargo]
+tool_id = "cargo"
+version = "1.89.0"
+executable_sha256 = "5b32bd53b8a08d8e206daed51f3fce40cdc0729038ff96bd0ca845596a2c1019"
+
+[toolchain.linker]
+tool_id = "cc"
+version = "11.4.0"
+executable_sha256 = "821af3c74506283c179ca413bb33e6b528805a4dd8a5c09df125e5ad560a9e89"
+
+[build_profile]
+cargo_profile = "release"
+panic_strategy = "abort"
+lto = true
+codegen_units = 1
+debug_symbols = true
+
+# lumio-native-ffi 是 crate-type = ["cdylib", "staticlib"] 的 ABI 面，P0 的
+# liblumio_core.so 由它产出；lumio-voxel-world 是 voxel 侧的世界端口。
+# rustflags 一律写成单 token：ADR-0006 第 2 条要求入计划前按字节序排序，
+# `-C` 与其值分成两个元素会被排序拆散。
+[[build_invocations]]
+source_component = "LumioNativeCore"
+manifest_path = "build/sources/lumio-native-core/crates/lumio-native-ffi/Cargo.toml"
+package = "lumio-native-ffi"
+target = "x86_64-unknown-linux-gnu"
+profile = "release"
+features = []
+no_default_features = true
+rustflags = ["-Csymbol-mangling-version=v0"]
+
+[build_invocations.environment]
+CARGO_NET_OFFLINE = "true"
+
+[[build_invocations]]
+source_component = "LumioVoxelEngine"
+manifest_path = "build/sources/lumio-voxel-engine/crates/lumio-voxel-world/Cargo.toml"
+package = "lumio-voxel-world"
+target = "x86_64-unknown-linux-gnu"
+profile = "release"
+features = []
+no_default_features = true
+rustflags = ["-Csymbol-mangling-version=v0"]
+
+[build_invocations.environment]
+CARGO_NET_OFFLINE = "true"
+
+# 平台目录布局：全部相对 workspace 根，且都在 staging_root 之下。
+# platform 专属参数缺失时的唯一合法路径是回来重新 compose（规格 §7.4），
+# 所以这里必须齐备——platform 不得补写。
+[package_layout]
+staging_root = "build/platform/linux-server-x86_64-glibc/staging"
+native_root = "build/platform/linux-server-x86_64-glibc/staging/native"
+include_root = "build/platform/linux-server-x86_64-glibc/staging/include"
+managed_root = "build/platform/linux-server-x86_64-glibc/staging/managed"
+metadata_root = "build/platform/linux-server-x86_64-glibc/staging/metadata"
+evidence_root = "build/platform/linux-server-x86_64-glibc/staging/evidence"
+symbols_root = "build/platform/linux-server-x86_64-glibc/staging/symbols"
