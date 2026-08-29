@@ -40,3 +40,6 @@ serde_json = "=1.0.151"
 sha2 = "=0.11.0"
 # compose 配置（`*.compose.toml`）与 tools.lock.toml 的解析（ADR 0007）。
 toml = "=1.1.4"
+# 属性测试：规格 §4「测试/Fixture/Golden/属性测试」行已选定 proptest 1.11.0。
+# 只作 dev-dependency 使用，不进入任何运行时闭包。
+proptest = "=1.11.0"
