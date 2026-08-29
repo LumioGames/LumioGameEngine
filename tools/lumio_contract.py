@@ -54,6 +54,7 @@ _CANONICAL_PROFILE_FILE = _abi.CANONICAL_PROFILE_FILE
 _LUMIO_BIN_FORM = dict(_abi.LUMIO_BIN_FORM)
 _LUMIO_BIN_DIGEST_ALGORITHM = dict(_abi.LUMIO_BIN_DIGEST_ALGORITHM)
 _LUMIO_BIN_VALUE_ENCODING = dict(_abi.LUMIO_BIN_VALUE_ENCODING)
+_LUMIO_BIN_VECTOR_SEMANTICS = dict(_abi.LUMIO_BIN_VECTOR_SEMANTICS)
 _LUMIO_BIN_GOLDEN_CASES = set(_abi.LUMIO_BIN_GOLDEN_CASES)
 _LUMIO_BIN_REJECTION_CASES = set(_abi.LUMIO_BIN_REJECTION_CASES)
 _LUMIO_BIN_PROFILE_FILE = _abi.LUMIO_BIN_PROFILE_FILE
@@ -1599,6 +1600,8 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             errors.append("digestAlgorithm must equal the ADR-047 frozen construction")
         if value.get("valueEncoding") != _LUMIO_BIN_VALUE_ENCODING:
             errors.append("valueEncoding must equal the ADR-047 frozen vector spelling")
+        if value.get("vectorSemantics") != _LUMIO_BIN_VECTOR_SEMANTICS:
+            errors.append("vectorSemantics must declare `error` normative and `case` a label")
         goldens = value.get("goldens", [])
         golden_ids = [item.get("id") for item in goldens]
         if len(golden_ids) != len(set(golden_ids)):

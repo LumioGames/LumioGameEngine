@@ -1060,22 +1060,33 @@ LUMIO_BIN_FORM = {
     },
     "floats": "None",
 }
-# `framing` keeps the ADR-041 spelling so the two profiles state one construction,
-# but that name alone reads as an instruction to *add* a prefix. `digestInput` says
-# the operative thing as data: the digest is over the encoded bytes and nothing
-# else. A clean-room implementation that prepended a length or the formId matched
-# every Golden's bytes and missed every digest, which is precisely the silent
-# failure D-8 exists to prevent.
+# `framing` deliberately does NOT reuse ADR-041's `PrefixFreeOverEncodedBytes`
+# spelling. Two independent clean-room implementations read that name as an
+# instruction to *add* a prefix; one prepended a length and matched every Golden's
+# bytes while missing every digest, silently. `None` cannot be read that way, and
+# `digestInput` states the input positively. That the encoding is itself
+# prefix-free is a property of the form, argued in ADR-047 section 2 — it is not
+# an operation the digest performs, so it is not published as one.
 LUMIO_BIN_DIGEST_ALGORITHM = {
     "name": "SHA-256",
-    "framing": "PrefixFreeOverEncodedBytes",
+    "framing": "None",
     "digestInput": "EncodedBytesOnly",
 }
+# `case` is a human-readable label and `error` is the contract: several rejection
+# cases share one error (both malformed-hex spellings are a `TypeMismatch`), so a
+# consumer that keys conformance on `case` invents error names that do not exist.
+# Published as data because a clean-room reader otherwise has to guess which field
+# is normative.
+LUMIO_BIN_VECTOR_SEMANTICS = {"case": "HumanLabel", "error": "Normative"}
 # How a Golden's `value` member carries each layout kind inside the published
 # JSON. Without this a consumer cannot tell how to read the vectors it must
 # reproduce, and byte arrays in particular have no natural JSON spelling.
 LUMIO_BIN_VALUE_ENCODING = {
-    "integers": "JsonIntegerNumbers",
+    # Named for the literal spelling, not the value: `1.0` and `1e2` are integral
+    # in value and non-integer as literals, and LumioBinV1 refuses both. The older
+    # `JsonIntegerNumbers` spelling left a clean-room reader to guess which reading
+    # applied, and only one published vector discriminated them.
+    "integers": "JsonIntegerLiteralsNoFractionOrExponent",
     # A double-backed JSON reader (any stock JavaScript `JSON.parse`) rounds the
     # u64 Golden's 18446744073709551615 to 2**64 and then rejects a valid vector.
     # The requirement is therefore published, not assumed.
@@ -1348,6 +1359,9 @@ def derive_lumio_bin_profile() -> Dict[str, Any]:
         _lumio_bin_rejection(
             "bytes-upper-case", "MalformedHexBytes", {"kind": "bytes"}, "0A0B", "TypeMismatch"
         ),
+        _lumio_bin_rejection(
+            "bytes-non-hex", "MalformedHexBytes", {"kind": "bytes"}, "zz", "TypeMismatch"
+        ),
         _lumio_bin_rejection("f32-layout", "UnknownLayoutKind", {"kind": "f32"}, 1, "UnknownLayoutKind"),
         _lumio_bin_rejection(
             "struct-missing-field",
@@ -1371,6 +1385,7 @@ def derive_lumio_bin_profile() -> Dict[str, Any]:
         "binaryForm": json.loads(json.dumps(LUMIO_BIN_FORM)),
         "digestAlgorithm": dict(LUMIO_BIN_DIGEST_ALGORITHM),
         "valueEncoding": dict(LUMIO_BIN_VALUE_ENCODING),
+        "vectorSemantics": dict(LUMIO_BIN_VECTOR_SEMANTICS),
         "goldens": goldens,
         "rejections": rejections,
     }

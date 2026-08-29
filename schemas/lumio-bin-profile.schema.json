@@ -9,6 +9,7 @@
     "binaryForm",
     "digestAlgorithm",
     "valueEncoding",
+    "vectorSemantics",
     "goldens",
     "rejections"
   ],
@@ -92,8 +93,17 @@
       "required": ["name", "framing", "digestInput"],
       "properties": {
         "name": { "type": "string", "const": "SHA-256" },
-        "framing": { "type": "string", "const": "PrefixFreeOverEncodedBytes" },
+        "framing": { "type": "string", "const": "None" },
         "digestInput": { "type": "string", "const": "EncodedBytesOnly" }
+      },
+      "additionalProperties": false
+    },
+    "vectorSemantics": {
+      "type": "object",
+      "required": ["case", "error"],
+      "properties": {
+        "case": { "type": "string", "const": "HumanLabel" },
+        "error": { "type": "string", "const": "Normative" }
       },
       "additionalProperties": false
     },
@@ -101,7 +111,7 @@
       "type": "object",
       "required": ["integers", "integerPrecision", "strings", "bytes", "arrays", "structs"],
       "properties": {
-        "integers": { "type": "string", "const": "JsonIntegerNumbers" },
+        "integers": { "type": "string", "const": "JsonIntegerLiteralsNoFractionOrExponent" },
         "integerPrecision": { "type": "string", "const": "ExactArbitraryPrecision" },
         "strings": { "type": "string", "const": "JsonStrings" },
         "bytes": { "type": "string", "const": "LowercaseHexJsonStrings" },

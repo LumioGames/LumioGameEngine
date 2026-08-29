@@ -14,7 +14,7 @@ public static class LumioBinForm
     public const string FieldOrder = "SchemaDeclarationOrder";
     public const string Padding = "None";
     public const string Floats = "None";
-    public const string DigestFraming = "PrefixFreeOverEncodedBytes";
+    public const string DigestFraming = "None";
 }
 
 public readonly record struct LumioBinIntegerWidth(string Kind, uint Bytes, bool Signed);
@@ -58,6 +58,7 @@ public static class LumioBinRejections
         new LumioBinRejection("u32-boolean", "BooleanForInteger", "TypeMismatch"),
         new LumioBinRejection("bytes-odd-length", "MalformedHexBytes", "TypeMismatch"),
         new LumioBinRejection("bytes-upper-case", "MalformedHexBytes", "TypeMismatch"),
+        new LumioBinRejection("bytes-non-hex", "MalformedHexBytes", "TypeMismatch"),
         new LumioBinRejection("f32-layout", "UnknownLayoutKind", "UnknownLayoutKind"),
         new LumioBinRejection("struct-missing-field", "MissingField", "MissingField"),
         new LumioBinRejection("struct-unknown-field", "UnknownField", "UnknownField"),

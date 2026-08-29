@@ -24,7 +24,7 @@ pub const LUMIO_BIN_ARRAY_COUNT_PREFIX: &str = "u32";
 pub const LUMIO_BIN_FIELD_ORDER: &str = "SchemaDeclarationOrder";
 pub const LUMIO_BIN_PADDING: &str = "None";
 pub const LUMIO_BIN_FLOATS: &str = "None";
-pub const LUMIO_BIN_DIGEST_FRAMING: &str = "PrefixFreeOverEncodedBytes";
+pub const LUMIO_BIN_DIGEST_FRAMING: &str = "None";
 
 /// Integer widths, as `(kind, bytes, signed)`. Little-endian, no padding.
 pub const LUMIO_BIN_INTEGER_WIDTHS: &[(&str, u32, bool)] = &[
@@ -57,6 +57,7 @@ pub const LUMIO_BIN_REJECTIONS: &[(&str, &str, &str)] = &[
     ("u32-boolean", "BooleanForInteger", "TypeMismatch"),
     ("bytes-odd-length", "MalformedHexBytes", "TypeMismatch"),
     ("bytes-upper-case", "MalformedHexBytes", "TypeMismatch"),
+    ("bytes-non-hex", "MalformedHexBytes", "TypeMismatch"),
     ("f32-layout", "UnknownLayoutKind", "UnknownLayoutKind"),
     ("struct-missing-field", "MissingField", "MissingField"),
     ("struct-unknown-field", "UnknownField", "UnknownField"),
