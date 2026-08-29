@@ -63,10 +63,24 @@ owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
 exit_tool = "直接调用 crate CLI（去掉 just 转发层）"
 
 # ── linux-x86_64 制品（R-00265）────────────────────────────────────────────
-# 取值环境与取值命令见 .github/workflows/tool-lock.yml 的 measure 步骤日志：
-# ubuntu-22.04 runner（对齐 TargetProfile minimumOs=ubuntu-22.04 / sdk=glibc-2.35），
-# executable SHA-256 = `sha256sum $(command -v <name>)`。artifact_sha256 取自各 release
-# 的官方资产摘要，CI 在解压前逐个对账，不一致即 exit 1。
+#
+# 取值环境（executable SHA-256 的唯一出处，取自 tool-lock.yml 的 measure 步骤日志）：
+#   runner       ImageOS=ubuntu22 ImageVersion=20260824.273.3
+#   kernel       Linux 6.8.0-1064-azure x86_64
+#   libc         Ubuntu GLIBC 2.35-0ubuntu3.14（对齐 TargetProfile sdk=glibc-2.35）
+#   gcc-11 apt   11.4.0-1ubuntu1~22.04.3
+#   rustc        1.89.0 (29483883e 2025-08-04) host x86_64-unknown-linux-gnu
+#   cargo        1.89.0 (c24e10642 2025-06-23)
+#   取值命令     sha256sum $(command -v <name>)
+# 换 runner 镜像或包版本后摘要会漂移：门禁会显式失败并打印候选版本，按同一流程重测重登，
+# 不得就地改数。
+#
+# artifact_sha256 取自各分发制品的官方摘要；四项校验器由 CI 在解压前逐个对账，不一致
+# 即 exit 1（日志中的 `archive <name>: locked=… actual=…` 行即对账证据）。
+#
+# rustc/cargo 登记的是**工具链真身**（~/.rustup/toolchains/<ver>-<target>/bin/），不是
+# ~/.cargo/bin 下的 rustup shim——shim 的摘要是 rustup 版本的函数，锁它等于锁错对象。
+# 因此 linux 宿主跑 verify-tool-lock.sh 前须把该 bin 目录前置到 PATH（CI 已做）。
 
 [[tools]]
 name = "cargo-deny"
@@ -116,3 +130,51 @@ supported_hosts = ["linux-x86_64"]
 invocation = "just <recipe>（命令 facade，规格 §3.4）"
 owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
 exit_tool = "直接调用 crate CLI（去掉 just 转发层）"
+
+# ── P0 构建工具链三项（R-00265 扩范围）─────────────────────────────────────
+# 规格 §7.3 的 ToolchainLock 要求 rustc / cargo / linker 各带 executable_sha256，
+# §7.4 要求 platform 执行期解析主机实际路径并复核该摘要。这三条就是那次复核的登记源，
+# 也是 LCE-P0-004 的 P0 compose 配置里三个 ToolReference 的取值出处。
+
+[[tools]]
+name = "rustc"
+version = "1.89.0"
+source_url = "https://static.rust-lang.org/dist/rustc-1.89.0-x86_64-unknown-linux-gnu.tar.xz"
+source_commit = "29483883eed69d5fb4db01964cdf2af4d86e9cb2"
+license_spdx = "MIT OR Apache-2.0"
+artifact_sha256 = "b42c254e1349df86bd40bc28fdf386172a1a46f2eeabe3c7a08a75cf1fb60e27"
+supported_hosts = ["linux-x86_64"]
+invocation = "rustc（由 platform 执行 FrozenBuildPlan 时经 cargo 调用，规格 §7.4）"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "无——Rust 工具链是 ADR 0004 第 1 条选定的唯一构建执行路径，更换须改 ADR"
+
+[[tools]]
+name = "cargo"
+version = "1.89.0"
+source_url = "https://static.rust-lang.org/dist/cargo-1.89.0-x86_64-unknown-linux-gnu.tar.xz"
+source_commit = "c24e1064277fe51ab72011e2612e556ac56addf7"
+license_spdx = "MIT OR Apache-2.0"
+artifact_sha256 = "99fc10be2aeedf2c23a484f217bfa76458494495a0eee33e280d3616bb08282d"
+supported_hosts = ["linux-x86_64"]
+invocation = "cargo build（由 platform 执行 FrozenBuildPlan 时调用，规格 §7.4）"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "无——同 rustc 条目（构建编排选型见规格 §4「构建编排」行）"
+
+[[tools]]
+name = "cc"
+version = "11.4.0"
+# /usr/bin/cc -> /usr/bin/x86_64-linux-gnu-gcc-11（update-alternatives 指向 gcc-11）。
+# source_commit 记的是上游 GCC releases/gcc-11.4.0 标签提交（git ls-remote 解析）；
+# Ubuntu 在其上施加发行版补丁，故**以 artifact_sha256（.deb）为准**——与 cargo-nextest
+# 条目同一处理口径。
+# 许可证提示：GCC 是 GPL 工具，但它是**构建期宿主工具**，不进入发布产物的依赖闭包；
+# deny.toml / about.toml 的白名单管的是 Rust 依赖图，不覆盖本文件。GCC Runtime Library
+# Exception 亦使其产出的目标代码不因编译器而传染。
+source_url = "http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-11/gcc-11_11.4.0-1ubuntu1~22.04.3_amd64.deb"
+source_commit = "c3ad455f8dbc4f92c24a4987e158f22242b50379"
+license_spdx = "GPL-3.0-or-later WITH GCC-exception-3.1"
+artifact_sha256 = "5422307110e695d62a2574c8b765bf38d48b2ed520206e5b7d2b9081a68008f3"
+supported_hosts = ["linux-x86_64"]
+invocation = "cc（rustc 的默认 linker driver，x86_64-unknown-linux-gnu）"
+owner = "LumioCoreEngine 工具链 owner（程序·工具/构建）"
+exit_tool = "lld / mold（更换 linker 须同步 TargetProfile 与新 ADR）"
