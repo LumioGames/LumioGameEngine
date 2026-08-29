@@ -29,7 +29,10 @@
 - **审查闭环:** 交付即待审;completed 由主 loop 在 reviewer 通过(或按豁免跳过)后标记;高风险改动审查通过前**不得提交**。
 - **派 worker 三选一:** ① 多个互不依赖任务可并行 ② 改动大到撑爆编排上下文 ③ 需要隔离的干净实现环境。
 - **收口门槛:** `node .spec/tools/spec-lint.mjs && node --test .spec/tools/spec-lint.test.mjs && python3 -m py_compile tools/lumio_contract.py && python3 tools/lumio_contract.py validate`；首次准备完整校验环境先运行 `python3 -m pip install -r requirements-dev.txt`，涉及基线时还必须复现 `.github/workflows/repository-policy.yml` 的 Hash/文件检查；交付前必须通过。
-- **并行边界与合入:** 任务文件集**互不重叠**才可并行(最小化冲突),重叠必串行;拆解产物按 wave 分批扇出,批间串行。并行 worker 各在独立 git worktree 实现(Claude Code 用 Agent 工具的 worktree 隔离),reviewer 审 worktree 相对基线的完整 diff,通过后主 loop 合入主工作区,未过审不合入,冲突退回实现方。多宿主并存时共享任务真值是 `.spec/tasks/`,宿主内置任务工具只作个人草稿。
+- **并行边界与合入:** 任务文件集**互不重叠**才可并行(最小化冲突),重叠必串行;拆解产物按 wave 分批扇出,批间串行。多宿主并存时共享任务真值是 `.spec/tasks/`,宿主内置任务工具只作个人草稿。
+  - **实现方隔离:** 并行 worker 各在独立 git worktree 实现(Claude Code 用 Agent 工具的 worktree 隔离)。
+  - **审查方隔离:** reviewer 审实现方交付环境相对基线的完整 diff,**且自己的验证也必须跑在独立环境里**——`git worktree` 或只读快照(`git archive` 物化)皆可,口径与 [`dispatch.md`](knowledge/standards/dispatch.md)、[`reviewer.agent.md`](agents/reviewer.agent.md) 一致;并发编辑中的仓优先快照(worktree 会向仓写注册记录,见 `lessons.md`)。**主 loop 派审后不得在同一环境跑构建**——同环境并发构建会互锁(MSBuild 节点复用 + `obj/` 争用,.NET 侧已实测;node / python 栈无此问题),两侧都会假失败。
+  - **合入:** 通过才由主 loop 合入主工作区,未过审不合入,冲突退回实现方。
 - **派活模板:** worker 派遣与 reviewer 触发的 prompt 骨架见 [`knowledge/standards/dispatch.md`](knowledge/standards/dispatch.md)。
 - **跨仓交付:** 向七个实现仓提需求、派活、核验交回物、聚合验收走 [`skills/cross-repo-delivery`](skills/cross-repo-delivery/SKILL.md)——Workflow(lumiogamesengine)是跨仓需求真值,主 loop 是唯一 Workflow 写入方。
 - **定期盘点(TD 职能):** 盘进度/对账 Workflow 与仓库真实状态/产出本地评估报告/编排派活走 [`skills/td-progress-audit`](skills/td-progress-audit/SKILL.md);发现状态漂移或证据不可复核也用它。技能按职能前缀命名(td- = 引擎总监/技术 Owner)。

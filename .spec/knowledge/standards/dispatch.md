@@ -44,8 +44,10 @@ lint 报错涉及它们时只记录,主 loop 统一收口)。
 【审查级别】快审(默认)/ 深审 + 一句理由
 【复跑清单】收口门槛命令 + 需抽查重放的验证声称。
 【范围外】<并行在途的文件集,diff 中出现一律不审>
+【环境】<reviewer 自己跑验证的独立环境:worktree 路径,或只读快照>
 ```
 
 - 审查对象必须与在途改动隔离(worktree 或快照),否则 diff 被并行方污染。
+- **reviewer 的验证也跑在自己的独立环境里**,不与主 loop 或实现方共用——并发编辑中的仓优先只读快照(`git archive` 物化;`git worktree add` 会向仓写注册记录)。主 loop 派审后停手,不在同一环境跑构建(.NET 侧实测会互锁)。
 - 交付报告给「声称」,让 reviewer 核实而不是相信——这是对抗审查的输入格式。
 - 退回处理按 [`skills/receiving-code-review`](../../skills/receiving-code-review/SKILL.md):先核实再改,不盲改、不表演性认同。
