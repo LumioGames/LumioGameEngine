@@ -64,22 +64,31 @@ Workflow API:token 在 `~/.config/workflow/config.toml` 的 `[profiles.lumiogame
 - Client:R-00001 / R-00019 / R-00031 / R-00065 / R-00067 / R-00256(+ 5 个 review 态工作项)
 - Game:R-00259(模块脚手架设计)/ **R-00283(美术比稿——用户终裁,不要动)**
 
-## 3 · 在途未完项(接手第一件事)
+## 3 · 在途项状态(已闭环,无需接手)
 
-**架构仓有一个已开 PR、待审待合的改动**:PR [#23](https://github.com/LumioGames/LumioGameEngineArchitecture/pull/23),分支 `claude/ecstatic-lamarr-b21db4` @ `d6d0b43`(已推送 origin,基于 `4303949`,无需 rebase)。
+**PR #23 已审已合入** —— `origin/main` = **`6637541`**。
 
-内容:修复 `tools/lumio_generate.py` 的 `emit_canonical()` —— 它在拼完快照校验和常量后就写了 Rust `lib.rs`,之后继续追加 ADR-041 canonical form 常量 / `DigestDomain` / `DIGEST_DOMAINS` / `CANONICAL_GOLDENS` 却再没写回,导致 **Rust crate 漏发摘要域而 C# 侧完整**。同时新增 `published_canonical_surface_errors()` 门禁,对两语言同时断言(每个 form 常量 / 每个摘要域 `digest`+`domainTag` 成对 / 每个 Golden 摘要),单语言发布即 `validate` 失败。
+内容:修复 `tools/lumio_generate.py` 的 `emit_canonical()`(写完 Rust `lib.rs` 后又继续追加 ADR-041 常量却没写回,导致 **Rust crate 漏发摘要域而 C# 侧完整**),并新增 `published_canonical_surface_errors()` 门禁对两语言同时断言。
 
-影响面:`canonical-serializer-rust` 的 outputHash 变(`9daf9c20…`→`4a524594…`),**全 12 件的 compilerHash 变**(`e401077a…`→`870e8635…`)——**下游需重新 pin**。
+**独立对抗审查结论:放行,无 P0/P1**(审查评论已贴在 PR #23)。关键核实:
+- **变动面干净**——把 22 个 JSON 展平成路径→值逐字段比对,全仓**仅四类字段变动**(12 件 compilerHash `e401077a…`→`870e8635…`、`canonical-serializer-rust` 的 outputHash `9daf9c20…`→`4a524594…`、root-abi-bundle 的 compiler digest、index.json 的 bundleDigest),`baselineId`/`schemaEpoch`/`inputHash`/所有 artifact 内容字段**均未出现在差分里**。没有任何真实契约变更被夹带。
+- **缺陷是孤例**——reviewer 自写静态检测器,修复后全仓 `emit_*` 零命中。
+- **新门禁不空转**——4 个扰动各自只点名自己,端到端 `validate` EXIT=2 精确点名、还原 EXIT=0。
+- 门槛全绿:validate 201 fixtures 0 失败、clippy `-D warnings` 0 行、6 csproj 双目标 0 Error、KAT 三方一致、零漂移。
 
-**未过 reviewer**(交付会话被禁用子代理),而它动的是**门禁本身**,按 `AGENTS.md` 属必审面。**接手第一件事:派 reviewer 审该 PR 的完整 diff**,重点核**变动面恰如声称、没有意外的 artifact 内容变化**——这是最大风险:若某件 artifact 的实质内容被顺带改了而只报「compilerHash 变」,下游重新 pin 时会**静默吞掉一次真实契约变更**。放行 + CI 绿 + CODEOWNERS 人审后合入;退回则按报告修。
+> ⚠️ **下游消费方需要重新 pin**:全 12 件 compilerHash 已变动。CoreEngine 的契约镜像、NativeCore 的 `.baseline.sha256`、Runtime 的 generated manifest 都会因此报"上游已前进"。按已定裁决,这类应走**报告项而非硬 fail**(见 §5.3 Runtime 条)。
 
-PR 正文另记一条既有隐患(本轮未修,已提请立卡):`generate --out packages` 会 rmtree 掉 `packages/`,而生成器不产出已入库的 `packages/rust/Cargo.lock` —— **只重生成不跑 cargo 的人会提交一次误删**。
+**审查发现的 5 条 P2(不阻塞,待授权立卡)**:
+1. **门禁只校验域的存在、不校验域的内容**(`lumio_contract.py:1091-1101`)——把 `lib.rs` 里 `CapabilitySetV1` 的 `normalization` 改成 `&[]`,`validate` 仍 EXIT=0。**这恰是 ADR-041 自己 Verification 段写明的那个缺陷**(`canonical/missing-normalization`),最值得补。
+2. **任一发布文件整体缺失 → 门禁静默放行**(`:1058`):移走整个 `lib.rs`,validate EXIT=0。属既有惯例(五个兄弟门禁同款写法)。
+3. `errors[:6]` 截断(`:1111`)使双语断言的报告面打折:Rust 侧 ≥6 条时 C# 侧错误被整体挤掉。
+4. **`generate` 会删掉受版本控制的 `packages/rust/Cargo.lock`**(`:2363-2365`):就地重生成再提交会静默丢掉 lockfile。
+5. 交付方声称漏列 `packages/index.json /rootAbi/bundleDigest`(纯表述 nit,值本身正确)。
 
 ## 4 · 待办清单(建议优先级)
 
 ### P0 · 解阻与核销
-1. **接手上述分支**(§3)。
+1. ~~接手 PR #23~~ —— **已完成**(审查放行、已合入 `6637541`);其 5 条 P2 见 §3,**P2-1 与 P2-4 值得立卡**(待用户授权)。
 2. **核销 50 张待核销卡**。方法:每仓派一个 QA 会话(写的人 ≠ 判的人),按「锚点在 origin + 门禁实跑 + 验收项逐条判定 + 每卡一条证据评论」核销,卡保持验收中,**你复核后流转 done**。Voxel 26 张量最大,可拆两道(奇/偶卡号,今日用过该切法,互斥且好核对)。
 3. **R-00083 解锁收敛**(NativeCore):ADR-040 §7.1 已发布 capability 常量,其原 BLOCKED 依据已被取代;派 NativeCore 会话按新发布物补「生成转换」半边(既有 crate-private 交付无需推倒),然后收口 R-00007 蓝图卡。
 
