@@ -111,6 +111,75 @@ fn empty_and_duplicate_separators_are_rejected() {
 }
 
 #[test]
+fn control_characters_are_rejected() {
+    // 控制字符在 Linux 上是合法文件名字符，但路径会原样进错误消息（Display），
+    // 恶意包可借此往日志里注入换行 / 回车 / ANSI 转义。包内制品没有正当理由用它们。
+    for value in [
+        "native/a\nb.so",
+        "native/a\rb.so",
+        "metadata/\u{1b}[31mred.json",
+        "evidence/tab\there.json",
+    ] {
+        assert_eq!(
+            rejected(value),
+            PackagePathError::ControlCharacter,
+            "{value:?}"
+        );
+    }
+}
+
+#[test]
+fn windows_trailing_dot_or_space_is_rejected() {
+    // Win32 解析时静默剥离尾随点与空格：`…manifest.json.` 与控制文件本身会解析到
+    // 同一个文件，于是两个不同的 PackagePath 值指向同一实体，「路径即身份」被破坏。
+    for value in [
+        "metadata/core-engine-manifest.json.",
+        "metadata/core-engine-manifest.json ",
+        "native /liblumio_core.so",
+        "native./x.so",
+    ] {
+        assert_eq!(
+            rejected(value),
+            PackagePathError::TrailingDotOrSpace,
+            "{value:?}"
+        );
+    }
+}
+
+#[test]
+fn windows_reserved_device_names_are_rejected() {
+    // 这些名字在 Win32 上打开的是设备而不是文件，带扩展名同样命中。
+    for value in [
+        "CON",
+        "native/NUL",
+        "native/nul.so",
+        "COM1.so",
+        "evidence/LPT9.json",
+        "aux/x.json",
+    ] {
+        assert_eq!(
+            rejected(value),
+            PackagePathError::ReservedDeviceName,
+            "{value:?}"
+        );
+    }
+}
+
+#[test]
+fn names_that_merely_resemble_reserved_devices_are_accepted() {
+    // 拒绝得过宽会让合法制品进不了包：只有分量的 stem 恰好等于保留名才拒绝。
+    for value in [
+        "console.json",
+        "native/nullable.so",
+        "COM10.so",
+        "LPT0.json",
+    ] {
+        PackagePath::parse(value)
+            .unwrap_or_else(|error| panic!("{value:?} 应被接受，却报 {error:?}"));
+    }
+}
+
+#[test]
 fn canonical_relative_paths_round_trip() {
     for value in [
         "native/liblumio_core.so",
@@ -179,22 +248,35 @@ proptest! {
                 prop_assert_ne!(component, ".");
                 prop_assert_ne!(component, "..");
             }
-            let bytes = text.as_bytes();
-            let has_drive_prefix =
-                bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
-            prop_assert!(!has_drive_prefix);
+            // 不在这里复述实现的盘符判据（抄实现的断言会跟着实现一起错）；
+            // 改为断言一条独立性质：给任何被接受的路径加上盘符前缀后必被拒绝。
+            let with_drive = format!("c:{}", text);
+            prop_assert!(PackagePath::parse(&with_drive).is_err());
         }
     }
 
     /// 由合法分量拼出来的路径必须被接受——拒绝得过宽会让合法制品进不了包。
     #[test]
     fn paths_built_from_safe_components_are_accepted(
-        // 首字符不取 `.`，分量因此不可能等于 `.` 或 `..`——用生成器排除，
-        // 而不是生成后 prop_assume 丢弃：后者会把大量样本浪费在被丢弃的分支上
-        // （实测 10 万 case 里丢弃过千，proptest 直接判 too many global rejects）。
-        // 以 `.` 开头的合法文件名由 canonical_relative_paths_round_trip 覆盖。
-        components in prop::collection::vec("[a-zA-Z0-9_-][a-zA-Z0-9._-]{0,11}", 1..6)
+        // 首尾字符都不取 `.`/空格：分量因此不可能等于 `.`/`..`，也不会以点或空格结尾。
+        // 用生成器排除而不是生成后 prop_assume 丢弃——后者会把大量样本浪费在被丢弃的
+        // 分支上（实测 10 万 case 里丢弃过千，proptest 直接判 too many global rejects）。
+        // 以 `.` 开头、含内部点的合法文件名由 canonical_relative_paths_round_trip 覆盖。
+        components in prop::collection::vec(
+            "[a-zA-Z0-9_-]([a-zA-Z0-9._-]{0,10}[a-zA-Z0-9_-])?",
+            1..6,
+        )
     ) {
+        // 保留设备名极少被随机命中（62^n 分之几），这里用 assume 丢弃是安全的，
+        // 不会触发 global reject 上限；它们的拒绝由定向负例测试覆盖。
+        prop_assume!(!components.iter().any(|component| {
+            let stem = component.split('.').next().unwrap_or(component);
+            ["CON", "PRN", "AUX", "NUL"].iter().any(|n| stem.eq_ignore_ascii_case(n))
+                || (stem.len() == 4
+                    && (stem[..3].eq_ignore_ascii_case("COM") || stem[..3].eq_ignore_ascii_case("LPT"))
+                    && stem.as_bytes()[3].is_ascii_digit()
+                    && stem.as_bytes()[3] != b'0')
+        }));
         let joined = components.join("/");
         let path = PackagePath::parse(&joined);
         prop_assert!(path.is_ok(), "{:?} 应被接受，实际 {:?}", joined, path.err());

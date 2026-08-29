@@ -14,12 +14,17 @@ use crate::package_path::PackagePath;
 /// 途径。Verifier / Loader 拿到它之后能做的只有读——这正是规格 §9.3
 /// 「生产构造器不公开；Verifier/Loader 只能读取」里可被类型系统保证的那一半。
 ///
-/// **不可保证的另一半，说清楚免得被误当成防线**：Rust 没有跨 crate 的 friend 可见性，
-/// 而 `LoadBackend` 的实现（platform-runtime）是**另一个 crate**，它必须能构造本类型。
-/// 因此 [`OpenedArtifactSet::from_opened_parts`] 只能是 `pub`。它保证的是
-/// 「集合完整且此后不可变」，**不是**「这些字节确实来自一次安全打开」——后者由调用方
-/// （即 LoadBackend 实现）负责，本类型无从校验。要机器保证的那一条是 `test-support`
-/// 不进运行时闭包，那由 feature gate + 仓级 `cargo tree` 断言覆盖。
+/// 生产构造器是 `pub(crate)`：后端（platform-runtime，另一个 crate）经
+/// [`crate::LoadBackend::open_parts`] 只交出零件，由本 crate 在 trait 默认方法体里组装
+/// ——默认方法体在本 crate 内编译，因此够得着私有构造器。构造反转的完整理由见
+/// `backend.rs` 的模块文档。
+///
+/// **仍然保证不了的那一半，说清楚免得被误当成防线**：本类型保证「集合完整且此后不可变」，
+/// **不是**「这些字节确实来自一次安全打开」——安全打开由后端负责（`openat2`
+/// `RESOLVE_BENEATH|RESOLVE_NO_SYMLINKS`，规格 §6.3），本类型无从校验。
+///
+/// 与之相邻的另一条不变量（`test-support` 不进运行时闭包）由 justfile 的
+/// `runtime-deps` recipe 在仓级断言，已接入 `just check`。
 #[derive(Clone)]
 pub struct OpenedArtifactSet {
     control: BTreeMap<ControlFileKind, Arc<dyn ArtifactBytes>>,
@@ -32,8 +37,8 @@ impl OpenedArtifactSet {
     /// 三个控制文件必须齐备，缺一即 `ControlFileMissing`——`control()` 返回
     /// `&dyn ArtifactBytes` 而非 `Option`，这条不变量只能在构造时立住。
     ///
-    /// 只应由 `LoadBackend` 的实现调用（见类型文档对可见性的说明）。
-    pub fn from_opened_parts(
+    /// 只经 `LoadBackend` 的默认方法体调用。
+    pub(crate) fn from_opened_parts(
         control: BTreeMap<ControlFileKind, Arc<dyn ArtifactBytes>>,
         artifacts: BTreeMap<PackagePath, Arc<dyn ArtifactBytes>>,
     ) -> Result<Self, PlatformRuntimeError> {
@@ -45,6 +50,19 @@ impl OpenedArtifactSet {
                 });
             }
         }
+        // 控制文件路径不得同时出现在 artifacts 里：否则恶意 ArtifactIndex 可以驱动
+        // §9.3 第 3 步把控制文件当普通 entry**再打开一次**，同一路径就被独立打开了两次，
+        // 而规格 §6.3 明文「摘要和映射不允许在验证后重新按可变路径打开」。
+        for kind in ControlFileKind::ALL {
+            let control_path = kind.package_path();
+            if artifacts.contains_key(&control_path) {
+                return Err(PlatformRuntimeError::ControlFilePathReused {
+                    kind,
+                    path: control_path,
+                });
+            }
+        }
+
         Ok(OpenedArtifactSet { control, artifacts })
     }
 

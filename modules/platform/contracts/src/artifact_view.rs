@@ -38,6 +38,11 @@ pub trait ArtifactBytes: Send + Sync {
     ///
     /// 返回 0 表示 `offset` 已达或超过末尾，不是错误——调用方据此判定结束，
     /// 不需要先查长度再决定读不读。
+    ///
+    /// **可能返回少于请求的字节数而尚未到末尾**（真实后端走 `pread(2)`，短读是允许的）。
+    /// 调用方必须循环推进 offset 直到返回 0，**不得**把 `n < dst.len()` 当作 EOF。
+    /// 这条写在契约里是因为 in-memory Fixture 永远填满缓冲区：照 Fixture 写的调用方
+    /// 会全绿通过，换上真实后端才截断——那种假绿要到集成阶段才暴露。
     fn read_at(&self, offset: u64, dst: &mut [u8]) -> io::Result<usize>;
 
     /// 平台文件身份，用于证明两次消费的是同一个对象。

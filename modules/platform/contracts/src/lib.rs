@@ -18,7 +18,7 @@ mod package_path;
 mod test_support;
 
 pub use artifact_view::{ArtifactBytes, PlatformFileIdentity};
-pub use backend::{LoadBackend, MappedNativeImage, OpenPackageRequest};
+pub use backend::{LoadBackend, MappedNativeImage, NativeImagePayload, OpenPackageRequest};
 pub use error::PlatformRuntimeError;
 pub use opened_set::OpenedArtifactSet;
 pub use package_layout::ControlFileKind;

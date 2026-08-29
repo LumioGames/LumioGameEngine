@@ -13,7 +13,8 @@ publish.workspace = true
 [features]
 default = []
 # 只供 runtime-verifier 的 dev-dependency 构造 in-memory Fixture；默认关闭，
-# 且不得出现在任何 normal 依赖路径上（验收项 4 由仓级 cargo tree 断言）。
+# 且不得出现在任何 normal 依赖路径上——由 justfile 的 `runtime-deps` recipe 断言，
+# 已接入 `just check`。
 test-support = []
 
 [dependencies]

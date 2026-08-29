@@ -22,6 +22,11 @@ pub enum PlatformRuntimeError {
     TargetProfileMismatch { detail: String },
     /// 映射内存不足。
     LoaderOutOfMemory { detail: String },
+    /// 控制文件路径同时出现在 artifact 集合里——同一路径会被打开两次（规格 §6.3）。
+    ControlFilePathReused {
+        kind: ControlFileKind,
+        path: PackagePath,
+    },
     /// 超出 `OpenPackageRequest` 声明的字节上限。
     LimitExceeded {
         path: PackagePath,
@@ -37,6 +42,7 @@ impl PlatformRuntimeError {
         match self {
             PlatformRuntimeError::ArtifactMissing { .. }
             | PlatformRuntimeError::ControlFileMissing { .. }
+            | PlatformRuntimeError::ControlFilePathReused { .. }
             | PlatformRuntimeError::LimitExceeded { .. } => ErrorCode::ArtifactMissing,
             PlatformRuntimeError::TargetProfileMismatch { .. } => ErrorCode::TargetProfileMismatch,
             PlatformRuntimeError::LoaderOutOfMemory { .. } => ErrorCode::LoaderOutOfMemory,
@@ -52,6 +58,9 @@ impl std::fmt::Display for PlatformRuntimeError {
             }
             PlatformRuntimeError::ControlFileMissing { kind, detail } => {
                 write!(f, "控制文件 {kind:?} 不可用：{detail}")
+            }
+            PlatformRuntimeError::ControlFilePathReused { kind, path } => {
+                write!(f, "控制文件 {kind:?} 的路径 {path} 同时被登记为 artifact")
             }
             PlatformRuntimeError::TargetProfileMismatch { detail } => {
                 write!(f, "TargetProfile 不匹配：{detail}")

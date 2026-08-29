@@ -4,9 +4,9 @@
 //! 默认关闭，且必须由 runtime dependency gate 证明未进入发布闭包。本文件从**能用**
 //! 与**不该被谁用**两侧各钉一半：
 //! - 本测试自身以 `--features test-support` 运行，证明 builder 确实可用且产出可读集合；
-//! - `default = []` 由 Cargo.toml 保证，`cargo tree` 断言由收口门槛在仓级执行
-//!   （单个测试进程看不到别的 crate 的 feature 解析结果，在这里写 `cargo tree`
-//!   等于把门禁伪装成单测）。
+//! - 「不进 normal 依赖」由 justfile 的 `runtime-deps` recipe 在仓级断言（已接入
+//!   `just check`）——单个测试进程看不到别的 crate 的 feature 解析结果，在这里写
+//!   `cargo tree` 等于把门禁伪装成单测。
 
 #![cfg(feature = "test-support")]
 

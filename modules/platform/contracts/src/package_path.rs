@@ -32,6 +32,12 @@ pub enum PackagePathError {
     EmptyComponent,
     /// 以 `/` 结尾。
     TrailingSeparator,
+    /// 含 C0/C1 控制字符。
+    ControlCharacter,
+    /// 分量以 `.` 或空格结尾——Win32 会静默剥离它们，两个不同的路径值会解析到同一个文件。
+    TrailingDotOrSpace,
+    /// 分量是 Windows 保留设备名（CON / PRN / AUX / NUL / COM1-9 / LPT1-9）。
+    ReservedDeviceName,
 }
 
 impl fmt::Display for PackagePathError {
@@ -46,6 +52,9 @@ impl fmt::Display for PackagePathError {
             PackagePathError::CurrentDirectory => "不得含 . 分量",
             PackagePathError::EmptyComponent => "不得含空分量（重复分隔符）",
             PackagePathError::TrailingSeparator => "不得以 / 结尾",
+            PackagePathError::ControlCharacter => "不得含控制字符",
+            PackagePathError::TrailingDotOrSpace => "分量不得以 . 或空格结尾",
+            PackagePathError::ReservedDeviceName => "分量不得是 Windows 保留设备名",
         };
         write!(f, "非法 PackagePath：{reason}")
     }
@@ -89,12 +98,34 @@ impl PackagePath {
             return Err(PackagePathError::TrailingSeparator);
         }
 
+        // 控制字符：在 Linux 上是合法文件名字符，但恶意包可以借此往日志里注入
+        // 换行、回车、ANSI 转义——路径会原样进错误消息（见 Display）。
+        // 包内制品没有正当理由用它们。
+        if value.chars().any(|c| c.is_control()) {
+            return Err(PackagePathError::ControlCharacter);
+        }
+
         for component in value.split('/') {
             match component {
                 "" => return Err(PackagePathError::EmptyComponent),
                 "." => return Err(PackagePathError::CurrentDirectory),
                 ".." => return Err(PackagePathError::ParentTraversal),
                 _ => {}
+            }
+            // 以下两条是 Windows 语义。本类型已经拒了盘符与反斜杠这两条**纯 Windows**
+            // 危害，说明它自我声明为跨平台安全类型；只挡该家族的一半是不一致的，
+            // 而 Windows 后端落地时会静默继承这个缺口。
+            //
+            // 尾随点/空格：Win32 在解析时静默剥离，于是
+            // `metadata/core-engine-manifest.json.` 与控制文件本身解析到同一个文件——
+            // 两个不同的 PackagePath 值指向同一实体，破坏「路径即身份」。
+            if component.ends_with('.') || component.ends_with(' ') {
+                return Err(PackagePathError::TrailingDotOrSpace);
+            }
+            // 保留设备名：`CON` / `NUL` / `COM1` 等在 Win32 上打开的是设备而不是文件，
+            // 带扩展名同样命中（`NUL.so`）。
+            if is_windows_reserved(component) {
+                return Err(PackagePathError::ReservedDeviceName);
             }
         }
 
@@ -106,9 +137,27 @@ impl PackagePath {
     }
 
     /// 按 `/` 切分的分量，顺序即路径顺序。每个分量都非空且不是 `.` / `..`。
-    pub fn components(&self) -> impl ExactSizeIterator<Item = &str> {
-        self.0.split('/').collect::<Vec<_>>().into_iter()
+    pub fn components(&self) -> impl Iterator<Item = &str> {
+        self.0.split('/')
     }
+}
+
+/// Win32 保留设备名（不区分大小写，扩展名不影响命中）。
+fn is_windows_reserved(component: &str) -> bool {
+    const RESERVED: [&str; 4] = ["CON", "PRN", "AUX", "NUL"];
+    let stem = component.split('.').next().unwrap_or(component);
+    if RESERVED.iter().any(|name| stem.eq_ignore_ascii_case(name)) {
+        return true;
+    }
+    // COM1-COM9 / LPT1-LPT9。
+    let bytes = stem.as_bytes();
+    if bytes.len() == 4 && bytes[3].is_ascii_digit() && bytes[3] != b'0' {
+        let prefix = &stem[..3];
+        if prefix.eq_ignore_ascii_case("COM") || prefix.eq_ignore_ascii_case("LPT") {
+            return true;
+        }
+    }
+    false
 }
 
 impl fmt::Display for PackagePath {
