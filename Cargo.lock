@@ -226,6 +226,12 @@ version = "0.1.0"
 [[package]]
 name = "lumio-core-root-abi-generator"
 version = "0.1.0"
+dependencies = [
+ "lumio-core-composition",
+ "serde",
+ "serde_json",
+ "sha2",
+]
 
 [[package]]
 name = "lumio-core-runtime-verifier"
