@@ -33,6 +33,13 @@ metadata:
 
 ## 条目
 
+### 生成器 rmtree 输出目录时,「已入库但生成器不产出」的文件每次重生成都被静默删除
+- 日期：2026-08-29
+- 现象：`tools/lumio_contract.py` 的 `command_generate()` 先 `shutil.rmtree(out_dir)` 再 `copytree` 临时树,而生成器从不产出已入库的 `packages/rust/Cargo.lock`,于是 `generate --out packages` 每次都把它删掉。该误删**已真实合入两次**(`b8f8c50`、`f9c446b`),两次都无人察觉。之所以长期隐形:六个生成 crate 零依赖,事后任何一次 `cargo` 调用都会把锁文件**逐字节**重建,`git status` 随即安静;只有「重生成后不跑 cargo 就提交」的人会带走一次删除,而 CI 的 `cargo check` 在 checkout 之后跑,在 CI 里同样会重建,因此 CI 也看不见。
+- 根因：`rmtree` + `copytree` 使输出目录的文件集**等于**生成器 emit 的文件集,但版本库的文件集是**另一个集合**,二者从无机器校验。差集里的文件既没有生成源,也没有守护——它靠「谁都没注意到」存活。同族风险不限于锁文件:凡是「上游工具会重新生成或删除的文件」进了版本库,就把下游门禁绑在了上游的操作纪律上。
+- 规避：①**输出目录被整体重建的生成流程,版本库里该目录下的每个文件都必须有生成源**——要么由生成器 emit,要么显式 ignore,不留第三类;②新增此类文件时,守护要**同时**覆盖「缺失」与「内容漂移」两种失效,且**precondition 不能锚在被守护对象自己身上**(用 `packages/rust/Cargo.toml` 是否发布作为前置,若改用 `Cargo.lock` 是否存在,则「文件缺失」这一被守护的失效恰好会让检查静默跳过——守护对自己的失效模式失明);③对照组探针要覆盖**值替换**而非仅追加/删除(追加一个字节必然被抓,替换某个成员的 `version` 值才测得到真正的盲区)。
+- 来源：PR [#23](https://github.com/LumioGames/LumioGameEngineArchitecture/pull/23) 顺带发现并刻意留卡(`docs/plans/2026-08-29-td-handoff.md` §3);修法与 `published_cargo_lock_errors()` 见本轮交付
+
 ### 「有一份看起来在守护的东西」必须用对照组探针证明它真的会响
 - 日期：2026-08-29
 - 现象：一天之内四例守护形同虚设,分布四仓、四种机制:①架构仓 `sha256.rs` 的 K[28] 轮常量写错(`0xc6eabbdc` vs FIPS 180-4 的 `0xc6e00bf3`),对任意输入都算错摘要,且当时无 CI 跑 `cargo test`;②GameRuntime `eng/generate-contracts.sh` 的重生成判据**哈希的是经 git attribute 转换后物化的字节,而不是 git 对象本身**——架构源 `.gitattributes` 首行 `* text=auto`,`git archive` 按**调用方**的 `core.autocrlf` 做行尾转换,于是判据是 `(commit, 机器 attribute 栈)` 的函数而非 commit 的函数;③LumioClient 与 ④LumioServer **各自独立**踩中 `Microsoft.CodeAnalysis.BannedApiAnalyzers` 只识别 `BannedSymbols.txt` / `BannedSymbols.*.txt` 的 AdditionalFile,文件名叫 `banned-public-api.txt` 时整份禁令**静默忽略、不报错不警告**——两仓的禁令清单从未生效。四例全部通过过此前的人工审查。

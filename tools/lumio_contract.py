@@ -1199,6 +1199,43 @@ def published_contract_body_errors() -> List[str]:
     return errors[:6]
 
 
+def published_cargo_lock_errors() -> List[str]:
+    """The workspace lockfile is a generated artifact and must be published.
+
+    `command_generate` rmtree's `packages/` and copies the freshly generated
+    tree over it, so any tracked file the generator does not emit is staged as
+    a deletion. `packages/rust/Cargo.lock` was exactly that file, and the
+    deletion shipped twice (b8f8c50, f9c446b) before anyone caught it: the six
+    crates have no dependencies, so any later `cargo` invocation recreates the
+    lockfile byte-for-byte and `git status` goes quiet again. Only a
+    regenerate-then-commit with no Cargo run in between leaves the deletion
+    visible, and CI cannot see it either -- its `cargo check` runs after
+    checkout and would just recreate the file there too.
+
+    The workspace manifest is the guard's precondition rather than the lockfile
+    itself: keying on the lockfile would make the missing-file case, which is
+    the failure being guarded, silently skip the check.
+    """
+    manifest = PACKAGE_DIR / "rust" / "Cargo.toml"
+    if not manifest.is_file():
+        return []
+    published = PACKAGE_DIR / "rust" / "Cargo.lock"
+    hint = (
+        "regenerate with `python3 tools/lumio_contract.py generate --out packages`"
+    )
+    if not published.is_file():
+        return [
+            "published packages/rust/Cargo.lock is missing while the workspace"
+            " manifest is published; {}".format(hint)
+        ]
+    if published.read_text(encoding="utf-8") != _abi.workspace_lock():
+        return [
+            "published packages/rust/Cargo.lock does not match the lockfile"
+            " derived from the workspace members; {}".format(hint)
+        ]
+    return []
+
+
 def published_root_abi_bundle_errors() -> List[str]:
     """ADR-040: the published bundle must be re-derivable from the ABI document."""
     published = PACKAGE_DIR / _ABI_BUNDLE_FILE
@@ -2248,6 +2285,7 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     consistency.extend(published_lumio_bin_profile_errors())
     consistency.extend(published_capability_constant_errors())
     consistency.extend(published_contract_body_errors())
+    consistency.extend(published_cargo_lock_errors())
     consistency.extend(ed25519_self_test_errors())
     if consistency:
         raise ContractError("; ".join(consistency))
