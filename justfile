@@ -17,7 +17,7 @@ default:
 # 合并门禁：格式 + 静态检查 + 供应链（deny / about / 工具锁）。
 # `nextest` 需要可链接二进制的主机（本仓规格 §20.1 CI 门禁含它），单独 recipe 提供；
 # schema 检查与 smoke 分别由 LCE-P0-002 / LCE-P0-017 接入。
-check: fmt-check clippy deny about tool-lock
+check: fmt-check clippy deny about tool-lock runtime-deps
 
 fmt:
     cargo fmt --all
@@ -37,6 +37,38 @@ about:
 
 tool-lock:
     bash tools/verify-tool-lock.sh
+
+# 运行时发布闭包的依赖断言（R-00017 / LCE-P0-007 验收项 3、4）。
+#
+# 为什么必须是门禁而不是「跑一次 cargo tree 看一眼」：这两条是**不变量**，手工跑一次
+# 只证明当下状态。没有它，任何人给运行时闭包内的 crate 加一条
+# `features = ["test-support"]` 的 normal 依赖，全套门禁都会绿灯放行。
+#
+# 两条断言：
+#   1. 全 workspace 的 normal 依赖图里不得有人启用 `test-support`——该 feature 只允许
+#      经 dev-dependency 启用（resolver v2 在非测试构建中不统一 dev-dep 的 feature）。
+#   2. platform-contracts 的 normal 依赖集合必须**恰好**是 {lumio-core-contracts}——
+#      它在运行时发布闭包内（规格 §3.7），OS 细节归 platform-runtime。
+#      用白名单而不是「不含 libc/rustix/…」的黑名单：黑名单对没列进去的新 OS crate
+#      （nix / windows / mach2 / core-foundation…）天然漏网，而这里的合法集合只有一项，
+#      白名单的成本几乎为零且对 crate 改名免疫。
+runtime-deps:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "runtime-deps: 断言 test-support 不在任何 normal 依赖路径上"
+    if cargo tree --workspace -e normal --format '{p} {f}' | grep -n 'test-support'; then
+        echo "runtime-deps: FAIL: 上列 normal 依赖启用了 test-support；该 feature 只允许经 dev-dependency 启用" >&2
+        exit 1
+    fi
+    echo "runtime-deps: 断言 platform-contracts 的 normal 依赖恰好是白名单"
+    expected='lumio-core-contracts lumio-core-platform-contracts'
+    actual=$(cargo tree -p lumio-core-platform-contracts -e normal --prefix none --format '{p}' \
+        | awk '{ print $1 }' | sort -u | tr '\n' ' ' | sed 's/ $//')
+    if [ "$actual" != "$expected" ]; then
+        echo "runtime-deps: FAIL: platform-contracts 的 normal 依赖集合是【$actual】，白名单是【$expected】" >&2
+        exit 1
+    fi
+    echo "runtime-deps: OK（test-support 未泄漏；platform-contracts normal 依赖恰为白名单）"
 
 # nextest 0.9.114 起不再自动发现仓库根 nextest.toml（默认改查 .config/nextest.toml），
 # 本仓按规格 §3.1 布局保留根文件，故显式 --config-file。

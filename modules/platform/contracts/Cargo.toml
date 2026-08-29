@@ -12,3 +12,17 @@ publish.workspace = true
 # test-support 只允许 dev-dependency 场景构造 Fixture，默认关闭且不得进入 normal 依赖。
 [features]
 default = []
+# 只供 runtime-verifier 的 dev-dependency 构造 in-memory Fixture；默认关闭，
+# 且不得出现在任何 normal 依赖路径上——由 justfile 的 `runtime-deps` recipe 断言，
+# 已接入 `just check`。
+test-support = []
+
+[dependencies]
+# ADR 0004 第 3 条冻结的允许边：platform-contracts -> contracts。
+# 公共 ErrorCode 的唯一来源，本 crate 不发明错误码（规格 §6.2）。
+# 带 version 而非纯 path：deny.toml 的 `wildcards = "deny"` 把无版本的 path
+# 依赖判为通配符依赖。版本与 [workspace.package] 的 0.1.0 一致。
+lumio-core-contracts = { path = "../../root-abi/contracts", version = "0.1.0" }
+
+[dev-dependencies]
+proptest.workspace = true
