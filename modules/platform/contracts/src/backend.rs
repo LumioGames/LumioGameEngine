@@ -10,7 +10,14 @@
 //! 能调用 `pub(crate)` 构造器——`OpenedArtifactSet` 与 `MappedNativeImage` 的构造器
 //! 于是都无需公开，而 `open_package` / `map_native` 的签名与 §9.3 一字不差。
 //!
-//! 这两个默认方法在语法上可被覆盖，但覆盖者拿不到构造器，造不出返回值，所以覆盖不可行。
+//! 精确的保证是：**不声明自己是 `LoadBackend`，就造不出 `OpenedArtifactSet`。**
+//! 不要把它读成「crate 外无法构造」——任何 crate 都可以 `impl LoadBackend`、在
+//! `open_parts` 里返回伪造字节，再调默认的 `open_package` 拿到一个集合。Rust 无法表达
+//! 「只有 crate X 可以实现 trait T」（sealed trait 会把 platform-runtime 一起挡在外面），
+//! 所以这条残余**不可消除**，当前设计已在可达上限。
+//!
+//! 它相对「构造器公开」仍是实质提升：伪造从一行 `pub fn` 调用，变成必须写一个架构上
+//! 显眼、可 grep、过不了评审的 `impl LoadBackend`。
 //!
 //! 顺带一条**不要走的岔路**：不要用 feature gate 来「只对 platform-runtime 开放构造器」。
 //! `test-support` 之所以能靠 feature 隔离，是因为它经 **dev**-dependency 启用，
@@ -98,7 +105,8 @@ pub trait LoadBackend: Send + Sync {
         native_artifact: &PackagePath,
     ) -> Result<Arc<dyn NativeImagePayload>, PlatformRuntimeError>;
 
-    /// 规格 §9.3 的消费面签名。默认实现即全部实现，后端不需要也无法有效覆盖。
+    /// 规格 §9.3 的消费面签名。默认实现即全部实现，后端不需要覆盖（覆盖者拿不到
+    /// 私有构造器，造不出返回值）。密封的实际边界见模块文档。
     fn open_package(
         &self,
         request: OpenPackageRequest,

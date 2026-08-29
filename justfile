@@ -47,8 +47,11 @@ tool-lock:
 # 两条断言：
 #   1. 全 workspace 的 normal 依赖图里不得有人启用 `test-support`——该 feature 只允许
 #      经 dev-dependency 启用（resolver v2 在非测试构建中不统一 dev-dep 的 feature）。
-#   2. platform-contracts 的 normal 依赖图里不得出现平台 OS crate——它在运行时发布
-#      闭包内（规格 §3.7），OS 细节归 platform-runtime。
+#   2. platform-contracts 的 normal 依赖集合必须**恰好**是 {lumio-core-contracts}——
+#      它在运行时发布闭包内（规格 §3.7），OS 细节归 platform-runtime。
+#      用白名单而不是「不含 libc/rustix/…」的黑名单：黑名单对没列进去的新 OS crate
+#      （nix / windows / mach2 / core-foundation…）天然漏网，而这里的合法集合只有一项，
+#      白名单的成本几乎为零且对 crate 改名免疫。
 runtime-deps:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -57,15 +60,15 @@ runtime-deps:
         echo "runtime-deps: FAIL: 上列 normal 依赖启用了 test-support；该 feature 只允许经 dev-dependency 启用" >&2
         exit 1
     fi
-    echo "runtime-deps: 断言 platform-contracts 的 normal 依赖不含平台 OS crate"
-    os_crates='^(libc|rustix|libloading|windows-sys|windows-targets|winapi|errno|linux-raw-sys)$'
-    offenders=$(cargo tree -p lumio-core-platform-contracts -e normal --prefix none --format '{p}' \
-        | awk '{ print $1 }' | sort -u | grep -E "$os_crates" || true)
-    if [ -n "$offenders" ]; then
-        echo "runtime-deps: FAIL: platform-contracts 的 normal 依赖含 OS crate：$offenders" >&2
+    echo "runtime-deps: 断言 platform-contracts 的 normal 依赖恰好是白名单"
+    expected='lumio-core-contracts lumio-core-platform-contracts'
+    actual=$(cargo tree -p lumio-core-platform-contracts -e normal --prefix none --format '{p}' \
+        | awk '{ print $1 }' | sort -u | tr '\n' ' ' | sed 's/ $//')
+    if [ "$actual" != "$expected" ]; then
+        echo "runtime-deps: FAIL: platform-contracts 的 normal 依赖集合是【$actual】，白名单是【$expected】" >&2
         exit 1
     fi
-    echo "runtime-deps: OK（test-support 未泄漏；platform-contracts 无 OS crate normal 依赖）"
+    echo "runtime-deps: OK（test-support 未泄漏；platform-contracts normal 依赖恰为白名单）"
 
 # nextest 0.9.114 起不再自动发现仓库根 nextest.toml（默认改查 .config/nextest.toml），
 # 本仓按规格 §3.1 布局保留根文件，故显式 --config-file。

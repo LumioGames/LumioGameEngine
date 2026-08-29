@@ -49,7 +49,11 @@ pub trait LoadBackend: Send + Sync {
 - Loader / Verifier 既 name 不到构造器，也无法经 trait 绕道——它们不实现 `LoadBackend`；
 - 规格 §9.3 的消费面签名完全不变。
 
-默认方法在语法上可被覆盖，但覆盖者造不出返回值（构造器私有），所以覆盖不可行。这是**语言机制消除可见性泄漏**，不是靠纪律约束。
+默认方法在语法上可被覆盖，但覆盖者造不出返回值（构造器私有），所以覆盖不可行。
+
+**精确的保证边界，不要读过头**：这条做到的是「**不声明自己是 `LoadBackend`，就造不出 `OpenedArtifactSet`**」，**不是**「contracts 之外无法构造」。任何 crate 都可以 `impl LoadBackend`、在 `open_parts` 里返回伪造字节，再调默认的 `open_package` 拿到一个集合——审查用一个位于 `tests/`（以外部依赖方式链接本 lib，与 Loader 同处一位）的探针实证了这一点。
+
+该残余**在 Rust 中不可消除**：语言无法表达「只有 crate X 可以实现 trait T」（sealed trait 会把 platform-runtime 一起挡在外面）。所以当前设计已在可达上限。它相对「构造器公开」仍是实质提升：伪造的代价从一行 `pub fn` 调用，变成必须写一个架构上显眼、可 grep、过不了评审的 `impl LoadBackend`。
 
 ### 2. 明确否决：不用 feature gate 做跨 crate 可见性
 
@@ -69,7 +73,7 @@ pub trait LoadBackend: Send + Sync {
 
 ### 4. 相邻不变量的机器保证
 
-`test-support` 不进运行时闭包这条，由 `justfile` 的 `runtime-deps` recipe 断言（`cargo tree --workspace -e normal` 无 `test-support`；platform-contracts 的 normal 依赖无 OS crate），已接入 `just check`。任何文档若声称某条不变量「由 X 覆盖」，X 必须真实存在且可 grep 到——LCE-P0-007 首次交付正是在这一点上写了一条从未创建的门禁。
+`test-support` 不进运行时闭包这条，由 `justfile` 的 `runtime-deps` recipe 断言（`cargo tree --workspace -e normal` 无 `test-support`；platform-contracts 的 normal 依赖集合**恰好**等于白名单 `{lumio-core-contracts}`），已接入 `just check`。第二条用白名单而非「不含 libc/rustix/…」的黑名单：黑名单对没列进去的新 OS crate 天然漏网。任何文档若声称某条不变量「由 X 覆盖」，X 必须真实存在且可 grep 到——LCE-P0-007 首次交付正是在这一点上写了一条从未创建的门禁。
 
 ## 后果
 
