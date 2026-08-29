@@ -52,10 +52,16 @@ nextest:
 sync-contracts:
     bash tools/sync-architecture.sh
 
-# 校验镜像与 architecture.lock.json 完全一致（逐文件 SHA-256、缺失/漂移/未登记文件清单；
-# 输入仅本仓 lock 与镜像，不触架构源仓，也不读 docs/architecture/）。
+# 校验镜像与 architecture.lock.json 完全一致（逐文件 SHA-256、缺失/漂移/未登记文件清单、
+# packages/ consumers 断言；输入仅本仓 lock 与镜像，不触架构源仓，也不读 docs/architecture/）。
 check-contracts:
     bash tools/verify-architecture-lock.sh
+
+# 按 lock 所 pin 的提交号另行获取架构仓校验器工具链（tools/** → build/architecture-tools/
+# <commit>/，不提交）。tools/** 是实现而非契约，不入镜像与 requiredPaths（R-00263/D-5：
+# 上游改 tools/ 不再打断本仓门禁）。
+fetch-architecture-tools:
+    bash tools/sync-architecture.sh --fetch-tools
 
 # ── 垂直切片命令（转发到 crate CLI；当前全部 blocked，见各 CLI 守卫） ────────
 
