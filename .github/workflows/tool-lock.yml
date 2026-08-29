@@ -29,7 +29,7 @@ env:
   # 锁内四项校验器解压落点（PATH 前置，保证 command -v 命中受锁定的那一份）。
   LCE_TOOLS_DIR: /opt/lce-tools
   # gcc-11 的 apt 版本钉定：cc 的二进制摘要由该包版本唯一决定，不随 runner 镜像滚动。
-  GCC_11_APT_VERSION: 11.4.0-1ubuntu1~22.04
+  GCC_11_APT_VERSION: 11.4.0-1ubuntu1~22.04.3
   # 从 tools.lock.toml 读 linux-x86_64 条目，避免在工作流里另抄一份 URL/摘要。
   PARSE_LOCK: |
     import re, sys
