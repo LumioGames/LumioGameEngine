@@ -134,18 +134,159 @@ pub(crate) fn resolve(
     let native = inspect_one(&sources[0], workspace_root)?;
     let voxel = inspect_one(&sources[1], workspace_root)?;
 
-    // source_tree_digest 的投影：component 与 tree_id 按声明序逐行拼接后取 SHA-256。
-    // 用换行分隔而非直接拼接，避免不同 (component, tree) 组合产生同一字节串。
-    let projection = format!(
-        "{}\n{}\n{}\n{}\n",
-        native.component.as_str(),
-        native.tree_id,
-        voxel.component.as_str(),
-        voxel.tree_id
-    );
+    let projection = source_tree_projection(&native, &voxel);
 
     Ok(SourceLock {
         repositories: [native, voxel],
         source_tree_digest: sha256_hex(projection.as_bytes()),
     })
+}
+
+/// `source_tree_digest` 的投影：component 与 tree_id 按声明序逐行拼接后取 SHA-256。
+///
+/// **单射性不是这个格式自己保证的，是载荷在 [`require_git_object_id`] 上的。** tree_id
+/// 恒为 40 位 `[0-9a-f]`，既不含作行分隔的换行、也不含 component 标签，投影因此是定长
+/// 4 行的定宽编码，`(native_tree, voxel_tree)` 能从字节串唯一还原。约束一旦放宽，同一段
+/// 拼接立刻可伪造——测试模块里有那对显式碰撞输入。
+///
+/// 这条依赖跨函数（拼接在这里，约束在 `inspect_one` 里），所以它必须被测试钉住：
+/// 否则谁放宽了约束，拼接会静默变回可伪造，而所有现有测试保持绿。
+fn source_tree_projection(native: &SourceRepository, voxel: &SourceRepository) -> String {
+    format!(
+        "{}\n{}\n{}\n{}\n",
+        native.component.as_str(),
+        native.tree_id,
+        voxel.component.as_str(),
+        voxel.tree_id
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::SourceComponent;
+    use std::collections::BTreeMap;
+
+    const NATIVE_LABEL: &str = "LumioNativeCore";
+    const VOXEL_LABEL: &str = "LumioVoxelEngine";
+
+    fn repo(component: SourceComponent, tree_id: &str) -> SourceRepository {
+        SourceRepository {
+            component,
+            repository: "https://example.invalid/r".to_string(),
+            checkout_root: "build/sources/r".to_string(),
+            commit: "0".repeat(40),
+            tree_id: tree_id.to_string(),
+        }
+    }
+
+    fn projection_of(native_tree: &str, voxel_tree: &str) -> String {
+        source_tree_projection(
+            &repo(SourceComponent::LumioNativeCore, native_tree),
+            &repo(SourceComponent::LumioVoxelEngine, voxel_tree),
+        )
+    }
+
+    /// 从投影字节还原 `(native_tree, voxel_tree)`。投影是定长 4 行、行 1/3 为 component
+    /// 标签；**能唯一还原即单射**。还原不出来说明投影格式变了。
+    fn recover(projection: &str) -> Option<(String, String)> {
+        let lines: Vec<&str> = projection.split('\n').collect();
+        // 末尾那个 LF 会切出一个空尾项，故恰好 5 段。
+        if lines.len() != 5 || !lines[4].is_empty() {
+            return None;
+        }
+        if lines[0] != NATIVE_LABEL || lines[2] != VOXEL_LABEL {
+            return None;
+        }
+        Some((lines[1].to_string(), lines[3].to_string()))
+    }
+
+    /// **约束这一半。** `source_tree_digest` 的拼接投影靠 tree_id 的字母表排除掉分隔符与
+    /// 标签；这条测试钉住的就是「排除」本身，与投影格式无关。
+    #[test]
+    fn object_id_constraint_excludes_the_projection_delimiter_and_labels() {
+        require_git_object_id(&"a".repeat(40), "tree_id")
+            .expect("约束这一半塌了：40 位小写十六进制本应被接受");
+
+        // 前两项刻意**恰好 40 字符**——它们必须被字母表挡住，而不是被长度挡住，
+        // 否则「排除换行 / 排除标签」这两条性质其实没被验证到，只验证了长度。
+        let alphabet_only = [
+            ("0".repeat(39) + "\n", "含换行，即投影的行分隔符"),
+            ("0".repeat(24) + VOXEL_LABEL, "含 component 标签"),
+        ];
+        for (value, why) in &alphabet_only {
+            assert_eq!(
+                value.chars().count(),
+                40,
+                "本用例要验证的是字母表而不是长度，{why} 的样本必须恰好 40 字符"
+            );
+        }
+
+        let hostile = [
+            ("0".repeat(41), "长度不是 40"),
+            ("A".repeat(40), "大写十六进制"),
+            ("g".repeat(40), "非十六进制字符"),
+        ];
+        for (value, why) in alphabet_only.iter().chain(hostile.iter()) {
+            assert!(
+                require_git_object_id(value, "tree_id").is_err(),
+                "约束这一半塌了：require_git_object_id 不再拒绝「{why}」的 tree_id，\
+                 source_tree_projection 的拼接随之可伪造"
+            );
+        }
+    }
+
+    /// **投影这一半。** 在约束成立的前提下，投影必须单射：任一合法组合都能从字节串唯一
+    /// 还原，且不同组合不产生同一字节串。
+    #[test]
+    fn projection_is_injective_under_the_object_id_constraint() {
+        let ids: Vec<String> = (0..64u32).map(|i| format!("{i:040x}")).collect();
+        let mut seen: BTreeMap<String, (String, String)> = BTreeMap::new();
+
+        for native in &ids {
+            for voxel in &ids {
+                require_git_object_id(native, "native tree_id")
+                    .expect("约束这一半塌了：构造的 40 位小写十六进制本应合法");
+                require_git_object_id(voxel, "voxel tree_id")
+                    .expect("约束这一半塌了：构造的 40 位小写十六进制本应合法");
+
+                let projection = projection_of(native, voxel);
+                assert_eq!(
+                    recover(&projection).as_ref(),
+                    Some(&(native.clone(), voxel.clone())),
+                    "投影这一半塌了：source_tree_projection 的格式变了，\
+                     (native_tree, voxel_tree) 不再能从字节串唯一还原"
+                );
+                if let Some(previous) = seen.insert(projection, (native.clone(), voxel.clone())) {
+                    panic!(
+                        "投影这一半塌了：{previous:?} 与 ({native}, {voxel}) 产生同一投影字节串"
+                    );
+                }
+            }
+        }
+    }
+
+    /// **两半的接合点。** 值替换方向的显式碰撞：拼接式投影**自己**不保证单射，挡住它的
+    /// 是字母表约束。这条测试同时钉住「碰撞确实存在」与「约束确实挡得住」——只钉后者的话，
+    /// 将来有人删掉约束时，没有任何东西提醒他删掉的是什么。
+    #[test]
+    fn collision_ruled_out_by_the_object_id_constraint() {
+        let a = ("X".to_string(), format!("Y\n{VOXEL_LABEL}\nZ"));
+        let b = (format!("X\n{VOXEL_LABEL}\nY"), "Z".to_string());
+
+        assert_ne!(a, b, "这对输入语义必须不同，否则测不出碰撞");
+        assert_eq!(
+            projection_of(&a.0, &a.1),
+            projection_of(&b.0, &b.1),
+            "投影这一半变了：这对输入本应拼出同一字节串（碰撞的存在性是本测试的前提）"
+        );
+
+        for tree_id in [&a.0, &a.1, &b.0, &b.1] {
+            assert!(
+                require_git_object_id(tree_id, "tree_id").is_err(),
+                "约束这一半塌了：{tree_id:?} 本应被拒绝；它一旦可用，\
+                 上面那对输入就是 source_tree_digest 的真实碰撞"
+            );
+        }
+    }
 }
