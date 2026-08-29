@@ -7,12 +7,12 @@
   "mirrorRoot": "generated/architecture/LGE-V1.4-2026-08-27",
   "compilerName": "tools/sync-architecture.sh",
   "compilerVersion": 1,
-  "compilerSha256": "27c8a21e2886e6339e86727f3c6a0188f6df6bc072c8d74270934c1c7a0488da",
+  "compilerSha256": "40af6d37903608fc6b82153d28a359d160aab8161029013a39f4c717749d6d4c",
   "argv": "bash tools/sync-architecture.sh",
   "targetPlatform": "host-independent",
-  "fileCount": 296,
-  "inputHash": "999e66727610a03e5d5124de21bffa69a64eb212a265d52f10b2e37fcfa59d32",
-  "outputHash": "999e66727610a03e5d5124de21bffa69a64eb212a265d52f10b2e37fcfa59d32",
+  "fileCount": 299,
+  "inputHash": "a25a4dcb944cde9744d96094dc75f4a1a11d23fa1d860843921bb0273e75e5b6",
+  "outputHash": "a25a4dcb944cde9744d96094dc75f4a1a11d23fa1d860843921bb0273e75e5b6",
   "pathSha256": {
     ".spec/decisions/ADR-001-session-lifecycle.md": "d0210b493db5d26625bdf5efdc2d0e14a79ed5d290db677d19a4227fd15a45c8",
     ".spec/decisions/ADR-002-tick-determinism.md": "7f927c2871596fc47ffaafa076d3bc11ce3df52e9d79ae97afb8386db376b48d",
@@ -256,6 +256,13 @@
     "fixtures/valid/wal-record-envelope.json": "0e981ac955de7b11e5af23c9595a400ab099df0af3c3c59ab2424bbbd9b63b67",
     "ids/README.md": "f22473ebd3d9f1252460a22be6b4aba12d5f608d070ec0091061deead24aa35a",
     "ids/index.json": "515c1626163d935a85fabf04afa743d38b4ba0fb49a7bf38602d2155f4f097f1",
+    "packages/abi/lumio_core.h": "040451bbde5a4dec3726be5f5a7be4bb934c3f68a1ca87f9c55559cae738efc7",
+    "packages/abi/root-abi-bundle.json": "03ca75361fed3ca95f8efd55af2e311ea8300b2635b590ae6d46394d58bc6a39",
+    "packages/canonical/canonical-digest-profile.json": "4bf1976f6811357bd74b922358afd6f4c1e6d68fa925ab5249139bf781ecef46",
+    "packages/evidence/evidence-profile.json": "61b635c60c5ac7bad6155fdbfd52feb91b1ac80c21924cddc333331e7fb724e3",
+    "packages/index.json": "d33c2c90bee1318cb0829c567259593f9b1fd388bc7691604fee521929780fbb",
+    "packages/loader/loader-profile.json": "9eefca4d1a809755db9614aa1924e247f3d9f60ef942357355408a1a1bce975f",
+    "packages/trust/trust-profile.json": "fa4bd14550d7e21e9e1996e21e5e157b708c08a6692754d859e13f615b4d5399",
     "schemas/README.md": "9de499603ce988d85598cd155e49dc59b45163e93289d4e59e6664508287d16a",
     "schemas/artifact-index.schema.json": "4b2bc35750806d8688a912585eb4234906480236bb2fcaf85db73858717a84c3",
     "schemas/canonical-digest-profile.schema.json": "0574eeceff5acadd0f04641907a35bcf5fe2b0378cf88f4afc549f53d391eec1",
@@ -305,10 +312,6 @@
     "schemas/voxel-revision-stamp.schema.json": "8989b810741bafde32d8ca3fcac1a53ae785e228af2995e8226fe1631de1a65b",
     "schemas/voxel-snapshot-payload.schema.json": "de3e6fe7c05b728b7b4548868eaa58b2937be0dfb22300963aa2d2df0df2c069",
     "schemas/voxel-world-port.schema.json": "7550ff78b74fb73dd989c201d2bfb66acef2918e5921324e2b12e50220dc42f8",
-    "schemas/wal-record-envelope.schema.json": "a5cf37b1291b6730f8821d9fb6bff6ead535b4e0bc1de8e7e66c736ebe2ec33e",
-    "tools/README.md": "c60fd1abe3911efe0f909500027425a663127a31f86621a82b41993cc5c056ae",
-    "tools/lumio_contract.py": "1c3cb6b7d8c66a2d98d96adf7bb69bcf2cfb763e2877e3163d2eb17166a6630a",
-    "tools/lumio_generate.py": "f8e09d010406a16f62979187f13aa6eaafcc1345a202978bf11df4708c00bb6a",
-    "tools/lumio_kat.py": "f7178c6bdcb4dd43311f97eb4b1e012876daac732a890ce5e660ee20b9bd4ce5"
+    "schemas/wal-record-envelope.schema.json": "a5cf37b1291b6730f8821d9fb6bff6ead535b4e0bc1de8e7e66c736ebe2ec33e"
   }
 }

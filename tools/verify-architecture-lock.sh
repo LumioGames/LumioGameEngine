@@ -9,6 +9,10 @@
 #      requiredPaths 有序唯一且路径合法、requiredPathSha256 与之一一对应且为 64 位小写十六进制。
 #   2. 镜像完整性：每个 required path 在镜像中存在（缺失逐条列出）、逐文件 SHA-256 与
 #      lock 一致（漂移逐条列出）、镜像中不存在未登记文件或符号链接（逐条列出）。
+#   2b. packages/ consumers 断言（R-00263）：lock 中 packages/ 前缀的 requiredPaths 集合
+#       必须与镜像内 packages/index.json 中 consumers 含 LumioCoreEngine 的条目所指文件集
+#       完全相等（含 index 自身），多一个少一个都 FAIL 并逐条列出；index 从镜像读取，
+#       输入范围仍只有 lock 与镜像（解析依赖 node，与收口门槛 spec-lint 同一既有依赖）。
 #   3. 镜像根 .gitattributes 必须精确为 `* -text`（保证任何检出配置不改字节）。
 #   4. 生成记录 generation-record.json：存在、SHA-256 与 lock.generatedArtifactDescriptorSha256
 #      一致、字段常量一致、pathSha256 与 lock 完全相等、fileCount 一致、Input/Output Hash
@@ -126,7 +130,7 @@ bad_paths=$(printf '%s\n' "$required_paths" | grep -v '^[A-Za-z0-9._/-]*$' || tr
 project() {
     case "$1" in
         .spec/decisions/*) printf 'decisions/%s\n' "${1#.spec/decisions/}" ;;
-        schemas/* | ids/* | fixtures/* | tools/*) printf '%s\n' "$1" ;;
+        schemas/* | ids/* | fixtures/* | packages/*) printf '%s\n' "$1" ;;
         *) return 1 ;;
     esac
 }
@@ -135,8 +139,44 @@ for p in $required_paths; do
     project "$p" >/dev/null || unprojectable="$unprojectable $p"
 done
 [ -z "$unprojectable" ] || {
-    echo "tools/verify-architecture-lock.sh: FAIL: lock.requiredPaths 含不可投影路径：$unprojectable" >&2
+    echo "tools/verify-architecture-lock.sh: FAIL: lock.requiredPaths 含不可投影路径：$unprojectable（仅允许 schemas/ ids/ fixtures/ .spec/decisions/ packages/ 前缀）" >&2
     exit 1
+}
+
+# packages/ 的 consumers 投影（与 tools/sync-architecture.sh 内同名函数同一口径）：
+# stdin 喂入 packages/index.json，stdout 输出本仓消费的 packages/ 前缀路径（含 index
+# 自身，已排序）；消费面以 packagePath 目录声明而含本仓时立即失败，不静默猜测。
+consumer_name="LumioCoreEngine"
+consumers_projection() {
+    node -e '
+        let s = "";
+        process.stdin.on("data", (d) => (s += d));
+        process.stdin.on("end", () => {
+            const idx = JSON.parse(s);
+            const me = process.argv[1];
+            const artDirs = (idx.artifacts || []).map((a) => a.packagePath).filter(Boolean);
+            const inArtifact = (p) => artDirs.some((d) => p.startsWith(d));
+            const entries = Object.entries(idx).filter(
+                ([, v]) => v && typeof v === "object" && !Array.isArray(v) && Array.isArray(v.consumers)
+            );
+            for (const a of idx.artifacts || [])
+                if (Array.isArray(a.consumers)) entries.push(["artifacts:" + a.artifactId, a]);
+            const out = new Set(["packages/index.json"]);
+            for (const [key, e] of entries) {
+                if (!e.consumers.includes(me)) continue;
+                if (e.packagePath) {
+                    console.error(
+                        "consumers 条目 " + key + " 以 packagePath 目录声明消费面，目录级投影未实现，不得静默猜测"
+                    );
+                    process.exit(3);
+                }
+                for (const p of [e.bundlePath, e.profilePath]) if (p) out.add("packages/" + p);
+                for (const f of e.outputFiles || [])
+                    if (f.path && !inArtifact(f.path)) out.add("packages/" + f.path);
+            }
+            for (const p of [...out].sort()) console.log(p);
+        });
+    ' "$consumer_name"
 }
 
 # ── 2. 镜像存在性 / 逐文件摘要 / 未登记文件 ────────────────────────────────
@@ -188,6 +228,34 @@ extra=$(comm -13 "$stream.expected-all" "$stream.actual")
     printf '%s\n' "$extra" | sed '/^$/d; s#^#  未登记: '"$mirror_rel"'/#' >&2
     fail=1
 }
+
+# ── 2b. packages/ consumers 断言（R-00263）：lock 的 packages/ 集合必须与镜像内
+#    packages/index.json 的 consumers 关系推导集完全相等，多一少一都 FAIL。 ─────
+idx_mirror="$mirror_root/packages/index.json"
+if [ ! -f "$idx_mirror" ] || [ -L "$idx_mirror" ]; then
+    err "缺少 $mirror_rel/packages/index.json：consumers 投影的关系载体必须在镜像内（packages/ 未投影或 index 未纳入）"
+else
+    if ! expected_pkgs=$(consumers_projection <"$idx_mirror"); then
+        err "packages/ consumers 投影计算失败（镜像内 packages/index.json 不可解析或含未实现的目录级消费声明）"
+    else
+        actual_pkgs=$(printf '%s\n' "$required_paths" | grep '^packages/' || true)
+        printf '%s\n' "$expected_pkgs" | sed '/^$/d' >"$stream.pkgs-expected"
+        printf '%s\n' "$actual_pkgs" | sed '/^$/d' >"$stream.pkgs-actual"
+        pkgs_missing=$(comm -23 "$stream.pkgs-expected" "$stream.pkgs-actual")
+        pkgs_extra=$(comm -13 "$stream.pkgs-expected" "$stream.pkgs-actual")
+        [ -z "$pkgs_missing" ] || {
+            echo "tools/verify-architecture-lock.sh: FAIL: consumers 关系要求但 lock 缺失的 packages/ 条目（$(printf '%s\n' "$pkgs_missing" | wc -l | tr -d ' ') 个）：" >&2
+            printf '%s\n' "$pkgs_missing" | sed 's/^/  缺失: /' >&2
+            fail=1
+        }
+        [ -z "$pkgs_extra" ] || {
+            echo "tools/verify-architecture-lock.sh: FAIL: lock 含 consumers 关系之外的 packages/ 条目（$(printf '%s\n' "$pkgs_extra" | wc -l | tr -d ' ') 个）：" >&2
+            printf '%s\n' "$pkgs_extra" | sed 's/^/  超出: /' >&2
+            fail=1
+        }
+        rm -f "$stream.pkgs-expected" "$stream.pkgs-actual" 2>/dev/null || :
+    fi
+fi
 
 # ── 3. 镜像根 .gitattributes 字节冻结声明 ──────────────────────────────────
 gitattr_content=$(cat "$mirror_root/.gitattributes" 2>/dev/null || true)

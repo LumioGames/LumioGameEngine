@@ -5,6 +5,9 @@
 # 用法：
 #   bash tools/sync-architecture.sh                # 默认：按 lock 重建只读镜像，绝不改 lock
 #   bash tools/sync-architecture.sh --update-lock  # 显式重生成 lock + 镜像；必须单独 PR 提交
+#   bash tools/sync-architecture.sh --fetch-tools  # 按 pin 提交号提取架构仓 tools/** 到
+#                                                  # build/architecture-tools/<commit>/（不提交，
+#                                                  # 不入镜像；R-00263/D-5）
 #
 # 行为契约（规格 §18 LCE-P0-002「实现要求」）：
 #   * 架构源内容一律经 `git show <pin-commit>:<path>` 从对象库提取，绝不读源仓工作区，
@@ -23,7 +26,11 @@
 #
 # 镜像投影（源路径 → generated/architecture/LGE-V1.4-2026-08-27/ 下相对路径）：
 #   schemas/** → schemas/**；ids/** → ids/**；fixtures/** → fixtures/**；
-#   .spec/decisions/** → decisions/**；tools/** → tools/**。
+#   .spec/decisions/** → decisions/**；packages/ 按 packages/index.json 的 consumers 关系
+#   投影（含 index 自身；仅条目 consumers 含 LumioCoreEngine 的所指文件纳入——范围是关系
+#   的函数而非路径快照，上游增删本仓消费面时镜像自动跟随；解析依赖 node，与收口门槛
+#   spec-lint 同一既有依赖）。tools/** 是实现而非契约，不入 requiredPaths 与镜像
+#   （R-00263/D-5：上游改工具不再打断本仓门禁）；需要架构仓校验器时用 --fetch-tools。
 #   镜像根另有两个工具生成的元文件：generation-record.json（§3.6 生成记录，其 SHA-256 钉在
 #   lock 的 generatedArtifactDescriptorSha256）与 .gitattributes（`* -text`，保证任何
 #   core.autocrlf 配置下检出不改字节）。
@@ -63,20 +70,66 @@ fail() {
 project() {
     case "$1" in
         .spec/decisions/*) printf 'decisions/%s\n' "${1#.spec/decisions/}" ;;
-        schemas/* | ids/* | fixtures/* | tools/*) printf '%s\n' "$1" ;;
+        schemas/* | ids/* | fixtures/* | packages/*) printf '%s\n' "$1" ;;
         *) return 1 ;;
     esac
 }
 
+# packages/ 的 consumers 投影：stdin 喂入 packages/index.json，stdout 输出本仓消费的
+# packages/ 前缀路径（含 packages/index.json 自身，已排序）。规则：
+#   * 条目（rootAbi / trust / canonicalDigest / evidence / loader / artifacts[]…）的
+#     consumers 含 $consumer_name 才纳入，取其 bundlePath / profilePath / outputFiles[].path；
+#   * outputFiles 中落在某个 artifacts[].packagePath 目录下的文件归属该 artifact 条目
+#     （其 consumers 单独裁决），不随宿主条目纳入；
+#   * 消费面以 packagePath 目录声明（artifacts 条目）而含本仓时，目录级投影未实现——
+#     立即失败上报，不静默猜测。
+# 与 tools/verify-architecture-lock.sh 内同名函数保持同一口径。
+consumer_name="LumioCoreEngine"
+consumers_projection() {
+    node -e '
+        let s = "";
+        process.stdin.on("data", (d) => (s += d));
+        process.stdin.on("end", () => {
+            const idx = JSON.parse(s);
+            const me = process.argv[1];
+            const artDirs = (idx.artifacts || []).map((a) => a.packagePath).filter(Boolean);
+            const inArtifact = (p) => artDirs.some((d) => p.startsWith(d));
+            const entries = Object.entries(idx).filter(
+                ([, v]) => v && typeof v === "object" && !Array.isArray(v) && Array.isArray(v.consumers)
+            );
+            for (const a of idx.artifacts || [])
+                if (Array.isArray(a.consumers)) entries.push(["artifacts:" + a.artifactId, a]);
+            const out = new Set(["packages/index.json"]);
+            for (const [key, e] of entries) {
+                if (!e.consumers.includes(me)) continue;
+                if (e.packagePath) {
+                    console.error(
+                        "consumers 条目 " + key + " 以 packagePath 目录声明消费面，目录级投影未实现，不得静默猜测"
+                    );
+                    process.exit(3);
+                }
+                for (const p of [e.bundlePath, e.profilePath]) if (p) out.add("packages/" + p);
+                for (const f of e.outputFiles || [])
+                    if (f.path && !inArtifact(f.path)) out.add("packages/" + f.path);
+            }
+            for (const p of [...out].sort()) console.log(p);
+        });
+    ' "$consumer_name"
+}
+
 # ── 参数 ───────────────────────────────────────────────────────────────────
 update_lock=0
+fetch_tools=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --update-lock) update_lock=1 ;;
-        *) fail "未知参数：$1（仅接受可选 --update-lock）" ;;
+        --fetch-tools) fetch_tools=1 ;;
+        *) fail "未知参数：$1（仅接受可选 --update-lock / --fetch-tools）" ;;
     esac
     shift
 done
+[ "$update_lock" -eq 1 ] && [ "$fetch_tools" -eq 1 ] &&
+    fail "--update-lock 与 --fetch-tools 不可同时使用"
 
 # ── 临时目录与清理（§15.1 口径：列表/装配 scratch 在 build/.tmp 下；
 #    镜像临时目录必须与最终位置同文件系统，保证 rename 原子） ────────────────
@@ -116,6 +169,22 @@ strip_git_suffix() { printf '%s\n' "${1%.git}"; }
 
 git -C "$src_repo" cat-file -e "${expected_commit}^{commit}" 2>/dev/null ||
     fail "锁定提交 $expected_commit 在架构源仓中不存在（V1.4 基线不可复现，立即阻塞上报）"
+
+# ── --fetch-tools：按 pin 提交号另行获取架构仓校验器工具链（R-00263/D-5）。
+#    tools/** 是实现而非契约，不入 requiredPaths 与镜像；需要 lumio_contract.py 等
+#    校验器时提取到 build/（不提交），与 pin 提交严格同源。 ─────────────────────
+if [ "$fetch_tools" -eq 1 ]; then
+    tools_dest="$repo_root/build/architecture-tools/$expected_commit"
+    rm -rf "$tools_dest"
+    mkdir -p "$tools_dest"
+    git -C "$src_repo" archive "$expected_commit" tools | tar -x -C "$tools_dest" ||
+        fail "从 pin 提交 $expected_commit 提取 tools/ 失败"
+    tools_count=$(find "$tools_dest" -type f | wc -l | tr -d ' ')
+    [ "$tools_count" -gt 0 ] || fail "pin 提交 $expected_commit 下 tools/ 为空（异常，立即阻塞上报）"
+    echo "tools: 已按 pin $expected_commit 提取架构仓 tools/**（$tools_count 个文件）到 build/architecture-tools/$expected_commit/（不提交，不入镜像；R-00263/D-5）"
+    echo "tools/sync-architecture.sh: OK"
+    exit 0
+fi
 
 # ── 读取 lock（默认模式） ──────────────────────────────────────────────────
 if [ "$update_lock" -eq 0 ]; then
@@ -182,21 +251,27 @@ if [ "$update_lock" -eq 0 ]; then
     bad_sha=$(printf '%s\n' "$lock_hashes" | awk '$2 !~ /^[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]$/ { print $1 }')
     [ -z "$bad_sha" ] || fail "lock.requiredPathSha256 存在非 64 位小写十六进制的条目：$bad_sha"
     for p in $required_paths; do
-        project "$p" >/dev/null || fail "lock.requiredPaths 含不可投影路径：$p（仅允许 schemas/ ids/ fixtures/ .spec/decisions/ tools/ 前缀）"
+        project "$p" >/dev/null || fail "lock.requiredPaths 含不可投影路径：$p（仅允许 schemas/ ids/ fixtures/ .spec/decisions/ packages/ 前缀）"
     done
     printf '%s\n' "$lock_hashes" | sort >"$scratch/lock-map.txt"
 fi
 
-# ── 枚举 required paths（--update-lock 模式：直接从 pin 提交枚举源子树全集） ──
+# ── 枚举 required paths（--update-lock 模式：四个源子树全集 + packages/ 的
+#    consumers 投影，均从 pin 提交枚举） ─────────────────────────────────────
 if [ "$update_lock" -eq 1 ]; then
     if [ -f "$lock_file" ]; then
         echo "--update-lock：将基于 pin 提交 $expected_commit 重新生成 $lock_file（必须单独 PR 提交）"
     else
         echo "--update-lock：首次生成 $lock_file（pin 提交 $expected_commit）"
     fi
-    required_paths=$(git -C "$src_repo" ls-tree -r --name-only "$expected_commit" -- \
-        schemas ids fixtures .spec/decisions tools | LC_ALL=C sort)
-    [ -n "$required_paths" ] || fail "pin 提交下五个源子树枚举为空（异常，立即阻塞上报）"
+    subtree_paths=$(git -C "$src_repo" ls-tree -r --name-only "$expected_commit" -- \
+        schemas ids fixtures .spec/decisions)
+    packages_paths=$(git -C "$src_repo" -c core.autocrlf=false show \
+        "${expected_commit}:packages/index.json" | consumers_projection) ||
+        fail "packages/ consumers 投影计算失败（pin 提交缺 packages/index.json、JSON 不可解析或含未实现的目录级消费声明）"
+    required_paths=$(printf '%s\n%s\n' "$subtree_paths" "$packages_paths" |
+        sed '/^$/d' | LC_ALL=C sort)
+    [ -n "$required_paths" ] || fail "pin 提交下四个源子树 + packages/ consumers 投影枚举为空（异常，立即阻塞上报）"
     n_paths=$(printf '%s\n' "$required_paths" | wc -l | tr -d ' ')
 fi
 
