@@ -6,11 +6,17 @@
 #   1. tools/tools.lock.toml 每项字段齐全且格式合法（40 位 commit、64 位 sha256）。
 #   2. 本机 host 命中 supported_hosts 的条目：对应二进制必须存在，且其 SHA-256
 #      与 tools/checksums.sha256 的 name@host 登记一致（防工具漂移/替换）。
+#      host key 取 rustc 编译期目标三元组，不用 uname -m（B-00003：混合架构宿主上
+#      uname -m 随调用链中二进制人格漂移，同机两值；锁内工具经 cargo install 产出，
+#      其架构即钉定工具链 host 三元组，以 rustc 为准才是机器的稳定函数）。
 #   3. checksums.sha256 与锁条目双向一致：不允许锁外条目，也不允许缺失登记。
 #   4. 许可证策略完整性：deny.toml 必须显式拒绝 GPL/AGPL/SSPL 并声明 copyleft=deny，
 #      about.toml accepted 不得混入传染许可证——「需法务审核」策略不可被静默削弱。
 #
 # 退出码：0 全部通过；1 校验失败（缺失工具 / 哈希漂移 / 字段缺失 / 策略被削弱）。
+# 本机不在任何 supported_hosts（applicable=0）时二进制完整性是空跑：仍 exit 0
+# （P0 目标平台与 CI 为 Linux，不因未登记宿主阻断门禁），但输出显式 WARNING 并将
+# 末行 OK 与「已校验」区分，防止误读为工具链已被校验（B-00002 选项二）。
 
 set -eu
 
@@ -26,20 +32,19 @@ fail() {
 }
 
 # ── host 标识（与 supported_hosts 使用的写法一致） ──────────────────────────
-kernel=$(uname -s)
-machine=$(uname -m)
-case "$kernel" in
-    MINGW* | MSYS* | CYGWIN*) os_name=windows ;;
-    Linux*) os_name=linux ;;
-    Darwin*) os_name=darwin ;;
-    *) os_name="unknown-$kernel" ;;
+# 从 rustc -vV 的 host 三元组推导，不用 uname -m（见头部注释 B-00003 条）。
+rustc_host=$(rustc -vV 2>/dev/null | sed -n 's/^host: //p')
+[ -n "$rustc_host" ] ||
+    fail "无法从 rustc -vV 解析 host 三元组（本仓工具锁按钉定 Rust 工具链的 host 判定，需 rustc 在场）"
+case "$rustc_host" in
+    x86_64-pc-windows-*) host=windows-x86_64 ;;
+    aarch64-pc-windows-*) host=windows-arm64 ;;
+    x86_64-unknown-linux-*) host=linux-x86_64 ;;
+    aarch64-unknown-linux-*) host=linux-arm64 ;;
+    x86_64-apple-darwin) host=darwin-x86_64 ;;
+    aarch64-apple-darwin) host=darwin-arm64 ;;
+    *) fail "未登记的 rustc host 三元组：$rustc_host（先在本脚本映射表补对应 host key）" ;;
 esac
-case "$machine" in
-    x86_64 | amd64) arch_name=x86_64 ;;
-    aarch64 | arm64) arch_name=arm64 ;;
-    *) arch_name="$machine" ;;
-esac
-host="$os_name-$arch_name"
 
 # ── 1. 解析并校验锁条目 ────────────────────────────────────────────────────
 [ -f "$lock_file" ] || fail "缺少 $lock_file"
@@ -89,7 +94,7 @@ applicable=0
 expected_keys=""
 checked_hashes=0
 
-echo "host: $host"
+echo "host: $host (rustc host: $rustc_host)"
 
 while IFS='|' read -r name version source_url source_commit license_spdx \
     artifact_sha256 supported_hosts invocation owner exit_tool; do
@@ -183,4 +188,10 @@ done
 
 echo "tools.lock: $total entries OK (applicable on $host: $applicable, hashes verified: $checked_hashes)"
 echo "license-policy: 白名单制（deny-by-default），GPL/AGPL/SSPL/MPL 等传染许可证 -> 拒绝（需法务审核），策略完整性 OK"
-echo "tools/verify-tool-lock.sh: OK"
+if [ "$applicable" -eq 0 ]; then
+    # 非绿灯信号（B-00002）：空跑不得与「已校验」共用同一句 OK。
+    echo "tools/verify-tool-lock.sh: WARNING: $host 不在任何 supported_hosts，本机工具二进制完整性未校验（hashes verified: 0）；本次通过只覆盖锁结构、checksums 双向登记与许可证策略。要覆盖本机，按规格 §4 选型流程在 tools.lock.toml 与 checksums.sha256 登记 $host 制品。" >&2
+    echo "tools/verify-tool-lock.sh: OK (binary integrity NOT verified on $host)"
+else
+    echo "tools/verify-tool-lock.sh: OK"
+fi

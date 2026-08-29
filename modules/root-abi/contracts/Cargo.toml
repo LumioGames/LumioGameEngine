@@ -12,3 +12,9 @@ publish.workspace = true
 # 禁止动态生成的 build.rs；生成文件只能来自架构源制品（LCE-P0-003）。
 [features]
 default = []
+
+# 消费基线 pin（LCE-P0-003 实现要求：crate package metadata 记录 baseline/commit）；
+# 与 architecture.lock.json 同源，生成物完整性由 tests/generated_integrity.rs 校验。
+[package.metadata.lumio]
+architecture-baseline-id = "LGE-V1.4-2026-08-27"
+architecture-commit = "1f2ead332b3dfc3042e1495bfbe6febb8699df7e"

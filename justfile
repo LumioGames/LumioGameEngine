@@ -40,8 +40,10 @@ tool-lock:
 
 # nextest 0.9.114 起不再自动发现仓库根 nextest.toml（默认改查 .config/nextest.toml），
 # 本仓按规格 §3.1 布局保留根文件，故显式 --config-file。
+# --no-tests=pass：门禁在仓库任一合法状态下都可判定（B-00001）——nextest 默认
+# 「零测试即失败」，会让首张带测试的卡落地前 §20.1 门禁必然红；真实测试失败仍失败。
 nextest:
-    cargo nextest run --workspace --profile ci --config-file nextest.toml
+    cargo nextest run --workspace --profile ci --config-file nextest.toml --no-tests=pass
 
 # ── 架构契约镜像（LCE-P0-002）─────────────────────────────────────────────
 
@@ -74,19 +76,23 @@ compose p="p0-linux": (assert-profile p)
     cargo run --locked -p lumio-core-composition --bin lumio-core-compose -- compose --config config/p0/linux-server-x86_64-glibc.compose.toml --out build/plans/p0-linux-server-x86_64-glibc/build-plan.json
 
 generate-abi p="p0-linux": (assert-profile p)
-    cargo run --locked -p lumio-core-root-abi-generator -- generate --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --architecture-lock architecture.lock.json --out modules/root-abi/generated/LGE-V1.2-2026-08-27
+    cargo run --locked -p lumio-core-root-abi-generator -- generate --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --architecture-lock architecture.lock.json --out modules/root-abi/generated/LGE-V1.4-2026-08-27
 
+# 生成物完整性（规格 §20.1「重新生成零差异」）。当前接入 lumio-core-contracts 的
+# 锁定生成器校验（LCE-P0-003：descriptor Input/Output Hash 字节重算、上游 provenance
+# 与镜像对账、重渲染零差异）；root-abi generator 的 verify-generated（LCE-P0-005）
+# 落地后按规格再并入本 recipe。
 check-generated:
-    cargo run --locked -p lumio-core-root-abi-generator -- verify-generated --architecture-lock architecture.lock.json --generated modules/root-abi/generated/LGE-V1.2-2026-08-27
+    cargo test -p lumio-core-contracts --locked --test generated_integrity
 
 build-platform p="p0-linux": (assert-profile p)
-    cargo run --locked -p lumio-core-platform-build -- build-staging --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --plan-digest-file build/plans/p0-linux-server-x86_64-glibc/build-plan.sha256 --abi modules/root-abi/generated/LGE-V1.2-2026-08-27 --out build/platform/linux-server-x86_64-glibc/staging
+    cargo run --locked -p lumio-core-platform-build -- build-staging --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --plan-digest-file build/plans/p0-linux-server-x86_64-glibc/build-plan.sha256 --abi modules/root-abi/generated/LGE-V1.4-2026-08-27 --out build/platform/linux-server-x86_64-glibc/staging
 
 evidence p="p0-linux": (assert-profile p)
     cargo run --locked -p lumio-core-evidence-generator -- generate --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --staging build/platform/linux-server-x86_64-glibc/staging --out build/evidence/linux-server-x86_64-glibc
 
 manifest p="p0-linux": (assert-profile p)
-    cargo run --locked -p lumio-core-manifest -- generate --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --abi-descriptor modules/root-abi/generated/LGE-V1.2-2026-08-27/generated-contract-artifact.json --target-profile config/p0/linux-server-x86_64-glibc.target-profile.json --artifact-index build/platform/linux-server-x86_64-glibc/finalized/metadata/artifact-index.json --evidence build/evidence/linux-server-x86_64-glibc --out build/platform/linux-server-x86_64-glibc/finalized/metadata/core-engine-manifest.json
+    cargo run --locked -p lumio-core-manifest -- generate --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --abi-descriptor modules/root-abi/generated/LGE-V1.4-2026-08-27/generated-contract-artifact.json --target-profile config/p0/linux-server-x86_64-glibc.target-profile.json --artifact-index build/platform/linux-server-x86_64-glibc/finalized/metadata/artifact-index.json --evidence build/evidence/linux-server-x86_64-glibc --out build/platform/linux-server-x86_64-glibc/finalized/metadata/core-engine-manifest.json
 
 sign-test p="p0-linux": (assert-profile p)
     cargo run --locked -p lumio-core-signer-tool --features test-provider -- sign --manifest build/platform/linux-server-x86_64-glibc/finalized/metadata/core-engine-manifest.json --manifest-digest-file build/platform/linux-server-x86_64-glibc/finalized/metadata/core-engine-manifest.sha256 --trust-domain Test --provider test-file --key-file modules/smoke/fixtures/test-keys/p0-ed25519-private.key --out build/platform/linux-server-x86_64-glibc/finalized/metadata/signature-envelope.json
