@@ -63,14 +63,32 @@
 - **顺序依赖**:ADR-047 必须与项 1 同刻或更早(项 1 的编码引用它);其余八张与项 1/2 无顺序耦合。**但九张一起转,不拆批**——拆批就等于「先转一部分 Accepted、剩下的等下一次基线」,而 D-2 排序约束 3 明写:把 Draft 公共构造钉进 CoreEngine 只读镜像,等它转 Accepted 时会再触发一次全量重新登记。拆批 = 多一次全下游 churn。
 - **验收判据**:① 九张 `Status` 均为 `Accepted` 且标注基线 `LGE-V1.5-<date>`;② `decisions/README.md` 索引表状态列与正文一致(`spec-lint` 校验 status 枚举);③ `docs/adr/` 软链接对 `.spec/decisions/` **全覆盖无缺口**(本批须把这条补进 `spec-lint`,否则 ADR-045 那类缺口会再犯——**这是本批唯一建议新增的机器检查**);④ ADR-015 保持 `Reserved`,不被批量误转。
 
-### 项 4 · OperationId namespace 发布 —— **本批建议不执行,改为记录裁决**
+### 项 4 · OperationId namespace 发布 —— **已裁决:出批,改为记录裁决**
+
+> **TD 总调度裁决(2026-08-29,终局)**:**采纳下述「优先选项」——项 4 出批,不在 V1.5 批内发布 OperationId namespace。**
+>
+> **裁决依据(三条,均经第一手核实)**:
+> 1. **ADR-040 §7 的否决带条件从句**,原文第 119 行:「There is no `OperationId` namespace, none is reserved, and none is required **while the dispatch surface stays blocked**.」——条件是「dispatch 面仍被挡着」。
+> 2. **该条件至今成立**:`packages/index.json` 的 `blocked` 列表实测为 `[{"id":"D-009","reason":"protocol-dispatch not frozen"},{"id":"D-011","reason":"Auth wire not frozen"}]`。**D-009 未解冻**,故 ADR-040 §7 的结论仍然有效。
+> 3. **发布它等于抢跑 D-009**,与本日已定的同型裁决一致:ADR-048 §2 明写 validator「只校验已注册、不校验角色权限」,理由正是「架构源无 role→message 权限表,发一个就是发明公共合同并抢跑 D-009」。同一条红线在此复用。
+>
+> **附加理由**:项 4 与项 3 在同一批内自相矛盾(既把「没有 OperationId namespace」冻成 Accepted,又发布该 namespace);保留项 4 的代价(先解冻 D-009 + 新 ADR 取代 ADR-040 §7)比本批其余五项之和更大,与「只跳一次基线」直接相悖。
+>
+> **由此确定的终态口径(下游据此执行,不再当缺口上报)**:NativeCore 的 `ArchitectureOperationId` / `operation_ids()` **空 seam 是符合规范的终态**,不是待补缺口。已同步:① 修订 `docs/reviews/2026-08-29-nativecore-closeout.md` §4 的残留漂移句;② 已 SendMessage 通知在途的 NativeCore R-00083/R-00007 会话。
+>
+> **重新开启的唯一条件**:D-009(protocol-dispatch)解冻。届时须新增一张 ADR 取代 ADR-040 §7 该条,不得靠「批内顺带发布」绕过。
 
 - **实测冲突**:批清单写「OperationId namespace 发布(需 NativeCore 提值)」,但 [ADR-040 §7](../../.spec/decisions/ADR-040-root-abi-generated-bundle.md) 第 119 行明写:「可调用操作的公共身份是 (`apiTable[].name`, `slots[].slotIndex`) 这一对,已发布在 bundle 里并被布局 Golden 断言。**没有 `OperationId` 命名空间,不保留、也不需要保留**,只要 dispatch 面还被 D-009 挡着。」`docs/reviews/2026-08-28-nativecore-abi-adjudication.md` §请求 4 已把它裁为「不适用」,理由是「这不是注册表缺失,是概念不存在」。
 - **含义**:项 4 与项 3(ADR-040 转 Accepted)**直接冲突**——同一批里既要把「没有 OperationId namespace」冻成 Accepted,又要发布 OperationId namespace。
-- **建议处置(需总调度裁决,本卡不代裁)**:
-  - **优先选项**:项 4 出批,在本批的批注里记「OperationId 依 ADR-040 §7 为不适用,NativeCore 的 `ArchitectureOperationId` 空 seam 是**符合规范的终态**,不是待补缺口」,并同步修订 `docs/reviews/2026-08-29-nativecore-closeout.md` §4 的「待上游发布后随小卡收敛」表述——那句话与 ADR-040 §7 不一致,是残留漂移。
-  - **若要保留项 4**,则前置是 D-009(dispatch 面)先解冻,且必须新增一张 ADR 取代 ADR-040 §7 的该条结论 —— 这是**比本批其余五项加起来更大的动作**,与「只跳一次基线」的省事目标相悖。
-- **验收判据**(按优先选项):全仓关于 OperationId 的表述**单一口径**,`git grep -n "OperationId"` 的每一处命中要么指向 ADR-040 §7 的裁决,要么是历史 review 文档的原文引用并已标注「已被裁决取代」。
+- **处置(已裁决,见上方裁决框)**:
+  - ~~优先选项~~ → **已采纳**:项 4 出批,记录裁决;`docs/reviews/2026-08-29-nativecore-closeout.md` §4 的残留漂移句已随本次裁决一并修订。
+  - ~~若要保留项 4~~ → **已否决**:前置是 D-009 先解冻 + 新增 ADR 取代 ADR-040 §7,动作大于本批其余五项之和。
+- **验收判据**:全仓关于 OperationId 的表述**单一口径**,`git grep -n "OperationId"` 的每一处命中要么指向 ADR-040 §7 的裁决,要么是历史 review 文档的原文引用并已标注「已被裁决取代」。
+- **判据执行结果(本次已完成)**:`git grep -n "OperationId" -- '*.md'` 全量命中逐条分类处置——
+  - **源头**(`ADR-040:119`):不动,它就是裁决依据本身。
+  - **三处「活的」待办已收敛**:`2026-08-29-contract-surface-adjudication.md:25`、`2026-08-29-td-handoff.md:103`、`2026-08-28-stepwise-convergence-roadmap.md:48` 原本都把「OperationId namespace 发布」列为待执行项,现已就地标注「已裁决出批 / 不适用」——**这三处是真实的口径冲突源,不处理就会有人照旧执行**。
+  - **`2026-08-29-nativecore-closeout.md:39`**:残留漂移句「待上游发布后随小卡收敛」已改写为终态口径(该文件虽属 review,但那句是**面向未来的承诺**而非事实记录,故必须改)。
+  - **历史 review / audit 快照不改写**(`2026-08-28-nativecore-abi-adjudication.md`、`2026-08-28-nativecore-convergence-audit.md`、`2026-08-28-nativecore-convergence-dispatch.md`):它们记录的是当时的事实与判断,且方向与本裁决**一致**(前者已裁为「不适用」,后两者写「未发布」「不得发明」)。审计报告是时点快照,改写会破坏其证据性质。
 
 ### 项 5 · D-5 冻结点 tag
 
@@ -89,7 +107,10 @@
   - P2-2 若选「ADR 显式处置」= 在项 3 的 ADR-042 转 Accepted 时**附一节裁决记录**说明该限制与其适用域边界(不改 preimage,零 Schema 改动);若选「preimage v2」= 改 `trust-profile.schema.json` 的 preimage 布局 + 全部 trust 向量重算 + 七仓 verifier 同步 —— **这是一次密码学构造变更**,批内做会让本批的验证面从「枚举与字段」扩到「签名字节」。
   - P2-3 是**纯实现缺陷修复**(比较前解析时间戳,或收紧 `common.schema.json` 的 `timestamp` def 禁止分数秒),零公共语义变更,**可在批外任意时点单独修**,不必等基线。
 - **顺序依赖**:P2-2 的「ADR 显式处置」路径与项 3 同刻(同一份 ADR-042 转 Accepted);P2-3 **无依赖**。
-- **建议**:**P2-2 走「ADR 显式处置」、P2-3 出批单修**。理由:批的目的是「只跳一次基线」,不是「把所有待办清空」;preimage v2 是能独立成批的密码学变更,混进来会让批的失败面不可控。
+- **裁决(TD 总调度,2026-08-29,终局)**:**采纳建议——P2-2 走「ADR 显式处置」路径,P2-3 出批单修。**
+  - **P2-2 不做 preimage v2**:那是一次**密码学构造变更**,会把本批的验证面从「枚举与字段」扩到「签名字节」,失败面不可控;而 `trustDomain` 实测为 `Test`(`packages/index.json` 的 `trust.trustDomain`),P2-2 原文本身就写明「Test 域可接受」——当前域下不构成必须在本批解决的风险。**执行**:在项 3 的 ADR-042 转 Accepted 时附一节裁决记录,写清 `signedAt` 不在签名 preimage 内、该限制的适用域边界、以及 **Production 域冻结的前置条件必须包含 preimage v2 或等效处置**——把约束钉在未来那次域切换上,而不是留成无主待办。
+  - **P2-3 出批单修**:纯实现缺陷(`lumio_contract.py` 时间窗字典序比较),零公共语义变更,不必等基线,任意时点可修。
+  - **共同理由**:批的目的是「只跳一次基线」,不是「把所有待办清空」。凡「能独立成批且不改公共语义」的,一律出批——这条同时适用于本批其余待办的取舍。
 - **验收判据**:① ADR-042 转 Accepted 的正文里有一节明写 `signedAt` 不受签名保护、其适用域限于 Test、Production 冻结的前置条件是什么;② P2-3 修复后有一条**分数秒时间戳的失败 fixture**——不是「改了比较函数」,是「有一条按旧比较逻辑会误判、按新逻辑会正确的对照用例」。
 
 ## 2 · 只跳一次基线的执行顺序(公共语义变更顺序的批级展开)
