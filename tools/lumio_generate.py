@@ -118,12 +118,101 @@ def load_schema_ids(root: Path) -> List[str]:
     return [item["id"] for item in index.get("schemas", [])]
 
 
+def load_message_ids(root: Path) -> List[str]:
+    """The `MessageType` namespace, in registry order; the gate's registered set."""
+    registry = json.loads((root / "ids" / "index.json").read_text(encoding="utf-8"))
+    for ns in registry.get("namespaces", []):
+        if ns.get("namespace") == "MessageType":
+            return [v["id"] for v in ns.get("values", [])]
+    return []
+
+
 def load_error_ids(root: Path) -> List[str]:
     registry = json.loads((root / "ids" / "index.json").read_text(encoding="utf-8"))
     for ns in registry.get("namespaces", []):
         if ns.get("namespace") == "ErrorCode":
             return [v["id"] for v in ns.get("values", [])]
     return []
+
+
+def load_capabilities(root: Path) -> List[Tuple[str, int, str]]:
+    """ADR-040 section 7 (D-015): the `Capability` namespace, in registry order.
+
+    `ids/index.json` stays the authority for the numerics; the generator is the
+    only thing allowed to project them into a language, which is what lets the
+    three native repositories share one key space instead of inventing three.
+    """
+    registry = json.loads((root / "ids" / "index.json").read_text(encoding="utf-8"))
+    for ns in registry.get("namespaces", []):
+        if ns.get("namespace") == "Capability":
+            return [
+                (str(v["id"]), int(v["numeric"]), str(v.get("status", "")))
+                for v in ns.get("values", [])
+            ]
+    return []
+
+
+def capability_rust(capabilities: List[Tuple[str, int, str]]) -> str:
+    out = [
+        "/// ADR-040 section 7 (D-015): capability keys projected from the ID Registry.\n",
+        "/// `ids/index.json` is the authority for these numerics; this table is its only\n",
+        "/// published projection. A consumer reads it instead of inventing a private key.\n",
+        "/// These are enumeration keys, not bit positions: `capability_bits` semantics\n",
+        "/// stay unfrozen (ADR-040 section 7).\n",
+        "pub const CAPABILITY_KEYS: &[(&str, u32, &str)] = &[\n",
+    ]
+    for name, numeric, status in capabilities:
+        out.append("    (\"{}\", {}, \"{}\"),\n".format(name, numeric, status))
+    out.append("];\n\n")
+    out.append("pub fn capability_key(name: &str) -> Option<u32> {\n")
+    out.append("    let mut i = 0;\n    while i < CAPABILITY_KEYS.len() {\n")
+    out.append("        if CAPABILITY_KEYS[i].0.as_bytes() == name.as_bytes() {\n")
+    out.append("            return Some(CAPABILITY_KEYS[i].1);\n        }\n        i += 1;\n    }\n")
+    out.append("    None\n}\n")
+    return "".join(out)
+
+
+def capability_csharp(capabilities: List[Tuple[str, int, str]]) -> str:
+    out = [
+        "// ADR-040 section 7 (D-015): capability keys projected from the ID Registry.\n",
+        "// ids/index.json is the authority for these numerics; this is its only published\n",
+        "// projection. Enumeration keys, not bit positions.\n",
+        cs_value_struct(
+            "CapabilityKey", [("string", "Name"), ("uint", "Numeric"), ("string", "Status")]
+        ),
+        "\npublic static class CapabilityKeys\n{\n    public static readonly CapabilityKey[] All =\n    {\n",
+    ]
+    for name, numeric, status in capabilities:
+        out.append(
+            "        new CapabilityKey(\"{}\", {}u, \"{}\"),\n".format(name, numeric, status)
+        )
+    out.append("    };\n\n")
+    for name, numeric, _status in capabilities:
+        out.append("    public const uint {} = {}u;\n".format(name, numeric))
+    out.append("}\n")
+    return "".join(out)
+
+
+def capability_c(capabilities: List[Tuple[str, int, str]]) -> str:
+    out = [
+        "/* ADR-040 section 7 (D-015): capability keys projected from the ID Registry. */\n",
+        "/* ids/index.json is the authority; these are enumeration keys, NOT bit\n"
+        "   positions -- LUMIO_CAPABILITY_BITS semantics stay unfrozen. */\n",
+    ]
+    for name, numeric, _status in capabilities:
+        out.append("#define LUMIO_CAPABILITY_{} {}u\n".format(c_screaming(name), numeric))
+    out.append("#define LUMIO_CAPABILITY_COUNT {}u\n\n".format(len(capabilities)))
+    return "".join(out)
+
+
+def c_screaming(name: str) -> str:
+    """`VoxelMeshCollision` -> `VOXEL_MESH_COLLISION`."""
+    chars: List[str] = []
+    for index, char in enumerate(name):
+        if char.isupper() and index and not name[index - 1].isupper():
+            chars.append("_")
+        chars.append(char.upper())
+    return "".join(chars)
 
 
 def rust_cargo(name: str) -> str:
@@ -137,19 +226,77 @@ def rust_cargo(name: str) -> str:
     ).format(name)
 
 
+# ADR-048 (D-4): Unity consumes `netstandard2.1`, the .NET Host consumes `net8.0`.
+# One package must serve both, so every generated project multi-targets.
+CS_TARGET_FRAMEWORKS = "netstandard2.1;net8.0"
+
+
 def csproj(name: str) -> str:
     return (
         "<Project Sdk=\"Microsoft.NET.Sdk\">\n"
         "  <PropertyGroup>\n"
-        "    <TargetFramework>net8.0</TargetFramework>\n"
+        "    <TargetFrameworks>{}</TargetFrameworks>\n"
         "    <ImplicitUsings>disable</ImplicitUsings>\n"
         "    <Nullable>enable</Nullable>\n"
         "    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>\n"
         "    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>\n"
         "  </PropertyGroup>\n"
         "  <!-- Pure managed; no Native / PInvoke / implementation-project PackageReference. -->\n"
-        "</Project>\n"
+        "</Project>\n".format(CS_TARGET_FRAMEWORKS)
     )
+
+
+# Reserved words a generated camelCase parameter can collide with. A contract
+# member named `case`, `event` or `namespace` is legal JSON and legal as a C#
+# *property*; only the constructor parameter needs the verbatim prefix.
+CS_KEYWORDS = {
+    "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked",
+    "class", "const", "continue", "decimal", "default", "delegate", "do", "double", "else",
+    "enum", "event", "explicit", "extern", "false", "finally", "fixed", "float", "for",
+    "foreach", "goto", "if", "implicit", "in", "int", "interface", "internal", "is", "lock",
+    "long", "namespace", "new", "null", "object", "operator", "out", "override", "params",
+    "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed", "short",
+    "sizeof", "stackalloc", "static", "string", "struct", "switch", "this", "throw", "true",
+    "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using", "virtual",
+    "void", "volatile", "while",
+}
+
+
+def cs_param(name: str) -> str:
+    """camelCase a member name for use as a constructor parameter."""
+    lowered = name[0].lower() + name[1:]
+    return "@" + lowered if lowered in CS_KEYWORDS else lowered
+
+
+def cs_value_struct(name: str, members: List[Tuple[str, str]]) -> str:
+    """Emit a positional-record-shaped readonly struct without using `record`.
+
+    `record` and `init` accessors require `IsExternalInit`, which netstandard2.1
+    does not ship; a constructor plus get-only properties is the same shape and
+    compiles on every target either consumer offers.
+    """
+    params = ", ".join("{} {}".format(t, cs_param(n)) for t, n in members)
+    assigns = " ".join("{} = {};".format(n, cs_param(n)) for _t, n in members)
+    props = "".join("    public {} {} {{ get; }}\n".format(t, n) for t, n in members)
+    return (
+        "public readonly struct {name}\n{{\n"
+        "    public {name}({params})\n    {{\n        {assigns}\n    }}\n"
+        "{props}}}\n".format(name=name, params=params, assigns=assigns, props=props)
+    )
+
+
+def cs_namespace(name: str, body: str, usings: str = "") -> str:
+    """Wrap generated C# in a block-scoped namespace.
+
+    Block scope, not `namespace X;`: under `netstandard2.1` the default language
+    version is C# 8, which has no file-scoped namespace, and pinning LangVersion
+    forward would push the requirement onto Unity's compiler instead. Block scope
+    compiles on every version either consumer can offer.
+    """
+    indented = "".join(
+        ("    " + line if line.strip() else line) + "\n" for line in body.rstrip("\n").split("\n")
+    )
+    return "{}namespace {}\n{{\n{}}}\n".format(usings, name, indented)
 
 
 def kebab_kind(kind: str) -> str:
@@ -288,7 +435,54 @@ pub fn sha256_hex(data: &[u8]) -> String {
 '''
 
 
-def emit_protocol_permission(rust_dir: Path, cs_dir: Path) -> None:
+# ADR-048 section 2: the order the generated gate reports a rejection in when a
+# record fails more than one check. `StaleConnectionGeneration` leads because
+# ADR-022's failure semantics already require that code whenever the generation
+# differs; the rest follow ADR-022's own clause order. Published as data so the
+# three implementations cannot drift into three different first answers.
+GATE_REJECT_PRECEDENCE = [
+    "StaleConnectionGeneration",
+    "SessionMismatch",
+    "ReleaseMismatch",
+    "MessagePermissionDenied",
+    "RoleMismatch",
+    "ClaimNotGranted",
+]
+# Owned by `ClientReplicaSession` (ADR-022), not computable from the record: the
+# gate accepts it as a declared verdict but never derives it.
+GATE_DECLARED_ONLY_REASONS = ["SessionAntiReplay"]
+
+
+def evaluate_protocol_gate(record: Dict[str, Any], registered_message_ids: List[str]) -> Tuple[str, Any]:
+    """Run the ADR-022 gate over one record: returns (verdict, rejectReason|None).
+
+    This is the executable form of ADR-022. The `messageId` clause is enforced as
+    far as the architecture source actually publishes it — the id must be a
+    registered `MessageType` — and no further: no role-to-message permission
+    table exists in this repository, so deriving one here would be inventing a
+    public contract rather than executing one.
+    """
+    if record.get("connectionGeneration") != record.get("admittedConnectionGeneration"):
+        return "Reject", "StaleConnectionGeneration"
+    if record.get("sessionId") != record.get("admittedSessionId"):
+        return "Reject", "SessionMismatch"
+    if record.get("productId") != record.get("admittedProductId") or record.get(
+        "gameReleaseId"
+    ) != record.get("admittedGameReleaseId"):
+        return "Reject", "ReleaseMismatch"
+    if record.get("messageId") not in registered_message_ids:
+        return "Reject", "MessagePermissionDenied"
+    if record.get("role") != record.get("admittedRole"):
+        return "Reject", "RoleMismatch"
+    admitted = set(record.get("admittedClaims") or [])
+    if [claim for claim in record.get("claims") or [] if claim not in admitted]:
+        return "Reject", "ClaimNotGranted"
+    return "Accept", None
+
+
+def emit_protocol_permission(
+    rust_dir: Path, cs_dir: Path, message_ids: List[str]
+) -> None:
     fields = [
         "sessionId",
         "productId",
@@ -311,18 +505,466 @@ def emit_protocol_permission(rust_dir: Path, cs_dir: Path) -> None:
     for f in fields:
         rust += "    \"{}\",\n".format(f)
     rust += "];\n\n"
-    rust += "pub fn is_active_field(name: &str) -> bool {\n    ACTIVE_PERMISSION_FIELDS.contains(&name)\n}\n"
+    rust += "pub fn is_active_field(name: &str) -> bool {\n    ACTIVE_PERMISSION_FIELDS.contains(&name)\n}\n\n"
+    rust += gate_rust(message_ids)
     write_text(rust_dir / "src" / "lib.rs", rust)
     write_text(rust_dir / "Cargo.toml", rust_cargo(RUST_CRATES["ProtocolPermissionValidator"]))
-    cs = (
-        "namespace Lumio.Gen.ProtocolPermissionValidator;\n\n"
+    cs = cs_namespace(
+        "Lumio.Gen.ProtocolPermissionValidator",
         "public static class ActivePermissionFields\n{\n"
         "    public static readonly string[] Names = new[]\n    {\n"
         + "".join("        \"{}\",\n".format(f) for f in fields)
-        + "    };\n}\n"
+        + "    };\n}\n",
     )
     write_text(cs_dir / "ActivePermissionFields.cs", cs)
+    write_text(cs_dir / "ProtocolGate.cs", gate_csharp(message_ids))
     write_text(cs_dir / (CS_PROJ["ProtocolPermissionValidator"] + ".csproj"), csproj(CS_PROJ["ProtocolPermissionValidator"]))
+
+
+def gate_rust(message_ids: List[str]) -> str:
+    """Emit the executable ADR-022 gate: an admission decision, not a field list."""
+    out = [
+        "/// Registered `MessageType` ids (ids/index.json, registry order).\n",
+        "pub const REGISTERED_MESSAGE_IDS: &[&str] = &[\n",
+    ]
+    for mid in message_ids:
+        out.append("    \"{}\",\n".format(mid))
+    out.append("];\n\n")
+    out.append("/// Rejection precedence when a record fails more than one check (ADR-048).\n")
+    out.append("pub const REJECT_PRECEDENCE: &[&str] = &[\n")
+    for reason in GATE_REJECT_PRECEDENCE:
+        out.append("    \"{}\",\n".format(reason))
+    out.append("];\n\n")
+    out.append(
+        "/// Reasons the session owner declares and the gate never derives (ADR-022).\n"
+        "pub const DECLARED_ONLY_REASONS: &[&str] = &[{}];\n\n".format(
+            ", ".join('"{}"'.format(r) for r in GATE_DECLARED_ONLY_REASONS)
+        )
+    )
+    out.append(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n"
+        "pub enum Verdict {\n    Accept,\n    Reject,\n}\n\n"
+        "/// One Active-session message and the context it was admitted under.\n"
+        "#[derive(Clone, Copy, Debug)]\n"
+        "pub struct GateInput<'a> {\n"
+        "    pub session_id: &'a str,\n"
+        "    pub product_id: &'a str,\n"
+        "    pub game_release_id: &'a str,\n"
+        "    pub message_id: &'a str,\n"
+        "    pub role: &'a str,\n"
+        "    pub claims: &'a [&'a str],\n"
+        "    pub connection_generation: u64,\n"
+        "    pub admitted_session_id: &'a str,\n"
+        "    pub admitted_product_id: &'a str,\n"
+        "    pub admitted_game_release_id: &'a str,\n"
+        "    pub admitted_role: &'a str,\n"
+        "    pub admitted_claims: &'a [&'a str],\n"
+        "    pub admitted_connection_generation: u64,\n"
+        "}\n\n"
+        "/// The ADR-022 gate. `None` reason means Accept.\n"
+        "///\n"
+        "/// The `messageId` clause is enforced only as far as this repository\n"
+        "/// publishes it -- the id must be registered. No role-to-message\n"
+        "/// permission table exists, so the gate does not invent one.\n"
+        "pub fn evaluate(input: &GateInput) -> (Verdict, Option<&'static str>) {\n"
+        "    if input.connection_generation != input.admitted_connection_generation {\n"
+        "        return (Verdict::Reject, Some(\"StaleConnectionGeneration\"));\n    }\n"
+        "    if input.session_id != input.admitted_session_id {\n"
+        "        return (Verdict::Reject, Some(\"SessionMismatch\"));\n    }\n"
+        "    if input.product_id != input.admitted_product_id\n"
+        "        || input.game_release_id != input.admitted_game_release_id\n    {\n"
+        "        return (Verdict::Reject, Some(\"ReleaseMismatch\"));\n    }\n"
+        "    if !REGISTERED_MESSAGE_IDS.contains(&input.message_id) {\n"
+        "        return (Verdict::Reject, Some(\"MessagePermissionDenied\"));\n    }\n"
+        "    if input.role != input.admitted_role {\n"
+        "        return (Verdict::Reject, Some(\"RoleMismatch\"));\n    }\n"
+        "    let mut i = 0;\n"
+        "    while i < input.claims.len() {\n"
+        "        if !input.admitted_claims.contains(&input.claims[i]) {\n"
+        "            return (Verdict::Reject, Some(\"ClaimNotGranted\"));\n        }\n"
+        "        i += 1;\n    }\n"
+        "    (Verdict::Accept, None)\n}\n"
+    )
+    return "".join(out)
+
+
+def gate_csharp(message_ids: List[str]) -> str:
+    body = [
+        "// The executable ADR-022 Protocol/Permission gate.\n",
+        "public enum Verdict { Accept, Reject }\n\n",
+        cs_value_struct(
+            "GateInput",
+            [
+                ("string", "SessionId"),
+                ("string", "ProductId"),
+                ("string", "GameReleaseId"),
+                ("string", "MessageId"),
+                ("string", "Role"),
+                ("string[]", "Claims"),
+                ("ulong", "ConnectionGeneration"),
+                ("string", "AdmittedSessionId"),
+                ("string", "AdmittedProductId"),
+                ("string", "AdmittedGameReleaseId"),
+                ("string", "AdmittedRole"),
+                ("string[]", "AdmittedClaims"),
+                ("ulong", "AdmittedConnectionGeneration"),
+            ],
+        ),
+        "\npublic static class ProtocolGate\n{\n",
+        "    public static readonly string[] RegisteredMessageIds =\n    {\n",
+    ]
+    for mid in message_ids:
+        body.append("        \"{}\",\n".format(mid))
+    body.append("    };\n\n")
+    body.append("    /// <summary>Rejection precedence when more than one check fails (ADR-048).</summary>\n")
+    body.append("    public static readonly string[] RejectPrecedence =\n    {\n")
+    for reason in GATE_REJECT_PRECEDENCE:
+        body.append("        \"{}\",\n".format(reason))
+    body.append("    };\n\n")
+    body.append(
+        "    /// <summary>Reasons the session owner declares and the gate never derives.</summary>\n"
+        "    public static readonly string[] DeclaredOnlyReasons = { %s };\n\n"
+        % ", ".join('"{}"'.format(r) for r in GATE_DECLARED_ONLY_REASONS)
+    )
+    body.append(
+        "    /// <summary>Runs the gate. A null reason means Accept. The messageId clause\n"
+        "    /// is enforced only as far as the architecture source publishes it: the id\n"
+        "    /// must be registered. No role-to-message table exists, so none is invented.</summary>\n"
+        "    public static Verdict Evaluate(GateInput input, out string? rejectReason)\n    {\n"
+        "        if (input.ConnectionGeneration != input.AdmittedConnectionGeneration)\n"
+        "        { rejectReason = \"StaleConnectionGeneration\"; return Verdict.Reject; }\n"
+        "        if (input.SessionId != input.AdmittedSessionId)\n"
+        "        { rejectReason = \"SessionMismatch\"; return Verdict.Reject; }\n"
+        "        if (input.ProductId != input.AdmittedProductId || input.GameReleaseId != input.AdmittedGameReleaseId)\n"
+        "        { rejectReason = \"ReleaseMismatch\"; return Verdict.Reject; }\n"
+        "        if (System.Array.IndexOf(RegisteredMessageIds, input.MessageId) < 0)\n"
+        "        { rejectReason = \"MessagePermissionDenied\"; return Verdict.Reject; }\n"
+        "        if (input.Role != input.AdmittedRole)\n"
+        "        { rejectReason = \"RoleMismatch\"; return Verdict.Reject; }\n"
+        "        foreach (var claim in input.Claims)\n        {\n"
+        "            if (System.Array.IndexOf(input.AdmittedClaims, claim) < 0)\n"
+        "            { rejectReason = \"ClaimNotGranted\"; return Verdict.Reject; }\n        }\n"
+        "        rejectReason = null;\n        return Verdict.Accept;\n    }\n}\n"
+    )
+    return cs_namespace("Lumio.Gen.ProtocolPermissionValidator", "".join(body))
+
+
+# --------------------------------------------------------------------------
+# ADR-048 (D-3): closed contract type bodies, generated from the schema
+# --------------------------------------------------------------------------
+
+# The eight closed contracts three repositories independently reported they
+# could not consume from a catalog of names. Order is the published order.
+CLOSED_CONTRACT_TYPES = [
+    ("config-table", "ConfigTable"),
+    ("processor-descriptor", "ProcessorDescriptor"),
+    ("txn-journal-record", "TxnJournalRecord"),
+    ("command-log-record", "CommandLogRecord"),
+    ("wal-record-envelope", "WalRecordEnvelope"),
+    ("entity-identity", "EntityIdentity"),
+    ("replication-envelope", "ReplicationEnvelope"),
+    ("session-revision-vector", "SessionRevisionVector"),
+]
+
+RUST_KEYWORDS = {
+    "as", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern", "false", "fn",
+    "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref",
+    "return", "self", "static", "struct", "super", "trait", "true", "type", "unsafe", "use",
+    "where", "while", "async", "await", "box", "final", "macro", "override", "priv", "try",
+    "typeof", "unsized", "virtual", "yield",
+}
+
+
+class SchemaTypeError(RuntimeError):
+    """Raised when a schema construct has no defined projection into a type."""
+
+
+def snake(name: str) -> str:
+    chars: List[str] = []
+    for index, char in enumerate(name):
+        if char.isupper() and index and not name[index - 1].isupper():
+            chars.append("_")
+        chars.append(char.lower())
+    out = "".join(chars)
+    return "r#" + out if out in RUST_KEYWORDS else out
+
+
+def pascal_member(name: str) -> str:
+    return name[0].upper() + name[1:]
+
+
+class TypeProjector:
+    """Project the closed-contract schemas onto Rust and C# type bodies.
+
+    Field order is the schema's declaration order, never member-name order, and
+    never the order a JSON parser happens to hand back. Ordinals come from
+    `ids/index.json` where a registry owns the name, and from declaration order
+    otherwise — those two are the only authorities, and both are recorded on the
+    emitted type so a consumer never has to guess which one it is reading.
+    """
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.common = json.loads(
+            (root / "schemas" / "common.schema.json").read_text(encoding="utf-8")
+        )
+        self.structs: List[Tuple[str, List[Tuple[str, str, str, bool, str]]]] = []
+        self.enums: List[Tuple[str, List[Tuple[str, int, str]], str]] = []
+        self._emitted: Dict[str, str] = {}
+        self.registry_ordinals: Dict[str, List[Tuple[str, int]]] = {}
+        for namespace in ("MessageType",):
+            values = json.loads((root / "ids" / "index.json").read_text(encoding="utf-8"))
+            for ns in values.get("namespaces", []):
+                if ns.get("namespace") == namespace:
+                    self.registry_ordinals[namespace] = [
+                        (str(v["id"]), int(v["numeric"])) for v in ns.get("values", [])
+                    ]
+
+    def resolve(self, node: Dict[str, Any]) -> Dict[str, Any]:
+        """Follow a local `$ref` into common.schema.json; other refs are an error."""
+        seen = 0
+        while isinstance(node, dict) and "$ref" in node:
+            seen += 1
+            if seen > 16:
+                raise SchemaTypeError("cyclic $ref chain")
+            ref = str(node["$ref"])
+            if "#/$defs/" not in ref:
+                raise SchemaTypeError("unsupported $ref {}".format(ref))
+            name = ref.split("#/$defs/")[-1]
+            target = self.common.get("$defs", {}).get(name)
+            if target is None:
+                raise SchemaTypeError("unresolved $ref {}".format(ref))
+            node = target
+        return node
+
+    def declaration_order(self, schema: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any], bool]]:
+        """Fields in declaration order: `allOf` refs first, then own properties.
+
+        `allOf` contributes real members (the session/release triple, the recovery
+        record chain), so a type built from `properties` alone is missing fields
+        the contract requires. Injected members come first and keep their own
+        declaration order; ties resolve to the first declaration seen.
+        """
+        fields: List[Tuple[str, Dict[str, Any], bool]] = []
+        seen = set()
+        required = set(schema.get("required") or [])
+
+        def take(source: Dict[str, Any]) -> None:
+            for name, sub in (source.get("properties") or {}).items():
+                if name in seen:
+                    continue
+                seen.add(name)
+                fields.append((name, sub, name in required or name in set(source.get("required") or [])))
+
+        for item in schema.get("allOf") or []:
+            if "$ref" in item:
+                take(self.resolve(item))
+        take(schema)
+        return fields
+
+    @staticmethod
+    def variant(value: str) -> str:
+        """A language-safe identifier for an enum value; the wire string stays authoritative.
+
+        Schema enums carry wire spellings like `bool` and `i32` that are not legal
+        member names in C#. The identifier is a projection for the consumer's
+        compiler; `name()`/`WireValue` keeps the value that actually crosses.
+        """
+        parts = re.split(r"[^A-Za-z0-9]+", value)
+        ident = "".join(p[0].upper() + p[1:] if p else "" for p in parts)
+        if not ident:
+            raise SchemaTypeError("enum value {!r} has no identifier form".format(value))
+        return "V" + ident if ident[0].isdigit() else ident
+
+    def enum_type(self, name: str, values: List[str], authority: str) -> str:
+        if name in self._emitted:
+            return self._emitted[name]
+        registry = self.registry_ordinals.get(authority)
+        if registry is not None:
+            by_name = dict(registry)
+            missing = [v for v in values if v not in by_name]
+            if missing:
+                raise SchemaTypeError(
+                    "{} values {} are not registered in {}".format(name, missing, authority)
+                )
+            members = [(self.variant(v), by_name[v], v) for v in values]
+            source = "ids/index.json:" + authority
+        else:
+            members = [(self.variant(v), i, v) for i, v in enumerate(values)]
+            source = "schema declaration order"
+        self.enums.append((name, members, source))
+        self._emitted[name] = name
+        return name
+
+    def type_of(
+        self, node: Dict[str, Any], hint: str, required: bool
+    ) -> Tuple[str, str]:
+        """Return (rust_type, csharp_type) for one schema node."""
+        node = self.resolve(node)
+        kind = node.get("type")
+
+        if "enum" in node and kind == "string":
+            authority = "MessageType" if hint.endswith("MessageType") else ""
+            name = self.enum_type(hint, [str(v) for v in node["enum"]], authority)
+            rust, cs = name, name
+        elif kind == "string":
+            rust, cs = "String", "string"
+        elif kind == "boolean":
+            rust, cs = "bool", "bool"
+        elif kind == "integer":
+            unsigned = node.get("minimum") is not None and node["minimum"] >= 0
+            rust, cs = ("u64", "ulong") if unsigned else ("i64", "long")
+        elif kind == "number":
+            # Only config-table column bounds are `number`; they are schema
+            # metadata, not payload bytes, so LumioBinV1's no-float rule is
+            # untouched by carrying them as a double here.
+            rust, cs = "f64", "double"
+        elif kind == "array":
+            item_rust, item_cs = self.type_of(
+                node.get("items") or {"type": "string"}, hint + "Item", True
+            )
+            rust, cs = "Vec<{}>".format(item_rust), "IReadOnlyList<{}>".format(item_cs)
+        elif kind == "object":
+            if node.get("patternProperties"):
+                value_node = list(node["patternProperties"].values())[0]
+                v_rust, v_cs = self.type_of(value_node, hint + "Value", True)
+                rust = "BTreeMap<String, {}>".format(v_rust)
+                cs = "IReadOnlyDictionary<string, {}>".format(v_cs)
+            elif node.get("properties"):
+                name = self.struct_type(hint, node)
+                rust, cs = name, name
+            else:
+                # A deliberately open object (`body`, `inner`, config `values`).
+                # Nothing in the architecture source closes it, so it is carried
+                # verbatim rather than given an invented shape.
+                rust, cs = "OpaqueJson", "OpaqueJson"
+        elif kind is None and not node:
+            # An untyped member (`defaultValue`): the column's own `type` decides
+            # it at validation time, so there is no single static projection.
+            rust, cs = "OpaqueJson", "OpaqueJson"
+        else:
+            raise SchemaTypeError("no type projection for {} ({})".format(hint, kind))
+
+        if not required:
+            rust = "Option<{}>".format(rust)
+            cs = cs + "?"
+        return rust, cs
+
+    def struct_type(self, name: str, schema: Dict[str, Any]) -> str:
+        if name in self._emitted:
+            return self._emitted[name]
+        self._emitted[name] = name
+        members: List[Tuple[str, str, str, bool, str]] = []
+        for field, node, required in self.declaration_order(schema):
+            rust, cs = self.type_of(node, name + pascal_member(field), required)
+            members.append((field, rust, cs, required, self.resolve(node).get("type", "")))
+        self.structs.append((name, members))
+        return name
+
+    def project(self) -> None:
+        for schema_id, type_name in CLOSED_CONTRACT_TYPES:
+            schema = json.loads(
+                (self.root / "schemas" / "{}.schema.json".format(schema_id)).read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.struct_type(type_name, self.resolve(schema))
+
+
+def contract_bodies_rust(projector: TypeProjector) -> str:
+    out = [
+        "//! ADR-048 (D-3): closed contract type bodies, generated from `schemas/`.\n",
+        "//! Field order is the schema declaration order. Do not hand-edit.\n\n",
+        "use std::collections::BTreeMap;\n\n",
+        "/// An object the architecture source deliberately leaves open (a\n"
+        "/// replication `body`, a WAL `inner`, a config row's `values`). Carried\n"
+        "/// verbatim as its canonical JSON text; this crate does not invent a shape\n"
+        "/// for something no ADR has closed.\n"
+        "#[derive(Clone, Debug, PartialEq, Eq)]\n"
+        "pub struct OpaqueJson(pub String);\n\n",
+    ]
+    for name, members, source in projector.enums:
+        out.append("/// Ordinal authority: {}.\n".format(source))
+        out.append("#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum {} {{\n".format(name))
+        for member, _ordinal, wire in members:
+            if member != wire:
+                out.append("    /// Wire value `{}`.\n".format(wire))
+            out.append("    {},\n".format(member))
+        out.append("}\n\n")
+        out.append("impl {} {{\n".format(name))
+        out.append("    pub const fn ordinal(self) -> u32 {\n        match self {\n")
+        for member, ordinal, _wire in members:
+            out.append("            {}::{} => {},\n".format(name, member, ordinal))
+        out.append("        }\n    }\n\n")
+        out.append("    /// The value that crosses the wire, which the identifier may not equal.\n")
+        out.append("    pub const fn wire_value(self) -> &'static str {\n        match self {\n")
+        for member, _ordinal, wire in members:
+            out.append("            {}::{} => \"{}\",\n".format(name, member, wire))
+        out.append("        }\n    }\n}\n\n")
+    for name, members in projector.structs:
+        out.append("/// Fields in schema declaration order.\n")
+        out.append("#[derive(Clone, Debug, PartialEq)]\npub struct {} {{\n".format(name))
+        for field, rust, _cs, required, _kind in members:
+            if not required:
+                out.append("    /// Optional in the schema.\n")
+            out.append("    pub {}: {},\n".format(snake(field), rust))
+        out.append("}\n\n")
+        out.append(
+            "impl {name} {{\n    /// The schema declaration order this type was generated from.\n"
+            "    pub const FIELD_ORDER: &'static [&'static str] = &[{fields}];\n}}\n\n".format(
+                name=name, fields=", ".join('"{}"'.format(f) for f, _r, _c, _q, _k in members)
+            )
+        )
+    return "".join(out)
+
+
+def contract_bodies_csharp(projector: TypeProjector) -> str:
+    body = [
+        "// ADR-048 (D-3): closed contract type bodies, generated from schemas/.\n",
+        "// Field order is the schema declaration order. Do not hand-edit.\n\n",
+        "/// <summary>An object the architecture source deliberately leaves open (a\n"
+        "/// replication body, a WAL inner, a config row's values). Carried verbatim as\n"
+        "/// its canonical JSON text; no shape is invented for what no ADR has closed.</summary>\n"
+        "public sealed class OpaqueJson\n{\n"
+        "    public OpaqueJson(string json) { Json = json; }\n"
+        "    public string Json { get; }\n}\n\n",
+    ]
+    for name, members, source in projector.enums:
+        body.append("/// <summary>Ordinal authority: {}.</summary>\n".format(source))
+        body.append("public enum {}\n{{\n".format(name))
+        for member, ordinal, wire in members:
+            if member != wire:
+                body.append("    /// <summary>Wire value <c>{}</c>.</summary>\n".format(wire))
+            body.append("    {} = {},\n".format(member, ordinal))
+        body.append("}\n\n")
+        body.append("public static class {}Wire\n{{\n".format(name))
+        body.append("    /// <summary>The value that crosses the wire, which the identifier may not equal.</summary>\n")
+        body.append("    public static string Value({} value)\n    {{\n        switch (value)\n        {{\n".format(name))
+        for member, _ordinal, wire in members:
+            body.append("            case {}.{}: return \"{}\";\n".format(name, member, wire))
+        body.append("            default: return string.Empty;\n        }\n    }\n}\n\n")
+    for name, members in projector.structs:
+        params = ", ".join("{} {}".format(cs, cs_param(pascal_member(f))) for f, _r, cs, _q, _k in members)
+        body.append("/// <summary>Fields in schema declaration order.</summary>\n")
+        body.append("public sealed class {}\n{{\n".format(name))
+        body.append("    public {}({})\n    {{\n".format(name, params))
+        for field, _rust, _cs, _required, _kind in members:
+            member = pascal_member(field)
+            body.append("        {} = {};\n".format(member, cs_param(member)))
+        body.append("    }\n\n")
+        for field, _rust, cs, required, _kind in members:
+            if not required:
+                body.append("    /// <summary>Optional in the schema.</summary>\n")
+            body.append("    public {} {} {{ get; }}\n".format(cs, pascal_member(field)))
+        body.append("\n    public static readonly string[] FieldOrder =\n    {\n")
+        for field, _rust, _cs, _required, _kind in members:
+            body.append("        \"{}\",\n".format(field))
+        body.append("    };\n}\n\n")
+    return cs_namespace(
+        "Lumio.Gen.ContractTypes",
+        "".join(body),
+        usings="using System.Collections.Generic;\n\n",
+    )
 
 
 def emit_mapping(rust_dir: Path, cs_dir: Path) -> None:
@@ -335,8 +977,11 @@ def emit_mapping(rust_dir: Path, cs_dir: Path) -> None:
     write_text(rust_dir / "Cargo.toml", rust_cargo(RUST_CRATES["MappingTable"]))
     write_text(
         cs_dir / "MappingTable.cs",
-        "namespace Lumio.Gen.MappingTable;\n\npublic static class MappingContract\n{\n"
-        "    public static readonly string[] Roles = { \"ServerToClient\", \"ClientToServer\", \"SharedProjection\" };\n}\n",
+        cs_namespace(
+            "Lumio.Gen.MappingTable",
+            "public static class MappingContract\n{\n"
+            "    public static readonly string[] Roles = { \"ServerToClient\", \"ClientToServer\", \"SharedProjection\" };\n}\n",
+        ),
     )
     write_text(cs_dir / (CS_PROJ["MappingTable"] + ".csproj"), csproj(CS_PROJ["MappingTable"]))
 
@@ -415,9 +1060,12 @@ def emit_canonical(
     write_text(rust_dir / "CHECKSUM_DOMAIN.md", checksum_doc)
     write_text(
         cs_dir / "CanonicalSerializer.cs",
-        "namespace Lumio.Gen.CanonicalSerializer;\n\npublic static class SnapshotChecksum\n{\n"
-        "    public const string Domain = \"SHA-256 over canonical JSON of snapshot-header minus checksum and hash fields\";\n"
-        "    public const string Magic = \"LUMIOSNP1\";\n}\n",
+        cs_namespace(
+            "Lumio.Gen.CanonicalSerializer",
+            "public static class SnapshotChecksum\n{\n"
+            "    public const string Domain = \"SHA-256 over canonical JSON of snapshot-header minus checksum and hash fields\";\n"
+            "    public const string Magic = \"LUMIOSNP1\";\n}\n",
+        ),
     )
     cs_extra = ["\n"]
     cs_extra.append("public static class CanonicalForm\n{\n")
@@ -432,8 +1080,8 @@ def emit_canonical(
     cs_extra.append("    public const string DuplicateMembers = \"%s\";\n" % form["duplicateMembers"])
     cs_extra.append("    public const string DigestAlgorithm = \"%s\";\n" % profile["digestAlgorithm"]["name"])
     cs_extra.append("    public const string DigestFraming = \"%s\";\n}\n\n" % profile["digestAlgorithm"]["framing"])
-    cs_extra.append("public readonly record struct NormalizationStep(string Path, string Op, string By, string Collation);\n")
-    cs_extra.append("public readonly record struct DigestDomain(string Digest, string DomainTag, string SortRule, string[] OmitMembers, NormalizationStep[] Normalization);\n")
+    cs_extra.append(cs_value_struct("NormalizationStep", [("string", "Path"), ("string", "Op"), ("string", "By"), ("string", "Collation")]))
+    cs_extra.append(cs_value_struct("DigestDomain", [("string", "Digest"), ("string", "DomainTag"), ("string", "SortRule"), ("string[]", "OmitMembers"), ("NormalizationStep[]", "Normalization")]))
     cs_extra.append("public static class DigestDomains\n{\n    public static readonly DigestDomain[] All =\n    {\n")
     for domain in profile["digestDomains"]:
         omit = ", ".join("\"%s\"" % name for name in domain.get("omitMembers", []))
@@ -457,7 +1105,7 @@ def emit_canonical(
             )
         )
     cs_extra.append("    };\n}\n\n")
-    cs_extra.append("public readonly record struct CanonicalGolden(string Id, string Case, string Sha256);\n")
+    cs_extra.append(cs_value_struct("CanonicalGolden", [("string", "Id"), ("string", "Case"), ("string", "Sha256")]))
     cs_extra.append("public static class CanonicalGoldens\n{\n    public static readonly CanonicalGolden[] All =\n    {\n")
     for golden in profile["goldens"]:
         cs_extra.append(
@@ -465,7 +1113,10 @@ def emit_canonical(
             % (golden["id"], golden["case"], golden["sha256"])
         )
     cs_extra.append("    };\n}\n")
-    write_text(cs_dir / "CanonicalProfile.cs", "using System;\n\nnamespace Lumio.Gen.CanonicalSerializer;\n" + "".join(cs_extra))
+    write_text(
+        cs_dir / "CanonicalProfile.cs",
+        cs_namespace("Lumio.Gen.CanonicalSerializer", "".join(cs_extra), usings="using System;\n\n"),
+    )
     write_text(cs_dir / "LumioBinProfile.cs", lumio_bin_csharp(bin_profile))
     write_text(cs_dir / (CS_PROJ["CanonicalSerializer"] + ".csproj"), csproj(CS_PROJ["CanonicalSerializer"]))
 
@@ -493,15 +1144,21 @@ def emit_language_binding(rust_dir: Path, cs_dir: Path, schema_ids: List[str]) -
     write_text(rust_dir / "src" / "lib.rs", rust)
     write_text(rust_dir / "Cargo.toml", rust_cargo(RUST_CRATES["LanguageBinding"]))
     cs_lines = [
-        "namespace Lumio.Gen.LanguageBinding;\n",
-        "public readonly record struct Binding(string SchemaId, string RustType, string CsharpType);\n",
+        # A plain readonly struct, not a positional record: `record` needs
+        # `IsExternalInit`, which netstandard2.1 does not ship.
+        "public readonly struct Binding\n{\n"
+        "    public Binding(string schemaId, string rustType, string csharpType)\n    {\n"
+        "        SchemaId = schemaId; RustType = rustType; CsharpType = csharpType;\n    }\n"
+        "    public string SchemaId { get; }\n"
+        "    public string RustType { get; }\n"
+        "    public string CsharpType { get; }\n}\n\n",
         "public static class Bindings\n{\n    public static readonly Binding[] All =\n    {\n",
     ]
     for sid in schema_ids:
         pascal = "".join(p.title() for p in sid.replace("_", "-").split("-"))
         cs_lines.append("        new Binding(\"%s\", \"%s\", \"%s\"),\n" % (sid, pascal, pascal))
     cs_lines.append("    };\n}\n")
-    write_text(cs_dir / "Bindings.cs", "".join(cs_lines))
+    write_text(cs_dir / "Bindings.cs", cs_namespace("Lumio.Gen.LanguageBinding", "".join(cs_lines)))
     write_text(cs_dir / (CS_PROJ["LanguageBinding"] + ".csproj"), csproj(CS_PROJ["LanguageBinding"]))
 
 
@@ -512,8 +1169,10 @@ def emit_contract_types(
     schema_ids: List[str],
     errors: List[str],
     abi: Dict[str, Any],
+    projector: "TypeProjector",
 ) -> None:
     rust = rust_lib_header("ContractTypes")
+    rust += "pub mod bodies;\n\n"
     rust += "pub const BASELINE_ID: &str = \"%s\";\n" % BASELINE
     rust += "pub const SCHEMA_IDS: &[&str] = &[\n"
     for sid in schema_ids:
@@ -587,7 +1246,7 @@ def emit_contract_types(
     write_text(rust_dir / "src" / "lib.rs", rust)
     write_text(rust_dir / "Cargo.toml", rust_cargo(RUST_CRATES["ContractTypes"]))
     # C#
-    cs = ["namespace Lumio.Gen.ContractTypes;\n\n"]
+    cs = []
     cs.append("public static class Catalog\n{\n    public const string BaselineId = \"%s\";\n" % BASELINE)
     cs.append("    public static readonly string[] SchemaIds = { %s };\n" % ", ".join("\"%s\"" % s for s in schema_ids))
     cs.append("    public static readonly string[] StableErrorIds = { %s };\n" % ", ".join("\"%s\"" % e for e in errors))
@@ -599,7 +1258,7 @@ def emit_contract_types(
     cs.append("    public const string AbiCallingConvention = \"%s\";\n" % abi["callingConvention"])
     cs.append("    public const uint AbiPointerWidth = %d;\n" % abi["pointerWidth"])
     cs.append("    public const string AbiEndianness = \"%s\";\n}\n\n" % abi["endianness"])
-    cs.append("public readonly record struct AbiTypeMapping(string TypeRef, string C, string Csharp, string Rust, int Size, int Align);\n")
+    cs.append(cs_value_struct("AbiTypeMapping", [("string", "TypeRef"), ("string", "C"), ("string", "Csharp"), ("string", "Rust"), ("int", "Size"), ("int", "Align")]))
     cs.append("public static class AbiTypeMappings\n{\n    public static readonly AbiTypeMapping[] All =\n    {\n")
     for key, c_type, cs_type, rust_type, size, align in ABI_TYPE_MAPPING:
         cs.append(
@@ -607,7 +1266,7 @@ def emit_contract_types(
             % (key, c_type, cs_type, rust_type, size, align)
         )
     cs.append("    };\n}\n\n")
-    cs.append("public readonly record struct Transition(string Machine, string From, string To, string Event);\n")
+    cs.append(cs_value_struct("Transition", [("string", "Machine"), ("string", "From"), ("string", "To"), ("string", "Event")]))
     cs.append("public static class StateTransitionTable\n{\n    public static readonly Transition[] All =\n    {\n")
     for machine in machines:
         mid = machine.get("machineId", "")
@@ -617,7 +1276,9 @@ def emit_contract_types(
                 % (mid, tr.get("from", ""), tr.get("to", ""), tr.get("event", ""))
             )
     cs.append("    };\n}\n")
-    write_text(cs_dir / "ContractTypes.cs", "".join(cs))
+    write_text(cs_dir / "ContractTypes.cs", cs_namespace("Lumio.Gen.ContractTypes", "".join(cs)))
+    write_text(rust_dir / "src" / "bodies.rs", contract_bodies_rust(projector))
+    write_text(cs_dir / "ContractBodies.cs", contract_bodies_csharp(projector))
     write_text(cs_dir / (CS_PROJ["ContractTypes"] + ".csproj"), csproj(CS_PROJ["ContractTypes"]))
 
 
@@ -686,19 +1347,24 @@ def emit_contract_runtime(rust_dir: Path, cs_dir: Path) -> None:
     )
     write_text(
         cs_dir / "ContractRuntime.cs",
-        "using System;\nusing System.Security.Cryptography;\nusing System.Text;\n\n"
-        "namespace Lumio.Gen.ContractRuntime;\n\n"
+        cs_namespace(
+            "Lumio.Gen.ContractRuntime",
         "public enum ChainBreak { Truncated, Mismatch }\n\n"
         "public static class HashChain\n{\n"
         "    public static byte[] Append(byte[] prev, byte[] payload)\n    {\n"
         "        var buf = new byte[prev.Length + payload.Length];\n"
         "        Buffer.BlockCopy(prev, 0, buf, 0, prev.Length);\n"
         "        Buffer.BlockCopy(payload, 0, buf, prev.Length, payload.Length);\n"
-        "        return SHA256.HashData(buf);\n    }\n"
+        "        return Sha256(buf);\n    }\n"
         "    public static bool Verify(byte[] prev, byte[] payload, byte[] expected)\n    {\n"
         "        var got = Append(prev, payload);\n"
-        "        return got.AsSpan().SequenceEqual(expected);\n    }\n"
-        "    public static byte[] Sha256(byte[] data) => SHA256.HashData(data);\n}\n\n"
+        "        if (got.Length != expected.Length) return false;\n"
+        "        for (var i = 0; i < got.Length; i++) { if (got[i] != expected[i]) return false; }\n"
+        "        return true;\n    }\n"
+        # SHA256.Create()/ComputeHash, not SHA256.HashData: the static one-shot
+        # is net5.0+ and this package also targets netstandard2.1.
+        "    public static byte[] Sha256(byte[] data)\n    {\n"
+        "        using (var sha = SHA256.Create()) { return sha.ComputeHash(data); }\n    }\n}\n\n"
         "public sealed class BoundedBuffer\n{\n"
         "    private readonly byte[] _data; private int _len;\n"
         "    public BoundedBuffer(int cap) { _data = new byte[cap]; }\n"
@@ -720,6 +1386,8 @@ def emit_contract_runtime(rust_dir: Path, cs_dir: Path) -> None:
         "            throw new InvalidOperationException(\"bounded buffer did not truncate\");\n"
         "    }\n"
         "}\n",
+            usings="using System;\nusing System.Security.Cryptography;\nusing System.Text;\n\n",
+        ),
     )
     write_text(cs_dir / (CS_PROJ["ContractRuntime"] + ".csproj"), csproj(CS_PROJ["ContractRuntime"]))
 
@@ -1516,7 +2184,6 @@ def lumio_bin_rust(profile: Dict[str, Any]) -> str:
 def lumio_bin_csharp(profile: Dict[str, Any]) -> str:
     form = profile["binaryForm"]
     out = [
-        "using System;\n\nnamespace Lumio.Gen.CanonicalSerializer;\n\n",
         "// ADR-047 LumioBinV1: the binary canonical form for public payload bytes.\n",
         "public static class LumioBinForm\n{\n",
         "    public const string FormId = \"%s\";\n" % form["formId"],
@@ -1529,7 +2196,7 @@ def lumio_bin_csharp(profile: Dict[str, Any]) -> str:
         "    public const string Padding = \"%s\";\n" % form["structs"]["padding"],
         "    public const string Floats = \"%s\";\n" % form["floats"],
         "    public const string DigestFraming = \"%s\";\n}\n\n" % profile["digestAlgorithm"]["framing"],
-        "public readonly record struct LumioBinIntegerWidth(string Kind, uint Bytes, bool Signed);\n",
+        cs_value_struct("LumioBinIntegerWidth", [("string", "Kind"), ("uint", "Bytes"), ("bool", "Signed")]),
         "public static class LumioBinIntegerWidths\n{\n    public static readonly LumioBinIntegerWidth[] All =\n    {\n",
     ]
     for name in ("u8", "u16", "u32", "u64", "i32", "i64"):
@@ -1539,7 +2206,7 @@ def lumio_bin_csharp(profile: Dict[str, Any]) -> str:
             % (name, spec["bytes"], "true" if spec["signed"] else "false")
         )
     out.append("    };\n}\n\n")
-    out.append("public readonly record struct LumioBinGolden(string Id, string Case, string Sha256);\n")
+    out.append(cs_value_struct("LumioBinGolden", [("string", "Id"), ("string", "Case"), ("string", "Sha256")]))
     out.append("public static class LumioBinGoldens\n{\n    public static readonly LumioBinGolden[] All =\n    {\n")
     for golden in profile["goldens"]:
         out.append(
@@ -1547,7 +2214,7 @@ def lumio_bin_csharp(profile: Dict[str, Any]) -> str:
             % (golden["id"], golden["case"], golden["sha256"])
         )
     out.append("    };\n}\n\n")
-    out.append("public readonly record struct LumioBinRejection(string Id, string Case, string Error);\n")
+    out.append(cs_value_struct("LumioBinRejection", [("string", "Id"), ("string", "Case"), ("string", "Error")]))
     out.append("public static class LumioBinRejections\n{\n    public static readonly LumioBinRejection[] All =\n    {\n")
     for rejection in profile["rejections"]:
         out.append(
@@ -1555,7 +2222,7 @@ def lumio_bin_csharp(profile: Dict[str, Any]) -> str:
             % (rejection["id"], rejection["case"], rejection["error"])
         )
     out.append("    };\n}\n")
-    return "".join(out)
+    return cs_namespace("Lumio.Gen.CanonicalSerializer", "".join(out), usings="using System;\n\n")
 
 
 def emit_lumio_bin_profile(out_dir: Path) -> Dict[str, Any]:
@@ -1868,7 +2535,7 @@ def derive_bundle(
     }
 
 
-def emit_c_header(abi: Dict[str, Any]) -> str:
+def emit_c_header(abi: Dict[str, Any], capabilities: List[Tuple[str, int, str]]) -> str:
     profile = LAYOUT_PROFILE
     pointer = int(profile["pointerBytes"])
     out = [
@@ -1885,6 +2552,7 @@ def emit_c_header(abi: Dict[str, Any]) -> str:
         "#define LUMIO_ENTRY_SYMBOL \"{}\"\n".format(abi["entrySymbol"]),
         "#define LUMIO_SYMBOL_PREFIX \"{}\"\n".format(abi["symbolPrefix"]),
         "#define LUMIO_CAPABILITY_BITS {}u\n\n".format(abi["capabilityBits"]),
+        capability_c(capabilities),
         "typedef int32_t lumio_status_t;\n\n",
         "typedef struct lumio_handle_t {\n"
         "    uint32_t index;\n"
@@ -1961,7 +2629,7 @@ def emit_c_header(abi: Dict[str, Any]) -> str:
     return "".join(out)
 
 
-def emit_rust_root_abi(abi: Dict[str, Any]) -> str:
+def emit_rust_root_abi(abi: Dict[str, Any], capabilities: List[Tuple[str, int, str]]) -> str:
     profile = LAYOUT_PROFILE
     pointer = int(profile["pointerBytes"])
     out = [
@@ -2059,19 +2727,19 @@ def emit_rust_root_abi(abi: Dict[str, Any]) -> str:
                 table["name"], int(profile["rootHeaderBytes"]) + index * pointer
             )
         )
-    out.append("};\n")
+    out.append("};\n\n")
+    out.append(capability_rust(capabilities))
     return "".join(out)
 
 
-def emit_csharp_root_abi(abi: Dict[str, Any]) -> str:
+def emit_csharp_root_abi(abi: Dict[str, Any], capabilities: List[Tuple[str, int, str]]) -> str:
     profile = LAYOUT_PROFILE
     pointer = int(profile["pointerBytes"])
     out = [
         "// Generated Root ABI binding. Do not hand-edit.\n",
         "// Publisher: LumioGameEngineArchitecture / {}. ADR-040.\n".format(BASELINE),
         "// Pure managed layout description; the consumer binds the entry symbol itself.\n",
-        "using System;\nusing System.Runtime.InteropServices;\n\n",
-        "namespace Lumio.Gen.LanguageBinding;\n\n",
+
         "public static class RootAbi\n{\n",
         "    public const uint AbiVersion = {};\n".format(abi["abiVersion"]),
         "    public const string EntrySymbol = \"{}\";\n".format(abi["entrySymbol"]),
@@ -2121,7 +2789,7 @@ def emit_csharp_root_abi(abi: Dict[str, Any]) -> str:
             "    public byte[] ReservedTail;\n".format(root_declared - root_minimum)
         )
     out.append("}\n\n")
-    out.append("public readonly record struct SlotOffset(string Table, string Slot, int Offset);\n")
+    out.append(cs_value_struct("SlotOffset", [("string", "Table"), ("string", "Slot"), ("int", "Offset")]))
     out.append("public static class RootAbiLayout\n{\n    public static readonly SlotOffset[] SlotOffsets =\n    {\n")
     for table in abi.get("apiTable", []):
         for slot in table["slots"]:
@@ -2132,13 +2800,23 @@ def emit_csharp_root_abi(abi: Dict[str, Any]) -> str:
                     int(profile["tableHeaderBytes"]) + int(slot["slotIndex"]) * pointer,
                 )
             )
-    out.append("    };\n\n    public static readonly (string Name, int Size)[] StructSizes =\n    {\n")
-    out.append("        (\"lumio_handle_t\", 16),\n        (\"lumio_buffer_t\", 24),\n")
+    out.append("    };\n\n    public static readonly StructSize[] StructSizes =\n    {\n")
+    out.append("        new StructSize(\"lumio_handle_t\", 16),\n        new StructSize(\"lumio_buffer_t\", 24),\n")
     for table in abi.get("apiTable", []):
-        out.append("        (\"{}\", {}),\n".format(table["name"], table["structSize"]))
-    out.append("        (\"lumio_root_api\", {}),\n".format(root_declared))
+        out.append("        new StructSize(\"{}\", {}),\n".format(table["name"], table["structSize"]))
+    out.append("        new StructSize(\"lumio_root_api\", {}),\n".format(root_declared))
     out.append("    };\n}\n")
-    return "".join(out)
+    header = out[:3]
+    body = out[3:]
+    return "".join(header) + cs_namespace(
+        "Lumio.Gen.LanguageBinding",
+        cs_value_struct("StructSize", [("string", "Name"), ("int", "Size")])
+        + "\n"
+        + "".join(body)
+        + "\n"
+        + capability_csharp(capabilities),
+        usings="using System;\nusing System.Runtime.InteropServices;\n\n",
+    )
 
 
 def validate_abi_document(root: Path, abi: Dict[str, Any]) -> None:
@@ -2163,10 +2841,11 @@ def emit_root_abi(root: Path, out_dir: Path, compiler_digest: str) -> Dict[str, 
     """Emit the ADR-040 bundle: C header, Rust and C# bindings, generation record."""
     abi = json.loads((root / ABI_DOCUMENT).read_text(encoding="utf-8"))
     validate_abi_document(root, abi)
+    capabilities = load_capabilities(root)
     contents = {
-        "abi/lumio_core.h": emit_c_header(abi),
-        "rust/lumio-gen-language-binding/src/root_abi.rs": emit_rust_root_abi(abi),
-        "csharp/Lumio.Gen.LanguageBinding/RootAbi.cs": emit_csharp_root_abi(abi),
+        "abi/lumio_core.h": emit_c_header(abi, capabilities),
+        "rust/lumio-gen-language-binding/src/root_abi.rs": emit_rust_root_abi(abi, capabilities),
+        "csharp/Lumio.Gen.LanguageBinding/RootAbi.cs": emit_csharp_root_abi(abi, capabilities),
     }
     for rel, text in contents.items():
         write_text(out_dir / rel, text)
@@ -2232,6 +2911,7 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
     emit_protocol_permission(
         rust_root / RUST_CRATES["ProtocolPermissionValidator"],
         cs_root / CS_PROJ["ProtocolPermissionValidator"],
+        load_message_ids(root),
     )
     emit_mapping(rust_root / RUST_CRATES["MappingTable"], cs_root / CS_PROJ["MappingTable"])
     canonical_profile = derive_canonical_profile(root)
@@ -2248,6 +2928,8 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         cs_root / CS_PROJ["LanguageBinding"],
         schema_ids,
     )
+    projector = TypeProjector(root)
+    projector.project()
     emit_contract_types(
         rust_root / RUST_CRATES["ContractTypes"],
         cs_root / CS_PROJ["ContractTypes"],
@@ -2255,6 +2937,7 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         schema_ids,
         errors,
         abi,
+        projector,
     )
     emit_contract_runtime(
         rust_root / RUST_CRATES["ContractRuntime"],
@@ -2359,7 +3042,11 @@ def generate(root: Path, out_dir: Path) -> Dict[str, Any]:
         "`abi/` is the ADR-040 Root ABI bundle: `lumio_core.h`, the layout Golden\n"
         "record `root-abi-bundle.json`, and the digests of the Rust and C# bindings.\n"
         "`binary/` is the ADR-047 LumioBinV1 profile: the primitive byte layout for\n"
-        "public payload bytes, with self-verifying Golden and rejection vectors.\n",
+        "public payload bytes, with self-verifying Golden and rejection vectors.\n"
+        "Per ADR-048 the C# projects multi-target netstandard2.1 and net8.0, the\n"
+        "ContractTypes artifact carries generated type bodies for the eight closed\n"
+        "contracts in schema declaration order, and the ProtocolPermissionValidator\n"
+        "carries the executable ADR-022 gate rather than a list of field names.\n",
     )
     return index
 

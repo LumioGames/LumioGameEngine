@@ -3,6 +3,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod bodies;
+
 pub const BASELINE_ID: &str = "LGE-V1.4-2026-08-27";
 pub const SCHEMA_IDS: &[&str] = &[
     "session-revision-vector",

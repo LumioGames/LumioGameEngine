@@ -1,6 +1,7 @@
-namespace Lumio.Gen.MappingTable;
-
-public static class MappingContract
+namespace Lumio.Gen.MappingTable
 {
-    public static readonly string[] Roles = { "ServerToClient", "ClientToServer", "SharedProjection" };
+    public static class MappingContract
+    {
+        public static readonly string[] Roles = { "ServerToClient", "ClientToServer", "SharedProjection" };
+    }
 }

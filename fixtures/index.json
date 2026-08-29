@@ -336,11 +336,44 @@
       "expected": "valid"
     },
     {
+      "id": "gate/anti-replay",
+      "schema": "protocol-permission-gate",
+      "file": "valid/protocol-permission-gate-anti-replay.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gate/reject-claim",
+      "schema": "protocol-permission-gate",
+      "file": "valid/protocol-permission-gate-reject-claim.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gate/hidden-failure",
+      "schema": "protocol-permission-gate",
+      "file": "invalid/protocol-permission-gate-hidden-failure.json",
+      "expected": "invalid",
+      "reason": "a derivable failure cannot be reported as the undetectable SessionAntiReplay"
+    },
+    {
       "id": "gate/stale-generation",
       "schema": "protocol-permission-gate",
       "file": "invalid/protocol-permission-gate-stale-generation.json",
       "expected": "invalid",
       "reason": "Accept cannot ignore a Connection Generation mismatch"
+    },
+    {
+      "id": "gate/unregistered-message",
+      "schema": "protocol-permission-gate",
+      "file": "invalid/protocol-permission-gate-unregistered-message.json",
+      "expected": "invalid",
+      "reason": "an unregistered messageId cannot be admitted"
+    },
+    {
+      "id": "gate/wrong-reject-reason",
+      "schema": "protocol-permission-gate",
+      "file": "invalid/protocol-permission-gate-wrong-reason.json",
+      "expected": "invalid",
+      "reason": "a Reject must carry the reason the generated gate derives"
     },
     {
       "id": "gencfg/client-implementation-dep",

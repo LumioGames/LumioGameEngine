@@ -1,23 +1,24 @@
-namespace Lumio.Gen.ProtocolPermissionValidator;
-
-public static class ActivePermissionFields
+namespace Lumio.Gen.ProtocolPermissionValidator
 {
-    public static readonly string[] Names = new[]
+    public static class ActivePermissionFields
     {
-        "sessionId",
-        "productId",
-        "gameReleaseId",
-        "messageId",
-        "role",
-        "claims",
-        "connectionGeneration",
-        "antiReplay",
-        "admittedSessionId",
-        "admittedProductId",
-        "admittedGameReleaseId",
-        "admittedRole",
-        "admittedClaims",
-        "admittedConnectionGeneration",
-        "verdict",
-    };
+        public static readonly string[] Names = new[]
+        {
+            "sessionId",
+            "productId",
+            "gameReleaseId",
+            "messageId",
+            "role",
+            "claims",
+            "connectionGeneration",
+            "antiReplay",
+            "admittedSessionId",
+            "admittedProductId",
+            "admittedGameReleaseId",
+            "admittedRole",
+            "admittedClaims",
+            "admittedConnectionGeneration",
+            "verdict",
+        };
+    }
 }

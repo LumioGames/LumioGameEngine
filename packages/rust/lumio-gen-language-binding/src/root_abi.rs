@@ -104,3 +104,31 @@ const _: () = {
     assert!(core::mem::offset_of!(LumioRootApi, lumio_core_api) == 16);
     assert!(core::mem::offset_of!(LumioRootApi, lumio_voxel_api) == 24);
 };
+
+/// ADR-040 section 7 (D-015): capability keys projected from the ID Registry.
+/// `ids/index.json` is the authority for these numerics; this table is its only
+/// published projection. A consumer reads it instead of inventing a private key.
+/// These are enumeration keys, not bit positions: `capability_bits` semantics
+/// stay unfrozen (ADR-040 section 7).
+pub const CAPABILITY_KEYS: &[(&str, u32, &str)] = &[
+    ("Native", 1, "Active"),
+    ("HybridCLR", 2, "Reserved"),
+    ("ReferenceVoxel", 3, "Active"),
+    ("VoxelSnapshot", 4, "Active"),
+    ("VoxelStreaming", 5, "Active"),
+    ("VoxelSpatial", 6, "Active"),
+    ("VoxelMeshCollision", 7, "Active"),
+    ("VoxelAllResident", 8, "Active"),
+    ("VoxelVolatileChunks", 9, "Active"),
+];
+
+pub fn capability_key(name: &str) -> Option<u32> {
+    let mut i = 0;
+    while i < CAPABILITY_KEYS.len() {
+        if CAPABILITY_KEYS[i].0.as_bytes() == name.as_bytes() {
+            return Some(CAPABILITY_KEYS[i].1);
+        }
+        i += 1;
+    }
+    None
+}

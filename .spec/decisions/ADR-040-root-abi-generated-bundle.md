@@ -99,7 +99,22 @@ The generated Rust and C# packages are **not** in that list. They publish id *st
 
 **What this bundle deliberately does not freeze.** A consumer treats each of these as absent rather than inferring a value:
 
-- **Capability bits.** The ABI document declares `capabilityBits` as a non-negative integer and the header publishes it verbatim as `LUMIO_CAPABILITY_BITS`. V1 freezes neither whether `lumio_root_api.capability_bits` is a bitmask or a count, nor any bit position. The ID Registry `Capability` namespace holds CoreEngine *package* capabilities and its numerics are enumeration ordinals, not bit positions — the same reason the WebSocket transport profile was refused a `Capability` id. A consumer must not derive a capability key from either source; a repository-private key is the only correct model until the semantics are confirmed.
+- **Capability bits.** The ABI document declares `capabilityBits` as a non-negative integer and the header publishes it verbatim as `LUMIO_CAPABILITY_BITS`. V1 freezes neither whether `lumio_root_api.capability_bits` is a bitmask or a count, nor any bit position. The ID Registry `Capability` namespace holds CoreEngine *package* capabilities and its numerics are enumeration ordinals, not bit positions — the same reason the WebSocket transport profile was refused a `Capability` id. **Bit positions remain unfrozen.** The capability *key* space is no longer private, however: see §7.1.
+
+### 7.1 D-015 ruling: the capability key space is published, and the generator is its only emitter
+
+**Ruled 2026-08-29** (delegated adjudication, `docs/plans/2026-08-29-contract-surface-adjudication.md`, ruling two; executed by ADR-048). This subsection supersedes the sentence "a consumer must not derive a capability key from either source; a repository-private key is the only correct model" above, and nothing else in §7.
+
+The prohibition was correct about the danger and wrong about the remedy. Three native repositories needed a capability key; told to keep it private, they were on course to build three private key spaces for one shared concept — which is the divergence the prohibition existed to prevent, arriving by the route it prescribed. `LumioNativeCore` R-00083 could not proceed at all: it must publish `StaticCapabilities` and may not invent a public key.
+
+The ruling separates authority from emission:
+
+- **`ids/index.json` remains the sole authority** for capability names and numerics. Nothing about the registry changes.
+- **The architecture generator becomes their sole emitter.** It projects the nine registered values into three forms — Rust `CAPABILITY_KEYS` (name, numeric, status) in `root_abi.rs`, C# `CapabilityKeys` in `RootAbi.cs`, and C `LUMIO_CAPABILITY_<SCREAMING_NAME>` plus `LUMIO_CAPABILITY_COUNT` in `lumio_core.h`.
+- **Downstream consumes the generated constants** and keeps the no-hand-writing rule. A repository-private capability key is now a contract violation rather than the prescribed model.
+- **`tools/lumio_contract.py` cross-checks all three published forms against the registry.** A `Capability` value added without regenerating fails the gate, instead of leaving three language surfaces disagreeing with the authority and with each other in silence.
+
+What this does **not** do: it assigns no bit position, and it does not decide whether `capability_bits` is a bitmask or a count. Those stay open in D-015's `DECISIONS_PENDING` row. A consumer reads a capability *key* from the generated constants; it still must not infer a *bit* from one. The numerics are enumeration ordinals, exactly as the paragraph above says — publishing them does not promote them into a bit layout.
 - **Any layout profile other than §4's.** V1 guarantees `linux-x86_64-glibc` and publishes a Golden for it alone. The shared POD types are built from fixed-width fields with no `size_t` precisely so they *should* not follow the host toolchain, but intent is not a Golden: no other target is published, and a consumer must not assert a layout on one.
 - **A separate operation identity.** The public identity of a callable operation is the pair (`apiTable[].name`, `slots[].slotIndex`), already published in the bundle and asserted by the layout Golden. There is no `OperationId` namespace, none is reserved, and none is required while the dispatch surface stays blocked. A repository's internal or test-only operation ids stay private and need no public reservation.
 
