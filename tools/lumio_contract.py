@@ -1040,6 +1040,94 @@ def published_lumio_bin_profile_errors() -> List[str]:
     return []
 
 
+def _message_type_ids() -> List[str]:
+    """Registered `MessageType` ids — the gate's registered set, from the registry."""
+    return _abi.load_message_ids(ROOT)
+
+
+def published_capability_constant_errors() -> List[str]:
+    """ADR-040 section 7 (D-015): the three emitted forms must agree with the registry.
+
+    The registry is the authority and the generator is the only emitter, so the
+    failure this guards is a stale *published* artifact: a `Capability` value
+    added to `ids/index.json` without regenerating leaves three language surfaces
+    disagreeing with the authority and with each other, silently.
+    """
+    header = PACKAGE_DIR / "abi" / "lumio_core.h"
+    rust = PACKAGE_DIR / "rust" / "lumio-gen-language-binding" / "src" / "root_abi.rs"
+    csharp = PACKAGE_DIR / "csharp" / "Lumio.Gen.LanguageBinding" / "RootAbi.cs"
+    if not (header.is_file() and rust.is_file() and csharp.is_file()):
+        return []
+    capabilities = _abi.load_capabilities(ROOT)
+    if not capabilities:
+        return ["ids/index.json publishes no Capability namespace"]
+    errors: List[str] = []
+    header_text = header.read_text(encoding="utf-8")
+    rust_text = rust.read_text(encoding="utf-8")
+    csharp_text = csharp.read_text(encoding="utf-8")
+    for name, numeric, status in capabilities:
+        expected_c = "#define LUMIO_CAPABILITY_{} {}u".format(_abi.c_screaming(name), numeric)
+        if expected_c not in header_text:
+            errors.append("lumio_core.h is missing or disagrees with `{}`".format(expected_c))
+        expected_rust = '("{}", {}, "{}")'.format(name, numeric, status)
+        if expected_rust not in rust_text:
+            errors.append("root_abi.rs capability table is missing {}".format(expected_rust))
+        expected_cs = "public const uint {} = {}u;".format(name, numeric)
+        if expected_cs not in csharp_text:
+            errors.append("RootAbi.cs is missing or disagrees with `{}`".format(expected_cs))
+    expected_count = "#define LUMIO_CAPABILITY_COUNT {}u".format(len(capabilities))
+    if expected_count not in header_text:
+        errors.append(
+            "lumio_core.h must publish {} for the {} registered capabilities".format(
+                expected_count, len(capabilities)
+            )
+        )
+    return errors[:6]
+
+
+def published_contract_body_errors() -> List[str]:
+    """ADR-048 (D-3): the published type bodies must carry the schema's field order.
+
+    Declaration order is the one property a JSON-shaped input cannot carry and a
+    consumer cannot infer, so it is asserted here rather than left to the reader
+    of a diff: each published type republishes its order, and that order must
+    equal the order the schema declares today.
+    """
+    rust_body = (
+        PACKAGE_DIR / "rust" / "lumio-gen-contract-types" / "src" / "bodies.rs"
+    )
+    cs_body = PACKAGE_DIR / "csharp" / "Lumio.Gen.ContractTypes" / "ContractBodies.cs"
+    if not (rust_body.is_file() and cs_body.is_file()):
+        return []
+    try:
+        projector = _abi.TypeProjector(ROOT)
+        projector.project()
+    except _abi.SchemaTypeError as exc:
+        return ["closed contract types cannot be projected from the schemas: {}".format(exc)]
+    rust_text = rust_body.read_text(encoding="utf-8")
+    cs_text = cs_body.read_text(encoding="utf-8")
+    by_name = {name: members for name, members in projector.structs}
+    errors: List[str] = []
+    for _schema_id, type_name in _abi.CLOSED_CONTRACT_TYPES:
+        members = by_name.get(type_name)
+        if members is None:
+            errors.append("closed contract type {} was not projected".format(type_name))
+            continue
+        order = [field for field, _r, _c, _q, _k in members]
+        expected_rust = "pub const FIELD_ORDER: &'static [&'static str] = &[{}];".format(
+            ", ".join('"{}"'.format(f) for f in order)
+        )
+        if expected_rust not in rust_text:
+            errors.append(
+                "{} in bodies.rs does not publish the schema declaration order {}".format(
+                    type_name, order
+                )
+            )
+        if "public sealed class {}\n".format(type_name) not in cs_text:
+            errors.append("ContractBodies.cs is missing the type {}".format(type_name))
+    return errors[:6]
+
+
 def published_root_abi_bundle_errors() -> List[str]:
     """ADR-040: the published bundle must be re-derivable from the ABI document."""
     published = PACKAGE_DIR / _ABI_BUNDLE_FILE
@@ -1811,29 +1899,40 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
                 errors.append("Indeterminate authority update must attest SlotStateUnproven or ProcessFault")
 
     elif schema_id == "protocol-permission-gate":
-        admitted_claims = set(value.get("admittedClaims") or [])
-        extra_claims = [claim for claim in value.get("claims") or [] if claim not in admitted_claims]
-        matched = (
-            value.get("sessionId") == value.get("admittedSessionId")
-            and value.get("productId") == value.get("admittedProductId")
-            and value.get("gameReleaseId") == value.get("admittedGameReleaseId")
-            and value.get("role") == value.get("admittedRole")
-            and not extra_claims
-            and value.get("connectionGeneration") == value.get("admittedConnectionGeneration")
-        )
-        if value.get("verdict") == "Accept":
-            if not matched:
-                errors.append("Accept requires Session, Release, Role, Claims and Connection Generation to match admission")
-            if extra_claims:
-                errors.append("Accept cannot include claims outside admission")
-            if value.get("rejectReason"):
-                errors.append("Accept cannot carry a rejectReason")
-        elif value.get("verdict") == "Reject":
-            if not value.get("rejectReason"):
-                errors.append("Reject requires a rejectReason")
-            if value.get("connectionGeneration") != value.get("admittedConnectionGeneration"):
-                if value.get("rejectReason") != "StaleConnectionGeneration":
-                    errors.append("a Connection Generation mismatch must use StaleConnectionGeneration")
+        # ADR-048: the gate is executed, not asserted about. The published
+        # validator computes the verdict from the record and the record must
+        # agree with it — which is what makes ADR-022's "generated validator"
+        # a thing a fixture can fail rather than a catalog of field names.
+        verdict, reason = _abi.evaluate_protocol_gate(value, _message_type_ids())
+        declared_verdict = value.get("verdict")
+        declared_reason = value.get("rejectReason")
+        if declared_reason in _abi.GATE_DECLARED_ONLY_REASONS:
+            # Session-scope anti-replay is owned by `ClientReplicaSession`, so the
+            # gate cannot see it. Such a reject is legitimate only when every
+            # check the gate *can* run passes — otherwise the record is hiding a
+            # derivable failure behind a reason nothing can verify.
+            if declared_verdict != "Reject":
+                errors.append("{} is a rejection reason and requires a Reject verdict".format(declared_reason))
+            elif verdict != "Accept":
+                errors.append(
+                    "this record fails the generated gate with {}; it cannot be reported as {}".format(
+                        reason, declared_reason
+                    )
+                )
+        elif declared_verdict != verdict:
+            errors.append(
+                "the generated gate evaluates this record as {}{}, not {}".format(
+                    verdict, " ({})".format(reason) if reason else "", declared_verdict
+                )
+            )
+        elif verdict == "Reject" and declared_reason != reason:
+            errors.append(
+                "the generated gate rejects this record with {}, not {}".format(reason, declared_reason)
+            )
+        if declared_verdict == "Accept" and declared_reason:
+            errors.append("Accept cannot carry a rejectReason")
+        if declared_verdict == "Reject" and not declared_reason:
+            errors.append("Reject requires a rejectReason")
 
     elif schema_id == "generated-contract-artifact":
         if value.get("implementationDependencies"):
@@ -2075,6 +2174,8 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     consistency.extend(published_root_abi_bundle_errors())
     consistency.extend(published_canonical_profile_errors())
     consistency.extend(published_lumio_bin_profile_errors())
+    consistency.extend(published_capability_constant_errors())
+    consistency.extend(published_contract_body_errors())
     consistency.extend(ed25519_self_test_errors())
     if consistency:
         raise ContractError("; ".join(consistency))

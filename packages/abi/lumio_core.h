@@ -18,6 +18,20 @@ extern "C" {
 #define LUMIO_SYMBOL_PREFIX "lumio_"
 #define LUMIO_CAPABILITY_BITS 7u
 
+/* ADR-040 section 7 (D-015): capability keys projected from the ID Registry. */
+/* ids/index.json is the authority; these are enumeration keys, NOT bit
+   positions -- LUMIO_CAPABILITY_BITS semantics stay unfrozen. */
+#define LUMIO_CAPABILITY_NATIVE 1u
+#define LUMIO_CAPABILITY_HYBRID_CLR 2u
+#define LUMIO_CAPABILITY_REFERENCE_VOXEL 3u
+#define LUMIO_CAPABILITY_VOXEL_SNAPSHOT 4u
+#define LUMIO_CAPABILITY_VOXEL_STREAMING 5u
+#define LUMIO_CAPABILITY_VOXEL_SPATIAL 6u
+#define LUMIO_CAPABILITY_VOXEL_MESH_COLLISION 7u
+#define LUMIO_CAPABILITY_VOXEL_ALL_RESIDENT 8u
+#define LUMIO_CAPABILITY_VOXEL_VOLATILE_CHUNKS 9u
+#define LUMIO_CAPABILITY_COUNT 9u
+
 typedef int32_t lumio_status_t;
 
 typedef struct lumio_handle_t {

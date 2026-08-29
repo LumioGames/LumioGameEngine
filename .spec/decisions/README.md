@@ -62,5 +62,6 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-045](ADR-045-replication-body-closure.md) | Replication body 闭合、mappingSetHash 摘要域与 length 上界（ADR-028 立论的机器强制） | Draft |
 | [ADR-046](ADR-046-native-kernel-status-band.md) | Native Kernel Status Band（ErrorCode 内核 band 1044–1053、状态值 int32 范围门） | Draft |
 | [ADR-047](ADR-047-lumio-bin-canonical-profile.md) | LumioBinV1 二进制 canonical profile（定宽小端、u32 长度前缀、声明序无填充、Golden 与拒绝向量、snapshot checksum B 档） | Draft |
+| [ADR-048](ADR-048-generated-consumable-surface.md) | Generated 面可消费化（八类闭合契约类型本体、可执行 Protocol/Permission 门、netstandard2.1;net8.0 双目标、capability 常量三形态） | Draft |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。

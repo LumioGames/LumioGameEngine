@@ -91,3 +91,16 @@ jobs:
             exit 1
           fi
           test -f packages/csharp/Lumio.Gen.ContractRuntime/ContractRuntime.cs
+      - name: C# packages build for both published targets
+        # ADR-048 (D-4): netstandard2.1 is the Unity face and net8.0 the .NET Host
+        # face, and one package must serve both. Building only the host target
+        # would let a net8.0-only construct (a record, a file-scoped namespace,
+        # SHA256.HashData) reach a Unity consumer as a compile error.
+        #
+        # Runs last on purpose: `dotnet build` writes obj/ trees under
+        # packages/csharp, and the purity grep above scans that directory.
+        run: |
+          for project in packages/csharp/*/*.csproj; do
+            echo "== $project"
+            dotnet build "$project" -v quiet --nologo
+          done
