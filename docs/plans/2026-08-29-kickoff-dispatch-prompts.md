@@ -1,9 +1,10 @@
 # 2026-08-29 - MS-00001 下一阶段 Kickoff Dispatch Prompts
 
 > **目标**：为 `MS-00001`「MVP · 多浏览器联机体素世界」准备可直接复制的跨仓派发提示词。
-> **状态**：ready for dispatch；本文不执行任务、不创建 Workflow 卡、不流转状态。
+> **状态**：ready after W0/W0.5 gate；本文不执行任务、不创建 Workflow 卡、不流转状态。
 > **架构基线**：`LGE-V1.4-2026-08-27`。
 > **配套评估**：[`../reviews/2026-08-29-seven-repo-progress-assessment.md`](../reviews/2026-08-29-seven-repo-progress-assessment.md)。
+> **最新边界附录**：[`../reviews/2026-08-29-ds-mvp-boundary-reconciliation.md`](../reviews/2026-08-29-ds-mvp-boundary-reconciliation.md)。
 
 ## 0. 统一派发规则
 
@@ -21,6 +22,7 @@
 
 ```text
 W0  Architecture generator/validate
+    -> W0.5 DS/MVP profile reconciliation
     -> all downstream contract pins
     -> W1 foundation streams
 
@@ -40,6 +42,7 @@ W4 A2/A3: browser host/WebGL, >=5 browsers, Snapshot/WAL/Replay/faults
 | 波次 | 关键卡片/范围 | 并行边界 | 退出条件 |
 |---|---|---|---|
 | W0 | Architecture published artifacts and pins | 单串行；索引和 `packages/` 是共享热点 | `validate`=0；两次 generate outputHash 相同；下游契约测试不再因身份漂移失败 |
+| W0.5 | DS 定稿与 `MS-00001` bootstrap/DS V1 profile 对齐 | 必须先有 Owner 决策；未决时不派 Server A1 卡 | 明确验收名称、Rust/C# 边界、替换条件、分母和目标日风险 |
 | W1-Runtime | `R-00139`, `R-00140`, `R-00149`, `R-00150`, `R-00152`, `R-00154`, `R-00157`, `R-00162`, `R-00164`, `R-00167`, `R-00174`, `R-00176`, `R-00178`, `R-00184`, `R-00187`, `R-00189`, `R-00191`, `R-00192`, `R-00159`, `R-00172` | 同一仓按卡面依赖串行；不同域文件集可并行 | Runtime 最小 ECS/Txn/Tick/Replication 面可被 Host 和 Game 编译消费 |
 | W1-Server | `R-00277` -> `R-00278` + `R-00279` -> `R-00280` | WorldSlot 先行；carrier/session 可在其接口稳定后并行 | App 与 SmokeClient 能在本机启动并交换合法 Envelope |
 | W1-support | Voxel `R-00142`/`R-00203` follow-up、CoreEngine `R-00021`/`R-00022`、NativeCore pin verification | 文件集互不重叠；均依赖 W0 pin | hash/atomicity/Linux evidence 有真实输出 |
@@ -48,7 +51,7 @@ W4 A2/A3: browser host/WebGL, >=5 browsers, Snapshot/WAL/Replay/faults
 | W3 | `R-00278`..`R-00282` 集成收口，Client remote bot | 跨进程验收单独环境，禁止与普通 build 并发共享 `obj/` | A1-alpha 两客户端互见、断线 Full Resync |
 | W4 | browser/WASM/WebGL、Snapshot/WAL、soak/fault matrix | A1-alpha 通过后再开 | MVP DoD 全部有证据 |
 
-**范围裁剪原则**：Server Room 的 67 张卡包含大量 Production Hardening，不作为 W1 的默认分母。Release Pool、WAL recovery 的完整形态、Migration DAG、RemoteDS、Unity/HybridCLR 和 WebTransport 继续留在 W4 以后，除非具体 MVP 验收项证明它们是硬前置。
+**范围裁剪原则**：Server Room 的 67 张卡包含大量 Production Hardening，不作为 W1 的默认分母。Release Pool、WAL recovery 的完整形态、Migration DAG、RemoteDS、Unity/HybridCLR 和 WebTransport 继续留在 W4 以后，除非具体 MVP 验收项证明它们是硬前置。另：最新 DS 定稿要求 Rust DS 核心为 V1 必须；在 W0.5 明确采用 bootstrap profile 前，不得把 C# `mvp-host` 的 A1 结果写成 DS V1 完成。
 
 ## 2. Architecture source prompt
 
@@ -143,13 +146,17 @@ W4 A2/A3: browser host/WebGL, >=5 browsers, Snapshot/WAL/Replay/faults
 **A1-alpha 卡串**：`R-00277`（当前 in_progress） -> `R-00278` + `R-00279` -> `R-00280` -> `R-00281`；`R-00282` 可并行补证据。`R-00260`/`R-00276` 当前 acceptance，先由总调度验收读回。
 
 ```text
-你负责 LumioServer mvp-host 的 A1-alpha。先读 R-00277..R-00282、docs/specs/2026-08-28-mvp-csharp-host-design.md 和架构生成物 pin。
+你负责 LumioServer 的 A1-alpha，但开工第一步是读取 W0.5 profile 决策。先读 R-00277..R-00282、docs/specs/2026-08-28-mvp-csharp-host-design.md、docs/specs/2026-08-29-ds-server-architecture.md 和架构生成物 pin；若没有明确选择 bootstrap 或 DS V1，立即 BLOCKED，不实现、不流转状态。
+若选择 bootstrap profile：本次只实现/验证 C# 语义验收 harness，并在交付物和测试名称中明确“非 DS V1”；不得把它写成 Rust DS 核心完成。
+若选择 DS V1 profile：按定稿 §4 将 Rust 连接/准入/会话/预算/WorldSlot 作为生产边界，并先补 Rust↔C# 接缝；现有 C# harness 只能作为对照，不得替代 Rust 验收。
+若选择 bootstrap profile，执行以下 C# harness 步骤：
 1. 在 `mvp-host/src/Lumio.Server.MvpHost.WorldSlot/**` 落地 WorldSlotHost 聚合根、epoch、13 态、Gate ownership、Quiesce/Stop、owner thread/tick permit、FaultAdjudicator；在 `Simulation.Reference/**` 提供最小 IWorldSimulationPort/reference mutation sink。
 2. 在 WorldSlot 接口稳定后实现 `Transport.WebSocket/**` 的 IByteCarrier adapter 和 `Session/**` admission/reconnect/replication orchestration。A1-alpha 使用真实独立进程的 `ws://127.0.0.1`；TLS/WSS 扩展不改变 MVP 公共协议，也不引入未批准依赖。
 3. 组装唯一 App root 与 SmokeClient，使用同一 Envelope/serializer/permission gate；Integration.Tests 必须以子进程启动，不得用进程内 fake 代替跨进程证据。
 4. A1-alpha 必须证明两个客户端进入同一 WorldSlot、一个 Place/Dig 后另一个在复制周期内可见、丢连接后 Full Resync；A1-beta 的 InputCommand/state payload 若尚未由架构源发布就明确 BLOCKED。
+若选择 DS V1 profile，不执行上面 C# 文件步骤；改按卡面在 `modules/process/**`、`modules/auth/**`、`modules/transport/**`、`modules/session/**`、`modules/world-slot/**`、`modules/pacing/**` 及 `coreclr-host` 接缝落地 Rust DS 核心，并用同一跨进程验收场景证明 Rust↔C# 边界。
 
-文件边界：mvp-host/src/Lumio.Server.MvpHost.{WorldSlot,Simulation.Reference,Transport.WebSocket,Session,App,SmokeClient}/**、对应 tests/**、仅必要的 build.proj glob；不改 generated mirror 的内容、不改 Client/Runtime。
+文件边界（bootstrap）：mvp-host/src/Lumio.Server.MvpHost.{WorldSlot,Simulation.Reference,Transport.WebSocket,Session,App,SmokeClient}/**、对应 tests/**、仅必要的 build.proj glob。文件边界（DS V1）：上述 Rust 模块与 `coreclr-host` 接缝及对应 tests/**。两条路径都不改 generated mirror 的内容、不改 Client/Runtime。
 验证：`dotnet restore build.proj --locked-mode`；`dotnet build build.proj -c Release --no-restore`；普通测试逐工程运行并排除 Integration；最后单独运行 Integration.Tests，附 stdout/exit code/trace。`eng/verify-all.ps1` 若缺 pwsh 要记录并在 CI/可用宿主补跑。
 禁止：Auth 绕过、把 `ClientReplicaSession` 当 Server 类型、在 Transport 直接引用 Auth/Session/WorldSlot、发明角色权限表或新错误码。
 ```
@@ -218,4 +225,4 @@ W4 A2/A3: browser host/WebGL, >=5 browsers, Snapshot/WAL/Replay/faults
 | 第 5-6 周 | A1-alpha App/SmokeClient/远程 Bot/Full Resync |
 | 第 7 周以后 | WASM/WebGL、>=5 浏览器、Snapshot/WAL、故障注入和 hardening；只保留能服务 MVP DoD 的项目 |
 
-目标日 `2026-10-31` 仍可作为规划锚点，但前提是 W0 在第一周完成且 Runtime/Server/Game 各有稳定 owner。若第 3 周结束仍没有 A0 可运行产物，应立即重估里程碑范围，而不是把长期 Server 卡继续计入“完成度”。
+目标日 `2026-10-31` 仍可作为规划锚点，但前提是 W0/W0.5 在第一周完成且 Runtime/Server/Game 各有稳定 owner。选择 DS V1 profile 后必须重新估算日期；若第 3 周结束仍没有 A0 可运行产物，应立即重估里程碑范围，而不是把长期 Server 卡继续计入“完成度”。
