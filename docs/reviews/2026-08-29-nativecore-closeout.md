@@ -52,3 +52,17 @@
 - **S1(已派)**:VoxelEngine 决策门测量(D-12 解阻),单会话一单。
 - **S2(等用户)**:D-7 补审/豁免裁决 → D-2 两张卡立卡授权(执行 cwd=LumioCoreEngine)+ D-10 卡面修订。
 - **裁决队列新增**:D-015 与 §4.2/4.3 两条契约缺陷进入架构源裁决面;D-1 仍是最长链,建议尽早开议。
+
+## 附录(2026-08-29 补) · D-7 关闭与 Gate 深审 P2 台账
+
+用户裁决「补独立审查」已执行:reviewer 对 `origin/main 1f2ead3` 终态深审,**放行——可安全 pin 进 CoreEngine 只读镜像**(独立重算 8 个 sha256;净室 canonicalizer 复现 10/10 Golden;剥空 normalization 精确退回且失败集与 ADR-041 §4 一致;Ed25519 8 向量独立库交叉验证;13 个负例真实失败含主动篡改实验;validate 191/0、generate 零漂移、三语言构建 0 warning)。D-7 残余就此关闭,三张 Gate 卡各附审查结论评论。
+
+**P2 台账(6 条,不阻塞冻结)**:
+1. typeMapping 的 C 拼写与生成代码不一致(缺 `struct` 关键字;`lumio_generate.py:1131–1137` 实际发出 `const struct …*`)——冻结记录内部自相矛盾。
+2. `signedAt` 不在签名 preimage,时间窗检查不受密码学保护——Test 域可接受,**Production 域冻结前须 ADR 显式处置或 preimage v2**。
+3. 时间窗比较为字典序(`lumio_contract.py:990`),分数秒时间戳会误判——潜伏缺陷,建议解析后比较或收紧 timestamp def。
+4. trust 向量 payloadDigest 与现行 ManifestBody 摘要脱钩(ADR-044 改动所致)——向量自洽,建议注明 self-contained。
+5. `docs/adr/` 缺 ADR-045 符号链接(spec-lint 未覆盖此检查)。
+6. ADR-041 正文出现两个 §5。
+
+同族延伸:`out_context` 按值签名问题同样存在于 `lumio_voxel_world_create` 的 `out_world`(根因:ABI 文档对 out 参用 `handle:` typeRef,方向不冻结)——修复时两处一并,并入 §4.2 台账项。
