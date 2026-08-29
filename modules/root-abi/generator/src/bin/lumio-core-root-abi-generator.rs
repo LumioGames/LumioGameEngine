@@ -13,7 +13,8 @@ const USAGE: &str = "\
   lumio-core-root-abi-generator generate --plan <build-plan.json> \\
       --architecture-lock <architecture.lock.json> --out <生成目录> \\
       [--compiler-dir <锁定 compiler 目录>]
-  lumio-core-root-abi-generator verify --root <生成目录> --architecture-lock <lock>
+  lumio-core-root-abi-generator verify-generated --generated <生成目录> \\
+      --architecture-lock <lock>
 
 --compiler-dir 缺省取 build/architecture-tools/<lock.commit>/tools，
 即 `just fetch-architecture-tools` 的落点。";
@@ -117,8 +118,9 @@ fn run(args: &[String]) -> Result<(), Failure> {
             );
             Ok(())
         }
-        "verify" => {
-            let root = required(rest, "--root")?;
+        // 名字取规格 §8.4 的 `verify-generated`；`--generated` 同理。
+        "verify-generated" => {
+            let root = required(rest, "--generated")?;
             let lock = required(rest, "--architecture-lock")?;
             let report = verify_generated(&root, &lock)?;
             println!("{}", report.abi_identity);

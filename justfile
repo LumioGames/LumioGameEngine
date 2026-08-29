@@ -118,7 +118,7 @@ generate-abi p="p0-linux": (assert-profile p)
 #      文件集合与登记表完全一致。没有这一段，手改生成物不会被任何门禁发现。
 check-generated:
     cargo test -p lumio-core-contracts --locked --test generated_integrity
-    cargo run --locked -q -p lumio-core-root-abi-generator -- verify --root modules/root-abi/generated/LGE-V1.4-2026-08-27 --architecture-lock architecture.lock.json
+    cargo run --locked -q -p lumio-core-root-abi-generator -- verify-generated --generated modules/root-abi/generated/LGE-V1.4-2026-08-27 --architecture-lock architecture.lock.json
 
 build-platform p="p0-linux": (assert-profile p)
     cargo run --locked -p lumio-core-platform-build -- build-staging --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --plan-digest-file build/plans/p0-linux-server-x86_64-glibc/build-plan.sha256 --abi modules/root-abi/generated/LGE-V1.4-2026-08-27 --out build/platform/linux-server-x86_64-glibc/staging

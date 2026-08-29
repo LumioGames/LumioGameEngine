@@ -54,7 +54,10 @@ pub struct GenerateAbiRequest {
     /// Root ABI 的输入集合**全部**由上游 bundle 的 `inputSet` 声明且都在只读镜像内，
     /// 与 BuildPlan 无交集；计划在这里的作用是**交叉核对**——它记的 architecture
     /// 基线与提交必须与本仓 lock 一致，否则「按 A 计划构建、按 B 基线生成 ABI」
-    /// 会一路无声地走到运行时。给了就强制核对（CLI 总是给），不给则跳过该核对。
+    /// 会一路无声地走到运行时。
+    ///
+    /// **`Option` 意味着这条核对可被跳过**——给了才查，不给则不查。相对规格（那里是
+    /// 必需字段）这是一处弱化，理由与取舍记在 ADR 0009 第 2 节，不只留在这条注释里。
     pub frozen_plan_path: Option<PathBuf>,
     pub architecture_lock_path: PathBuf,
     /// 只读镜像根；`None` 表示按 lock 的基线 id 从 workspace 推导。
@@ -115,7 +118,7 @@ fn build_files(request: &GenerateAbiRequest) -> Result<BuiltArtifacts, AbiGenera
         Some(path) => path.clone(),
         None => input_set::mirror_root(&workspace_root, &lock),
     };
-    let bundle = input_set::read_bundle(&mirror)?;
+    let bundle = input_set::read_bundle_verified(&mirror, &lock)?;
 
     // 计划与 lock 的基线/提交必须一致。计划经 composition 的只读入口取得——
     // 那是唯一合法的读法（ADR 0006 第 8 条：消费者不得自建第二套解析器）。
@@ -166,7 +169,7 @@ fn build_files(request: &GenerateAbiRequest) -> Result<BuiltArtifacts, AbiGenera
     }
 
     // 2. 输入集合摘要：重算而不是照抄，才能证明镜像里的输入就是产生该值的那份。
-    let input_hash = input_set::compute_input_hash(&mirror, &bundle)?;
+    let (input_hash, input_file_digests) = input_set::compute_input_digests(&mirror, &bundle)?;
     if input_hash != bundle.input_hash {
         return Err(err(
             AbiGenerationErrorKind::InputHashMismatch,
@@ -230,11 +233,23 @@ fn build_files(request: &GenerateAbiRequest) -> Result<BuiltArtifacts, AbiGenera
         files.insert(local.to_string(), bytes);
     }
 
-    // 6. 本仓自产的三份登记文件。
-    files.insert(
-        "metadata/native-managed-abi.json".to_string(),
-        produced.abi_document.into_bytes(),
-    );
+    // 6. 本仓自产的三份登记文件。前两份各自有独立锚点，不靠 descriptor 自证：
+    //    - ABI 文档锚回镜像里 `inputSet` 声明的那一份（已被 inputHash 钉死）；
+    //    - layout report 锚回本次由上游 layoutProfile 现算的内容。
+    let abi_document = produced.abi_document.into_bytes();
+    let mirrored_abi = mirror.join(&produced.abi_document_path);
+    let mirrored_bytes = std::fs::read(&mirrored_abi)
+        .map_err(|e| invalid(format!("读取 {} 失败：{e}", mirrored_abi.display())))?;
+    if abi_document != mirrored_bytes {
+        return Err(err(
+            AbiGenerationErrorKind::OutputHashMismatch,
+            format!(
+                "发布的 ABI 文档与镜像 {} 不一致：它必须逐字节等于 inputSet 里那一份",
+                mirrored_abi.display()
+            ),
+        ));
+    }
+    files.insert("metadata/native-managed-abi.json".to_string(), abi_document);
     files.insert(
         "reports/layout-report.json".to_string(),
         canonical_json(&layout.report)?,
@@ -242,7 +257,16 @@ fn build_files(request: &GenerateAbiRequest) -> Result<BuiltArtifacts, AbiGenera
 
     // descriptor 最后写：它覆盖前面所有文件的摘要，自己不进自己的 outputHash。
     let output_hash = output_set::compute_output_hash(&files);
-    let descriptor = build_descriptor(&bundle, &lock, &input_hash, &output_hash, &files);
+    let descriptor = build_descriptor(
+        &bundle,
+        &lock,
+        &input_hash,
+        &output_hash,
+        &files,
+        produced.validator_ran,
+        &produced.entry_symbol,
+        &input_file_digests,
+    );
     files.insert(
         "generated-contract-artifact.json".to_string(),
         canonical_json(&descriptor)?,
@@ -264,12 +288,16 @@ fn build_files(request: &GenerateAbiRequest) -> Result<BuiltArtifacts, AbiGenera
 ///
 /// `compiler.digest` 取 bundle 的声明值而非实测值：verify 不要求锁定 compiler 在场，
 /// 而生成期已断言过两者相等。
+#[allow(clippy::too_many_arguments)]
 fn build_descriptor(
     bundle: &input_set::RootAbiBundle,
     lock: &input_set::ArchitectureLock,
     input_hash: &str,
     output_hash: &str,
     files: &BTreeMap<String, Vec<u8>>,
+    validator_ran: bool,
+    entry_symbol: &str,
+    input_file_digests: &BTreeMap<String, String>,
 ) -> serde_json::Value {
     serde_json::json!({
         "kind": "root-abi-generated-contract-artifact",
@@ -285,6 +313,10 @@ fn build_descriptor(
         },
         "inputHash": input_hash,
         "outputHash": output_hash,
+        "inputSet": bundle.input_set,
+        "inputFileDigests": input_file_digests,
+        "entrySymbol": entry_symbol,
+        "validatorRan": validator_ran,
         "registeredFiles": output_set::registered_files(),
         "fileDigests": files
             .iter()
@@ -332,7 +364,7 @@ pub fn verify_generated(
     let lock = input_set::read_lock(lock_path)?;
     let workspace_root = workspace_root_of(lock_path)?;
     let mirror = input_set::mirror_root(&workspace_root, &lock);
-    let bundle = input_set::read_bundle(&mirror)?;
+    let bundle = input_set::read_bundle_verified(&mirror, &lock)?;
 
     let descriptor_path = root.join("generated-contract-artifact.json");
     let descriptor: serde_json::Value = serde_json::from_slice(
@@ -392,7 +424,39 @@ pub fn verify_generated(
         }
     }
 
-    let input_hash = input_set::compute_input_hash(&mirror, &bundle)?;
+    // metadata/ 与 reports/ 的独立锚点。没有这两条，它们唯一的约束是 descriptor 的
+    // fileDigests——而 descriptor 正是从同一批盘上字节重建出来的，被背书者与背书者同源，
+    // 整份替换 ABI 文档再重建 descriptor 即可全绿（审查实测）。
+    let mirrored_abi = mirror.join(input_set::ABI_DOCUMENT_SOURCE_PATH);
+    let mirrored_bytes = std::fs::read(&mirrored_abi)
+        .map_err(|e| invalid(format!("读取 {} 失败：{e}", mirrored_abi.display())))?;
+    let published_abi = files
+        .get("metadata/native-managed-abi.json")
+        .expect("登记表已保证存在");
+    if published_abi != &mirrored_bytes {
+        return Err(err(
+            AbiGenerationErrorKind::OutputHashMismatch,
+            format!(
+                "metadata/native-managed-abi.json 已被改动：与镜像 {} 不一致",
+                mirrored_abi.display()
+            ),
+        ));
+    }
+
+    let layout = layout_verify::check(&bundle, &bundle.layout_profile)?;
+    let expected_report = canonical_json(&layout.report)?;
+    let published_report = files
+        .get("reports/layout-report.json")
+        .expect("登记表已保证存在");
+    if published_report != &expected_report {
+        return Err(err(
+            AbiGenerationErrorKind::OutputHashMismatch,
+            "reports/layout-report.json 已被改动：与按上游 layoutProfile 现算的内容不一致"
+                .to_string(),
+        ));
+    }
+
+    let (input_hash, input_file_digests) = input_set::compute_input_digests(&mirror, &bundle)?;
     let output_hash = output_set::compute_output_hash(&files);
 
     // descriptor 自身也必须被校验。按同一规则重建后逐字节比对——
@@ -404,6 +468,15 @@ pub fn verify_generated(
         &input_hash,
         &output_hash,
         &files,
+        descriptor
+            .get("validatorRan")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+        descriptor
+            .get("entrySymbol")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default(),
+        &input_file_digests,
     ))?;
     let actual_descriptor = std::fs::read(&descriptor_path)
         .map_err(|e| invalid(format!("读取 {} 失败：{e}", descriptor_path.display())))?;
@@ -422,18 +495,53 @@ pub fn verify_generated(
         .and_then(|value| value.as_str())
         .unwrap_or_default();
 
-    let layout = layout_verify::check(&bundle, &bundle.layout_profile)?;
+    // 报告只声称**本次真的做过**的检查。
+    //
+    // schema / semantic：`verify_generated` 不跑上游 validator（它需要锁定 compiler 在场，
+    // 而回读校验必须能在没有工具链的机器上进行）。这两项的依据是 descriptor 记录的
+    // `validatorRan` —— 生成期由上游 `validate_abi_document` 实际执行并在失败时中止；
+    // descriptor 本身已被逐字节重建校验过，所以这条记录改不动。
+    // symbols：真查一次——ABI 文档声明的 entrySymbol 必须出现在发布的 C Header 里。
+    let validator_ran = descriptor
+        .get("validatorRan")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let entry_symbol = descriptor
+        .get("entrySymbol")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let header = files
+        .get("include/lumio_core.h")
+        .map(|bytes| String::from_utf8_lossy(bytes).into_owned())
+        .unwrap_or_default();
+    let symbols_valid = !entry_symbol.is_empty() && header.contains(entry_symbol);
+    if !symbols_valid {
+        return Err(err(
+            AbiGenerationErrorKind::OutputHashMismatch,
+            format!("发布的 C Header 里找不到 ABI 文档声明的 entrySymbol {entry_symbol}"),
+        ));
+    }
+
     Ok(AbiCompatibilityReport {
         abi_identity: format!("{}/{}", bundle.baseline_id, bundle.bundle_id),
-        schema_valid: true,
-        semantic_rules_valid: true,
+        schema_valid: validator_ran,
+        semantic_rules_valid: validator_ran,
         c_layout_valid: layout.c_valid,
         rust_layout_valid: layout.rust_valid,
         csharp_layout_valid: layout.csharp_valid,
-        symbols_valid: true,
+        symbols_valid,
         input_hash_matches: input_hash == recorded_input_hash,
-        output_hash_matches: true,
+        output_hash_matches: output_hash == recorded_output_hash(&descriptor),
     })
+}
+
+/// descriptor 记录的 outputHash。descriptor 已被逐字节重建校验，所以它是可信的。
+fn recorded_output_hash(descriptor: &serde_json::Value) -> String {
+    descriptor
+        .get("outputHash")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }
 
 fn collect_files(root: &Path, dir: &Path, out: &mut Vec<String>) -> Result<(), AbiGenerationError> {

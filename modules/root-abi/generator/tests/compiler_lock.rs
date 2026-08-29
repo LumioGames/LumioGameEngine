@@ -35,18 +35,21 @@ fn available() -> bool {
     compiler_directory().join("lumio_generate.py").is_file()
 }
 
-/// 没取过工具链时跳过，并把原因说清楚——测试静默跳过与通过长得一样，那正是本仓
-/// B-00002 要消灭的形态。
+/// 缺工具链时**失败**，不是跳过。
+///
+/// 首版写的是 `eprintln! + return`——那等于测试通过，libtest 还会把提示吞掉：
+/// 在没取过工具链的机器上，这 6 个测试恒为绿且恒为空，而本卡四条通过条件的全部证据
+/// 都挂在它们身上。这正是本仓 B-00002（空跑输出非绿灯信号）刚修过的同型问题，
+/// 宏自己的注释还写着要消灭它。
 macro_rules! require_compiler {
     () => {
-        if !available() {
-            eprintln!(
-                "SKIP: 未找到锁定 compiler（{}）。\
-                 先跑 `LUMIO_ARCHITECTURE_REPO=<架构源仓> just fetch-architecture-tools`。",
-                compiler_directory().display()
-            );
-            return;
-        }
+        assert!(
+            available(),
+            "未找到锁定 compiler（{}）。\
+             先跑 `LUMIO_ARCHITECTURE_REPO=<架构源仓> just fetch-architecture-tools`。\
+             本测试不跳过——跳过与通过在输出里长得一样。",
+            compiler_directory().display()
+        );
     };
 }
 
@@ -220,4 +223,143 @@ fn an_unregistered_file_in_the_output_directory_is_rejected() {
         .expect_err("未登记文件必须被发现");
     assert_eq!(error.kind(), AbiGenerationErrorKind::UnregisteredFile);
     let _ = std::fs::remove_dir_all(&out);
+}
+
+/// 审查实测的两条绕过路径：改一份没有独立锚点的产物，再按同一规则重建 descriptor。
+/// 首版这两条都能让校验全绿——descriptor 是从同一批盘上字节重建的，被背书者与
+/// 背书者同源，恒等式证明不了任何东西。
+#[test]
+fn rewriting_a_local_only_artifact_and_its_descriptor_entry_is_still_caught() {
+    require_compiler!();
+    let lock = repo_root().join("architecture.lock.json");
+
+    for (which, relative) in [
+        "metadata/native-managed-abi.json",
+        "reports/layout-report.json",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let out = temp_out(&format!("collusion-{which}"));
+        generate(request(out.clone())).expect("生成成功");
+
+        // 改产物本身。
+        let target = out.join(relative);
+        let mut permissions = std::fs::metadata(&target).expect("取权限").permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        std::fs::set_permissions(&target, permissions).expect("恢复写权限");
+        std::fs::write(&target, b"{\"tampered\":1}\n").expect("写入伪造内容");
+
+        // 同步把 descriptor 里对应的摘要、outputHash 一并改成新值——
+        // 也就是「攻击者按同一规则重建 descriptor」。
+        let descriptor_path = out.join("generated-contract-artifact.json");
+        let mut permissions = std::fs::metadata(&descriptor_path)
+            .expect("取权限")
+            .permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        std::fs::set_permissions(&descriptor_path, permissions).expect("恢复写权限");
+        rebuild_descriptor_in_place(&out);
+
+        let error =
+            verify_generated(&out, &lock).expect_err(&format!("{relative} 被改后必须仍被发现"));
+        assert_eq!(error.kind(), AbiGenerationErrorKind::OutputHashMismatch);
+        let _ = std::fs::remove_dir_all(&out);
+    }
+}
+
+/// 按发布目录里的实际字节重算 descriptor 的 fileDigests 与 outputHash 并写回，
+/// 模拟「攻击者也会重建 descriptor」。
+fn rebuild_descriptor_in_place(root: &Path) {
+    let script = r#"
+import hashlib, json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+descriptor_path = root / "generated-contract-artifact.json"
+descriptor = json.loads(descriptor_path.read_text())
+files = {}
+for name in descriptor["registeredFiles"]:
+    if name == "generated-contract-artifact.json":
+        continue
+    files[name] = (root / name).read_bytes()
+descriptor["fileDigests"] = {k: hashlib.sha256(v).hexdigest() for k, v in files.items()}
+parts = [k.encode() + b"\x00" + v for k, v in sorted(files.items())]
+descriptor["outputHash"] = hashlib.sha256(b"\n".join(parts)).hexdigest()
+descriptor_path.write_bytes(json.dumps(descriptor, ensure_ascii=False, separators=(",", ":")).encode() + b"\n")
+"#;
+    let status = std::process::Command::new("python3")
+        .arg("-c")
+        .arg(script)
+        .arg(root)
+        .status()
+        .expect("重建 descriptor");
+    assert!(status.success());
+}
+
+#[test]
+fn tampering_with_the_upstream_bundle_is_caught_by_the_lock() {
+    require_compiler!();
+    // 摘要链的根：bundle 若不与 lock 对账，改它的 outputFiles.digest 就能整体移动锚点。
+    let scratch = temp_out("bad-bundle");
+    let workspace = scratch.join("ws");
+    let baseline = baseline_id();
+    let mirror = workspace.join(format!("generated/architecture/{baseline}"));
+    std::fs::create_dir_all(mirror.join("packages/abi")).expect("建镜像目录");
+    std::fs::copy(
+        repo_root().join("architecture.lock.json"),
+        workspace.join("architecture.lock.json"),
+    )
+    .expect("复制 lock");
+    let bundle_source = repo_root().join(format!(
+        "generated/architecture/{baseline}/packages/abi/root-abi-bundle.json"
+    ));
+    let mut bundle = std::fs::read_to_string(&bundle_source).expect("读 bundle");
+    bundle.push(' '); // 一个字节即可
+    std::fs::write(mirror.join("packages/abi/root-abi-bundle.json"), bundle)
+        .expect("写伪造 bundle");
+
+    let error = generate(GenerateAbiRequest {
+        frozen_plan_path: None,
+        architecture_lock_path: workspace.join("architecture.lock.json"),
+        mirror_root: Some(mirror),
+        compiler_directory: compiler_directory(),
+        output_directory: scratch.join("out"),
+    })
+    .expect_err("bundle 与 lock 不符必须失败");
+    assert_eq!(error.kind(), AbiGenerationErrorKind::InputHashMismatch);
+    assert!(!scratch.join("out").exists(), "失败不得留下输出目录");
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+#[test]
+fn a_compiler_with_correct_files_but_altered_bytes_is_rejected() {
+    require_compiler!();
+    // 走的是摘要比较分支，而不是「文件不存在」分支。
+    let scratch = temp_out("drifted-compiler");
+    let fake = scratch.join("tools");
+    std::fs::create_dir_all(&fake).expect("建目录");
+    for name in ["lumio_contract.py", "lumio_generate.py"] {
+        let mut bytes = std::fs::read(compiler_directory().join(name)).expect("读 compiler");
+        if name == "lumio_generate.py" {
+            bytes.push(b' ');
+        }
+        std::fs::write(fake.join(name), bytes).expect("写漂移后的 compiler");
+    }
+
+    let mut request = request(scratch.join("out"));
+    request.compiler_directory = fake;
+    let error = generate(request).expect_err("compiler 字节漂移必须失败");
+    assert_eq!(error.kind(), AbiGenerationErrorKind::CompilerDigestMismatch);
+    assert!(!scratch.join("out").exists());
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+fn baseline_id() -> String {
+    let lock =
+        std::fs::read_to_string(repo_root().join("architecture.lock.json")).expect("读 lock");
+    let key = "\"architectureBaselineId\": \"";
+    let start = lock.find(key).expect("有基线 id") + key.len();
+    let end = start + lock[start..].find('"').expect("引号结束");
+    lock[start..end].to_string()
 }

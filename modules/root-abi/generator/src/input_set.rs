@@ -17,6 +17,8 @@ pub(crate) struct ArchitectureLock {
     #[serde(rename = "architectureBaselineId")]
     pub(crate) architecture_baseline_id: String,
     pub(crate) repository: String,
+    #[serde(rename = "requiredPathSha256")]
+    pub(crate) required_path_sha256: std::collections::BTreeMap<String, String>,
 }
 
 /// 上游 Root ABI bundle（镜像内 `packages/abi/root-abi-bundle.json`）。
@@ -69,6 +71,60 @@ pub(crate) fn mirror_root(workspace_root: &Path, lock: &ArchitectureLock) -> Pat
         .join(&lock.architecture_baseline_id)
 }
 
+/// 上游 bundle 在架构源树内的路径，也是它在 lock `requiredPathSha256` 里的键。
+pub(crate) const BUNDLE_SOURCE_PATH: &str = "packages/abi/root-abi-bundle.json";
+
+/// 上游 ABI 文档在架构源树内的路径（上游 `ABI_DOCUMENT`），也在 `inputSet` 内。
+pub(crate) const ABI_DOCUMENT_SOURCE_PATH: &str = "fixtures/valid/native-managed-abi.json";
+
+/// 读取并**对着 lock 校验**上游 bundle。
+///
+/// bundle 是整条摘要链的根：compiler 身份、inputHash、每份产物的期望摘要都取自它。
+/// 无条件采信它等于把锚点放在一个可被就地改写的本地文件上——改 bundle 里的三个
+/// outputFiles.digest，再按同一规则重建 descriptor，六份产物就能被整体替换而校验全绿。
+/// lock 的 `requiredPathSha256` 正是这份文件的登记摘要，这里必须读。
+pub(crate) fn read_bundle_verified(
+    mirror: &Path,
+    lock: &ArchitectureLock,
+) -> Result<RootAbiBundle, AbiGenerationError> {
+    let path = mirror.join(BUNDLE_SOURCE_PATH);
+    let bytes = std::fs::read(&path).map_err(|e| {
+        err(
+            AbiGenerationErrorKind::BlockedOnArchitectureGate,
+            format!(
+                "上游 Root ABI bundle 不可用（{}：{e}）；AG-001 对本仓未关闭，\
+                 不得回退本仓模板",
+                path.display()
+            ),
+        )
+    })?;
+    let registered = lock
+        .required_path_sha256
+        .get(BUNDLE_SOURCE_PATH)
+        .ok_or_else(|| {
+            err(
+                AbiGenerationErrorKind::BlockedOnArchitectureGate,
+                format!("architecture.lock.json 未登记 {BUNDLE_SOURCE_PATH}"),
+            )
+        })?;
+    let actual = crate::sha256_hex(&bytes);
+    if &actual != registered {
+        return Err(err(
+            AbiGenerationErrorKind::InputHashMismatch,
+            format!(
+                "上游 bundle 与 lock 登记摘要不符（镜像 {actual}，lock {registered}）：\
+                 摘要链的根不可信，拒绝继续"
+            ),
+        ));
+    }
+    serde_json::from_str(
+        std::str::from_utf8(&bytes)
+            .map_err(|e| invalid(format!("{} 不是 UTF-8：{e}", path.display())))?,
+    )
+    .map_err(|e| invalid(format!("解析 {} 失败：{e}", path.display())))
+}
+
+#[allow(dead_code)]
 pub(crate) fn read_bundle(mirror: &Path) -> Result<RootAbiBundle, AbiGenerationError> {
     let path = mirror.join("packages/abi/root-abi-bundle.json");
     // bundle 不在镜像里 = 上游还没把本仓列为 Root ABI 的 consumer = AG-001 对本仓未关闭。
@@ -86,16 +142,20 @@ pub(crate) fn read_bundle(mirror: &Path) -> Result<RootAbiBundle, AbiGenerationE
     serde_json::from_str(&text).map_err(|e| invalid(format!("解析 {} 失败：{e}", path.display())))
 }
 
-/// 复算 Input Hash，口径与上游 `abi_input_hash` 完全一致：
-/// 按 `inputSet` 声明顺序，逐项 `路径字节 || NUL || 文件字节`，以单个 LF 连接后取 SHA-256。
+/// 复算 Input Hash 与**逐文件**摘要（规格 §3.6「输入逐文件摘要」）。
 ///
-/// 这里刻意重算而不是照抄 bundle 的值：抄下来只能证明「我读到了这个数」，
-/// 重算才能证明「镜像里的输入确实就是产生这个数的那份」。
-pub(crate) fn compute_input_hash(
+/// 口径与上游 `abi_input_hash` 完全一致：按 `inputSet` 声明顺序，逐项
+/// `路径字节 || NUL || 文件字节`，以单个 LF 连接后取 SHA-256。
+///
+/// 重算而不是照抄 bundle 的值：抄下来只能证明「我读到了这个数」，重算才能证明
+/// 「镜像里的输入确实就是产生这个数的那份」。逐文件摘要额外解决定位问题——
+/// 只有聚合值时，镜像漂移只能告诉你「不一致」，指不到是哪个文件。
+pub(crate) fn compute_input_digests(
     mirror: &Path,
     bundle: &RootAbiBundle,
-) -> Result<String, AbiGenerationError> {
+) -> Result<(String, std::collections::BTreeMap<String, String>), AbiGenerationError> {
     let mut parts: Vec<Vec<u8>> = Vec::with_capacity(bundle.input_set.len());
+    let mut per_file = std::collections::BTreeMap::new();
     for relative in &bundle.input_set {
         let path = mirror.join(relative);
         let blob = std::fs::read(&path).map_err(|e| {
@@ -108,6 +168,7 @@ pub(crate) fn compute_input_hash(
         item.push(0);
         item.extend_from_slice(&blob);
         parts.push(item);
+        per_file.insert(relative.clone(), crate::sha256_hex(&blob));
     }
-    Ok(crate::sha256_hex(&parts.join(&b'\n')))
+    Ok((crate::sha256_hex(&parts.join(&b'\n')), per_file))
 }

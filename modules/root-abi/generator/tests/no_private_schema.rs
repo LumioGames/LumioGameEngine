@@ -5,6 +5,15 @@
 //! ABI 定义处，而两处定义迟早会分叉——那正是规格 §4「私有模板会制造第二 ABI」要防的。
 //!
 //! 这些断言是**源码级**的：它们不跑生成，只看本 crate 的代码里有没有出现不该有的东西。
+//!
+//! **能力边界（别把它当成完备防线）**：下面前三条是关键词黑名单，绕过方式是现成的
+//! ——换成 Rust 常规命名（`pointer_bytes`）、把 `const` 与字段写在不同行、用
+//! `"unsigned int"` 之类避开 stdint 拼写、或用 raw string + `#ifndef` 写 header 模板，
+//! 都不会命中。它们能挡的是**无意间**把上游语义抄进来，挡不住有意为之。
+//! 唯一结构性的是最后一条（`src/` 下不得有非 `.rs` 文件），它挡住「模板外置成
+//! `templates/*.h.in` 再 include_str!」这条最省事的路。真正的保证来自评审与
+//! `compiler_lock.rs` 的摘要对账：本仓产出的每一份字节都必须等于上游声明的摘要，
+//! 自己写的模板产不出那个值。
 
 use std::path::{Path, PathBuf};
 
@@ -138,4 +147,27 @@ fn generator_does_not_read_the_architecture_source_working_tree() {
             }
         }
     }
+}
+
+#[test]
+fn src_contains_only_rust_sources() {
+    // 结构性断言（不是关键词匹配）：模板一旦外置成 `src/templates/*.h.in` 再
+    // `include_str!`，前面三条黑名单全部失效——非 .rs 文件根本不在它们的扫描范围内。
+    fn walk(dir: &Path, offenders: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(dir).expect("读源码目录") {
+            let path = entry.expect("目录项").path();
+            if path.is_dir() {
+                walk(&path, offenders);
+            } else if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+                offenders.push(path);
+            }
+        }
+    }
+    let mut offenders = Vec::new();
+    walk(&source_directory(), &mut offenders);
+    assert!(
+        offenders.is_empty(),
+        "src/ 下出现了非 Rust 文件：{offenders:?}。模板/type map 属上游 compiler，\
+         本仓不得以任何形式持有第二份"
+    );
 }

@@ -35,3 +35,4 @@
 | [0006](0006-internal-build-plan-freeze.md) | BuildPlan 定为仓内确定性 JSON（plan_format_version=1），sidecar Digest 原子冻结，platform 只读 | 生效 |
 | [0007](0007-composition-config-toml-parser.md) | compose 配置解析选定 `toml` crate 并精确锁版，不自研 TOML 子集解析器 | 生效 |
 | [0008](0008-opened-artifact-set-construction-inversion.md) | `OpenedArtifactSet`/`MappedNativeImage` 用构造反转保持私有构造器，feature gate 不用于跨 crate 可见性 | 生效 |
+| [0009](0009-root-abi-generator-adapter-boundary.md) | root-abi generator 摘要链每环须有外部锚点，descriptor 不得自证；报告不得声称没做过的检查 | 生效 |
