@@ -1040,6 +1040,77 @@ def published_lumio_bin_profile_errors() -> List[str]:
     return []
 
 
+def published_canonical_surface_errors() -> List[str]:
+    """ADR-041: both published language surfaces must carry the whole profile.
+
+    The profile is only consumable if it can be read from the artifact a
+    repository actually depends on. A surface published in one language and not
+    the other is not a smaller surface, it is an asymmetry the missing side
+    cannot work around, so Rust and C# are asserted together here rather than
+    each being trusted to the reader of a generator diff.
+    """
+    rust_lib = (
+        PACKAGE_DIR / "rust" / "lumio-gen-canonical-serializer" / "src" / "lib.rs"
+    )
+    cs_profile = (
+        PACKAGE_DIR / "csharp" / "Lumio.Gen.CanonicalSerializer" / "CanonicalProfile.cs"
+    )
+    if not (rust_lib.is_file() and cs_profile.is_file()):
+        return []
+    try:
+        profile = _abi.derive_canonical_profile(ROOT)
+    except _abi.CanonicalError as exc:
+        return ["canonical profile cannot be derived: {}".format(exc)]
+    rust_text = rust_lib.read_text(encoding="utf-8")
+    cs_text = cs_profile.read_text(encoding="utf-8")
+    form = profile["canonicalForm"]
+    errors: List[str] = []
+    for rust_name, cs_name, value in (
+        ("CANONICAL_FORM_ID", "FormId", form["formId"]),
+        ("CANONICAL_ENCODING", "Encoding", form["encoding"]),
+        ("CANONICAL_MEMBER_ORDER", "MemberOrder", form["memberOrder"]),
+        ("CANONICAL_ARRAY_ORDER", "ArrayOrder", form["arrayOrder"]),
+        ("CANONICAL_NUMBERS", "Numbers", form["numbers"]),
+        ("CANONICAL_UNKNOWN_MEMBERS", "UnknownMembers", form["unknownMembers"]),
+        ("CANONICAL_DUPLICATE_MEMBERS", "DuplicateMembers", form["duplicateMembers"]),
+        ("DIGEST_ALGORITHM", "DigestAlgorithm", profile["digestAlgorithm"]["name"]),
+        ("DIGEST_FRAMING", "DigestFraming", profile["digestAlgorithm"]["framing"]),
+    ):
+        expected_rust = 'pub const {}: &str = "{}";'.format(rust_name, value)
+        if expected_rust not in rust_text:
+            errors.append(
+                "canonical-serializer lib.rs is missing or disagrees with `{}`".format(
+                    expected_rust
+                )
+            )
+        expected_cs = 'public const string {} = "{}";'.format(cs_name, value)
+        if expected_cs not in cs_text:
+            errors.append(
+                "CanonicalProfile.cs is missing or disagrees with `{}`".format(expected_cs)
+            )
+    for domain in profile["digestDomains"]:
+        tag = str(domain["domainTag"])
+        pair = '"{}", "{}"'.format(domain["digest"], tag)
+        if 'digest: "{}", domain_tag: "{}"'.format(domain["digest"], tag) not in rust_text:
+            errors.append(
+                "canonical-serializer lib.rs DIGEST_DOMAINS is missing {}".format(tag)
+            )
+        if "new DigestDomain({}".format(pair) not in cs_text:
+            errors.append("CanonicalProfile.cs DigestDomains is missing {}".format(tag))
+    for golden in profile["goldens"]:
+        if str(golden["sha256"]) not in rust_text:
+            errors.append(
+                "canonical-serializer lib.rs CANONICAL_GOLDENS is missing {}".format(
+                    golden["id"]
+                )
+            )
+        if str(golden["sha256"]) not in cs_text:
+            errors.append(
+                "CanonicalProfile.cs CanonicalGoldens is missing {}".format(golden["id"])
+            )
+    return errors[:6]
+
+
 def _message_type_ids() -> List[str]:
     """Registered `MessageType` ids — the gate's registered set, from the registry."""
     return _abi.load_message_ids(ROOT)
@@ -2173,6 +2244,7 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     consistency.extend(state_machine_consistency_errors(schemas, fixtures))
     consistency.extend(published_root_abi_bundle_errors())
     consistency.extend(published_canonical_profile_errors())
+    consistency.extend(published_canonical_surface_errors())
     consistency.extend(published_lumio_bin_profile_errors())
     consistency.extend(published_capability_constant_errors())
     consistency.extend(published_contract_body_errors())
