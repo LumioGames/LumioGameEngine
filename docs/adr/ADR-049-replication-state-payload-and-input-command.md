@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-049-replication-state-payload-and-input-command.md
