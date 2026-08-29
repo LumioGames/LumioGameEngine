@@ -1,0 +1,57 @@
+符号,类型,定义位置(相对引擎根),一句话职责
+UNetDriver,UCLASS,Engine/Source/Runtime/Engine/Classes/Engine/NetDriver.h:810,网络驱动基类:连接表/共享复制状态/TickFlush
+UIpNetDriver,UCLASS,Engine/Plugins/Online/OnlineSubsystemUtils/Source/OnlineSubsystemUtils/Classes/IpNetDriver.h:65,默认 UDP 驱动
+UWebSocketNetDriver,UCLASS,Engine/Plugins/Experimental/WebSocketNetworking/Source/WebSocketNetworking/Public/WebSocketNetDriver.h:18,WebSocket 传输驱动(替换最底层)
+USteamSocketsNetDriver,UCLASS,Engine/Plugins/Runtime/Steam/SteamSockets/Source/SteamSockets/Public/SteamSocketsNetDriver.h:17,Steam 传输
+UDemoNetDriver,UCLASS,Engine/Source/Runtime/Engine/Classes/Engine/DemoNetDriver.h:151,回放驱动
+UWebSocketConnection,UCLASS,WebSocketNetworking/Public/../Private/WebSocketConnection.h:12(声明于 Private),WebSocket 连接(全套继承 UNetConnection)
+UDemoNetConnection,UCLASS,Engine/Source/Runtime/Engine/Classes/Engine/DemoNetConnection.h:19,回放假连接(LowLevelSend 劫持落盘)
+UNetConnection,UCLASS,Engine/Source/Runtime/Engine/Classes/Engine/NetConnection.h,连接:通道表/可靠队列/带宽账本
+UChannel,UCLASS,Engine/Source/Runtime/Engine/Classes/Engine/Channel.h,通道基类:bunch 收发/保序/生命周期
+UActorChannel,UCLASS,Engine/Source/Runtime/Engine/Classes/Engine/ActorChannel.h(实现 DataChannel.cpp),每连接每复制对象一通道
+UControlChannel,UCLASS,Engine/Source/Runtime/Engine/Classes/Engine/ControlChannel.h,控制通道(NMT 消息/二级队列)
+UChildConnection,UCLASS,Engine/Classes/Engine/NetConnection.h,分屏子连接
+FOutBunch/FInBunch,USTRUCT,Engine/Source/Runtime/Engine/Public/Net/DataBunch.h,消息级可靠单元
+FRepLayout,class,Engine/Source/Runtime/Engine/Public/Net/RepLayout.h:125,类级复制布局(扁平命令表)
+FObjectReplicator,class,Engine/Source/Runtime/Engine/Public/Net/DataReplication.h:73,每通道复制执行器
+FRepState,class,Engine/Source/Runtime/Engine/Public/Net/RepLayout.h:671,每连接复制状态壳
+FSendingRepState,class,RepLayout.h:567,每连接游标(共享历史索引)
+FReceivingRepState,class,RepLayout.h:538,客户端接收影子+RepNotify 队列
+FRepChangelistState,class,RepLayout.h:433,每对象共享 changelist 环(64)+影子缓冲
+FReplicationChangelistMgr,class,RepLayout.h:501,持有 FRepChangelistState(存于 NetDriver Map)
+FRepChangedHistory,class,RepLayout.h:332,changelist 条目(句柄集+包范围+Resend)
+FFastArraySerializer,USTRUCT,Engine/Source/Runtime/Net/Core/Classes/Net/Serialization/FastArraySerializer.h,增量数组序列化
+UReplicationDriver,UCLASS,Engine/Source/Runtime/Engine/Classes/Engine/ReplicationDriver.h:48,复制驱动抽象(RepGraph 基类)
+UReplicationGraphNode,UCLASS,Engine/Plugins/Runtime/ReplicationGraph/Source/Public/ReplicationGraph.h:69,RepGraph 节点基类(Gather 纯虚)
+UReplicationGraph,UCLASS,ReplicationGraph.h:920,RepGraph 驱动(接管 ServerReplicateActors)
+UNetReplicationGraphConnection,UCLASS,ReplicationGraph.h:1284,RepGraph 连接侧驱动
+FNetworkObjectInfo,struct,Engine/Source/Runtime/Engine/Classes/Engine/NetworkObjectList.h:34,对象级复制登记(频率门/休眠集合)
+FActorPriority,struct,Engine/Source/Runtime/Engine/Classes/Engine/NetDriver.h,优先级条目
+FNetViewer,struct,Engine/Classes/Engine/NetDriver.h,每连接视角(视点/朝向)
+FNetworkGUID,USTRUCT,Engine/Source/Runtime/Engine/Public/Net/NetGuid.h,网络对象标识
+UPackageMapClient,UCLASS,Engine/Classes/Engine/PackageMapClient.h,对象引用↔NetGUID 编解码
+FNetworkVersion,class,Engine/Source/Runtime/Core/Public/Misc/NetworkVersion.h,网络版本校验和
+StatelessConnectHandlerComponent,class,Engine/Source/Runtime/Engine/Public/PacketHandlers/StatelessConnectHandlerComponent.h,无状态握手组件
+PacketHandler,class,Engine/Source/Runtime/PacketHandlers/PacketHandler/Public/PacketHandler.h,包处理组件链框架
+ENetCloseResult,enum,Engine/Source/Runtime/Net/Core/Public/Net/Core/Connection/NetCloseResult.h:23,连接关闭原因枚举(5.8)
+EChannelCloseReason,enum,Engine/Source/Runtime/CoreUObject/Public/UObject/CoreNetTypes.h:45,通道关闭原因
+ENetMode,enum,Engine/Classes/Engine/EngineBaseTypes.h:978,进程网络形态(4 值)
+ENetRole,enum,Engine/Classes/Engine/EngineTypes.h:3582,角色层级
+ENetDormancy,enum,EngineTypes.h:3597,休眠策略(5 值)
+ELifetimeCondition,enum,CoreUObject/Public/UObject/CoreNetTypes.h:16,属性可见性条件(18 项)
+ETickingGroup,enum,Engine/Classes/Engine/EngineBaseTypes.h:83,tick 分组(9 项)
+ENetworkPredictionTickingPolicy,enum,Engine/Plugins/Runtime/NetworkPrediction/Source/NetworkPrediction/Public/NetworkPredictionConfig.h:9,NP 节拍策略(Independent/Fixed)
+FSavedMove_Character,struct,Engine/Classes/GameFramework/CharacterMovementComponent.h,客户端保存的移动输入帧
+FNetworkPredictionData_Client_Character,class,同上,客户端预测数据(SavedMoves 队列)
+FNetworkPredictionData_Server_Character,class,同上,服务器权威侧(时间戳/纠错)
+AGameNetworkManager,UCLASS,Engine/Classes/GameFramework/GameNetworkManager.h,移动/带宽/阈值配置中心
+FReplayHelper,class,Engine/Source/Runtime/Engine/Public/ReplayHelper.h:32,回放录制/检查点助手
+INetworkReplayStreamer,class,Engine/Source/Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h:515,回放存储抽象
+UReplaySubsystem,UCLASS,Engine/Source/Runtime/Engine/Public/ReplaySubsystem.h:23,回放入口子系统(两代切换)
+UReplayNetConnection,UCLASS,Engine/Source/Runtime/Engine/Public/ReplayNetConnection.h:12,新一代回放连接(挂真实驱动)
+UReplicationSystem,UCLASS,Engine/Source/Runtime/Net/Iris/Public/Iris/ReplicationSystem/ReplicationSystem.h:79,Iris 复制系统
+FReplicationStateDescriptor,struct,Engine/Source/Runtime/Net/Iris/Public/Iris/ReplicationState/ReplicationStateDescriptor.h,量化状态描述符(双偏移)
+UNetObjectFilter/UNetObjectPrioritizer,UCLASS,ReplicationSystem.h:32-33,Iris 过滤/优先级接口族
+UDataStream,UCLASS,Engine/Source/Runtime/Net/Iris/Public/Iris/DataStream/DataStream.h,Iris 数据流抽象
+UEngineReplicationBridge,UCLASS,Engine/Source/Runtime/Engine/Public/Net/Iris/ReplicationSystem/EngineReplicationBridge.h,Iris↔引擎缝合层
+FNetViewer/FNetTokenStore/FWorldLocations,class,ReplicationSystem.h,Iris token 化与空间位置源
