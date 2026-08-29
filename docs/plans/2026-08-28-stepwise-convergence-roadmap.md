@@ -45,7 +45,7 @@
 
 ### S4 · D-1 裁决与落地(单簇:MVP 最长链的钥匙)
 
-- 内容:**D-1 下行状态载荷编码 + 上行输入承载 ADR**(裁决讨论可提前至任意时点,见 §2)→ ADR + Schema + 正反 Fixture + 七仓镜像同步。仅此一件;D-9/D-3 挪到 S5 开步裁决,D-4 挪到 S7。附加项:**ids/ 注册表增补**若 S0 缺口清单要求(OperationId namespace 等),作为本步的第二张卡一并落(新卡需你授权)——它与 D-1 同为「架构仓公共面增发」,同一执行会话、不同卡。
+- 内容:**D-1 下行状态载荷编码 + 上行输入承载 ADR**(裁决讨论可提前至任意时点,见 §2)→ ADR + Schema + 正反 Fixture + 七仓镜像同步。仅此一件;D-9/D-3 挪到 S5 开步裁决,D-4 挪到 S7。附加项:**ids/ 注册表增补**若 S0 缺口清单要求(~~OperationId namespace~~ **已于 2026-08-29 裁决为不适用/终态,不再列为缺口**;其余项若有),作为本步的第二张卡一并落(新卡需你授权)——它与 D-1 同为「架构仓公共面增发」,同一执行会话、不同卡。
 - 完成条件(三证):① ADR/Schema/Fixture 提交号;② `python3 tools/lumio_contract.py validate` 全绿 + **复现 `.github/workflows/repository-policy.yml` 的 Hash/文件检查**(AGENTS.md 收口门槛对涉基线改动的硬性要求)真实输出;③ 相关卡状态读回,Server A1-β 与 GameRuntime 受阻卡的 BLOCKED 评论已更新引用新 ADR。
 
 ### S5 · GameRuntime 收敛(粗排;开步裁决 + 两小批)

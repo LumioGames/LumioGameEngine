@@ -36,7 +36,7 @@
 1. **D-015(新,架构源)**:ADR-040 §7 的 capability 派生裁决——R-00083 唯一解铃条件。
 2. **疑似上游契约缺陷(架构源)**:`lumio_core_init` 的 `out_context` 按发布签名是**按值传递的 `lumio_handle_t`**,无法把创建的 context 回传调用方;连同 `core_config_v1` body 未发布,init 槽位维持 null。需架构源裁决(改 `ptr:mut` 或明确语义)。
 3. **ADR-046 §2 口径阻抗(架构源)**:use-path 期望已释放句柄浮出 InvalidHandle(1029),而 kernel arena `get()` 对空槽产出 AlreadyReleased(→1030);当前公共面不可达(init 未发布),已在 `mapping.rs` 与测试注释显式记录。需 §2 补口径或下游补 handle 卡。
-4. **OperationId namespace 未发布(架构源,预期内)**:`ArchitectureOperationId`/`operation_ids()` 维持空 seam(另因 lumio-job 负向门保留);待上游发布后随小卡收敛。
+4. **OperationId namespace 不适用(架构源,已裁决为终态)**:`ArchitectureOperationId`/`operation_ids()` 维持空 seam(另因 lumio-job 负向门保留)。**~~待上游发布后随小卡收敛~~ —— 该表述已于 2026-08-29 由 TD 总调度裁决取代**:ADR-040 §7 明写「没有 `OperationId` namespace,不保留也不需要保留,**只要 dispatch 面还被 D-009 挡着**」,而 D-009 至今仍在 `packages/index.json` 的 `blocked` 列表内。因此**空 seam 是符合规范的终态,不是待补缺口**,上游不会「随后发布」。裁决全文见 [`docs/plans/2026-08-29-v1_5-baseline-batch-plan.md`](../plans/2026-08-29-v1_5-baseline-batch-plan.md) 项 4。重新开启的唯一条件是 D-009 解冻,届时须新增 ADR 取代 ADR-040 §7 该条。
 5. **reviewer P2 两条(NativeCore 仓务小修,不阻塞)**:P2-1 `docs/architecture/abi/README.md:35` 生成物文件名笔误(`registry_data.rs`→`generated_data.rs`);P2-2 `lumio_core.h` 的 pin 与 `outputFiles[CHeader].digest` 等值断言未自动化。
 6. **三平台 smoke Windows 腿**:维持缺口,路线图 SW 旁路(前置:Windows 机装 MSVC link.exe);Linux 腿由 CI ubuntu-latest 覆盖。
 7. cargo deny / cargo audit / Miri 未执行(不在任何验收项口径内)——如需引入属新规,请用户裁决。

@@ -22,7 +22,7 @@
 ## 裁决三(D-1):方向定音,执行归 V1.5 跃迁批
 
 - **方向裁决**:下行状态载荷 = ReplicationEnvelope 的 typed body 扩展(FullSnapshot 增 `stateBlocks`、Delta 增 `changedBlocks`),内容按 mappingSet 声明序以 **LumioBinV1** 编码、`payloadHash` 绑定、长度受 ADR-045 既有上界约束;上行输入 = 新 MessageType `InputCommand`(ids 注册表新值,owner GameRuntime)+ 独立 input envelope schema(同样 LumioBinV1)。
-- **为何不即刻落**:closed body 的必需集扩字段与 MessageType 枚举增值均属基线事件(schemas/README 变更规则 + ADR-045 恰好等于断言 + 七仓镜像)——**归 V1.5 跃迁批,只跳一次基线**(D-11 口径),同批:R-00009(LoadBackend/Packaging 枚举对齐)、ADR-040..048 Draft 转 Accepted、OperationId namespace 发布(需 NativeCore 提值)、D-5 tag/冻结点、trust P2 台账两条(signedAt preimage、时间窗比较)。
+- **为何不即刻落**:closed body 的必需集扩字段与 MessageType 枚举增值均属基线事件(schemas/README 变更规则 + ADR-045 恰好等于断言 + 七仓镜像)——**归 V1.5 跃迁批,只跳一次基线**(D-11 口径),同批:R-00009(LoadBackend/Packaging 枚举对齐)、ADR-040..048 Draft 转 Accepted、~~OperationId namespace 发布(需 NativeCore 提值)~~**(已于 2026-08-29 裁决出批,见 V1.5 批规划项 4)**、D-5 tag/冻结点、trust P2 台账两条(signedAt preimage、时间窗比较)。
 - **先行项**:D-1 的 ADR 草案与 Schema/Fixture 草稿在跃迁批前成文备好;A1-β/GameRuntime replication 卡在 V1.5 落地后解锁。
 
 ## 执行编排(模块并行总图,按重要度 × 复杂度)

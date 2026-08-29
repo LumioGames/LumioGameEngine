@@ -100,7 +100,7 @@ Workflow API:token 在 `~/.config/workflow/config.toml` 的 `[profiles.lumiogame
 8. **新立的 8 张既有缺陷卡**(用户已授权,尚未派活):R-00284(供应链+生成契约闸门接入 CI,**P0**)、R-00285、R-00286、R-00287(CI 补 dotnet test,**P0**)、R-00288、R-00289、R-00290、R-00291。
 
 ### P2 · 收尾
-9. **R-00269**:V1.5 跃迁批规划 + D-1 ADR 草案(同批:R-00009 枚举对齐、ADR-040..048 Draft 转 Accepted、OperationId namespace 发布、D-5 冻结点 tag、trust 两条 P2)。**D-1 方向已定音**(见 §5.1),只差执行。
+9. **R-00269**:V1.5 跃迁批规划 + D-1 ADR 草案(同批:R-00009 枚举对齐、ADR-040..048 Draft 转 Accepted、~~OperationId namespace 发布~~**(已裁决出批)**、D-5 冻结点 tag、trust 两条 P2)。**D-1 方向已定音**(见 §5.1),只差执行。
 10. 清理本会话遗留 worktree:`/private/tmp/lge-{lessons,lessons2,nc-audit,p2-confirm,report,s4-adj,handoff}` 与仓内 `.claude/worktrees/distracted-chandrasekhar-edbf54`(其分支已合入)。
 
 ## 5 · 今日已定裁决(必须继承,不要重开)
