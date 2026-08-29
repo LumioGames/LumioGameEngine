@@ -90,6 +90,17 @@
   - **`2026-08-29-nativecore-closeout.md:39`**:残留漂移句「待上游发布后随小卡收敛」已改写为终态口径(该文件虽属 review,但那句是**面向未来的承诺**而非事实记录,故必须改)。
   - **历史 review / audit 快照不改写**(`2026-08-28-nativecore-abi-adjudication.md`、`2026-08-28-nativecore-convergence-audit.md`、`2026-08-28-nativecore-convergence-dispatch.md`):它们记录的是当时的事实与判断,且方向与本裁决**一致**(前者已裁为「不适用」,后两者写「未发布」「不得发明」)。审计报告是时点快照,改写会破坏其证据性质。
 
+### 项 7 · `canonical_object_pairs` 删除与类型化编码器发布 —— **已裁决加入本批(2026-08-29)**
+
+> **本项是对本批的一次扩容**,授权来自 [`2026-08-29-canonical-object-pairs-adjudication.md`](2026-08-29-canonical-object-pairs-adjudication.md)。本规划扉页禁止自行扩容,故此处显式记录裁决出处。
+
+- **问题**:已发布的 `packages/rust/lumio-gen-contract-runtime/src/lib.rs:40` 的 `canonical_object_pairs` key/value 均不转义、value 不加引号直接拼接、不拒重复 key,**可构造指纹碰撞**(三条独立路径),且同时违反本仓已发布的 `CANONICAL_ENCODING=AsciiEscaped` 与 `CANONICAL_DUPLICATE_MEMBERS=Reject` 两条冻结条款。
+- **改动面**:**删除**该函数;发布**自有 formId**(建议 `CanonicalObjectV1`)的**类型化构造式编码器**(值自持,非法状态不可表达);两语言对称发布(当前 C# 侧无对等物,已违反 ADR-039:16 的 `identical observable behavior` 要求);新增 ADR;新增向量表含**构造 X**(C# 孤代理 → strict UTF8 + `LoneSurrogate`)与**构造 Y**(`astral-vs-bmp` 跨语言排序)。
+- **为何必须跳基线(即为何必须在本批)**:ADR-041:100 当初保基线的理由是「Nothing was removed」,**该前提已被本次删除推翻**;`baselineId` 是 `const`。**若被当成普通 fix 批合入,下游会得到一个 baselineId 没变、公共面却不兼容的 artifact。**
+- **不得声称 `CanonicalJsonV1`、不得扩 ADR-041 §78 绑定面清单**:ADR-041:22 要求成员名匹配 `^[A-Za-z][A-Za-z0-9]*$`,而该 helper 的全部真实 key(`txn_id`、`c:0:0:0`)**一个都不匹配**。盖假合规章是 K[28] 同型错误。
+- **顺序依赖**:与项 3(ADR 转 Accepted)同刻或更早;**七仓重 pin(W3)必须在本项落地之后**,否则重 pin 白做。
+- **验收判据**:① 旧函数在两语言公共面**均不存在**;② 新编码器两语言**行为等价**并由跨语言向量表机器验证;③ 构造 X / Y 各有一条按其构造的**失败**用例;④ 对照组探针**自动化进 CI**(不接受只在写 ADR 那天人工跑一次);⑤ 10 条既有 golden **逐字节不变**(本项不触碰 CanonicalJsonV1)。
+
 ### 项 5 · D-5 冻结点 tag
 
 - **问题原文**(D-5):`compilerHash` 一天四变,下游没有可引用的稳定点;「请给 tag 或 artifact digest,**不要 branch name**」。PR #23 之后又变了一次(全 12 件 `compilerHash` → `870e8635…`),证明问题仍活跃。
