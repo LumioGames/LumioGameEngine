@@ -1,0 +1,307 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/lumio-bin-profile.schema.json",
+  "type": "object",
+  "required": [
+    "profileId",
+    "baselineId",
+    "schemaEpoch",
+    "binaryForm",
+    "digestAlgorithm",
+    "valueEncoding",
+    "vectorSemantics",
+    "goldens",
+    "rejections"
+  ],
+  "properties": {
+    "profileId": { "$ref": "common.schema.json#/$defs/id" },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
+    "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" },
+    "binaryForm": {
+      "type": "object",
+      "required": [
+        "formId",
+        "byteOrder",
+        "integers",
+        "strings",
+        "bytes",
+        "arrays",
+        "structs",
+        "floats"
+      ],
+      "properties": {
+        "formId": { "type": "string", "const": "LumioBinV1" },
+        "byteOrder": { "type": "string", "const": "LittleEndian" },
+        "integers": {
+          "type": "object",
+          "required": ["u8", "u16", "u32", "u64", "i32", "i64"],
+          "properties": {
+            "u8": { "$ref": "#/$defs/unsignedWidth1" },
+            "u16": { "$ref": "#/$defs/unsignedWidth2" },
+            "u32": { "$ref": "#/$defs/unsignedWidth4" },
+            "u64": { "$ref": "#/$defs/unsignedWidth8" },
+            "i32": { "$ref": "#/$defs/signedWidth4" },
+            "i64": { "$ref": "#/$defs/signedWidth8" }
+          },
+          "additionalProperties": false
+        },
+        "strings": {
+          "type": "object",
+          "required": ["encoding", "lengthPrefix", "lengthUnit"],
+          "properties": {
+            "encoding": { "type": "string", "const": "Utf8" },
+            "lengthPrefix": { "type": "string", "const": "u32" },
+            "lengthUnit": { "type": "string", "const": "Bytes" }
+          },
+          "additionalProperties": false
+        },
+        "bytes": {
+          "type": "object",
+          "required": ["lengthPrefix", "lengthUnit"],
+          "properties": {
+            "lengthPrefix": { "type": "string", "const": "u32" },
+            "lengthUnit": { "type": "string", "const": "Bytes" }
+          },
+          "additionalProperties": false
+        },
+        "arrays": {
+          "type": "object",
+          "required": ["countPrefix", "order"],
+          "properties": {
+            "countPrefix": { "type": "string", "const": "u32" },
+            "order": { "type": "string", "const": "DocumentOrder" }
+          },
+          "additionalProperties": false
+        },
+        "structs": {
+          "type": "object",
+          "required": ["fieldOrder", "padding", "missingFields", "unknownFields"],
+          "properties": {
+            "fieldOrder": { "type": "string", "const": "SchemaDeclarationOrder" },
+            "padding": { "type": "string", "const": "None" },
+            "missingFields": { "type": "string", "const": "Reject" },
+            "unknownFields": { "type": "string", "const": "Reject" }
+          },
+          "additionalProperties": false
+        },
+        "floats": { "type": "string", "const": "None" }
+      },
+      "additionalProperties": false
+    },
+    "digestAlgorithm": {
+      "type": "object",
+      "required": ["name", "framing", "digestInput"],
+      "properties": {
+        "name": { "type": "string", "const": "SHA-256" },
+        "framing": { "type": "string", "const": "None" },
+        "digestInput": { "type": "string", "const": "EncodedBytesOnly" }
+      },
+      "additionalProperties": false
+    },
+    "vectorSemantics": {
+      "type": "object",
+      "required": ["case", "error"],
+      "properties": {
+        "case": { "type": "string", "const": "HumanLabel" },
+        "error": { "type": "string", "const": "Normative" }
+      },
+      "additionalProperties": false
+    },
+    "valueEncoding": {
+      "type": "object",
+      "required": ["integers", "integerPrecision", "strings", "bytes", "arrays", "structs"],
+      "properties": {
+        "integers": { "type": "string", "const": "JsonIntegerLiteralsNoFractionOrExponent" },
+        "integerPrecision": { "type": "string", "const": "ExactArbitraryPrecision" },
+        "strings": { "type": "string", "const": "JsonStrings" },
+        "bytes": { "type": "string", "const": "LowercaseHexJsonStrings" },
+        "arrays": { "type": "string", "const": "JsonArraysDocumentOrder" },
+        "structs": { "type": "string", "const": "JsonObjectsEveryDeclaredFieldNoExtras" }
+      },
+      "additionalProperties": false
+    },
+    "goldens": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["id", "case", "layout", "value", "bytesHex", "sha256"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/id" },
+          "case": {
+            "type": "string",
+            "enum": [
+              "IntegerWidthsLittleEndian",
+              "StringUtf8ByteLength",
+              "BytesLengthPrefix",
+              "ArrayCountPrefix",
+              "DeclarationOrderNoPadding",
+              "NestedComposition"
+            ]
+          },
+          "layout": { "$ref": "#/$defs/layout" },
+          "value": {},
+          "bytesHex": { "type": "string", "pattern": "^([0-9a-f]{2})+$", "maxLength": 4096 },
+          "sha256": { "$ref": "common.schema.json#/$defs/hash256" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "rejections": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "case", "layout", "value", "error"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/id" },
+          "case": {
+            "type": "string",
+            "enum": [
+              "IntegerRangeOverflow",
+              "UnsignedNegative",
+              "NonIntegerNumber",
+              "IntegralFloat",
+              "BooleanForInteger",
+              "TypeMismatch",
+              "MalformedHexBytes",
+              "UnknownLayoutKind",
+              "MissingField",
+              "UnknownField"
+            ]
+          },
+          "layout": { "$ref": "#/$defs/rejectionLayout" },
+          "value": {},
+          "error": {
+            "type": "string",
+            "enum": [
+              "IntegerRangeOverflow",
+              "NonIntegerNumber",
+              "TypeMismatch",
+              "UnknownLayoutKind",
+              "MissingField",
+              "UnknownField"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "unsignedWidth1": {
+      "type": "object",
+      "required": ["bytes", "signed"],
+      "properties": {
+        "bytes": { "type": "integer", "const": 1 },
+        "signed": { "type": "boolean", "const": false }
+      },
+      "additionalProperties": false
+    },
+    "unsignedWidth2": {
+      "type": "object",
+      "required": ["bytes", "signed"],
+      "properties": {
+        "bytes": { "type": "integer", "const": 2 },
+        "signed": { "type": "boolean", "const": false }
+      },
+      "additionalProperties": false
+    },
+    "unsignedWidth4": {
+      "type": "object",
+      "required": ["bytes", "signed"],
+      "properties": {
+        "bytes": { "type": "integer", "const": 4 },
+        "signed": { "type": "boolean", "const": false }
+      },
+      "additionalProperties": false
+    },
+    "unsignedWidth8": {
+      "type": "object",
+      "required": ["bytes", "signed"],
+      "properties": {
+        "bytes": { "type": "integer", "const": 8 },
+        "signed": { "type": "boolean", "const": false }
+      },
+      "additionalProperties": false
+    },
+    "signedWidth4": {
+      "type": "object",
+      "required": ["bytes", "signed", "encoding"],
+      "properties": {
+        "bytes": { "type": "integer", "const": 4 },
+        "signed": { "type": "boolean", "const": true },
+        "encoding": { "type": "string", "const": "TwosComplement" }
+      },
+      "additionalProperties": false
+    },
+    "signedWidth8": {
+      "type": "object",
+      "required": ["bytes", "signed", "encoding"],
+      "properties": {
+        "bytes": { "type": "integer", "const": 8 },
+        "signed": { "type": "boolean", "const": true },
+        "encoding": { "type": "string", "const": "TwosComplement" }
+      },
+      "additionalProperties": false
+    },
+    "fieldName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*$", "maxLength": 64 },
+    "layout": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["u8", "u16", "u32", "u64", "i32", "i64", "string", "bytes"]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "items"],
+          "properties": {
+            "kind": { "type": "string", "const": "array" },
+            "items": { "$ref": "#/$defs/layout" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "fields"],
+          "properties": {
+            "kind": { "type": "string", "const": "struct" },
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["name", "layout"],
+                "properties": {
+                  "name": { "$ref": "#/$defs/fieldName" },
+                  "layout": { "$ref": "#/$defs/layout" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "rejectionLayout": {
+      "anyOf": [
+        { "$ref": "#/$defs/layout" },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "type": "string", "maxLength": 32 } },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

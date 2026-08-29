@@ -23,6 +23,7 @@ pub const BINDINGS: &[Binding] = &[
     Binding { schema_id: "native-managed-abi", rust_type: "NativeManagedAbi", csharp_type: "NativeManagedAbi" },
     Binding { schema_id: "root-abi-bundle", rust_type: "RootAbiBundle", csharp_type: "RootAbiBundle" },
     Binding { schema_id: "canonical-digest-profile", rust_type: "CanonicalDigestProfile", csharp_type: "CanonicalDigestProfile" },
+    Binding { schema_id: "lumio-bin-profile", rust_type: "LumioBinProfile", csharp_type: "LumioBinProfile" },
     Binding { schema_id: "trust-profile", rust_type: "TrustProfile", csharp_type: "TrustProfile" },
     Binding { schema_id: "loader-profile", rust_type: "LoaderProfile", csharp_type: "LoaderProfile" },
     Binding { schema_id: "evidence-profile", rust_type: "EvidenceProfile", csharp_type: "EvidenceProfile" },

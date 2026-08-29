@@ -12,6 +12,7 @@
     { "id": "native-managed-abi", "file": "native-managed-abi.schema.json", "priority": "P0", "owner": "CoreEngine" },
     { "id": "root-abi-bundle", "file": "root-abi-bundle.schema.json", "priority": "P0", "owner": "Architecture" },
     { "id": "canonical-digest-profile", "file": "canonical-digest-profile.schema.json", "priority": "P0", "owner": "Architecture" },
+    { "id": "lumio-bin-profile", "file": "lumio-bin-profile.schema.json", "priority": "P0", "owner": "Architecture" },
     { "id": "trust-profile", "file": "trust-profile.schema.json", "priority": "P0", "owner": "Architecture" },
     { "id": "loader-profile", "file": "loader-profile.schema.json", "priority": "P0", "owner": "Architecture" },
     { "id": "evidence-profile", "file": "evidence-profile.schema.json", "priority": "P0", "owner": "Architecture" },

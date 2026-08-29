@@ -14,6 +14,7 @@ public static class Bindings
         new Binding("native-managed-abi", "NativeManagedAbi", "NativeManagedAbi"),
         new Binding("root-abi-bundle", "RootAbiBundle", "RootAbiBundle"),
         new Binding("canonical-digest-profile", "CanonicalDigestProfile", "CanonicalDigestProfile"),
+        new Binding("lumio-bin-profile", "LumioBinProfile", "LumioBinProfile"),
         new Binding("trust-profile", "TrustProfile", "TrustProfile"),
         new Binding("loader-profile", "LoaderProfile", "LoaderProfile"),
         new Binding("evidence-profile", "EvidenceProfile", "EvidenceProfile"),
