@@ -74,6 +74,15 @@ fi
 [ -f "$lock_file" ] || fail "缺少 $lock_file"
 [ -f "$checksums_file" ] || fail "缺少 $checksums_file"
 
+checksum_keys=$(awk 'NF { print $2 }' "$checksums_file" | tr '\n' ' ')
+
+# 重复键必须先于逐条哈希校验判掉：重复的若正好是本机 applicable 的键，取出的
+# expected_sum 会是两行拼在一起，比对失败后报出的「漂移」里实际值与登记值肉眼相同，
+# 把维护者带向错误方向。门禁结果一样是红，但诊断必须指对地方。
+duplicate=$(printf '%s\n' $checksum_keys | sort | uniq -d)
+[ -z "$duplicate" ] ||
+    fail "checksums.sha256 有重复键：$(printf '%s' "$duplicate" | tr '\n' ' ')"
+
 lock_entries=$(awk '
     BEGIN { RS = ""; FS = "\n" }
     /^\[\[tools\]\]/ {
@@ -180,12 +189,6 @@ EOF
 # ── 3. checksums 与锁双向一致 ──────────────────────────────────────────────
 # 逐键双向比对，不比行数：行数相等掩盖不了「缺一个键 + 重复另一个键」——
 # 这种组合会让某个 host 的登记静默消失而门禁仍绿。
-checksum_keys=$(awk 'NF { print $2 }' "$checksums_file" | tr '\n' ' ')
-
-duplicate=$(printf '%s\n' $checksum_keys | sort | uniq -d)
-[ -z "$duplicate" ] ||
-    fail "checksums.sha256 有重复键：$(printf '%s' "$duplicate" | tr '\n' ' ')"
-
 for key in $expected_keys; do
     case " $checksum_keys " in
         *" $key "*) : ;;

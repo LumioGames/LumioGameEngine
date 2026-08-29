@@ -37,10 +37,13 @@ env:
     for block in text.split("[[tools]]")[1:]:
         fields = dict(re.findall(r'^(\w+) = "([^"]*)"', block, re.M))
         hosts = re.search(r"supported_hosts = \[([^\]]*)\]", block)
-        if not hosts or "linux-x86_64" not in hosts.group(1):
+        if not hosts:
             continue
-        # 工具链三项由 rustup / apt 安装，不走 release archive 下载路径。
-        if fields.get("name") in {"rustc", "cargo", "cc"}:
+        # 按 host key 精确匹配，不用子串：`"linux-x86_64" in "linux-x86_64-p0-build"`
+        # 为真，子串写法会把钉定构建环境的工具链条目也当成 release 归档去下载。
+        # 那些条目由 rustup / apt 安装，不走这条路径。
+        keys = set(re.findall(r'"([^"]+)"', hosts.group(1)))
+        if "linux-x86_64" not in keys:
             continue
         print(fields["name"], fields["source_url"], fields["artifact_sha256"], sep="\t")
   # 取某个工具链条目（linux-x86_64-p0-build）的 artifact_sha256。
