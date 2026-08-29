@@ -70,11 +70,20 @@ runtime-deps:
     fi
     echo "runtime-deps: OK（test-support 未泄漏；platform-contracts normal 依赖恰为白名单）"
 
+# 测试发现失效守护（R-00266）。必须跑在 nextest 之前，见下方 --no-tests=pass 的说明。
+test-discovery:
+    bash tools/verify-test-discovery.sh
+
 # nextest 0.9.114 起不再自动发现仓库根 nextest.toml（默认改查 .config/nextest.toml），
 # 本仓按规格 §3.1 布局保留根文件，故显式 --config-file。
 # --no-tests=pass：门禁在仓库任一合法状态下都可判定（B-00001）——nextest 默认
 # 「零测试即失败」，会让首张带测试的卡落地前 §20.1 门禁必然红；真实测试失败仍失败。
-nextest:
+#
+# 该口径的代价（R-00266）：**发现失效与真的没有测试长得一样**。实测给某个 package
+# 注入 `autotests = false`，30 个测试凭空消失，本 recipe 仍 exit 0 并报「80 passed」。
+# 因此 `test-discovery` 是本 recipe 的前置依赖而不是可选步骤：判据放在发现结果上，
+# 不动 nextest 的 --no-tests 语义（两者管的是不同的事）。
+nextest: test-discovery
     cargo nextest run --workspace --profile ci --config-file nextest.toml --no-tests=pass
 
 # ── 架构契约镜像（LCE-P0-002）─────────────────────────────────────────────
