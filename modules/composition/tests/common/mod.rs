@@ -4,6 +4,10 @@
 //! 与只读镜像文件（保证摘要口径与仓库一致）+ 两个一次性 git checkout。夹具建在
 //! 进程私有临时目录里，不触碰仓库工作区，也不依赖网络。
 
+// 本文件会被**每个**测试二进制各编译一份，而每份只用其中一部分，没用到的项在别的
+// 二进制里就成了 dead_code。这是共享夹具的固有形态，不是真的死代码。
+#![allow(dead_code)]
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;

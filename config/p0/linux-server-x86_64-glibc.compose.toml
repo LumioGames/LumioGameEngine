@@ -33,7 +33,9 @@ checkout_root = "build/sources/lumio-voxel-engine"
 expected_commit = "0466ffd95895285ee6f79ad41e6b84acc0a1d756"
 expected_tree_id = "90e0e9c0e711058534c42f7b4d06599e3b202789"
 
-# known 只登记两仓 Cargo.toml 里**真实存在**的 feature；compose 不认识 known 之外的名字。
+# known 只登记**真实存在**的 feature——当前两项都来自
+# LumioNativeCore/crates/lumio-native-ffi/Cargo.toml；VoxelEngine 侧的 lumio-voxel-world
+# 没有声明 feature，故此处没有它的条目。compose 不认识 known 之外的名字。
 # P0 不启用任何实验性 feature，故 requested 为空、两项均落到 disabled——计划显式记下
 # 「关着」，不给下游留猜默认值的空间。
 [features]

@@ -153,4 +153,40 @@ fn self_excluding_inputs_digest_catches_tampering_that_sidecar_was_recomputed_fo
     let error = verify_frozen_plan(&frozen.plan_path, &frozen.plan_digest_path)
         .expect_err("inputs_digest 失配必须被发现");
     assert_eq!(error.kind(), CompositionErrorKind::NonDeterministicPlan);
+    // 重编码检查与 inputs_digest 检查返回同一个 kind，只断 kind 证不出是哪条防线接住的。
+    assert!(
+        error.message().contains("inputs_digest"),
+        "必须由 inputs_digest 检查判掉，实际：{}",
+        error.message()
+    );
+}
+
+#[test]
+fn sidecar_that_is_not_64_lowercase_hex_plus_one_lf_is_rejected() {
+    let ws = TempWorkspace::create("reproducible-sidecar-shape");
+    let frozen = compose(ws.request("sidecar-shape")).expect("冻结成功");
+    let good = std::fs::read_to_string(&frozen.plan_digest_path).expect("读回 sidecar");
+    let hex = good.trim_end();
+
+    // sidecar 的格式本身是协议的一部分（ADR-0006 第 6 条），读方不得放宽。
+    for (label, malformed) in [
+        ("缺尾部 LF", hex.to_string()),
+        ("多一个 LF", format!("{hex}\n\n")),
+        ("大写十六进制", format!("{}\n", "A".repeat(64))),
+        ("带文件名", format!("{hex}  build-plan.json\n")),
+    ] {
+        std::fs::write(&frozen.plan_digest_path, &malformed).expect("写回畸形 sidecar");
+        match verify_frozen_plan(&frozen.plan_path, &frozen.plan_digest_path) {
+            Ok(_) => panic!("{label} 的 sidecar 必须被拒绝，实际通过了"),
+            Err(error) => assert_eq!(
+                error.kind(),
+                CompositionErrorKind::NonDeterministicPlan,
+                "{label}"
+            ),
+        }
+    }
+
+    // 复原后仍应通过，证明上面的拒绝来自格式而不是别的副作用。
+    std::fs::write(&frozen.plan_digest_path, &good).expect("复原 sidecar");
+    verify_frozen_plan(&frozen.plan_path, &frozen.plan_digest_path).expect("复原后应通过");
 }

@@ -12,10 +12,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::error::{err, CompositionError, CompositionErrorKind};
-use crate::model::{
-    ArchitectureDocumentRef, ArchitectureInputLock, BuildInvocation, BuildPlan, BuildProfile,
-    FeatureSet, PackageLayout, ProvenanceRecord, RootAbiContractRef, SourceLock, ToolchainLock,
-};
+use crate::model::{BuildPlan, ProvenanceRecord};
 
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
@@ -29,7 +26,7 @@ pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     out
 }
 
-fn encode<T: Serialize>(value: &T, what: &str) -> Result<Vec<u8>, CompositionError> {
+pub(crate) fn encode<T: Serialize>(value: &T, what: &str) -> Result<Vec<u8>, CompositionError> {
     let mut bytes = serde_json::to_vec(value).map_err(|e| {
         err(
             CompositionErrorKind::NonDeterministicPlan,
@@ -40,43 +37,40 @@ fn encode<T: Serialize>(value: &T, what: &str) -> Result<Vec<u8>, CompositionErr
     Ok(bytes)
 }
 
-/// `BuildPlan` 去掉 `inputs_digest` 后的投影：`inputs_digest` 是对这份字节的 SHA-256，
-/// 自排除避免自引用（ADR-0006 第 6 条）。字段顺序必须与 `BuildPlan` 完全一致。
-#[derive(Serialize)]
-struct BuildPlanCore<'a> {
-    plan_format_version: u32,
-    architecture: &'a ArchitectureInputLock,
-    source_lock: &'a SourceLock,
-    feature_set: &'a FeatureSet,
-    target_profile_document: &'a ArchitectureDocumentRef,
-    toolchain: &'a ToolchainLock,
-    build_profile: &'a BuildProfile,
-    root_abi_contract: &'a RootAbiContractRef,
-    build_invocations: &'a [BuildInvocation],
-    package_layout: &'a PackageLayout,
-}
-
-impl<'a> BuildPlanCore<'a> {
-    fn of(plan: &'a BuildPlan) -> Self {
-        BuildPlanCore {
-            plan_format_version: plan.plan_format_version,
-            architecture: &plan.architecture,
-            source_lock: &plan.source_lock,
-            feature_set: &plan.feature_set,
-            target_profile_document: &plan.target_profile_document,
-            toolchain: &plan.toolchain,
-            build_profile: &plan.build_profile,
-            root_abi_contract: &plan.root_abi_contract,
-            build_invocations: &plan.build_invocations,
-            package_layout: &plan.package_layout,
-        }
-    }
-}
-
 /// `inputs_digest` 的取值：对「省略 inputs_digest 字段后的 BuildPlan 规范编码字节」
-/// 取 SHA-256。注意投影字节同样以一个 LF 结尾——摘要口径的一部分，不可省。
+/// 取 SHA-256，自排除避免自引用（ADR-0006 第 6 条）。投影字节同样以一个 LF 结尾——
+/// 摘要口径的一部分，不可省。
+///
+/// 投影**从整份计划的编码字节上机械切出**，而不是另写一个「字段与 BuildPlan 一致」的
+/// 平行结构：平行结构只能靠注释约束同步，往 BuildPlan 加字段或调顺序时忘了同步，
+/// 所有已发布计划的 inputs_digest 会静默改值而测试全绿。这里把 inputs_digest 置空后
+/// 编码，再断言并切掉末尾那段固定后缀——字段一旦不再是最后一个或被改名，切割会
+/// 立即失败，而不是悄悄算出另一个摘要。
 pub(crate) fn inputs_digest(plan: &BuildPlan) -> Result<String, CompositionError> {
-    let bytes = encode(&BuildPlanCore::of(plan), "BuildPlan(core)")?;
+    const EMPTY_TAIL: &[u8] = br#","inputs_digest":""}"#;
+
+    let mut probe = plan.clone();
+    probe.inputs_digest = String::new();
+    let encoded = serde_json::to_vec(&probe).map_err(|e| {
+        err(
+            CompositionErrorKind::NonDeterministicPlan,
+            format!("BuildPlan 规范编码失败：{e}"),
+        )
+    })?;
+
+    let core = encoded.strip_suffix(EMPTY_TAIL).ok_or_else(|| {
+        err(
+            CompositionErrorKind::NonDeterministicPlan,
+            "BuildPlan 的 inputs_digest 不再是编码里的最后一个字段，\
+             自排除投影无法机械切出——这是 plan_format_version 级别的变更（ADR-0006 第 10 条）"
+                .to_string(),
+        )
+    })?;
+
+    let mut bytes = Vec::with_capacity(core.len() + 2);
+    bytes.extend_from_slice(core);
+    bytes.push(b'}');
+    bytes.push(b'\n');
     Ok(sha256_hex(&bytes))
 }
 
@@ -91,15 +85,29 @@ pub(crate) fn encode_provenance(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
-    use crate::model::{SourceComponent, SourceRepository, ToolReference};
+    use crate::model::{
+        ArchitectureDocumentRef, ArchitectureInputLock, BuildInvocation, BuildProfile, FeatureSet,
+        PackageLayout, RootAbiContractRef, SourceComponent, SourceLock, SourceRepository,
+        ToolReference, ToolchainLock,
+    };
+
+    /// 递归确认 JSON 里没有浮点数（ADR-0006 第 2 条：只允许无符号整数与布尔）。
+    fn no_float(value: &serde_json::Value) -> bool {
+        match value {
+            serde_json::Value::Number(number) => number.is_u64(),
+            serde_json::Value::Array(items) => items.iter().all(no_float),
+            serde_json::Value::Object(entries) => entries.values().all(no_float),
+            _ => true,
+        }
+    }
 
     /// 覆盖 ADR-0006 第 2 条每一条字节规则的合成计划。数值刻意用边界值，字符串刻意
     /// 含非 ASCII、控制字符与正斜杠——这些正是最容易在换实现时悄悄漂移的地方。
-    fn golden_plan() -> BuildPlan {
+    pub(crate) fn golden_plan() -> BuildPlan {
         let document = |path: &str| ArchitectureDocumentRef {
             source_path: path.to_string(),
             source_sha256: "0".repeat(64),
@@ -133,8 +141,13 @@ mod tests {
                 source_tree_digest: "1".repeat(64),
             },
             feature_set: FeatureSet {
-                // 非 ASCII 与控制字符：转义规则的直接判据。
-                enabled: vec!["中文-feature".to_string(), "ctrl\u{1}flag".to_string()],
+                // 非 ASCII 与控制字符：转义规则的直接判据。第二个控制字符取 U+001F，
+                // 它的转义里带 a-f，「十六进制必须小写」这条才锁得住。
+                enabled: vec![
+                    "中文-feature".to_string(),
+                    "ctrl\u{1}flag".to_string(),
+                    "unit\u{1f}sep".to_string(),
+                ],
                 disabled: vec![],
             },
             target_profile_document: document("fixtures/valid/target-profile-linux-server.json"),
@@ -213,7 +226,8 @@ mod tests {
         r#""commit":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","#,
         r#""tree_id":"ffffffffffffffffffffffffffffffffffffffff"}],"#,
         r#""source_tree_digest":"1111111111111111111111111111111111111111111111111111111111111111"},"#,
-        r#""feature_set":{"enabled":["中文-feature","ctrl\u0001flag"],"disabled":[]},"#,
+        r#""feature_set":{"enabled":["中文-feature","ctrl\u0001flag","unit\u001fsep"],"#,
+        r#""disabled":[]},"#,
         r#""target_profile_document":{"source_path":"fixtures/valid/target-profile-linux-server.json","#,
         r#""source_sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"#,
         r#""toolchain":{"rustc":{"tool_id":"rustc","version":"1.89.0","#,
@@ -262,10 +276,16 @@ mod tests {
         assert!(!text.contains(": "), "紧凑：键值之间无空格");
         assert!(!text.contains(", "), "紧凑：元素之间无空格");
         assert!(text.contains("中文-feature"), "非 ASCII 原样输出，不转 \\u");
-        assert!(text.contains(r"ctrl\u0001flag"), "控制字符转小写 \\u00XX");
+        assert!(text.contains(r"ctrl\u0001flag"), "控制字符转 \\u00XX");
+        assert!(
+            text.contains(r"unit\u001fsep") && !text.contains(r"unit\u001Fsep"),
+            "转义里的十六进制必须小写"
+        );
         assert!(text.contains("https://example.invalid/a/b"), "不转义正斜杠");
         assert!(text.contains("\"sdk\":null"), "缺省字段发 null，键集恒定");
-        assert!(!text.contains('.') || !text.contains("e+"), "无浮点");
+        // 版本号里的 `.` 在字符串内，按字符找小数点测不到东西；要看的是数字词法位置。
+        let parsed: serde_json::Value = serde_json::from_str(text.trim_end()).expect("合法 JSON");
+        assert!(no_float(&parsed), "计划内不得出现 JSON 浮点数");
     }
 
     #[test]

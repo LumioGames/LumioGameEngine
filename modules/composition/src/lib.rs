@@ -141,7 +141,25 @@ pub fn verify_frozen_plan(plan: &Path, digest: &Path) -> Result<FrozenBuildPlan,
         )
     })?;
 
-    let expected = sidecar.strip_suffix('\n').unwrap_or(&sidecar);
+    // sidecar 的格式本身也是协议的一部分（ADR-0006 第 6 条：64 位小写十六进制 +
+    // 恰一个 LF，无文件名、无其他字节）。读方放宽会让消费者侧的格式漂移无人拦截——
+    // 而 ADR 第 9 条把 composition 定为唯一解析入口，这里放过就没有第二道关了。
+    let expected = sidecar.strip_suffix('\n').filter(|hex| {
+        hex.len() == 64
+            && hex
+                .chars()
+                .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
+    });
+    let expected = expected.ok_or_else(|| {
+        CompositionError::new(
+            CompositionErrorKind::NonDeterministicPlan,
+            format!(
+                "{} 不是合法 sidecar：要求 64 位小写十六进制 + 恰一个 LF，实际 {} 字节",
+                digest.display(),
+                sidecar.len()
+            ),
+        )
+    })?;
     let actual = encode::sha256_hex(&bytes);
     if expected != actual {
         return Err(CompositionError::new(
@@ -177,8 +195,14 @@ pub fn verify_frozen_plan(plan: &Path, digest: &Path) -> Result<FrozenBuildPlan,
         )
     })?;
 
-    // 重编码零差异：sidecar 只能证明「字节没被改」，证明不了「这些字节是规范编码」。
-    // 攻击者能改文件就能重算 sidecar，此时只剩这一步与 inputs_digest 还能发现。
+    // 重编码零差异：sidecar 只能证明「字节与 sidecar 自洽」，证明不了「这些字节是规范
+    // 编码」——非规范但语义等价的 JSON（改键序、加空白）能骗过摘要比对。
+    //
+    // 边界要说清楚：本函数保证的是**这份字节自洽且是规范编码**，不是「这份字节出自
+    // composition」。能写文件的攻击者可以同时重算 sidecar 与 inputs_digest 并产出规范
+    // 编码——这三条都是计划内容的纯函数。要防「计划被替换」只能靠带外登记的
+    // build_plan_digest（上游摘要链），不能靠这里。LCE-P0-008 的 plan_immutability
+    // 若建在本函数上，只能测出懒惰篡改。
     let reencoded = encode::encode_plan(&decoded)?;
     if reencoded != bytes {
         return Err(CompositionError::new(

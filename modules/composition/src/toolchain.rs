@@ -7,6 +7,8 @@
 
 use std::path::Path;
 
+use serde::Deserialize;
+
 use crate::error::{err, invalid, CompositionError, CompositionErrorKind};
 use crate::model::{ToolReference, ToolchainLock};
 use crate::validate::{is_sha256_hex, TargetProfileDocument};
@@ -69,25 +71,41 @@ fn check_shape(tool: &ToolReference, role: &str) -> Result<(), CompositionError>
     Ok(())
 }
 
-/// tools.lock.toml 里 (name, version, host) 命中的条目是否存在。
-fn locked_entry_exists(lock_text: &str, name: &str, version: &str, host: &str) -> bool {
-    lock_text.split("[[tools]]").skip(1).any(|block| {
-        field(block, "name").as_deref() == Some(name)
-            && field(block, "version").as_deref() == Some(version)
-            && block
-                .lines()
-                .find(|line| line.trim_start().starts_with("supported_hosts"))
-                .is_some_and(|line| line.contains(&format!("\"{host}\"")))
-    })
+/// `tools/tools.lock.toml` 的最小消费视图。
+///
+/// 用 `toml` 解析而不是手写扫描：ADR 0007 §2 把「只支持子集的自研解析器」列为否决项，
+/// 理由正是「一份**合法** TOML 被静默误读比读不出来更危险」——例如 `supported_hosts`
+/// 写成多行数组时，逐行 `starts_with` 会命中 `supported_hosts = [` 而读不到任何 host，
+/// 于是报「登记缺失」，把人指向错误的方向。
+///
+/// 不 `deny_unknown_fields`：这个文件由 R-00265 拥有，十个字段还会增长，
+/// 本 crate 只声明自己要用的三个。
+#[derive(Deserialize)]
+struct ToolsLock {
+    #[serde(default)]
+    tools: Vec<LockedTool>,
 }
 
-fn field(block: &str, key: &str) -> Option<String> {
-    block
-        .lines()
-        .map(str::trim_start)
-        .find(|line| line.starts_with(key) && line[key.len()..].trim_start().starts_with('='))
-        .and_then(|line| line.split('=').nth(1))
-        .map(|value| value.trim().trim_matches('"').to_string())
+#[derive(Deserialize)]
+struct LockedTool {
+    name: String,
+    version: String,
+    #[serde(default)]
+    supported_hosts: Vec<String>,
+}
+
+fn parse_tools_lock(path: &Path) -> Result<ToolsLock, CompositionError> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| invalid(format!("读取 {} 失败：{e}", path.display())))?;
+    toml::from_str(&text).map_err(|e| invalid(format!("解析 {} 失败：{e}", path.display())))
+}
+
+fn locked_entry_exists(lock: &ToolsLock, name: &str, version: &str, host: &str) -> bool {
+    lock.tools.iter().any(|tool| {
+        tool.name == name
+            && tool.version == version
+            && tool.supported_hosts.iter().any(|entry| entry == host)
+    })
 }
 
 fn registered_digest(checksums_text: &str, name: &str, host: &str) -> Option<String> {
@@ -104,10 +122,10 @@ fn check_registration(
     tool: &ToolReference,
     role: &str,
     host: &str,
-    lock_text: &str,
+    lock: &ToolsLock,
     checksums_text: &str,
 ) -> Result<(), CompositionError> {
-    if !locked_entry_exists(lock_text, &tool.tool_id, &tool.version, host) {
+    if !locked_entry_exists(lock, &tool.tool_id, &tool.version, host) {
         return Err(err(
             CompositionErrorKind::ToolchainMismatch,
             format!(
@@ -180,9 +198,9 @@ pub(crate) fn validate(
         host_key(&toolchain.target_triple)?
     );
     let host = build_host.as_str();
-    let lock_text = std::fs::read_to_string(tools_lock_path)
-        .map_err(|e| invalid(format!("读取 {} 失败：{e}", tools_lock_path.display())))?;
+    let lock = parse_tools_lock(tools_lock_path)?;
     // checksums.sha256 与锁同目录，是 verify-tool-lock.sh 既有的约定布局。
+    // 它不是 TOML（`<digest>  <name>@<host>` 逐行），故不在 ADR 0007 的解析器约束内。
     let checksums_path = tools_lock_path
         .parent()
         .ok_or_else(|| invalid("tools.lock.toml 路径没有父目录".to_string()))?
@@ -194,25 +212,25 @@ pub(crate) fn validate(
         &toolchain.rustc,
         "toolchain.rustc",
         host,
-        &lock_text,
+        &lock,
         &checksums_text,
     )?;
     check_registration(
         &toolchain.cargo,
         "toolchain.cargo",
         host,
-        &lock_text,
+        &lock,
         &checksums_text,
     )?;
     check_registration(
         &toolchain.linker,
         "toolchain.linker",
         host,
-        &lock_text,
+        &lock,
         &checksums_text,
     )?;
     if let Some(sdk) = &toolchain.sdk {
-        check_registration(sdk, "toolchain.sdk", host, &lock_text, &checksums_text)?;
+        check_registration(sdk, "toolchain.sdk", host, &lock, &checksums_text)?;
     }
 
     Ok(())

@@ -187,15 +187,17 @@ pub(crate) fn publish(
         .map_err(|e| atomic_failed(format!("创建 {} 失败：{e}", parent.display())))?;
 
     // 临时目录与最终目录同父（同文件系统），rename 才可能是原子的。
-    // 名字用进程 id + 单调计数：不引入随机源，同一进程内不会撞名，跨进程由 pid 隔离。
+    //
+    // 名字必须是一次性随机的（ADR-0006 第 7 条第 2 步）。pid + 计数不够：两个容器
+    // bind-mount 同一个 build/ 时 pid 命名空间彼此独立，pid 会重复，两次 compose 可能
+    // 撞进同一个临时目录，交错发布出「A 的 build-plan.json + B 的 provenance.json」。
+    // 随机数只进临时目录名，不进计划字节，不损害确定性。
     let nonce = {
-        use std::sync::atomic::{AtomicU32, Ordering};
-        static SEQ: AtomicU32 = AtomicU32::new(0);
-        format!(
-            "{}-{}",
-            std::process::id(),
-            SEQ.fetch_add(1, Ordering::Relaxed)
-        )
+        use std::hash::{BuildHasher, Hasher};
+        // RandomState 每次构造取新的随机种子，是 std 内唯一的随机源。
+        let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+        hasher.write_usize(std::process::id() as usize);
+        format!("{:016x}", hasher.finish())
     };
     let file_name = output_plan_path
         .file_name()
@@ -203,8 +205,10 @@ pub(crate) fn publish(
         .to_string_lossy()
         .into_owned();
     let temp_root = parent.join(format!(".{file_name}.tmp-{nonce}"));
-    let _ = std::fs::remove_dir_all(&temp_root);
-    std::fs::create_dir(&temp_root).map_err(|e| atomic_failed(format!("创建临时目录失败：{e}")))?;
+    // 不预先删除同名目录：`create_dir` 的 EEXIST 是这里唯一的抢占保护，先 remove 再
+    // create 等于把它拆掉。撞名应当报错，不是静默复用别人的临时目录。
+    std::fs::create_dir(&temp_root)
+        .map_err(|e| atomic_failed(format!("创建临时目录 {} 失败：{e}", temp_root.display())))?;
     // 从这里开始，任何早退都由 Drop 清掉临时目录：失败不得留下可发现的半成品。
     let temp = TempDir(temp_root);
 
