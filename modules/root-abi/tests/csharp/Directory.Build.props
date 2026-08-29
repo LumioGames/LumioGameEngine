@@ -1,0 +1,17 @@
+<Project>
+
+  <!--
+    跨语言探针的构建产物一律落到仓库根的 build/（已在 .gitignore），源码树里不留 bin/ 与 obj/。
+    与 cargo 的 /target、报告的 build/reports 同一处置。
+
+    必须放在 Directory.Build.props 而不是 .csproj：BaseIntermediateOutputPath 要在
+    Microsoft.Common.props 导入**之前**生效，写在 .csproj 里会触发 MSB3539，NuGet 仍会
+    把 obj/ 写回项目目录。
+  -->
+  <PropertyGroup>
+    <RepoBuildRoot>$(MSBuildThisFileDirectory)../../../../build/csharp/</RepoBuildRoot>
+    <BaseOutputPath>$(RepoBuildRoot)$(MSBuildProjectName)/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(RepoBuildRoot)$(MSBuildProjectName)/obj/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+</Project>
