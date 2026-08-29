@@ -110,12 +110,15 @@ compose p="p0-linux": (assert-profile p)
 generate-abi p="p0-linux": (assert-profile p)
     cargo run --locked -p lumio-core-root-abi-generator -- generate --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --architecture-lock architecture.lock.json --out modules/root-abi/generated/LGE-V1.4-2026-08-27
 
-# 生成物完整性（规格 §20.1「重新生成零差异」）。当前接入 lumio-core-contracts 的
-# 锁定生成器校验（LCE-P0-003：descriptor Input/Output Hash 字节重算、上游 provenance
-# 与镜像对账、重渲染零差异）；root-abi generator 的 verify-generated（LCE-P0-005）
-# 落地后按规格再并入本 recipe。
+# 生成物完整性（规格 §20.1「重新生成零差异」）。两段：
+#   1. lumio-core-contracts 的锁定生成器校验（LCE-P0-003：descriptor Input/Output Hash
+#      字节重算、上游 provenance 与镜像对账、重渲染零差异）；
+#   2. root-abi 生成目录的回读校验（LCE-P0-005，本 recipe 原注释预留的接入点）——
+#      逐份产物与上游 bundle 声明摘要对账、descriptor 按同一规则重建后逐字节比对、
+#      文件集合与登记表完全一致。没有这一段，手改生成物不会被任何门禁发现。
 check-generated:
     cargo test -p lumio-core-contracts --locked --test generated_integrity
+    cargo run --locked -q -p lumio-core-root-abi-generator -- verify-generated --generated modules/root-abi/generated/LGE-V1.4-2026-08-27 --architecture-lock architecture.lock.json
 
 build-platform p="p0-linux": (assert-profile p)
     cargo run --locked -p lumio-core-platform-build -- build-staging --plan build/plans/p0-linux-server-x86_64-glibc/build-plan.json --plan-digest-file build/plans/p0-linux-server-x86_64-glibc/build-plan.sha256 --abi modules/root-abi/generated/LGE-V1.4-2026-08-27 --out build/platform/linux-server-x86_64-glibc/staging

@@ -12,6 +12,19 @@ publish.workspace = true
 [features]
 default = []
 
+[dependencies]
+# ADR 0004 第 3 条冻结的允许边：root-abi-generator -> contracts, composition。
+# 本卡只用到 serde 系与 sha2；composition 边由 LCE-P0-008 消费计划时接入。
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+# 已冻结计划的唯一合法读法（ADR 0006 第 8 条：消费者不得自建第二套解析器）。
+lumio-core-composition = { path = "../../composition", version = "0.1.0" }
+
+[dev-dependencies]
+# 测试要按字段改写 descriptor 来构造反例。
+serde_json = { workspace = true }
+
 [[bin]]
 name = "lumio-core-root-abi-generator"
 path = "src/bin/lumio-core-root-abi-generator.rs"
