@@ -1,0 +1,10 @@
+﻿Framework,Construct,Ready,EnableAxis,InterestEnter,InterestExit,Destroy,KeySemantics
+Unity MonoBehaviour,Awake,Start,OnEnable/OnDisable,None built-in,None built-in,OnDestroy,Scene-wide Awake before Start; runtime instantiation caveat
+Unreal Actor/Component,PostLoad/PostActorCreated/InitializeComponent,BeginPlay,Activate/Deactivate,Replication relevancy,Dormancy/relevancy,EndPlay/Destroyed,Networked BeginPlay may be delayed
+Unity Entities,Component add / structural commit,System visibility,Enableable component,Ghost spawn/relevancy,Ghost despawn or custom cache,Entity destroy,Structural changes via ECB/sync point
+Flecs,OnAdd,OnSet/custom phase,Disabled/toggle,N/A,N/A,OnRemove,Readonly progress queues commands to merge
+Mirror,Awake + OnStartServer/Client,Network role ready callbacks,Unity enable separate,Observer spawn,Observer hide,OnStop*/Destroy,Owner must remain observer
+FishNet,Awake + OnStartServer/Client,Role/ownership ready,Unity enable separate,Observer qualifies,Observer removed,OnStop*,Conditions compose distance/scene/owner
+Photon Fusion,Spawned,IAfterSpawned,Simulation inclusion,IInterestEnter,IInterestExit,Despawned,OnChangedRender is not initialisation
+KBEngine client,Entity/component attach,onEnterWorld / remote call readiness,Application-specific,world/space/view enter,world/space/view leave,Entity removal,Attach can precede cellEntityCall readiness
+Target recommendation,Awake in unpublished construct transaction,Start after dependency DAG and publish,Runtime Enabled axis,ServerObserverEnter / ReplicaEnter,ServerObserverExit / ReplicaExit,OnDestroy after query removal,"Hydrate, authority, prediction and presentation callbacks are separate"
