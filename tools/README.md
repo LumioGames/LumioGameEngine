@@ -15,4 +15,6 @@ The validator first attempts the pinned upstream `jsonschema` Draft 2020-12 impl
 
 `generate` publishes the ADR-023 six kinds × Rust/C# under `packages/` (plus schema-valid descriptors and `packages/index.json`). Each artifact records `baselineId`, `schemaEpoch`, `compilerHash`, `inputHash` and `outputHash`. Two consecutive runs must produce equal `outputHash` values. Do not hand-edit package sources; regenerate from `schemas/`, `ids/index.json` and `fixtures/valid`. D-009 (protocol-dispatch) and D-011 (Auth wire) stay blocked and do not receive Artifact names. The generator must never silently edit a checked-in fixture.
 
+For GAS A1, the semantic gate checks the frozen lifecycle event table, Admission/Commit order and outcomes, single charging, deterministic evaluation arithmetic/override selection, and same-Tick Effect event order. The schemas remain the public data contract; this tool is the single architecture validator for cross-field invariants and is not a Runtime implementation.
+
 Compiler, input, Root ABI, and package output digests cover raw checked-in text bytes. The repository pins the participating source/input/output paths to LF in `.gitattributes`; before publishing from any platform, check `git ls-files --eol` and do not publish identities generated from a CRLF materialization.

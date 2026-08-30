@@ -1,0 +1,15 @@
+{
+  "kind": "EffectTick",
+  "effectId": "effect-burning-0002",
+  "tickId": 103,
+  "initialState": "Active",
+  "events": [
+    { "order": 1, "event": "Hit", "tickId": 103, "fromState": "Active", "toState": "Active" },
+    { "order": 2, "event": "Duration", "tickId": 103, "fromState": "Active", "toState": "Active", "durationTicks": 20 },
+    { "order": 3, "event": "Overflow", "tickId": 103, "fromState": "Active", "toState": "Active", "overflowCount": 1 }
+  ],
+  "eventOrder": ["Hit", "Duration", "Overflow"],
+  "finalState": "Active",
+  "handleValid": true,
+  "sameTickOutcome": "Applied"
+}

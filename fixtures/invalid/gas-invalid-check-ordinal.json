@@ -1,0 +1,20 @@
+{
+  "kind": "Admission",
+  "machine": "Ability",
+  "instanceId": "ability-admission-order-0002",
+  "fromState": "Requested",
+  "toState": "Activated",
+  "event": "Activate",
+  "admissionOrder": ["HandlePermission", "Cooldown", "Cost", "Tag", "GameCustom"],
+  "checks": [
+    { "name": "HandlePermission", "result": "Pass", "order": 1 },
+    { "name": "Cooldown", "result": "Pass", "order": 3 },
+    { "name": "Cost", "result": "Pass", "order": 2 },
+    { "name": "Tag", "result": "Pass", "order": 4 },
+    { "name": "GameCustom", "result": "Pass", "order": 5 }
+  ],
+  "outcome": "Activated",
+  "handleValid": true,
+  "charged": false,
+  "chargeCount": 0
+}

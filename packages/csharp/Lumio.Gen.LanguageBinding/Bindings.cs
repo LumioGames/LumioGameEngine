@@ -52,6 +52,8 @@ namespace Lumio.Gen.LanguageBinding
             new Binding("voxel-mutation-receipt", "VoxelMutationReceipt", "VoxelMutationReceipt"),
             new Binding("tick-phase-contract", "TickPhaseContract", "TickPhaseContract"),
             new Binding("gas-lifecycle", "GasLifecycle", "GasLifecycle"),
+            new Binding("gas-evaluation", "GasEvaluation", "GasEvaluation"),
+            new Binding("gas-effect-events", "GasEffectEvents", "GasEffectEvents"),
             new Binding("txn-journal-record", "TxnJournalRecord", "TxnJournalRecord"),
             new Binding("command-log-record", "CommandLogRecord", "CommandLogRecord"),
             new Binding("wal-record-envelope", "WalRecordEnvelope", "WalRecordEnvelope"),

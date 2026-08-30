@@ -1,19 +1,120 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/gas-lifecycle.schema.json",
+  "title": "GAS lifecycle, admission and commit contract",
+  "description": "The generic Ability and Effect lifecycle is closed. Admission and Commit are records, not additional public states.",
   "type": "object",
-  "allOf": [
-    { "$ref": "common.schema.json#/$defs/stateTransitionEvent" }
-  ],
   "required": ["machine", "instanceId", "fromState", "toState", "event"],
   "properties": {
+    "kind": { "type": "string", "enum": ["Transition", "Admission", "Commit"] },
     "machine": { "type": "string", "enum": ["Ability", "Effect"] },
     "instanceId": { "$ref": "common.schema.json#/$defs/id" },
     "fromState": { "$ref": "common.schema.json#/$defs/stateName" },
     "toState": { "$ref": "common.schema.json#/$defs/stateName" },
     "event": { "$ref": "common.schema.json#/$defs/id" },
     "handleValid": { "type": "boolean" },
-    "predicted": { "type": "boolean" }
+    "predicted": { "type": "boolean" },
+    "tickId": { "$ref": "common.schema.json#/$defs/tickId" },
+    "phase": { "type": "string", "enum": ["Admission", "Prepared", "CommitDecision", "Commit", "CommitIntent"] },
+    "admissionOrder": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/admissionStep" }
+    },
+    "recheckOrder": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/commitCheck" }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/check" }
+    },
+    "outcome": { "type": "string", "enum": ["Activated", "Rejected", "Executing", "Cancelled"] },
+    "failureStep": { "type": "string", "enum": ["HandlePermission", "Cooldown", "Cost", "Tag", "GameCustom"] },
+    "failureReason": { "$ref": "common.schema.json#/$defs/id" },
+    "prepared": { "type": "boolean" },
+    "commitIntent": { "type": "boolean" },
+    "businessRejected": { "type": "boolean" },
+    "charged": { "type": "boolean" },
+    "chargeCount": { "type": "integer", "minimum": 0, "maximum": 1 }
   },
-  "additionalProperties": false
+  "allOf": [
+    {
+      "if": { "properties": { "machine": { "const": "Ability" } }, "required": ["machine"] },
+      "then": {
+        "properties": {
+          "fromState": { "$ref": "#/$defs/abilityState" },
+          "toState": { "$ref": "#/$defs/abilityState" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "machine": { "const": "Effect" } }, "required": ["machine"] },
+      "then": {
+        "properties": {
+          "fromState": { "$ref": "#/$defs/effectState" },
+          "toState": { "$ref": "#/$defs/effectState" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "Admission" } }, "required": ["kind"] },
+      "then": {
+        "required": ["machine", "instanceId", "fromState", "toState", "event", "admissionOrder", "checks", "outcome", "handleValid"],
+        "properties": { "machine": { "const": "Ability" }, "fromState": { "const": "Requested" } }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "Commit" } }, "required": ["kind"] },
+      "then": {
+        "required": ["machine", "instanceId", "fromState", "toState", "event", "recheckOrder", "checks", "outcome", "handleValid"],
+        "properties": { "machine": { "const": "Ability" }, "fromState": { "const": "Executing" } }
+      }
+    },
+    {
+      "if": { "required": ["admissionOrder"] },
+      "then": { "required": ["kind"], "properties": { "kind": { "const": "Admission" } } }
+    },
+    {
+      "if": { "required": ["recheckOrder"] },
+      "then": { "required": ["kind"], "properties": { "kind": { "const": "Commit" } } }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "abilityState": {
+      "type": "string",
+      "enum": ["Requested", "Activated", "Executing", "Completed", "Rejected", "Cancelled", "Expired", "RolledBack"]
+    },
+    "effectState": {
+      "type": "string",
+      "enum": ["Pending", "Active", "Expired", "Removed", "Rejected", "RolledBack"]
+    },
+    "admissionStep": {
+      "type": "string",
+      "enum": ["HandlePermission", "Cooldown", "Cost", "Tag", "GameCustom"]
+    },
+    "commitCheck": {
+      "type": "string",
+      "enum": ["Cooldown", "Cost"]
+    },
+    "check": {
+      "type": "object",
+      "required": ["name", "result", "order"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["HandlePermission", "Cooldown", "Cost", "Tag", "GameCustom"]
+        },
+        "result": { "type": "string", "enum": ["Pass", "Fail"] },
+        "order": { "type": "integer", "minimum": 1, "maximum": 5 }
+      },
+      "additionalProperties": false
+    }
+  }
 }

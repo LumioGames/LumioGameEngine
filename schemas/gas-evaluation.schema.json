@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/gas-evaluation.schema.json",
+  "title": "GAS deterministic evaluation contract",
+  "description": "V1 evaluates one channel as (Base + SigmaAdd) * (1 + SigmaPercent), then applies an explicit-priority override.",
+  "type": "object",
+  "required": ["kind", "attributeId", "base", "modifiers", "formula", "operators", "percentageAggregation", "overrideTieBreak", "result"],
+  "properties": {
+    "kind": { "type": "string", "const": "Evaluation" },
+    "attributeId": { "$ref": "common.schema.json#/$defs/id" },
+    "base": { "type": "number" },
+    "modifiers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/modifier" }
+    },
+    "overrides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/override" }
+    },
+    "formula": { "type": "string", "const": "(Base + SigmaAdd) * (1 + SigmaPercent)" },
+    "operators": {
+      "type": "array",
+      "const": ["Add", "Percent", "Override"],
+      "items": { "type": "string", "enum": ["Add", "Percent", "Override"] }
+    },
+    "percentageAggregation": { "type": "string", "const": "Additive" },
+    "overrideTieBreak": { "type": "string", "const": "PriorityDescendingThenSequenceDescending" },
+    "channel": { "type": "string", "const": "Default" },
+    "result": { "type": "number" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "modifier": {
+      "type": "object",
+      "required": ["id", "operator", "value", "priority", "sequence"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/id" },
+        "operator": { "type": "string", "enum": ["Add", "Percent", "Override"] },
+        "value": { "type": "number" },
+        "priority": { "type": "integer", "minimum": 0 },
+        "sequence": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "override": {
+      "type": "object",
+      "required": ["id", "value", "priority", "sequence"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/id" },
+        "value": { "type": "number" },
+        "priority": { "type": "integer", "minimum": 0 },
+        "sequence": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

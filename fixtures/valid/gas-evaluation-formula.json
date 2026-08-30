@@ -1,0 +1,17 @@
+{
+  "kind": "Evaluation",
+  "attributeId": "health",
+  "base": 100,
+  "modifiers": [
+    { "id": "add-health", "operator": "Add", "value": 20, "priority": 0, "sequence": 1 },
+    { "id": "percent-health-a", "operator": "Percent", "value": 0.1, "priority": 0, "sequence": 2 },
+    { "id": "percent-health-b", "operator": "Percent", "value": 0.1, "priority": 0, "sequence": 3 }
+  ],
+  "overrides": [],
+  "formula": "(Base + SigmaAdd) * (1 + SigmaPercent)",
+  "operators": ["Add", "Percent", "Override"],
+  "percentageAggregation": "Additive",
+  "overrideTieBreak": "PriorityDescendingThenSequenceDescending",
+  "channel": "Default",
+  "result": 144
+}

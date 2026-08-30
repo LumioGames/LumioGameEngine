@@ -44,6 +44,8 @@ pub const SCHEMA_IDS: &[&str] = &[
     "voxel-mutation-receipt",
     "tick-phase-contract",
     "gas-lifecycle",
+    "gas-evaluation",
+    "gas-effect-events",
     "txn-journal-record",
     "command-log-record",
     "wal-record-envelope",

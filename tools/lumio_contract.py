@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -512,6 +513,16 @@ def _transition_table(path: Path) -> Dict[str, set]:
     return table
 
 
+def _transition_event_table(path: Path) -> Dict[Tuple[str, str], set]:
+    """Derive the explicit event vocabulary for each state transition."""
+    document = load_json(path)
+    table: Dict[Tuple[str, str], set] = {}
+    for item in document.get("transitions") or []:
+        key = (str(item.get("from")), str(item.get("to")))
+        table.setdefault(key, set()).add(item.get("event"))
+    return table
+
+
 def _terminal_states(path: Path) -> set:
     return set(load_json(path).get("terminalStates") or [])
 
@@ -519,9 +530,26 @@ def _terminal_states(path: Path) -> set:
 _ABILITY_FIXTURE = FIXTURE_DIR / "valid" / "state-machine-gas-ability.json"
 _EFFECT_FIXTURE = FIXTURE_DIR / "valid" / "state-machine-gas-effect.json"
 _ABILITY_TRANSITIONS = _transition_table(_ABILITY_FIXTURE)
+_ABILITY_TRANSITION_EVENTS = _transition_event_table(_ABILITY_FIXTURE)
 _ABILITY_TERMINAL = _terminal_states(_ABILITY_FIXTURE)
 _EFFECT_TRANSITIONS = _transition_table(_EFFECT_FIXTURE)
+_EFFECT_TRANSITION_EVENTS = _transition_event_table(_EFFECT_FIXTURE)
 _EFFECT_TERMINAL = _terminal_states(_EFFECT_FIXTURE)
+_GAS_ADMISSION_ORDER = ("HandlePermission", "Cooldown", "Cost", "Tag", "GameCustom")
+_GAS_COMMIT_ORDER = ("Cooldown", "Cost")
+_GAS_EFFECT_EVENT_RANK = {
+    "Apply": 0,
+    "Hit": 1,
+    "Overflow": 2,
+    "SnapshotReplacement": 3,
+    "Stack": 4,
+    "Refresh": 4,
+    "Suppress": 4,
+    "Duration": 5,
+    "Period": 6,
+    "Removal": 7,
+    "Expire": 7,
+}
 _CONFIG_INT_BOUNDS = {
     "i32": (-2147483648, 2147483647),
     "i64": (-9223372036854775808, 9223372036854775807),
@@ -559,8 +587,8 @@ _STATE_MACHINE_SOURCES: Dict[str, Any] = {
     "EcsCommandBuffer": ("cross-world-txn", ("properties", "commandBufferState", "enum")),
     "CrossWorldTxn": ("cross-world-txn", ("properties", "state", "enum")),
     "CoreEngineLoader": ("failure-bundle", ("properties", "coreEngine", "properties", "loaderState", "enum")),
-    "GasAbility": None,
-    "GasEffect": None,
+    "GasAbility": ("gas-lifecycle", ("$defs", "abilityState", "enum")),
+    "GasEffect": ("gas-lifecycle", ("$defs", "effectState", "enum")),
     "ReleasePool": ("release-catalog", ("properties", "entries", "items", "properties", "state", "enum")),
     "GameplayScopeActivation": ("gameplay-scope-activation", ("properties", "stage", "enum")),
     "VoxelSnapshotCapture": ("voxel-snapshot-payload", ("$defs", "voxelCaptureState", "enum")),
@@ -805,6 +833,7 @@ def state_machine_consistency_errors(
     ability = descriptors.get("GasAbility")
     if ability is not None:
         pairs = {(item.get("from"), item.get("to")) for item in ability.get("transitions") or []}
+        triples = {(item.get("from"), item.get("to"), item.get("event")) for item in ability.get("transitions") or []}
         expected_pairs = {
             (source, dest)
             for source, dests in _ABILITY_TRANSITIONS.items()
@@ -812,11 +841,19 @@ def state_machine_consistency_errors(
         }
         if pairs != expected_pairs:
             errors.append("GasAbility descriptor transitions must equal the ADR-031 table")
+        expected_triples = {
+            (source, dest, event)
+            for (source, dest), events in _ABILITY_TRANSITION_EVENTS.items()
+            for event in events
+        }
+        if triples != expected_triples:
+            errors.append("GasAbility descriptor transition events must equal the ADR-031 table")
         if set(ability.get("terminalStates") or []) != _ABILITY_TERMINAL:
             errors.append("GasAbility descriptor terminal states must equal the ADR-031 set")
     effect = descriptors.get("GasEffect")
     if effect is not None:
         pairs = {(item.get("from"), item.get("to")) for item in effect.get("transitions") or []}
+        triples = {(item.get("from"), item.get("to"), item.get("event")) for item in effect.get("transitions") or []}
         expected_pairs = {
             (source, dest)
             for source, dests in _EFFECT_TRANSITIONS.items()
@@ -824,10 +861,22 @@ def state_machine_consistency_errors(
         }
         if pairs != expected_pairs:
             errors.append("GasEffect descriptor transitions must equal the ADR-031 table")
+        expected_triples = {
+            (source, dest, event)
+            for (source, dest), events in _EFFECT_TRANSITION_EVENTS.items()
+            for event in events
+        }
+        if triples != expected_triples:
+            errors.append("GasEffect descriptor transition events must equal the ADR-031 table")
         if set(effect.get("terminalStates") or []) != _EFFECT_TERMINAL:
             errors.append("GasEffect descriptor terminal states must equal the ADR-031 set")
         self_events = {(item.get("state"), item.get("event")) for item in effect.get("selfEvents") or []}
-        if self_events != {("Active", "Stack"), ("Active", "Duration"), ("Active", "Refresh")}:
+        if self_events != {
+            ("Active", "Stack"),
+            ("Active", "Duration"),
+            ("Active", "Refresh"),
+            ("Active", "Suppress"),
+        }:
             errors.append("GasEffect descriptor self events must equal the ADR-031 Active-internal set")
     return errors
 
@@ -1290,6 +1339,441 @@ def published_root_abi_bundle_errors() -> List[str]:
                 )
             ]
     return []
+
+
+def _gas_kind(value: Dict[str, Any]) -> str:
+    """Return the lifecycle record kind, retaining the original transition form."""
+    kind = value.get("kind")
+    if kind:
+        return str(kind)
+    if "admissionOrder" in value:
+        return "Admission"
+    if "recheckOrder" in value:
+        return "Commit"
+    return "Transition"
+
+
+def _gas_record_kind_errors(value: Dict[str, Any], kind: str) -> List[str]:
+    """Keep record-kind conditionals enforced when the fallback validator is used."""
+    errors: List[str] = []
+    declared = value.get("kind")
+    if "kind" in value and declared not in ("Transition", "Admission", "Commit"):
+        errors.append("GAS lifecycle kind must be Transition, Admission or Commit")
+    has_admission = "admissionOrder" in value
+    has_commit = "recheckOrder" in value
+    if kind == "Transition" and (has_admission or has_commit):
+        errors.append("Transition records cannot carry Admission or Commit fields")
+    elif kind == "Admission" and has_commit:
+        errors.append("Admission records cannot carry Commit fields")
+    elif kind == "Commit" and has_admission:
+        errors.append("Commit records cannot carry Admission fields")
+    return errors
+
+
+def _gas_check_name(item: Any) -> Optional[str]:
+    if not isinstance(item, dict):
+        return None
+    name = item.get("name")
+    return None if name is None else str(name)
+
+
+def _gas_check_passed(item: Any) -> Optional[bool]:
+    if not isinstance(item, dict):
+        return None
+    if item.get("result") in ("Pass", "Fail"):
+        return item.get("result") == "Pass"
+    return None
+
+
+def _gas_check_order_errors(checks: List[Any], label: str) -> List[str]:
+    """Ensure declared check ordinals agree with their deterministic list order."""
+    errors: List[str] = []
+    for index, item in enumerate(checks, start=1):
+        if not isinstance(item, dict):
+            continue
+        order = item.get("order")
+        if isinstance(order, bool) or not isinstance(order, int):
+            errors.append("{} check order must be an integer".format(label))
+        elif order != index:
+            errors.append("{} check order must match its list position".format(label))
+    return errors
+
+
+def _gas_finite_number(value: Any) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (OverflowError, ValueError):
+        return False
+
+
+def _gas_transition_errors(value: Dict[str, Any]) -> List[str]:
+    errors: List[str] = []
+    machine = value.get("machine")
+    source = value.get("fromState")
+    dest = value.get("toState")
+    event = value.get("event")
+    if machine == "Ability":
+        allowed = _ABILITY_TRANSITIONS.get(source, set()) if isinstance(source, str) else set()
+        if not isinstance(dest, str) or dest not in allowed:
+            errors.append("illegal Ability transition {} -> {}".format(source, dest))
+        elif not isinstance(event, str) or event not in _ABILITY_TRANSITION_EVENTS.get((source, dest), set()):
+            errors.append(
+                "event {} is not valid for Ability transition {} -> {}".format(event, source, dest)
+            )
+        if isinstance(dest, str) and dest in _ABILITY_TERMINAL and value.get("handleValid") is not False:
+            errors.append("a terminal Ability state invalidates the Handle")
+        if isinstance(dest, str) and dest not in _ABILITY_TERMINAL and "handleValid" in value and value.get("handleValid") is not True:
+            errors.append("a non-terminal Ability state keeps the Handle valid")
+        if dest == "RolledBack" and value.get("predicted") is not True:
+            errors.append("Ability RolledBack is only valid for predicted instances")
+    elif machine == "Effect":
+        internal = {"Stack", "Duration", "Refresh", "Suppress"}
+        if isinstance(event, str) and event in internal:
+            if source != "Active" or dest != "Active":
+                errors.append("{} is an Active-internal event, not a state transition".format(event))
+            if "handleValid" in value and value.get("handleValid") is not True:
+                errors.append("an Active-internal Effect event keeps the Handle valid")
+        else:
+            allowed = _EFFECT_TRANSITIONS.get(source, set()) if isinstance(source, str) else set()
+            if not isinstance(dest, str) or dest not in allowed:
+                errors.append("illegal Effect transition {} -> {}".format(source, dest))
+            elif not isinstance(event, str) or event not in _EFFECT_TRANSITION_EVENTS.get((source, dest), set()):
+                errors.append("event {} is not valid for Effect transition {} -> {}".format(event, source, dest))
+            if isinstance(dest, str) and dest in _EFFECT_TERMINAL and value.get("handleValid") is not False:
+                errors.append("a terminal Effect state invalidates the Handle")
+            if isinstance(dest, str) and dest not in _EFFECT_TERMINAL and "handleValid" in value and value.get("handleValid") is not True:
+                errors.append("a non-terminal Effect state keeps the Handle valid")
+            if dest == "RolledBack" and value.get("predicted") is not True:
+                errors.append("Effect RolledBack is only valid for predicted instances")
+    else:
+        errors.append("machine must be Ability or Effect")
+    return errors
+
+
+def _gas_admission_errors(value: Dict[str, Any]) -> List[str]:
+    errors: List[str] = []
+    if value.get("kind") != "Admission":
+        errors.append("Admission records must declare kind=Admission")
+    if value.get("machine") != "Ability":
+        errors.append("Admission records apply only to Ability")
+    if value.get("fromState") != "Requested":
+        errors.append("Admission must start in Requested")
+    if value.get("event") != "Activate":
+        errors.append("Admission event must be Activate")
+    order = value.get("admissionOrder")
+    if not isinstance(order, list) or tuple(order) != _GAS_ADMISSION_ORDER:
+        errors.append("admission order must be HandlePermission, Cooldown, Cost, Tag, GameCustom")
+    checks_value = value.get("checks")
+    checks = checks_value if isinstance(checks_value, list) else []
+    if checks_value is not None and not isinstance(checks_value, list):
+        errors.append("admission checks must be an array")
+    names = [_gas_check_name(item) for item in checks]
+    errors.extend(_gas_check_order_errors(checks, "admission"))
+    if tuple(names) != _GAS_ADMISSION_ORDER[:len(names)]:
+        errors.append("admission checks must follow the five-step order")
+    passed = [_gas_check_passed(item) for item in checks]
+    if any(item is None for item in passed):
+        errors.append("every admission check must declare Pass or Fail")
+    first_failure = next((index for index, item in enumerate(passed) if item is False), None)
+    if first_failure is None and len(checks) != len(_GAS_ADMISSION_ORDER):
+        errors.append("a successful admission must pass all five checks")
+    if first_failure is not None and first_failure != len(checks) - 1:
+        errors.append("admission stops at the first failed check")
+    expected_outcome = "Rejected" if first_failure is not None else "Activated"
+    if value.get("outcome") != expected_outcome or value.get("toState") != expected_outcome:
+        errors.append("admission outcome and toState must follow the first failed check")
+    failure_step = value.get("failureStep")
+    if first_failure is None and failure_step is not None:
+        errors.append("a successful admission cannot declare a failure step")
+    if first_failure is None and value.get("failureReason") is not None:
+        errors.append("a successful admission cannot declare a failure reason")
+    elif first_failure is not None and failure_step != _GAS_ADMISSION_ORDER[first_failure]:
+        errors.append("failureStep must name the first failed admission check")
+    if first_failure is not None and not isinstance(value.get("failureReason"), str):
+        errors.append("a rejected admission must declare a failure reason")
+    expected_handle = expected_outcome == "Activated"
+    if value.get("handleValid") is not expected_handle:
+        errors.append("Rejected admission invalidates the Handle and Activated keeps it valid")
+    if value.get("chargeCount", 0) != 0 or value.get("charged") is True:
+        errors.append("admission does not charge cost; charging occurs at Commit")
+    if value.get("phase") not in (None, "Admission"):
+        errors.append("Admission phase must be Admission")
+    if value.get("outcome") not in ("Activated", "Rejected"):
+        errors.append("Admission outcome must be Activated or Rejected")
+    return errors
+
+
+def _gas_commit_errors(value: Dict[str, Any]) -> List[str]:
+    errors: List[str] = []
+    if value.get("kind") != "Commit":
+        errors.append("Commit records must declare kind=Commit")
+    if value.get("machine") != "Ability":
+        errors.append("Commit records apply only to Ability")
+    if value.get("fromState") != "Executing":
+        errors.append("Commit decision must occur from Executing")
+    if value.get("event") != "Commit":
+        errors.append("Commit event must be Commit")
+    order = value.get("recheckOrder")
+    if not isinstance(order, list) or tuple(order) != _GAS_COMMIT_ORDER:
+        errors.append("Commit rechecks only Cooldown then Cost")
+    checks_value = value.get("checks")
+    checks = checks_value if isinstance(checks_value, list) else []
+    if checks_value is not None and not isinstance(checks_value, list):
+        errors.append("Commit checks must be an array")
+    names = [_gas_check_name(item) for item in checks]
+    errors.extend(_gas_check_order_errors(checks, "Commit"))
+    if tuple(names) != _GAS_COMMIT_ORDER[:len(names)]:
+        errors.append("Commit checks must cover only Cooldown then Cost")
+    passed = [_gas_check_passed(item) for item in checks]
+    if any(item is None for item in passed):
+        errors.append("every Commit check must declare Pass or Fail")
+    failed = next((index for index, item in enumerate(passed) if item is False), None)
+    if failed is None and len(checks) != len(_GAS_COMMIT_ORDER):
+        errors.append("a successful Commit must pass both rechecks")
+    if failed is not None and failed != len(checks) - 1:
+        errors.append("Commit stops at the first failed recheck")
+    expected_outcome = "Cancelled" if failed is not None else "Executing"
+    if value.get("outcome") != expected_outcome or value.get("toState") != expected_outcome:
+        errors.append("Commit failure is Cancelled; a successful Commit remains Executing")
+    if failed is None and value.get("failureStep") is not None:
+        errors.append("a successful Commit cannot declare a failure step")
+    elif failed is not None and value.get("failureStep") != _GAS_COMMIT_ORDER[failed]:
+        errors.append("failureStep must name the failed Commit check")
+    if value.get("handleValid") is not (expected_outcome == "Executing"):
+        errors.append("Cancelled Commit invalidates the Handle")
+    charge_count = value.get("chargeCount", 0)
+    if isinstance(charge_count, bool) or not isinstance(charge_count, int):
+        if charge_count is not None:
+            errors.append("chargeCount must be an integer")
+        charge_count = 0
+    if charge_count > 1:
+        errors.append("Commit cannot charge more than once")
+    if charge_count < 0:
+        errors.append("chargeCount cannot be negative")
+    if isinstance(value.get("charged"), bool) and value.get("charged") != (charge_count == 1):
+        errors.append("charged must agree with chargeCount")
+    if failed is not None and (charge_count != 0 or value.get("charged") is True):
+        errors.append("a failed Commit cannot charge or retain a partial cost write")
+    prepared = value.get("prepared") is True or value.get("phase") in ("Prepared", "CommitIntent")
+    commit_intent = value.get("commitIntent") is True or value.get("phase") == "CommitIntent"
+    phase = value.get("phase")
+    if phase not in (None, "Prepared", "CommitDecision", "Commit", "CommitIntent"):
+        errors.append("Commit phase is not recognized")
+    if phase == "Prepared" and value.get("commitIntent") is True:
+        errors.append("Prepared phase cannot already carry CommitIntent")
+    if phase == "CommitIntent" and value.get("commitIntent") is not True:
+        errors.append("CommitIntent phase requires commitIntent=true")
+    if phase in ("Prepared", "CommitIntent") and value.get("prepared") is not True:
+        errors.append("Prepared and CommitIntent phases require prepared=true")
+    if not prepared:
+        errors.append("Commit decision requires a Prepared record")
+    if commit_intent and not prepared:
+        errors.append("CommitIntent requires Prepared")
+    if prepared or commit_intent:
+        if value.get("businessRejected") is True:
+            errors.append("Prepared/CommitIntent forbids later business rejection")
+    return errors
+
+
+def _gas_evaluation_errors(value: Dict[str, Any]) -> List[str]:
+    errors: List[str] = []
+    formula = "(Base + SigmaAdd) * (1 + SigmaPercent)"
+    if value.get("formula") != formula:
+        errors.append("evaluation formula must be (Base + SigmaAdd) * (1 + SigmaPercent)")
+    if value.get("operators") != ["Add", "Percent", "Override"]:
+        errors.append("V1 evaluation operators must be Add, Percent and Override")
+    if value.get("percentageAggregation") != "Additive":
+        errors.append("percentage modifiers aggregate additively")
+    if value.get("overrideTieBreak") != "PriorityDescendingThenSequenceDescending":
+        errors.append("override tie-break must be explicit priority then sequence descending")
+    ids: set = set()
+    sequences: set = set()
+    add = 0.0
+    percent = 0.0
+    candidates: List[Tuple[int, int, float, str]] = []
+    modifiers_value = value.get("modifiers")
+    modifiers = modifiers_value if isinstance(modifiers_value, list) else []
+    if modifiers_value is not None and not isinstance(modifiers_value, list):
+        errors.append("modifiers must be an array")
+    for item in modifiers:
+        if not isinstance(item, dict):
+            errors.append("modifier must be an object")
+            continue
+        ident = item.get("id")
+        ident_key = ident if isinstance(ident, (str, int, float, bool, type(None))) else canonical_json(ident)
+        if ident_key in ids:
+            errors.append("modifier ids must be unique")
+        ids.add(ident_key)
+        op = item.get("operator")
+        number = item.get("value")
+        priority = item.get("priority")
+        sequence = item.get("sequence")
+        if not _gas_finite_number(number):
+            errors.append("modifier values must be finite numbers")
+            continue
+        if isinstance(sequence, int) and not isinstance(sequence, bool):
+            if sequence in sequences:
+                errors.append("modifier sequence values must be unique")
+            sequences.add(sequence)
+        if op == "Add":
+            add += float(number)
+        elif op == "Percent":
+            percent += float(number)
+        elif op == "Override":
+            if isinstance(priority, int) and isinstance(sequence, int):
+                candidates.append((priority, sequence, float(number), str(ident)))
+        else:
+            errors.append("unsupported evaluation operator {}".format(op))
+    overrides_value = value.get("overrides")
+    overrides = overrides_value if isinstance(overrides_value, list) else []
+    if overrides_value is not None and not isinstance(overrides_value, list):
+        errors.append("overrides must be an array")
+    for item in overrides:
+        if not isinstance(item, dict):
+            errors.append("override must be an object")
+            continue
+        ident = item.get("id")
+        ident_key = ident if isinstance(ident, (str, int, float, bool, type(None))) else canonical_json(ident)
+        if ident_key in ids:
+            errors.append("modifier and override ids must be unique")
+        ids.add(ident_key)
+        number = item.get("value")
+        priority = item.get("priority")
+        sequence = item.get("sequence")
+        if not _gas_finite_number(number):
+            errors.append("override values must be finite numbers")
+            continue
+        if isinstance(priority, int) and isinstance(sequence, int):
+            candidates.append((priority, sequence, float(number), str(ident)))
+    keys = [(item[0], item[1]) for item in candidates]
+    if len(keys) != len(set(keys)):
+        errors.append("override priority and sequence must identify one deterministic winner")
+    base = value.get("base")
+    if not _gas_finite_number(base):
+        errors.append("base must be a finite number")
+        base = 0.0
+    computed = (float(base) + add) * (1.0 + percent)
+    if candidates:
+        computed = max(candidates, key=lambda item: (item[0], item[1]))[2]
+    if not math.isfinite(computed):
+        errors.append("evaluation result must remain finite")
+    result = value.get("result")
+    if not _gas_finite_number(result):
+        errors.append("result must be a finite number")
+    elif float(result) != computed:
+        errors.append("result does not match the frozen evaluation formula")
+    return errors
+
+
+def _gas_effect_event_errors(value: Dict[str, Any]) -> List[str]:
+    errors: List[str] = []
+    tick = value.get("tickId")
+    events_value = value.get("events")
+    events = events_value if isinstance(events_value, list) else []
+    if events_value is not None and not isinstance(events_value, list):
+        errors.append("Effect events must be an array")
+    names: List[str] = []
+    orders: List[int] = []
+    current_state = value.get("initialState")
+    for item in events:
+        if not isinstance(item, dict):
+            errors.append("Effect events must be objects")
+            continue
+        name = item.get("event")
+        name = name if isinstance(name, str) else str(name)
+        names.append(name)
+        order = item.get("order")
+        orders.append(order)
+        if item.get("tickId") != tick:
+            errors.append("every Effect event must use the enclosing Tick")
+        if not isinstance(order, int) or isinstance(order, bool):
+            errors.append("Effect event order must be an integer")
+        if name not in _GAS_EFFECT_EVENT_RANK:
+            errors.append("unknown Effect event {}".format(name))
+        if name == "Suppress":
+            if item.get("fromState") != "Active" or item.get("toState") != "Active":
+                errors.append("Suppress is an Active-internal event and cannot change state")
+        elif name in {"Stack", "Refresh", "Duration", "Period", "Hit", "Overflow", "SnapshotReplacement"}:
+            if item.get("fromState") != "Active" or item.get("toState") != "Active":
+                errors.append("{} is an Active-internal event".format(name))
+        elif name == "Apply":
+            if item.get("fromState") != "Pending" or item.get("toState") != "Active":
+                errors.append("Apply must transition Pending to Active")
+        elif name == "Removal":
+            if item.get("fromState") != "Active" or item.get("toState") != "Removed":
+                errors.append("Removal must transition Active to Removed")
+        elif name == "Expire":
+            if item.get("fromState") != "Active" or item.get("toState") != "Expired":
+                errors.append("Expire must transition Active to Expired")
+        if isinstance(current_state, str) and current_state in _EFFECT_TERMINAL:
+            errors.append("no Effect event may follow a terminal state")
+        elif name == "Apply":
+            if current_state != "Pending":
+                errors.append("Apply requires the current Effect state to be Pending")
+            current_state = "Active"
+        elif name in {"Hit", "Overflow", "SnapshotReplacement", "Stack", "Refresh", "Suppress", "Duration", "Period"}:
+            if current_state != "Active":
+                errors.append("{} requires the current Effect state to be Active".format(name))
+        elif name == "Removal":
+            if current_state != "Active":
+                errors.append("Removal requires the current Effect state to be Active")
+            current_state = "Removed"
+        elif name == "Expire":
+            if current_state != "Active":
+                errors.append("Expire requires the current Effect state to be Active")
+            current_state = "Expired"
+    if orders != list(range(1, len(events) + 1)):
+        errors.append("Effect event order must be contiguous and deterministic")
+    if value.get("eventOrder") is not None and value.get("eventOrder") != names:
+        errors.append("eventOrder must equal the ordered event entries")
+    non_apply = [name for name in names if name != "Apply"]
+    ranks = [_GAS_EFFECT_EVENT_RANK.get(name, 99) for name in non_apply]
+    if any(left > right for left, right in zip(ranks, ranks[1:])):
+        errors.append("Effect events must follow Hit -> Overflow -> SnapshotReplacement/Stack -> Duration -> Period -> Removal")
+    if "Apply" in names:
+        if value.get("initialState") != "Pending" or names[0] != "Apply":
+            errors.append("Apply must be first and begin from Pending")
+    elif value.get("initialState") != "Active":
+        errors.append("an Effect tick without Apply must begin Active")
+    terminals = [name for name in names if name in ("Removal", "Expire")]
+    if terminals and names[-1] not in ("Removal", "Expire"):
+        errors.append("Removal/Expire must be the final same-tick event")
+    final = value.get("finalState")
+    expected_final = "Active"
+    if names and names[-1] == "Removal":
+        expected_final = "Removed"
+    elif names and names[-1] == "Expire":
+        expected_final = "Expired"
+    if final != expected_final:
+        errors.append("finalState must match the terminal Effect event")
+    if isinstance(current_state, str) and final != current_state:
+        errors.append("finalState must match the Effect state after applying events")
+    terminal = isinstance(final, str) and final in _EFFECT_TERMINAL
+    if terminal and value.get("handleValid") is not False:
+        errors.append("terminal Effect states invalidate the Handle")
+    elif not terminal and "handleValid" in value and value.get("handleValid") is not True:
+        errors.append("an Active Effect keeps the Handle valid")
+    has_apply = "Apply" in names
+    has_remove = "Removal" in names
+    if has_apply and has_remove:
+        if value.get("sameTickOutcome") != "Cancelled":
+            errors.append("application plus removal in one Tick must be Cancelled")
+    elif value.get("sameTickOutcome") == "Cancelled":
+        errors.append("Cancelled same-tick outcome requires Apply and Removal")
+    elif names and names[-1] == "Removal" and value.get("sameTickOutcome") not in (None, "Removed"):
+        errors.append("a terminal Removal event must report Removed outcome")
+    elif names and names[-1] == "Expire" and value.get("sameTickOutcome") not in (None, "Expired"):
+        errors.append("a terminal Expire event must report Expired outcome")
+    for key in value:
+        lowered = str(key).lower()
+        if any(token in lowered for token in ("second", "millisecond", "wallclock", "timestamp", "datetime")) or lowered == "time":
+            errors.append("Effect timing fields must be Tick/frame numbers, not wall-clock values")
+    if isinstance(tick, int) and not isinstance(tick, bool) and isinstance(value.get("durationTicks"), int) and isinstance(value.get("expiresAtTick"), int):
+        if value.get("expiresAtTick") < tick + value.get("durationTicks"):
+            errors.append("expiresAtTick must not precede durationTicks from the current Tick")
+    return errors
 
 
 def semantic_errors(schema_id: str, value: Any) -> List[str]:
@@ -2072,26 +2556,31 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
                     errors.append("{} cannot be visible after commit".format(phase.get("phase")))
 
     elif schema_id == "gas-lifecycle":
-        machine = value.get("machine")
-        source = value.get("fromState")
-        dest = value.get("toState")
-        if machine == "Ability":
-            allowed = _ABILITY_TRANSITIONS.get(source, set())
-            if dest not in allowed:
-                errors.append("illegal Ability transition {} -> {}".format(source, dest))
-            if dest in _ABILITY_TERMINAL and value.get("handleValid") is not False:
-                errors.append("a terminal Ability state invalidates the Handle")
-        elif machine == "Effect":
-            event = value.get("event")
-            if event in ("Stack", "Duration", "Refresh"):
-                if source != "Active" or dest != "Active":
-                    errors.append("Stack/Duration/Refresh are Active-internal events, not states")
+        if not isinstance(value, dict):
+            errors.append("GAS lifecycle record must be an object")
+        else:
+            kind = _gas_kind(value)
+            errors.extend(_gas_record_kind_errors(value, kind))
+            if kind == "Transition":
+                errors.extend(_gas_transition_errors(value))
+            elif kind == "Admission":
+                errors.extend(_gas_admission_errors(value))
+            elif kind == "Commit":
+                errors.extend(_gas_commit_errors(value))
             else:
-                allowed = _EFFECT_TRANSITIONS.get(source, set())
-                if dest not in allowed:
-                    errors.append("illegal Effect transition {} -> {}".format(source, dest))
-            if dest in _EFFECT_TERMINAL and value.get("handleValid") is not False:
-                errors.append("a terminal Effect state invalidates the Handle")
+                errors.append("unknown GAS lifecycle record kind {}".format(kind))
+
+    elif schema_id == "gas-evaluation":
+        if not isinstance(value, dict):
+            errors.append("GAS evaluation record must be an object")
+        else:
+            errors.extend(_gas_evaluation_errors(value))
+
+    elif schema_id == "gas-effect-events":
+        if not isinstance(value, dict):
+            errors.append("GAS Effect event record must be an object")
+        else:
+            errors.extend(_gas_effect_event_errors(value))
 
     elif schema_id == "state-machine-descriptor":
         states = value.get("states") or []

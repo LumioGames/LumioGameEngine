@@ -39,6 +39,8 @@
     { "id": "voxel-mutation-receipt", "file": "voxel-mutation-receipt.schema.json", "priority": "P0", "owner": "VoxelEngine" },
     { "id": "tick-phase-contract", "file": "tick-phase-contract.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "gas-lifecycle", "file": "gas-lifecycle.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "gas-evaluation", "file": "gas-evaluation.schema.json", "priority": "P0", "owner": "GameRuntime" },
+    { "id": "gas-effect-events", "file": "gas-effect-events.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "txn-journal-record", "file": "txn-journal-record.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "command-log-record", "file": "command-log-record.schema.json", "priority": "P0", "owner": "GameRuntime" },
     { "id": "wal-record-envelope", "file": "wal-record-envelope.schema.json", "priority": "P0", "owner": "GameRuntime" },

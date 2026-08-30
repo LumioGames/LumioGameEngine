@@ -1,0 +1,19 @@
+{
+  "kind": "Admission",
+  "machine": "Ability",
+  "instanceId": "ability-admission-0002",
+  "fromState": "Requested",
+  "toState": "Rejected",
+  "event": "Activate",
+  "admissionOrder": ["HandlePermission", "Cooldown", "Cost", "Tag", "GameCustom"],
+  "checks": [
+    { "name": "HandlePermission", "result": "Pass", "order": 1 },
+    { "name": "Cooldown", "result": "Fail", "order": 2 }
+  ],
+  "outcome": "Rejected",
+  "failureStep": "Cooldown",
+  "failureReason": "CooldownActive",
+  "handleValid": false,
+  "charged": false,
+  "chargeCount": 0
+}

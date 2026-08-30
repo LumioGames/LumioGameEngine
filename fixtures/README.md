@@ -10,4 +10,6 @@ python3 tools/lumio_contract.py validate
 
 An `invalid` fixture is successful only when structural or semantic validation rejects it. This keeps failure behavior testable without pretending that a failure fixture is a production payload. Every P0 schema has both an accepted record and a rejected record; the Mod record demonstrates the reserved P2 boundary.
 
+The `gas/*` fixtures cover the closed Ability/Effect state machines, five-step admission, two-check Commit, deterministic evaluation, same-Tick Effect ordering, suppression and Tick-only timing. Invalid GAS fixtures must report at least one structural or semantic error; silently accepting an expected-invalid record fails the validation command.
+
 Fixtures intentionally use placeholder hashes and signatures. They exercise shape, correlation, ordering and compatibility rules; release signing and cryptographic verification belong to the Release Toolchain implementation.

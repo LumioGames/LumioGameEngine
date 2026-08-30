@@ -16,7 +16,8 @@
   "selfEvents": [
     { "state": "Active", "event": "Stack" },
     { "state": "Active", "event": "Duration" },
-    { "state": "Active", "event": "Refresh" }
+    { "state": "Active", "event": "Refresh" },
+    { "state": "Active", "event": "Suppress" }
   ],
-  "notes": "Effect instance lifecycle per ADR-031. Stack, Duration and Refresh are Active-internal events, not states; every terminal state invalidates the EffectHandle."
+  "notes": "Effect instance lifecycle per ADR-031. Stack, Duration, Refresh and Suppress are Active-internal events, not states; every terminal state invalidates the EffectHandle."
 }

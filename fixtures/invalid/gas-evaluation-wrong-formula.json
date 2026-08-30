@@ -1,0 +1,11 @@
+{
+  "kind": "Evaluation",
+  "attributeId": "health",
+  "base": 100,
+  "modifiers": [],
+  "formula": "Base * (1 + SigmaPercent) + SigmaAdd",
+  "operators": ["Add", "Percent", "Override"],
+  "percentageAggregation": "Additive",
+  "overrideTieBreak": "PriorityDescendingThenSequenceDescending",
+  "result": 100
+}

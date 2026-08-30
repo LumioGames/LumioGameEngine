@@ -1,0 +1,9 @@
+{
+  "machine": "Effect",
+  "instanceId": "effect-invalid-state-0001",
+  "fromState": "Active",
+  "toState": "Suppressed",
+  "event": "Suppress",
+  "handleValid": true,
+  "predicted": false
+}

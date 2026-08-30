@@ -50,6 +50,8 @@ pub const BINDINGS: &[Binding] = &[
     Binding { schema_id: "voxel-mutation-receipt", rust_type: "VoxelMutationReceipt", csharp_type: "VoxelMutationReceipt" },
     Binding { schema_id: "tick-phase-contract", rust_type: "TickPhaseContract", csharp_type: "TickPhaseContract" },
     Binding { schema_id: "gas-lifecycle", rust_type: "GasLifecycle", csharp_type: "GasLifecycle" },
+    Binding { schema_id: "gas-evaluation", rust_type: "GasEvaluation", csharp_type: "GasEvaluation" },
+    Binding { schema_id: "gas-effect-events", rust_type: "GasEffectEvents", csharp_type: "GasEffectEvents" },
     Binding { schema_id: "txn-journal-record", rust_type: "TxnJournalRecord", csharp_type: "TxnJournalRecord" },
     Binding { schema_id: "command-log-record", rust_type: "CommandLogRecord", csharp_type: "CommandLogRecord" },
     Binding { schema_id: "wal-record-envelope", rust_type: "WalRecordEnvelope", csharp_type: "WalRecordEnvelope" },

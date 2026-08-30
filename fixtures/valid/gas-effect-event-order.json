@@ -1,0 +1,23 @@
+{
+  "kind": "EffectTick",
+  "effectId": "effect-burning-0001",
+  "tickId": 100,
+  "initialState": "Active",
+  "events": [
+    { "order": 1, "event": "Hit", "tickId": 100, "fromState": "Active", "toState": "Active" },
+    { "order": 2, "event": "Overflow", "tickId": 100, "fromState": "Active", "toState": "Active", "overflowCount": 1 },
+    { "order": 3, "event": "SnapshotReplacement", "tickId": 100, "fromState": "Active", "toState": "Active", "snapshotId": "effect-snapshot-100" },
+    { "order": 4, "event": "Stack", "tickId": 100, "fromState": "Active", "toState": "Active", "stackCount": 2 },
+    { "order": 5, "event": "Duration", "tickId": 100, "fromState": "Active", "toState": "Active", "durationTicks": 20 },
+    { "order": 6, "event": "Period", "tickId": 100, "fromState": "Active", "toState": "Active", "periodTicks": 5 },
+    { "order": 7, "event": "Removal", "tickId": 100, "fromState": "Active", "toState": "Removed" }
+  ],
+  "eventOrder": ["Hit", "Overflow", "SnapshotReplacement", "Stack", "Duration", "Period", "Removal"],
+  "finalState": "Removed",
+  "handleValid": false,
+  "sameTickOutcome": "Removed",
+  "durationTicks": 20,
+  "periodTicks": 5,
+  "expiresAtTick": 120,
+  "nextPeriodTick": 105
+}

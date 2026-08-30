@@ -1,0 +1,13 @@
+{
+  "kind": "EffectTick",
+  "effectId": "effect-suppressed-0002",
+  "tickId": 105,
+  "initialState": "Active",
+  "events": [
+    { "order": 1, "event": "Suppress", "tickId": 105, "fromState": "Active", "toState": "Removed", "suppressed": true }
+  ],
+  "finalState": "Removed",
+  "handleValid": false,
+  "sameTickOutcome": "Removed",
+  "suppressed": true
+}

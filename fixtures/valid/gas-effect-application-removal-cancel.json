@@ -1,0 +1,14 @@
+{
+  "kind": "EffectTick",
+  "effectId": "effect-transient-0001",
+  "tickId": 101,
+  "initialState": "Pending",
+  "events": [
+    { "order": 1, "event": "Apply", "tickId": 101, "fromState": "Pending", "toState": "Active" },
+    { "order": 2, "event": "Removal", "tickId": 101, "fromState": "Active", "toState": "Removed" }
+  ],
+  "eventOrder": ["Apply", "Removal"],
+  "finalState": "Removed",
+  "handleValid": false,
+  "sameTickOutcome": "Cancelled"
+}

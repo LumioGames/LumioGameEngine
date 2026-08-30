@@ -330,6 +330,158 @@
       "reason": "generic GAS transitions cannot be invented"
     },
     {
+      "id": "gas/invalid-admission-order",
+      "schema": "gas-lifecycle",
+      "file": "invalid/gas-invalid-admission-order.json",
+      "expected": "invalid",
+      "reason": "admission checks must execute in handle, cooldown, cost, Tag, content order"
+    },
+    {
+      "id": "gas/admission-success",
+      "schema": "gas-lifecycle",
+      "file": "valid/gas-admission-success.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/admission-rejected",
+      "schema": "gas-lifecycle",
+      "file": "valid/gas-admission-rejected.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/commit-success",
+      "schema": "gas-lifecycle",
+      "file": "valid/gas-commit-success.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/commit-cancelled",
+      "schema": "gas-lifecycle",
+      "file": "valid/gas-commit-cancelled.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/prepared-business-reject",
+      "schema": "gas-lifecycle",
+      "file": "invalid/gas-prepared-business-reject.json",
+      "expected": "invalid",
+      "reason": "Prepared and CommitIntent phases cannot be business-rejected"
+    },
+    {
+      "id": "gas/duplicate-charge",
+      "schema": "gas-lifecycle",
+      "file": "invalid/gas-duplicate-charge.json",
+      "expected": "invalid",
+      "reason": "Prepared and CommitIntent phases cannot charge cost more than once"
+    },
+    {
+      "id": "gas/invalid-commit-recheck",
+      "schema": "gas-lifecycle",
+      "file": "invalid/gas-invalid-commit-recheck.json",
+      "expected": "invalid",
+      "reason": "Commit rechecks only Cooldown and Cost"
+    },
+    {
+      "id": "gas/commit-failure-charged",
+      "schema": "gas-lifecycle",
+      "file": "invalid/gas-commit-failure-charged.json",
+      "expected": "invalid",
+      "reason": "a failed Commit is atomic and cannot retain a cost charge"
+    },
+    {
+      "id": "gas/invalid-check-ordinal",
+      "schema": "gas-lifecycle",
+      "file": "invalid/gas-invalid-check-ordinal.json",
+      "expected": "invalid",
+      "reason": "declared check ordinals must equal deterministic execution order"
+    },
+    {
+      "id": "gas/invalid-state",
+      "schema": "gas-lifecycle",
+      "file": "invalid/gas-invalid-state.json",
+      "expected": "invalid",
+      "reason": "Ability and Effect public state sets are closed"
+    },
+    {
+      "id": "gas/terminal-handle-valid",
+      "schema": "gas-lifecycle",
+      "file": "invalid/gas-terminal-handle-valid.json",
+      "expected": "invalid",
+      "reason": "every terminal Ability and Effect state invalidates its Handle"
+    },
+    {
+      "id": "gas/evaluation-formula",
+      "schema": "gas-evaluation",
+      "file": "valid/gas-evaluation-formula.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/evaluation-override",
+      "schema": "gas-evaluation",
+      "file": "valid/gas-evaluation-override.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/evaluation-invalid-operator",
+      "schema": "gas-evaluation",
+      "file": "invalid/gas-evaluation-invalid-operator.json",
+      "expected": "invalid",
+      "reason": "V1 exposes only Add, Percent and Override operators"
+    },
+    {
+      "id": "gas/evaluation-override-tie",
+      "schema": "gas-evaluation",
+      "file": "invalid/gas-evaluation-override-tie.json",
+      "expected": "invalid",
+      "reason": "override priority ties require a unique deterministic sequence"
+    },
+    {
+      "id": "gas/evaluation-wrong-formula",
+      "schema": "gas-evaluation",
+      "file": "invalid/gas-evaluation-wrong-formula.json",
+      "expected": "invalid",
+      "reason": "evaluation must apply additive modifiers before percentage modifiers"
+    },
+    {
+      "id": "gas/effect-event-order",
+      "schema": "gas-effect-events",
+      "file": "valid/gas-effect-event-order.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/effect-application-removal-cancel",
+      "schema": "gas-effect-events",
+      "file": "valid/gas-effect-application-removal-cancel.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/effect-suppression",
+      "schema": "gas-effect-events",
+      "file": "valid/gas-effect-suppression.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/effect-invalid-order",
+      "schema": "gas-effect-events",
+      "file": "invalid/gas-effect-invalid-order.json",
+      "expected": "invalid",
+      "reason": "same-tick Effect events must follow the frozen order"
+    },
+    {
+      "id": "gas/effect-wall-clock",
+      "schema": "gas-effect-events",
+      "file": "invalid/gas-effect-wall-clock.json",
+      "expected": "invalid",
+      "reason": "Effect timing is expressed only in Tick numbers"
+    },
+    {
+      "id": "gas/effect-suppression-state",
+      "schema": "gas-effect-events",
+      "file": "invalid/gas-effect-suppression-state.json",
+      "expected": "invalid",
+      "reason": "suppression is an Active-internal event and cannot change state"
+    },
+    {
       "id": "gate/accept",
       "schema": "protocol-permission-gate",
       "file": "valid/protocol-permission-gate-accept.json",

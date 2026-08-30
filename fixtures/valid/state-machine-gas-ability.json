@@ -28,5 +28,5 @@
     { "from": "Executing", "to": "Cancelled", "event": "Cancel" },
     { "from": "Executing", "to": "RolledBack", "event": "RollBack" }
   ],
-  "notes": "Ability instance lifecycle per ADR-031. Every terminal state invalidates the AbilityHandle; RolledBack is the prediction-miss exit and is only reachable on predicted instances."
+  "notes": "Ability instance lifecycle per ADR-031. Every terminal state invalidates the AbilityHandle; RolledBack is the prediction-miss exit and is only reachable on predicted instances. Admission and Commit are phases, not public states."
 }
