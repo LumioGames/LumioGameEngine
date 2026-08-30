@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/gas-replication.schema.json",
   "title": "GAS field visibility and dual hash domains",
-  "description": "Every projected field declares authority, owner and visibility. The server snapshot covers authoritative fields; the client confirmation covers only the non-predicted sync domain.",
+  "description": "Every projected field declares authority, owner and visibility. The server snapshot covers authoritative fields; the client confirmation covers only the non-predicted sync domain. V1.4 uses a closed component-field matrix: AbilityComponent.state and inputFrame, EffectComponent.entries and presentationBuffer, AttributeComponent.current and revision, and TagComponent.counts. Owner means the owning player replica; ThirdParty means every non-owner observer.",
   "type": "object",
   "required": ["kind", "schemaVersion", "finalizePhase", "hashAlgorithm", "fields", "serverSnapshot", "clientConfirmation"],
   "properties": {
@@ -43,7 +43,37 @@
         "presentation": { "type": "boolean" },
         "value": {}
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": ["component", "field"],
+          "properties": {
+            "component": { "const": "AbilityComponent" },
+            "field": { "enum": ["state", "inputFrame"] }
+          }
+        },
+        {
+          "required": ["component", "field"],
+          "properties": {
+            "component": { "const": "EffectComponent" },
+            "field": { "enum": ["entries", "presentationBuffer"] }
+          }
+        },
+        {
+          "required": ["component", "field"],
+          "properties": {
+            "component": { "const": "AttributeComponent" },
+            "field": { "enum": ["current", "revision"] }
+          }
+        },
+        {
+          "required": ["component", "field"],
+          "properties": {
+            "component": { "const": "TagComponent" },
+            "field": { "const": "counts" }
+          }
+        }
+      ]
     },
     "hashDomain": {
       "type": "object",

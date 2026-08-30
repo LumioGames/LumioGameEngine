@@ -11,5 +11,7 @@
   "operators": ["Add", "Percent", "Override"],
   "percentageAggregation": "Additive",
   "overrideTieBreak": "PriorityDescendingThenSequenceDescending",
+  "accumulationOrder": "SequenceAscendingThenIdCodePointAscending",
+  "numericPolicy": "Decimal34RoundHalfEven",
   "result": 20
 }

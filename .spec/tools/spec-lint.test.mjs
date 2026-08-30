@@ -10,11 +10,11 @@ import { fileURLToPath } from 'node:url'
 
 const LINT = join(dirname(fileURLToPath(import.meta.url)), 'spec-lint.mjs')
 
-function createFixtureLink(target, link) {
+function createFixtureLink(target, link, type = 'dir') {
   try {
-    symlinkSync(target, link, process.platform === 'win32' ? 'dir' : undefined)
+    symlinkSync(target, link, process.platform === 'win32' ? type : undefined)
   } catch (error) {
-    if (process.platform !== 'win32' || !['EACCES', 'EPERM', 'ENOTSUP'].includes(error.code)) throw error
+    if (process.platform !== 'win32' || type !== 'dir' || !['EACCES', 'EPERM', 'ENOTSUP'].includes(error.code)) throw error
     // Directory junctions preserve the same realpath check when native links are unavailable.
     symlinkSync(resolve(dirname(link), target), link, 'junction')
   }
@@ -56,6 +56,25 @@ function fixture(overrides = {}, linkOverrides = {}) {
     ...linkOverrides,
   }
   for (const [rel, target] of Object.entries(links)) createFixtureLink(target, join(root, rel))
+  return root
+}
+
+function compatibilityFixture(regular = false) {
+  const root = fixture()
+  const decisions = join(root, '.spec', 'decisions')
+  mkdirSync(decisions, { recursive: true })
+  writeFileSync(join(decisions, 'README.md'), '# Decisions\n\n[ADR-050](ADR-050-gas-a1-contracts.md)\n[ADR-051](ADR-051-gas-a2-contracts.md)\n')
+  for (const name of ['ADR-050-gas-a1-contracts.md', 'ADR-051-gas-a2-contracts.md']) {
+    writeFileSync(join(decisions, name), `# ${name}\n`)
+  }
+  const compatibility = join(root, 'docs', 'adr')
+  mkdirSync(compatibility, { recursive: true })
+  for (const name of ['ADR-050-gas-a1-contracts.md', 'ADR-051-gas-a2-contracts.md']) {
+    const link = join(compatibility, name)
+    const target = `../../.spec/decisions/${name}`
+    if (regular) writeFileSync(link, target)
+    else createFixtureLink(target, link, 'file')
+  }
   return root
 }
 
@@ -201,4 +220,26 @@ test('case-variant link target follows platform case semantics', () => {
     assert.match(output, /软链接未解析进 \.spec/)
     assert.match(output, /[\\/]\.SPEC[\\/]agents/)
   }
+})
+
+test('compatibility ADR regular files are rejected', () => {
+  const { code, output } = lint(compatibilityFixture(true))
+  assert.equal(code, 1)
+  assert.match(output, /compatibility ADR must be a Git mode 120000 symbolic link/)
+})
+
+test('compatibility ADR file symlinks resolve to authoritative decisions', (t) => {
+  let root
+  try {
+    root = compatibilityFixture(false)
+  } catch (error) {
+    if (process.platform === 'win32' && ['EACCES', 'EPERM', 'ENOTSUP'].includes(error.code)) {
+      t.skip('file symlinks unavailable in this Windows environment')
+      return
+    }
+    throw error
+  }
+  const { code, output } = lint(root)
+  assert.equal(code, 0, output)
+  assert.match(output, /spec-lint: OK/)
 })

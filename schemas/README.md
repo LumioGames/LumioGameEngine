@@ -10,13 +10,13 @@ P0 schemas are required before cross-repository integration. `mod-manifest.schem
 
 ## GAS A1 Contracts
 
-`gas-lifecycle.schema.json` keeps the ADR-031 Ability and Effect state sets closed and adds machine-readable Admission and Commit records without adding states. `gas-evaluation.schema.json` freezes the three V1 operators and `(Base + SigmaAdd) * (1 + SigmaPercent)` evaluation. `gas-effect-events.schema.json` freezes same-Tick Effect ordering, suppression as an Active-internal event, and Tick-only duration/period fields.
+`gas-lifecycle.schema.json` keeps the ADR-031 Ability and Effect state sets closed and adds machine-readable Admission and Commit records without adding states. `gas-evaluation.schema.json` freezes the three V1 operators, sequence-ordered decimal accumulation and `(Base + SigmaAdd) * (1 + SigmaPercent)` evaluation. `gas-effect-events.schema.json` freezes same-Tick Effect ordering, suppression as an Active-internal event, and Tick-only duration/period fields.
 
-Cross-field rules that JSON Schema cannot express, including first-failure order, Commit charging, evaluation arithmetic, override tie-breaks and same-Tick cancellation, are enforced by `tools/lumio_contract.py validate` against the registered positive and negative fixtures.
+Cross-field rules that JSON Schema cannot express, including first-failure order, Commit charging, sequence-ordered decimal evaluation arithmetic, override tie-breaks and same-Tick cancellation, are enforced by `tools/lumio_contract.py validate` against the registered positive and negative fixtures.
 
 ## GAS A2 Contracts
 
-`gas-components.schema.json` closes the ECS projection to the four GAS containers and binds each row to a world/index/generation Handle. `gas-tag.schema.json` binds counted hierarchical tags to the permanent `Tag` ID namespace and its pre-World-Ready handshake; its table and schema hashes use the declared `SHA-256(CanonicalJsonV1)` construction. `gas-replication.schema.json` carries field-level authority/owner/visibility plus explicit server and client hash domains; the Modifier ledger remains only a derived view of Effect entries and is never a standalone replicated or persisted field. `gas-prediction.schema.json` freezes frame-keyed prediction rejection, one-frame ECS/GAS/Voxel rollback and deterministic replay.
+`gas-components.schema.json` closes the ECS projection to the four GAS containers and binds each row to a world/index/generation Handle. `gas-tag.schema.json` binds counted hierarchical tags to the permanent `Tag` ID namespace and its pre-World-Ready handshake; its table and schema hashes use the declared `SHA-256(CanonicalJsonV1)` construction. `gas-replication.schema.json` carries a closed component-field/recipient visibility matrix, field-level authority/owner/visibility and explicit server and client hash domains; the Modifier ledger remains only a derived view of Effect entries and is never a standalone replicated or persisted field. `gas-prediction.schema.json` freezes frame-keyed prediction rejection, one-frame ECS/GAS/Voxel rollback and deterministic replay.
 
 The A2 schemas are additive under ADR-051. `FxComponent`, wall-clock timing, prediction-window/task concepts and RPC fields are not contract extensions.
 

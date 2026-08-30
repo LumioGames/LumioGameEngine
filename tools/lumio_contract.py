@@ -15,6 +15,7 @@ import json
 import math
 import re
 import sys
+from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN, localcontext
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import unquote, urlparse
@@ -567,6 +568,86 @@ _GAS_PREDICTION_ROLLBACK_STEPS = (
     "ApplyAuthoritativeEcsGasVoxel",
     "ReplayUnconfirmedInputs",
 )
+# GAS evaluation uses a fixed decimal context so all producers reduce the same
+# JSON numbers regardless of host floating-point accumulation order.
+_GAS_EVALUATION_DECIMAL_PRECISION = 34
+_GAS_EVALUATION_ROUNDING = ROUND_HALF_EVEN
+# This is the closed V1.4 component/field and recipient matrix.  `Owner` means
+# the owning player replica; `ThirdParty` means every non-owner observer.  The
+# matrix intentionally has no hidden/server-only row: internal values are not
+# replication declarations at all.
+_GAS_REPLICATION_VISIBILITY_MATRIX = {
+    ("AbilityComponent", "state"): {
+        "authority": "Server",
+        "owner": "Owner",
+        "thirdPartyPublic": False,
+        "hidden": False,
+        "sync": True,
+        "persisted": True,
+        "predicted": False,
+        "presentation": False,
+    },
+    ("AbilityComponent", "inputFrame"): {
+        "authority": "Client",
+        "owner": "Owner",
+        "thirdPartyPublic": False,
+        "hidden": False,
+        "sync": True,
+        "persisted": False,
+        "predicted": True,
+        "presentation": False,
+    },
+    ("EffectComponent", "entries"): {
+        "authority": "Server",
+        "owner": "Owner",
+        "thirdPartyPublic": False,
+        "hidden": False,
+        "sync": True,
+        "persisted": True,
+        "predicted": False,
+        "presentation": False,
+    },
+    ("EffectComponent", "presentationBuffer"): {
+        "authority": "Shared",
+        "owner": "ThirdParty",
+        "thirdPartyPublic": True,
+        "hidden": False,
+        "sync": True,
+        "persisted": False,
+        "predicted": False,
+        "presentation": True,
+    },
+    ("AttributeComponent", "current"): {
+        "authority": "Server",
+        "owner": "ThirdParty",
+        "thirdPartyPublic": True,
+        "hidden": False,
+        "sync": True,
+        "persisted": False,
+        "predicted": False,
+        "presentation": False,
+    },
+    ("AttributeComponent", "revision"): {
+        "authority": "Server",
+        "owner": "ThirdParty",
+        "thirdPartyPublic": True,
+        "hidden": False,
+        "sync": True,
+        "persisted": True,
+        "predicted": False,
+        "presentation": False,
+    },
+    ("TagComponent", "counts"): {
+        "authority": "Server",
+        "owner": "ThirdParty",
+        "thirdPartyPublic": True,
+        "hidden": False,
+        "sync": True,
+        "persisted": True,
+        "predicted": False,
+        "presentation": False,
+    },
+}
 _CONFIG_INT_BOUNDS = {
     "i32": (-2147483648, 2147483647),
     "i64": (-9223372036854775808, 9223372036854775807),
@@ -1425,6 +1506,19 @@ def _gas_finite_number(value: Any) -> bool:
         return False
 
 
+def _gas_decimal(value: Any) -> Optional[Decimal]:
+    """Parse a finite JSON number under the published GAS numeric policy."""
+    if not _gas_finite_number(value):
+        return None
+    try:
+        # ``str`` preserves the JSON parser's shortest decimal spelling and
+        # avoids importing a host binary approximation into the reduction.
+        number = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+    return number if number.is_finite() else None
+
+
 def _gas_transition_errors(value: Dict[str, Any]) -> List[str]:
     errors: List[str] = []
     machine = value.get("machine")
@@ -1605,11 +1699,14 @@ def _gas_evaluation_errors(value: Dict[str, Any]) -> List[str]:
         errors.append("percentage modifiers aggregate additively")
     if value.get("overrideTieBreak") != "PriorityDescendingThenSequenceDescending":
         errors.append("override tie-break must be explicit priority then sequence descending")
+    if value.get("accumulationOrder") != "SequenceAscendingThenIdCodePointAscending":
+        errors.append("evaluation accumulation order must be sequence ascending then id code-point ascending")
+    if value.get("numericPolicy") != "Decimal34RoundHalfEven":
+        errors.append("evaluation numeric policy must be Decimal34RoundHalfEven")
     ids: set = set()
-    sequences: set = set()
-    add = 0.0
-    percent = 0.0
-    candidates: List[Tuple[int, int, float, str]] = []
+    additive_terms: List[Tuple[int, str, Decimal]] = []
+    percent_terms: List[Tuple[int, str, Decimal]] = []
+    candidates: List[Tuple[int, int, Decimal, str]] = []
     modifiers_value = value.get("modifiers")
     modifiers = modifiers_value if isinstance(modifiers_value, list) else []
     if modifiers_value is not None and not isinstance(modifiers_value, list):
@@ -1627,22 +1724,24 @@ def _gas_evaluation_errors(value: Dict[str, Any]) -> List[str]:
         number = item.get("value")
         priority = item.get("priority")
         sequence = item.get("sequence")
-        if not _gas_finite_number(number):
+        decimal_number = _gas_decimal(number)
+        if decimal_number is None:
             errors.append("modifier values must be finite numbers")
             continue
-        if isinstance(sequence, int) and not isinstance(sequence, bool):
-            if sequence in sequences:
-                errors.append("modifier sequence values must be unique")
-            sequences.add(sequence)
-        if op == "Add":
-            add += float(number)
-        elif op == "Percent":
-            percent += float(number)
+        sequence_valid = isinstance(sequence, int) and not isinstance(sequence, bool) and sequence >= 0
+        stable_id = ident if isinstance(ident, str) else canonical_json(ident)
+        if op == "Add" and sequence_valid:
+            additive_terms.append((sequence, stable_id, decimal_number))
+        elif op == "Percent" and sequence_valid:
+            percent_terms.append((sequence, stable_id, decimal_number))
         elif op == "Override":
-            if isinstance(priority, int) and isinstance(sequence, int):
-                candidates.append((priority, sequence, float(number), str(ident)))
+            if isinstance(priority, int) and not isinstance(priority, bool) and sequence_valid:
+                candidates.append((priority, sequence, decimal_number, stable_id))
         else:
-            errors.append("unsupported evaluation operator {}".format(op))
+            if op not in ("Add", "Percent"):
+                errors.append("unsupported evaluation operator {}".format(op))
+            elif not sequence_valid:
+                errors.append("modifier sequence must be a non-negative integer")
     overrides_value = value.get("overrides")
     overrides = overrides_value if isinstance(overrides_value, list) else []
     if overrides_value is not None and not isinstance(overrides_value, list):
@@ -1659,27 +1758,45 @@ def _gas_evaluation_errors(value: Dict[str, Any]) -> List[str]:
         number = item.get("value")
         priority = item.get("priority")
         sequence = item.get("sequence")
-        if not _gas_finite_number(number):
+        decimal_number = _gas_decimal(number)
+        if decimal_number is None:
             errors.append("override values must be finite numbers")
             continue
-        if isinstance(priority, int) and isinstance(sequence, int):
-            candidates.append((priority, sequence, float(number), str(ident)))
+        if (
+            isinstance(priority, int)
+            and not isinstance(priority, bool)
+            and isinstance(sequence, int)
+            and not isinstance(sequence, bool)
+            and priority >= 0
+            and sequence >= 0
+        ):
+            stable_id = ident if isinstance(ident, str) else canonical_json(ident)
+            candidates.append((priority, sequence, decimal_number, stable_id))
     keys = [(item[0], item[1]) for item in candidates]
     if len(keys) != len(set(keys)):
         errors.append("override priority and sequence must identify one deterministic winner")
     base = value.get("base")
-    if not _gas_finite_number(base):
+    base_decimal = _gas_decimal(base)
+    if base_decimal is None:
         errors.append("base must be a finite number")
-        base = 0.0
-    computed = (float(base) + add) * (1.0 + percent)
-    if candidates:
-        computed = max(candidates, key=lambda item: (item[0], item[1]))[2]
-    if not math.isfinite(computed):
+        base_decimal = Decimal(0)
+    with localcontext() as context:
+        context.prec = _GAS_EVALUATION_DECIMAL_PRECISION
+        context.rounding = _GAS_EVALUATION_ROUNDING
+        # Sequence is the primary order; the modifier id is a stable
+        # code-point tie-breaker when two terms share a sequence.
+        add = sum((item[2] for item in sorted(additive_terms, key=lambda item: (item[0], item[1]))), Decimal(0))
+        percent = sum((item[2] for item in sorted(percent_terms, key=lambda item: (item[0], item[1]))), Decimal(0))
+        computed_decimal = (base_decimal + add) * (Decimal(1) + percent)
+        if candidates:
+            computed_decimal = max(candidates, key=lambda item: (item[0], item[1]))[2]
+    if not computed_decimal.is_finite():
         errors.append("evaluation result must remain finite")
     result = value.get("result")
-    if not _gas_finite_number(result):
+    result_decimal = _gas_decimal(result)
+    if result_decimal is None:
         errors.append("result must be a finite number")
-    elif float(result) != computed:
+    elif result_decimal != computed_decimal:
         errors.append("result does not match the frozen evaluation formula")
     return errors
 
@@ -1693,6 +1810,7 @@ def _gas_effect_event_errors(value: Dict[str, Any]) -> List[str]:
         errors.append("Effect events must be an array")
     names: List[str] = []
     orders: List[int] = []
+    suppress_values: List[bool] = []
     current_state = value.get("initialState")
     for item in events:
         if not isinstance(item, dict):
@@ -1710,6 +1828,11 @@ def _gas_effect_event_errors(value: Dict[str, Any]) -> List[str]:
         if name not in _GAS_EFFECT_EVENT_RANK:
             errors.append("unknown Effect event {}".format(name))
         if name == "Suppress":
+            event_suppressed = item.get("suppressed")
+            if not isinstance(event_suppressed, bool):
+                errors.append("Suppress event must declare a boolean suppressed bit")
+            else:
+                suppress_values.append(event_suppressed)
             if item.get("fromState") != "Active" or item.get("toState") != "Active":
                 errors.append("Suppress is an Active-internal event and cannot change state")
         elif name in {"Stack", "Refresh", "Duration", "Period", "Hit", "Overflow", "SnapshotReplacement"}:
@@ -1767,6 +1890,12 @@ def _gas_effect_event_errors(value: Dict[str, Any]) -> List[str]:
         errors.append("finalState must match the terminal Effect event")
     if isinstance(current_state, str) and final != current_state:
         errors.append("finalState must match the Effect state after applying events")
+    if suppress_values:
+        enclosing_suppressed = value.get("suppressed")
+        if not isinstance(enclosing_suppressed, bool):
+            errors.append("Suppress event requires an enclosing suppressed bit")
+        elif enclosing_suppressed != suppress_values[-1]:
+            errors.append("Suppress event suppressed bit must equal enclosing suppressed state")
     terminal = isinstance(final, str) and final in _EFFECT_TERMINAL
     if terminal and value.get("handleValid") is not False:
         errors.append("terminal Effect states invalidate the Handle")
@@ -2157,6 +2286,21 @@ def _gas_replication_errors(value: Dict[str, Any]) -> List[str]:
         field_name = item.get("field")
         if field_id != "{}.{}".format(component, field_name):
             errors.append("fieldId must be component.field for deterministic projections")
+        matrix_entry = _GAS_REPLICATION_VISIBILITY_MATRIX.get((component, field_name))
+        if matrix_entry is None:
+            errors.append(
+                "replication field {}.{} is outside the frozen GAS component-field visibility matrix".format(
+                    component, field_name
+                )
+            )
+        else:
+            for visibility_key, expected_value in matrix_entry.items():
+                if item.get(visibility_key) != expected_value:
+                    errors.append(
+                        "replication field {}.{} visibility {} must be {!r}".format(
+                            component, field_name, visibility_key, expected_value
+                        )
+                    )
         normalized_field = re.sub(r"[_-]", "", str(field_name)).lower()
         normalized_field_id = re.sub(r"[_-]", "", field_id).lower()
         if normalized_field == "modifierledger" or normalized_field_id == "effectcomponent.modifierledger":
@@ -3279,6 +3423,11 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
             raise ContractError("registered fixture is missing: {}".format(path))
         if entry.get("expected") not in ("valid", "invalid"):
             raise ContractError("fixture {} has invalid expected result".format(fixture_id))
+        expected_error = entry.get("expectedError")
+        if expected_error is not None and (not isinstance(expected_error, str) or not expected_error.strip()):
+            raise ContractError("fixture {} expectedError must be a non-empty string".format(fixture_id))
+        if str(schema_id).startswith("gas-") and entry.get("expected") == "invalid" and not expected_error:
+            raise ContractError("GAS invalid fixture {} must declare expectedError".format(fixture_id))
         fixtures[fixture_id] = {"meta": entry, "path": path, "document": load_json(path)}
     registered_fixture_files = {str(item["path"].relative_to(FIXTURE_DIR)) for item in fixtures.values()}
     for directory in (FIXTURE_DIR / "valid", FIXTURE_DIR / "invalid"):
@@ -3318,7 +3467,17 @@ def validate_fixture(fixture_id: str, fixture: Dict[str, Any], schemas: Dict[str
     semantic = semantic_errors(schema_id, fixture["document"])
     errors = structural + semantic
     expected = meta.get("expected")
-    passed = (expected == "valid" and not errors) or (expected == "invalid" and bool(errors))
+    expected_error_match = True
+    if expected == "invalid" and schema_id.startswith("gas-"):
+        expected_error = meta.get("expectedError")
+        if not isinstance(expected_error, str) or not any(
+            isinstance(error, str) and expected_error in error for error in errors
+        ):
+            expected_error_match = False
+            errors.append("fixture expectedError {!r} was not emitted".format(expected_error))
+    passed = (expected == "valid" and not errors) or (
+        expected == "invalid" and bool(errors) and expected_error_match
+    )
     return passed, errors
 
 

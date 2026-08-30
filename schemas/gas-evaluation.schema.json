@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/gas-evaluation.schema.json",
   "title": "GAS deterministic evaluation contract",
-  "description": "V1 evaluates one channel as (Base + SigmaAdd) * (1 + SigmaPercent), then applies an explicit-priority override.",
+  "description": "V1 evaluates one channel as (Base + SigmaAdd) * (1 + SigmaPercent), then applies an explicit-priority override. Add and Percent terms are reduced by ascending sequence and a code-point ascending modifier id tie-breaker in a 34-digit decimal context with ROUND_HALF_EVEN rounding; JSON array order is never semantic.",
   "type": "object",
-  "required": ["kind", "attributeId", "base", "modifiers", "formula", "operators", "percentageAggregation", "overrideTieBreak", "result"],
+  "required": ["kind", "attributeId", "base", "modifiers", "formula", "operators", "percentageAggregation", "overrideTieBreak", "accumulationOrder", "numericPolicy", "result"],
   "properties": {
     "kind": { "type": "string", "const": "Evaluation" },
     "attributeId": { "$ref": "common.schema.json#/$defs/id" },
@@ -25,6 +25,8 @@
     },
     "percentageAggregation": { "type": "string", "const": "Additive" },
     "overrideTieBreak": { "type": "string", "const": "PriorityDescendingThenSequenceDescending" },
+    "accumulationOrder": { "type": "string", "const": "SequenceAscendingThenIdCodePointAscending" },
+    "numericPolicy": { "type": "string", "const": "Decimal34RoundHalfEven" },
     "channel": { "type": "string", "const": "Default" },
     "result": { "type": "number" }
   },

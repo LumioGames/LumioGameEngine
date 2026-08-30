@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/gas-effect-events.schema.json",
   "title": "GAS Effect same-tick event contract",
-  "description": "Effect events are ordered on the simulation Tick. Suppression is Active-internal and application plus removal in one Tick cancels.",
+  "description": "Effect events are ordered on the simulation Tick. Suppression is Active-internal, its event carries the authoritative suppressed bit, and application plus removal in one Tick cancels.",
   "type": "object",
   "required": ["kind", "effectId", "tickId", "initialState", "events", "finalState"],
   "properties": {
@@ -54,6 +54,15 @@
         "periodTicks": { "type": "integer", "minimum": 1 },
         "suppressed": { "type": "boolean" }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "event": { "const": "Suppress" } },
+            "required": ["event"]
+          },
+          "then": { "required": ["suppressed"] }
+        }
+      ],
       "additionalProperties": false
     }
   }

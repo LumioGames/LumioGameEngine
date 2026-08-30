@@ -22,7 +22,7 @@
  *     且只允许 status 字段,枚举 pending / in_progress / completed(契约见 tasks/README.md);
  *     子目录不校验。
  */
-import { readFileSync, readdirSync, existsSync, statSync, lstatSync, realpathSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, statSync, lstatSync, realpathSync, readlinkSync } from 'node:fs'
 import { join, dirname, basename, resolve, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -222,6 +222,40 @@ for (const rel of ['.claude/agents', '.claude/skills', '.agents/skills']) {
     }
   } catch {
     err(link, '软链接悬空(目标不存在)')
+  }
+}
+
+// Compatibility ADR entries must be Git mode 120000 symbolic links to the
+// authoritative .spec/decisions files. Minimal lint fixtures may omit docs/adr;
+// a real checkout reports regular files, including Windows placeholders.
+const compatibilityAdrDir = join(ROOT, 'docs', 'adr')
+const compatibilityAdrs = {
+  'ADR-050-gas-a1-contracts.md': '../../.spec/decisions/ADR-050-gas-a1-contracts.md',
+  'ADR-051-gas-a2-contracts.md': '../../.spec/decisions/ADR-051-gas-a2-contracts.md',
+}
+if (existsSync(compatibilityAdrDir)) {
+  for (const [name, expectedTarget] of Object.entries(compatibilityAdrs)) {
+    const link = join(compatibilityAdrDir, name)
+    try {
+      const stat = lstatSync(link)
+      if (!stat.isSymbolicLink()) {
+        err(link, 'compatibility ADR must be a Git mode 120000 symbolic link (Windows materialization is environmental only)')
+        continue
+      }
+      const target = readlinkSync(link)
+      const resolvedTarget = resolve(dirname(link), target)
+      const expectedResolved = resolve(dirname(link), expectedTarget)
+      if (normalizeContainmentPath(resolvedTarget) !== normalizeContainmentPath(expectedResolved)) {
+        err(link, `compatibility ADR target must resolve to ${expectedResolved}`)
+      }
+      const real = realpathSync(link)
+      const expected = realpathSync(expectedResolved)
+      if (normalizeContainmentPath(real) !== normalizeContainmentPath(expected)) {
+        err(link, `compatibility ADR resolves to ${real}, expected ${expected}`)
+      }
+    } catch {
+      err(link, 'compatibility ADR link is missing or unresolved')
+    }
   }
 }
 
