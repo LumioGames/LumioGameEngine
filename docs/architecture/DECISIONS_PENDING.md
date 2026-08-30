@@ -64,3 +64,12 @@ This confirmation is **not** a Schema or BaselineId change. It adjudicates the P
 - Selected value: no public P2 numeric profile; no candidate selected. Binding invariants per gate (determinism; expired-pin publishes nothing; unrecoverable-after-visible-write; identity-complete cache keys with World + Revision; Host-owned DAG/fsync/pointer swap). All numeric axes adapter-internal with defined unlock conditions. Full text: [VOX-D-P2-OWNER-CONFIRMATION.md](VOX-D-P2-OWNER-CONFIRMATION.md).
 - Rejected alternatives: freezing numbers from determinism hashes; candidate selection without production-cost data; coordinate-only cache keys; unpublished NativeCore kernel hash as default; seam digests as SLAs; handwritten Schema/ID/BaselineId.
 - Affected: D-014 row; Voxel DecisionEvidence VOX-D-005..008 may record `approvalStatus=approved` citing this id. Generated Artifact set unchanged. D-009 / D-011 / D-016 unchanged; VOX-D-007 Reference-vs-NativeCore differential stays dependency-blocked.
+
+### 2026-08-30 - MS-00001 W0.5 implementation/acceptance profile
+
+- Date: 2026-08-30
+- Owner: LumioGameEngineArchitecture / Architecture owner
+- Selected value: Owner selected implementation/acceptance profile: `mvp-bootstrap` for `MS-00001`. C# `mvp-host` is the temporary semantic/acceptance harness; A1-alpha scope is admission, protocol, lifecycle, `Session`, revision, connection generation and the disconnect/reconnect state machine.
+- Deferred: Rust DS V1 and A1-beta Place/Dig/block visibility remain deferred/post-MVP and are not implied by this choice.
+- Rejected alternative: `ds-v1`, because it would require a separately authorized Rust card set and cross-process evidence.
+- Affected ADR/Manifest: none; this records an operations/acceptance default and does not change public wire/schema semantics or `BaselineId`.
