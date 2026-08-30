@@ -1,0 +1,81 @@
+%% Diagram 1: cold start to interactive
+sequenceDiagram
+    autonumber
+    participant Host as Host/Main thread
+    participant Store as Storage IO thread
+    participant Rec as Recovery worker
+    participant Sched as Load scheduler
+    participant Pool as IO+Decode pool
+    participant Commit as Tick/唯一结构提交相
+    participant World as Authority/Replica World
+    participant View as Physics+Renderer/Client
+
+    Host->>Host: [启动][已有] 读取不可变预算与 Release 配置
+    Host->>Store: [启动][缺失] 获取 world storage 单-writer/read lease
+    Store->>Store: [IO][缺失] 打开 container root、校验并载入分层 index
+    Store-->>Host: index generation + active pointer
+    Host->>Rec: [恢复相][已有] 选择最后有效 snapshot，校验 envelope/payload/revision
+    Rec->>Store: [IO] 读取 snapshot manifest/必要元数据
+    Store-->>Rec: immutable cut + registry/content/base dependencies
+    Rec->>Store: [IO][已有] 扫描 snapshot 后 WAL；只取 authenticated+committed records
+    Store-->>Rec: ordered records / truncation boundary
+    Rec->>World: [恢复相][已有] 幂等重放到 recovered revision
+    Rec-->>Host: [缺失 gate] WorldRecovered(revision, durablePoint)
+    Host->>Commit: [Tick 可受限运行] 发布 world metadata；仍禁止把 NotLoaded 当空气
+    Commit->>World: [提交相][已有] 进入 Online/Loading，不改变内容 revision
+    Host->>Sched: [接入相][缺失] 提交 Spawn/AOI/physics 必需 LoadIntent
+    Sched->>Sched: 去重、优先级、依赖半径、内存/并发预算
+    par 多个异步候选
+        Sched->>Pool: [worker] 定位 shard/page，异步读
+        Pool->>Store: [IO] Range/pread page bytes
+        Store-->>Pool: compressed payload
+        Pool->>Pool: [worker] 长度/解压上限→解压→SHA-256→schema/DataFix→runtime candidate
+        Pool-->>Commit: [缺失协议] LoadCandidate(requestGeneration,boundRevision,hash,bytes)
+    end
+    Commit->>Commit: [唯一提交相][缺失细化] 重验 Release/schema、generation、bound revision、预算、依赖
+    alt 候选仍有效
+        Commit->>World: 原子安装 pages/chunk residency；保留原 chunk/world content revision
+        World-->>View: Presence=Ready + revision stamp
+    else 过期/超预算/坏数据
+        Commit->>World: Pending/Unavailable/Failed；绝不 materialize 空块
+    end
+    View->>View: [worker/main 分摊][缺失] collider/mesh/光照派生缓存
+    View-->>Host: SpawnSafe（碰撞+权限） / ViewReady（可见范围）
+    Host-->>View: [缺失 admission gate] 允许玩家交互；其余区域继续渐进加载
+
+%% Diagram 2: mutation to power-loss durability
+sequenceDiagram
+    autonumber
+    participant Client as Browser Client
+    participant Net as Server network/session
+    participant Tick as Authority Tick/Stage
+    participant Commit as 唯一结构提交相
+    participant World as Authority World
+    participant Wal as WAL writer thread
+    participant Disk as Storage/filesystem
+    participant Ack as Durability coordinator
+    participant Evict as Residency manager
+
+    Client->>Net: 输入：挖/放方块(command id, expected context)
+    Net->>Tick: [Tick 输入相] 认证、去重、排队
+    Tick->>Tick: [Stage][已有] 校验 presence/权限/目标 revision；构造 mutation batch
+    Note over Tick,Commit: 提交点前写入对复制与快照不可见；Tick 故障则整帧作废
+    Tick->>Commit: staged batch + idempotency key
+    Commit->>World: [提交相][已有] 原子应用；WorldRevision/ChunkRevision 单调推进；标 dirty
+    Commit-->>Net: committed receipt/revision（此刻已是权威事实，但未必抗断电）
+    Commit->>Wal: [缺失物理编排][已有逻辑字段] 序列化 committed WAL record(previousHash,payloadHash,seq,...)
+    Wal->>Disk: append 到当前 segment；校验 short write/length/checksum
+    Disk-->>Wal: write complete（尚不等于 durable）
+    Wal->>Disk: [缺失 profile] flush/fsync record/segment；需要时同步新目录项
+    Disk-->>Wal: durable boundary = segmentId+offset+hash
+    Wal->>Ack: 生成 DurabilityPoint(WAL) 与 covered revisions
+    Ack->>Commit: [下一 barrier][已有] 幂等提交 DurabilityAck
+    Commit->>World: [已有] 仅清除 <= upToChunkRevision 的 dirty；后续写仍 dirty
+    World-->>Net: durable receipt/telemetry（至此该修改满足“断电后仍在”）
+    Commit->>Evict: 更新驱逐资格与审计 fence
+    alt 无 pin、无更晚未确认写
+        Evict->>World: 可降级/卸载；重载时 snapshot + indexed WAL 重建
+    else 仍 dirty/pinned/pending
+        Evict->>World: 拒绝驱逐并保持驻留
+    end
+    Note over Wal,Disk: 后台 snapshot 可用短 barrier pin/COW→异步编码→校验→fsync/原子激活→Ack(snapshot+WAL)，随后安全截断旧 WAL

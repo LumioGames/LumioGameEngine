@@ -12,3 +12,4 @@ node_modules/
 packages/rust/target/
 packages/csharp/**/bin/
 packages/csharp/**/obj/
+.claude/settings.local.json
