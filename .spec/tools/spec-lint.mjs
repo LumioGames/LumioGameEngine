@@ -23,7 +23,7 @@
  *     子目录不校验。
  */
 import { readFileSync, readdirSync, existsSync, statSync, lstatSync, realpathSync } from 'node:fs'
-import { join, dirname, basename, resolve, relative } from 'node:path'
+import { join, dirname, basename, resolve, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = process.argv[2]
@@ -33,6 +33,8 @@ const SPEC = join(ROOT, '.spec')
 const STATUS_ENUM = new Set(['设计中', '实施中', '已交付', '历史归档'])
 const errors = []
 const err = (file, msg) => errors.push(`${relative(ROOT, file)}: ${msg}`)
+const normalizeContainmentPath = (path) =>
+  process.platform === 'win32' ? path.toLowerCase() : path
 
 function walk(dir, filter) {
   if (!existsSync(dir)) return []
@@ -212,7 +214,12 @@ for (const rel of ['.claude/agents', '.claude/skills', '.agents/skills']) {
   }
   try {
     const real = realpathSync(link)
-    if (!real.startsWith(realpathSync(SPEC))) err(link, `软链接未解析进 .spec/(实际指向 ${real})`)
+    const specReal = realpathSync(SPEC)
+    const comparableReal = normalizeContainmentPath(real)
+    const comparableSpec = normalizeContainmentPath(specReal)
+    if (comparableReal !== comparableSpec && !comparableReal.startsWith(`${comparableSpec}${sep}`)) {
+      err(link, `软链接未解析进 .spec/(实际指向 ${real})`)
+    }
   } catch {
     err(link, '软链接悬空(目标不存在)')
   }

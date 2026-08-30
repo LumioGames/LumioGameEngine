@@ -21,7 +21,7 @@ function createFixtureLink(target, link) {
 }
 
 /** 生成一个最小合法仓库,返回根路径;overrides 可改写/追加文件(值为 null 表示删除该默认文件)。 */
-function fixture(overrides = {}) {
+function fixture(overrides = {}, linkOverrides = {}) {
   const root = mkdtempSync(join(tmpdir(), 'spec-lint-fixture-'))
   const files = {
     'CLAUDE.md': '# CLAUDE.md\n\n@.spec/AGENTS.md\n\n@.spec/knowledge/README.md\n\n@.spec/rules/system.md\n',
@@ -49,9 +49,13 @@ function fixture(overrides = {}) {
   }
   mkdirSync(join(root, '.claude'), { recursive: true })
   mkdirSync(join(root, '.agents'), { recursive: true })
-  createFixtureLink('../.spec/agents', join(root, '.claude/agents'))
-  createFixtureLink('../.spec/skills', join(root, '.claude/skills'))
-  createFixtureLink('../.spec/skills', join(root, '.agents/skills'))
+  const links = {
+    '.claude/agents': '../.spec/agents',
+    '.claude/skills': '../.spec/skills',
+    '.agents/skills': '../.spec/skills',
+    ...linkOverrides,
+  }
+  for (const [rel, target] of Object.entries(links)) createFixtureLink(target, join(root, rel))
   return root
 }
 
@@ -170,4 +174,31 @@ test('软链接缺失被抓', () => {
   const { code, output } = lint(root)
   assert.equal(code, 1)
   assert.match(output, /软链接缺失/)
+})
+
+test('sibling-prefix link target is rejected', () => {
+  const { code, output } = lint(fixture({
+    '.spec-evil/agents/marker.md': '# outside\n',
+  }, {
+    '.claude/agents': '../.spec-evil/agents',
+  }))
+  assert.equal(code, 1)
+  assert.match(output, /软链接未解析进 \.spec/)
+  assert.match(output, /spec-evil[\\/]agents/)
+})
+
+test('case-variant link target follows platform case semantics', () => {
+  const { code, output } = lint(fixture({
+    '.SPEC/agents/marker.md': '# case variant\n',
+  }, {
+    '.claude/agents': '../.SPEC/agents',
+  }))
+  if (process.platform === 'win32') {
+    assert.equal(code, 0, output)
+    assert.match(output, /spec-lint: OK/)
+  } else {
+    assert.equal(code, 1, output)
+    assert.match(output, /软链接未解析进 \.spec/)
+    assert.match(output, /[\\/]\.SPEC[\\/]agents/)
+  }
 })
