@@ -14,6 +14,12 @@ P0 schemas are required before cross-repository integration. `mod-manifest.schem
 
 Cross-field rules that JSON Schema cannot express, including first-failure order, Commit charging, evaluation arithmetic, override tie-breaks and same-Tick cancellation, are enforced by `tools/lumio_contract.py validate` against the registered positive and negative fixtures.
 
+## GAS A2 Contracts
+
+`gas-components.schema.json` closes the ECS projection to the four GAS containers and binds each row to a world/index/generation Handle. `gas-tag.schema.json` binds counted hierarchical tags to the permanent `Tag` ID namespace and its pre-World-Ready handshake; its table and schema hashes use the declared `SHA-256(CanonicalJsonV1)` construction. `gas-replication.schema.json` carries field-level authority/owner/visibility plus explicit server and client hash domains; the Modifier ledger remains only a derived view of Effect entries and is never a standalone replicated or persisted field. `gas-prediction.schema.json` freezes frame-keyed prediction rejection, one-frame ECS/GAS/Voxel rollback and deterministic replay.
+
+The A2 schemas are additive under ADR-051. `FxComponent`, wall-clock timing, prediction-window/task concepts and RPC fields are not contract extensions.
+
 ## Change Rule
 
 Changing a required field, enum, revision meaning, phase, ID layout or compatibility rule requires an ADR, a new positive and negative fixture, regenerated artifacts, a new baseline id, and synchronized repository mirrors.

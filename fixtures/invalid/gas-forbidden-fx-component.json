@@ -1,0 +1,37 @@
+{
+  "kind": "Components",
+  "schemaVersion": 1,
+  "worldId": "world-alpha",
+  "entityId": "entity-001",
+  "components": [
+    { "component": "AbilityComponent", "entries": [] },
+    { "component": "FxComponent", "entries": [
+      {
+        "typeId": "effect.burning",
+        "instanceId": "effect-instance-1",
+        "row": { "index": 20 },
+        "handle": { "worldId": "world-alpha", "index": 20, "generation": 1, "valid": true },
+        "state": "Active",
+        "fx_key": "fx.burning"
+      }
+    ] },
+    { "component": "AttributeComponent", "entries": [] },
+    { "component": "TagComponent", "entries": [] }
+  ],
+  "handleProbes": [
+    {
+      "handle": { "worldId": "world-alpha", "index": 20, "generation": 1, "valid": true },
+      "expected": "Accepted"
+    },
+    {
+      "handle": { "worldId": "world-alpha", "index": 20, "generation": 2, "valid": false },
+      "expected": "Rejected",
+      "reason": "StaleGeneration"
+    },
+    {
+      "handle": { "worldId": "world-beta", "index": 20, "generation": 1, "valid": false },
+      "expected": "Rejected",
+      "reason": "CrossWorld"
+    }
+  ]
+}

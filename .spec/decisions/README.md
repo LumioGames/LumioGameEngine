@@ -65,5 +65,6 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-048](ADR-048-generated-consumable-surface.md) | Generated 面可消费化（八类闭合契约类型本体、可执行 Protocol/Permission 门、netstandard2.1;net8.0 双目标、capability 常量三形态） | Draft |
 | [ADR-049](ADR-049-replication-state-payload-and-input-command.md) | Replication 状态载荷与 InputCommand 承载（typed body 增 stateBlocks/changedBlocks、LumioBinV1 编码与 payloadHash 绑定、独立 input envelope；**目标 `LGE-V1.5`，属基线事件**） | Draft |
 | [ADR-050](ADR-050-gas-a1-contracts.md) | GAS A1 lifecycle admission, deterministic evaluation and same-Tick Effect events | Draft |
+| [ADR-051](ADR-051-gas-a2-contracts.md) | GAS A2 ECS components, Tag handshake, replication visibility and frame prediction | Draft |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。

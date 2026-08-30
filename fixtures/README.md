@@ -12,4 +12,10 @@ An `invalid` fixture is successful only when structural or semantic validation r
 
 The `gas/*` fixtures cover the closed Ability/Effect state machines, five-step admission, two-check Commit, deterministic evaluation, same-Tick Effect ordering, suppression and Tick-only timing. Invalid GAS fixtures must report at least one structural or semantic error; silently accepting an expected-invalid record fails the validation command.
 
+The A2 `gas/*` fixtures additionally cover the four ECS containers and Handle
+resolution, the permanent Tag table and hierarchy handshake, field visibility
+and dual hash projections, the derived-only Modifier ledger boundary, and
+frame-keyed prediction rollback/replay. Each new P0 schema has positive and
+negative records in this index.
+
 Fixtures intentionally use placeholder hashes and signatures. They exercise shape, correlation, ordering and compatibility rules; release signing and cryptographic verification belong to the Release Toolchain implementation.

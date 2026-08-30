@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/gas-tag.schema.json",
+  "title": "GAS counted tags and registry handshake",
+  "description": "Tag counts are backed by the permanent Tag namespace. The complete table and schema identity must agree before a world is Ready or Running.",
+  "type": "object",
+  "required": ["kind", "schemaVersion", "worldId", "registrySource", "hashAlgorithm", "registry", "counts", "queries", "handshake"],
+  "properties": {
+    "kind": { "type": "string", "const": "TagState" },
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "worldId": { "$ref": "common.schema.json#/$defs/id" },
+    "registrySource": { "type": "string", "const": "ids/index.json#Tag" },
+    "hashAlgorithm": { "type": "string", "const": "SHA-256(CanonicalJsonV1)" },
+    "registry": { "$ref": "#/$defs/registry" },
+    "counts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/count" }
+    },
+    "queries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/query" }
+    },
+    "handshake": { "$ref": "#/$defs/handshake" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "registry": {
+      "type": "object",
+      "required": ["namespace", "entries", "tableHash", "schemaHash"],
+      "properties": {
+        "namespace": { "type": "string", "const": "Tag" },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/registryEntry" }
+        },
+        "tableHash": { "$ref": "common.schema.json#/$defs/hash256" },
+        "schemaHash": { "$ref": "common.schema.json#/$defs/hash256" }
+      },
+      "additionalProperties": false
+    },
+    "registryEntry": {
+      "type": "object",
+      "required": ["tagId", "numeric", "status", "since"],
+      "properties": {
+        "tagId": { "$ref": "common.schema.json#/$defs/id" },
+        "numeric": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "status": { "type": "string", "enum": ["Active", "Reserved", "Deprecated"] },
+        "since": { "type": "string", "pattern": "^V[0-9]+$" }
+      },
+      "additionalProperties": false
+    },
+    "count": {
+      "type": "object",
+      "required": ["tagId", "count"],
+      "properties": {
+        "tagId": { "$ref": "common.schema.json#/$defs/id" },
+        "count": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "query": {
+      "type": "object",
+      "required": ["mode", "tagId", "expected", "matches"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["Exact", "Parent", "Child"] },
+        "tagId": { "$ref": "common.schema.json#/$defs/id" },
+        "expected": { "type": "boolean" },
+        "matches": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/id" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "handshake": {
+      "type": "object",
+      "required": ["localTableHash", "peerTableHash", "localSchemaHash", "peerSchemaHash", "phase", "accepted"],
+      "properties": {
+        "localTableHash": { "$ref": "common.schema.json#/$defs/hash256" },
+        "peerTableHash": { "$ref": "common.schema.json#/$defs/hash256" },
+        "localSchemaHash": { "$ref": "common.schema.json#/$defs/hash256" },
+        "peerSchemaHash": { "$ref": "common.schema.json#/$defs/hash256" },
+        "phase": { "type": "string", "enum": ["Loading", "WorldReady", "Running"] },
+        "accepted": { "type": "boolean" },
+        "failureReason": { "type": "string", "enum": ["TagTableHashMismatch", "TagSchemaHashMismatch"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "accepted": { "const": true } }, "required": ["accepted"] },
+          "then": { "not": { "required": ["failureReason"] } }
+        },
+        {
+          "if": { "properties": { "accepted": { "const": false } }, "required": ["accepted"] },
+          "then": { "required": ["failureReason"] }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

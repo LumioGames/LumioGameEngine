@@ -482,6 +482,86 @@
       "reason": "suppression is an Active-internal event and cannot change state"
     },
     {
+      "id": "gas/components-forbidden-fx",
+      "schema": "gas-components",
+      "file": "invalid/gas-forbidden-fx-component.json",
+      "expected": "invalid",
+      "reason": "GAS exposes exactly four ECS containers and forbids FxComponent"
+    },
+    {
+      "id": "gas/components-minimal",
+      "schema": "gas-components",
+      "file": "valid/gas-components-minimal.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/components-stale-handle",
+      "schema": "gas-components",
+      "file": "invalid/gas-components-stale-handle.json",
+      "expected": "invalid",
+      "reason": "stale and cross-world Handles must be rejected"
+    },
+    {
+      "id": "gas/tag-hierarchy",
+      "schema": "gas-tag",
+      "file": "valid/gas-tag-hierarchy.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/tag-hash-mismatch",
+      "schema": "gas-tag",
+      "file": "invalid/gas-tag-hash-mismatch.json",
+      "expected": "invalid",
+      "reason": "a Tag table/schema hash mismatch hard-fails before WorldReady or Running"
+    },
+    {
+      "id": "gas/tag-query-mismatch",
+      "schema": "gas-tag",
+      "file": "invalid/gas-tag-query-mismatch.json",
+      "expected": "invalid",
+      "reason": "counted exact, parent and child Tag queries must be deterministic"
+    },
+    {
+      "id": "gas/replication-hashes",
+      "schema": "gas-replication",
+      "file": "valid/gas-replication-hashes.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/replication-hash-domain-leak",
+      "schema": "gas-replication",
+      "file": "invalid/gas-replication-hash-domain-leak.json",
+      "expected": "invalid",
+      "reason": "predicted values cannot enter either authoritative or confirmation hash"
+    },
+    {
+      "id": "gas/replication-modifier-ledger",
+      "schema": "gas-replication",
+      "file": "invalid/gas-replication-modifier-ledger.json",
+      "expected": "invalid",
+      "reason": "Modifier ledger is a derived Effect view and cannot be synchronized or persisted"
+    },
+    {
+      "id": "gas/prediction-rollback",
+      "schema": "gas-prediction",
+      "file": "valid/gas-prediction-rollback.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/prediction-nonpredictable",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-nonpredictable.json",
+      "expected": "invalid",
+      "reason": "Effect removal, Effect period and out-of-simulation actions are non-predictable"
+    },
+    {
+      "id": "gas/prediction-server-rollback",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-server-rollback.json",
+      "expected": "invalid",
+      "reason": "prediction rejection never rolls back the server"
+    },
+    {
       "id": "gate/accept",
       "schema": "protocol-permission-gate",
       "file": "valid/protocol-permission-gate-accept.json",

@@ -98,6 +98,17 @@
         { "id": "SlotStateUnproven", "numeric": 2, "status": "Active", "since": "V1" },
         { "id": "ProcessFault", "numeric": 3, "status": "Active", "since": "V1" }
       ]
+    },
+    {
+      "namespace": "Tag",
+      "owner": "Game",
+      "values": [
+        { "id": "Gameplay", "numeric": 1, "status": "Active", "since": "V1" },
+        { "id": "Gameplay.Combat", "numeric": 2, "status": "Active", "since": "V1" },
+        { "id": "Gameplay.Combat.Fire", "numeric": 3, "status": "Active", "since": "V1" },
+        { "id": "Gameplay.Combat.Fire.Projectile", "numeric": 4, "status": "Active", "since": "V1" },
+        { "id": "Gameplay.Stunned", "numeric": 5, "status": "Active", "since": "V1" }
+      ]
     }
   ]
 }

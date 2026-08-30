@@ -1,0 +1,36 @@
+{
+  "kind": "Components",
+  "schemaVersion": 1,
+  "worldId": "world-alpha",
+  "entityId": "entity-001",
+  "components": [
+    { "component": "AbilityComponent", "entries": [
+      {
+        "typeId": "ability.fire",
+        "instanceId": "ability-instance-1",
+        "row": { "index": 10 },
+        "handle": { "worldId": "world-alpha", "index": 10, "generation": 1, "valid": true },
+        "state": "Executing"
+      }
+    ] },
+    { "component": "EffectComponent", "entries": [] },
+    { "component": "AttributeComponent", "entries": [] },
+    { "component": "TagComponent", "entries": [] }
+  ],
+  "handleProbes": [
+    {
+      "handle": { "worldId": "world-alpha", "index": 10, "generation": 2, "valid": true },
+      "expected": "Accepted"
+    },
+    {
+      "handle": { "worldId": "world-beta", "index": 10, "generation": 1, "valid": false },
+      "expected": "Rejected",
+      "reason": "CrossWorld"
+    },
+    {
+      "handle": { "worldId": "world-alpha", "index": 10, "generation": 3, "valid": false },
+      "expected": "Rejected",
+      "reason": "StaleGeneration"
+    }
+  ]
+}

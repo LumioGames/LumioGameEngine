@@ -550,6 +550,23 @@ _GAS_EFFECT_EVENT_RANK = {
     "Removal": 7,
     "Expire": 7,
 }
+_GAS_COMPONENT_NAMES = (
+    "AbilityComponent",
+    "EffectComponent",
+    "AttributeComponent",
+    "TagComponent",
+)
+_GAS_TAG_QUERY_MODES = ("Exact", "Parent", "Child")
+_GAS_NON_PREDICTABLE_ACTIONS = (
+    "EffectRemoval",
+    "EffectPeriod",
+    "OutOfSimulation",
+)
+_GAS_PREDICTION_ROLLBACK_STEPS = (
+    "RestoreConfirmedFrame",
+    "ApplyAuthoritativeEcsGasVoxel",
+    "ReplayUnconfirmedInputs",
+)
 _CONFIG_INT_BOUNDS = {
     "i32": (-2147483648, 2147483647),
     "i64": (-9223372036854775808, 9223372036854775807),
@@ -1776,6 +1793,502 @@ def _gas_effect_event_errors(value: Dict[str, Any]) -> List[str]:
     return errors
 
 
+def _gas_registry_values(namespace: str) -> List[Dict[str, Any]]:
+    """Read one permanent namespace from the architecture ID Registry."""
+    try:
+        registry = load_json(ID_REGISTRY_FILE)
+    except ContractError:
+        return []
+    for item in registry.get("namespaces", []) if isinstance(registry, dict) else []:
+        if isinstance(item, dict) and item.get("namespace") == namespace:
+            values = item.get("values")
+            return values if isinstance(values, list) else []
+    return []
+
+
+def _gas_component_entries(value: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
+    """Flatten component rows while retaining their declared container."""
+    all_entries: List[Dict[str, Any]] = []
+    by_component: Dict[str, List[Dict[str, Any]]] = {}
+    components = value.get("components") if isinstance(value, dict) else None
+    if not isinstance(components, list):
+        return all_entries, by_component
+    for container in components:
+        if not isinstance(container, dict):
+            continue
+        name = str(container.get("component", ""))
+        rows = container.get("entries")
+        if not isinstance(rows, list):
+            continue
+        bucket = by_component.setdefault(name, [])
+        for row in rows:
+            if isinstance(row, dict):
+                row_copy = dict(row)
+                row_copy["_component"] = name
+                bucket.append(row_copy)
+                all_entries.append(row_copy)
+    return all_entries, by_component
+
+
+def _gas_components_errors(value: Dict[str, Any]) -> List[str]:
+    """Validate the four ECS containers and world/index/generation identity."""
+    errors: List[str] = []
+    if not isinstance(value, dict):
+        return ["GAS component record must be an object"]
+    if value.get("kind") != "Components":
+        errors.append("GAS component record kind must be Components")
+    components = value.get("components")
+    names = [item.get("component") for item in components if isinstance(item, dict)] if isinstance(components, list) else []
+    normalized_names = [str(name) for name in names]
+    if tuple(sorted(normalized_names)) != tuple(sorted(_GAS_COMPONENT_NAMES)):
+        errors.append("GAS exposes exactly AbilityComponent, EffectComponent, AttributeComponent and TagComponent")
+    if len(normalized_names) != len(set(normalized_names)):
+        errors.append("GAS component containers must be unique")
+    unknown = sorted(set(normalized_names) - set(_GAS_COMPONENT_NAMES))
+    if unknown:
+        errors.append("unknown GAS component container(s): {}".format(", ".join(unknown)))
+
+    # FxComponent is intentionally not a tolerated extension, even when a
+    # structural validator reports the oneOf failure first. `fx_key` is
+    # permitted for one entry level only, never on the container itself.
+    def scan(node: Any, context: str = "other") -> None:
+        if isinstance(node, dict):
+            if node.get("component") == "FxComponent" or "FxComponent" in node:
+                errors.append("FxComponent is forbidden; use EffectComponent.fx_key")
+            if "fx_key" in node and context != "effect_entry":
+                errors.append("fx_key is allowed only inside an EffectComponent entry")
+            if any(
+                token in str(key).lower()
+                for key in node
+                for token in ("wallclock", "timestamp", "datetime", "millisecond", "second")
+            ):
+                errors.append("GAS component timing fields must use Tick numbers, not wall-clock values")
+            if node.get("component") == "EffectComponent":
+                for key, child in node.items():
+                    scan(child, "effect_entries" if key == "entries" else "other")
+            elif context == "effect_entries":
+                for child in node.values():
+                    scan(child, "effect_entry")
+            else:
+                for child in node.values():
+                    scan(child, "other")
+        elif isinstance(node, list):
+            child_context = "effect_entry" if context == "effect_entries" else context
+            for child in node:
+                scan(child, child_context)
+
+    scan(value)
+    # Keep one stable occurrence for the common invalid-fixture case.
+    errors = list(dict.fromkeys(errors))
+
+    entries, _by_component = _gas_component_entries(value)
+    world_id = value.get("worldId")
+    # Components attached to one ECS entity may share its index+generation
+    # Handle. Conflicting generations or validity at one index are the error.
+    handles: Dict[int, Tuple[Any, Any]] = {}
+    row_slots: set = set()
+    instance_ids: set = set()
+    for entry in entries:
+        component = entry.get("_component")
+        instance_id = str(entry.get("instanceId"))
+        if instance_id in instance_ids:
+            errors.append("GAS instanceId values must be unique across component rows")
+        instance_ids.add(instance_id)
+        row = entry.get("row")
+        handle = entry.get("handle")
+        if not isinstance(row, dict) or not isinstance(handle, dict):
+            continue
+        row_index = row.get("index")
+        handle_index = handle.get("index")
+        if isinstance(row_index, int) and not isinstance(row_index, bool):
+            slot = (component, row_index)
+            if slot in row_slots:
+                errors.append("an ECS component cannot contain duplicate row indexes")
+            row_slots.add(slot)
+        if row_index != handle_index:
+            errors.append("Handle index must equal its ECS row index")
+        if handle.get("worldId") != world_id:
+            errors.append("Handle worldId must equal the enclosing worldId")
+        if "handleValid" in entry and entry.get("handleValid") != handle.get("valid"):
+            errors.append("handleValid must agree with Handle.valid")
+        if isinstance(handle_index, int) and not isinstance(handle_index, bool) and isinstance(handle.get("generation"), int) and not isinstance(handle.get("generation"), bool):
+            key = handle_index
+            identity = (handle.get("generation"), handle.get("valid"))
+            if key in handles and handles[key] != identity:
+                errors.append("world-bound Handle index must have one current generation and validity")
+            handles[key] = identity
+        state = entry.get("state")
+        if component == "AbilityComponent" and isinstance(state, str):
+            if state in _ABILITY_TERMINAL and handle.get("valid") is not False:
+                errors.append("terminal Ability rows invalidate their Handle")
+            elif state not in _ABILITY_TERMINAL and handle.get("valid") is not True:
+                errors.append("non-terminal Ability rows keep their Handle valid")
+        if component == "EffectComponent" and isinstance(state, str):
+            if state in _EFFECT_TERMINAL and handle.get("valid") is not False:
+                errors.append("terminal Effect rows invalidate their Handle")
+            elif state not in _EFFECT_TERMINAL and handle.get("valid") is not True:
+                errors.append("non-terminal Effect rows keep their Handle valid")
+
+    probes = value.get("handleProbes")
+    seen_reasons: set = set()
+    if isinstance(probes, list):
+        for probe in probes:
+            if not isinstance(probe, dict):
+                continue
+            handle = probe.get("handle")
+            if not isinstance(handle, dict):
+                continue
+            actual = "Accepted"
+            reason: Optional[str] = None
+            if handle.get("worldId") != world_id:
+                actual, reason = "Rejected", "CrossWorld"
+            else:
+                index = handle.get("index")
+                generation = handle.get("generation")
+                current_identity = handles.get(index) if isinstance(index, int) and not isinstance(index, bool) else None
+                if current_identity is None:
+                    actual, reason = "Rejected", "MissingRow"
+                else:
+                    current_generation, current_valid = current_identity
+                    if generation != current_generation:
+                        actual, reason = "Rejected", "StaleGeneration"
+                    elif current_valid is not True:
+                        actual, reason = "Rejected", "Terminal"
+            if probe.get("expected") != actual:
+                errors.append("Handle probe expected {} but resolves as {}".format(probe.get("expected"), actual))
+            if actual == "Rejected" and probe.get("reason") != reason:
+                errors.append("Handle rejection reason must be {}".format(reason))
+            if actual == "Accepted" and "reason" in probe:
+                errors.append("an accepted Handle probe cannot carry a rejection reason")
+            if probe.get("expected") == "Accepted" and handle.get("valid") is not True:
+                errors.append("an accepted Handle probe must declare valid=true")
+            if probe.get("expected") == "Rejected" and handle.get("valid") is not False:
+                errors.append("a rejected Handle probe must declare valid=false")
+            if reason:
+                seen_reasons.add(reason)
+    required_probe_reasons = {"CrossWorld", "StaleGeneration"}
+    if isinstance(probes, list) and not required_probe_reasons <= seen_reasons:
+        errors.append("Handle probes must cover stale-generation and cross-world rejection")
+    return list(dict.fromkeys(errors))
+
+
+def _gas_tag_table_hash(entries: List[Dict[str, Any]]) -> str:
+    table = {
+        "namespace": "Tag",
+        "entries": [
+            {
+                "tagId": item.get("tagId") if isinstance(item, dict) else None,
+                "numeric": item.get("numeric") if isinstance(item, dict) else None,
+                "status": item.get("status") if isinstance(item, dict) else None,
+                "since": item.get("since") if isinstance(item, dict) else None,
+            }
+            for item in entries
+        ],
+    }
+    return hashlib.sha256(canonical_json(table).encode("ascii")).hexdigest()
+
+
+def _gas_tag_schema_hash() -> str:
+    try:
+        schema = load_json(SCHEMA_DIR / "gas-tag.schema.json")
+    except ContractError:
+        return ""
+    return hashlib.sha256(canonical_json(schema).encode("ascii")).hexdigest()
+
+
+def _gas_tag_is_descendant(candidate: str, ancestor: str) -> bool:
+    return candidate.startswith(ancestor + ".")
+
+
+def _gas_tag_errors(value: Dict[str, Any]) -> List[str]:
+    """Validate counted Tag state, hierarchy queries and the pre-world handshake."""
+    errors: List[str] = []
+    if not isinstance(value, dict):
+        return ["GAS Tag record must be an object"]
+    registry = value.get("registry") if isinstance(value.get("registry"), dict) else {}
+    entries = registry.get("entries") if isinstance(registry.get("entries"), list) else []
+    registry_ids = [str(item.get("tagId")) for item in entries if isinstance(item, dict)]
+    registry_numerics = [canonical_json(item.get("numeric")) for item in entries if isinstance(item, dict)]
+    if len(registry_ids) != len(set(registry_ids)):
+        errors.append("Tag registry identifiers must be unique")
+    if len(registry_numerics) != len(set(registry_numerics)):
+        errors.append("Tag registry numeric identifiers must be unique")
+    permanent = _gas_registry_values("Tag")
+    expected_permanent = [
+        {
+            "tagId": item.get("id"),
+            "numeric": item.get("numeric"),
+            "status": item.get("status"),
+            "since": item.get("since"),
+        }
+        for item in permanent
+        if isinstance(item, dict)
+    ]
+    declared = [
+        {
+            "tagId": item.get("tagId"),
+            "numeric": item.get("numeric"),
+            "status": item.get("status"),
+            "since": item.get("since"),
+        }
+        for item in entries
+        if isinstance(item, dict)
+    ]
+    if declared != expected_permanent:
+        errors.append("Tag registry must equal the complete permanent ids/index.json#Tag table")
+    table_hash = _gas_tag_table_hash(entries)
+    schema_hash = _gas_tag_schema_hash()
+    if registry.get("tableHash") != table_hash:
+        errors.append("Tag tableHash does not cover the complete canonical table")
+    if registry.get("schemaHash") != schema_hash:
+        errors.append("Tag schemaHash does not match the gas-tag schema handshake descriptor")
+
+    counts_value = value.get("counts")
+    counts = counts_value if isinstance(counts_value, list) else []
+    count_ids = [str(item.get("tagId")) for item in counts if isinstance(item, dict)]
+    if len(count_ids) != len(set(count_ids)):
+        errors.append("Tag counts must contain each tag at most once")
+    known_ids = set(registry_ids)
+    status_by_id = {}
+    for item in entries:
+        if isinstance(item, dict):
+            status_by_id[str(item.get("tagId"))] = item.get("status")
+    active_counts = set()
+    for item in counts:
+        if not isinstance(item, dict):
+            continue
+        tag_id = str(item.get("tagId"))
+        count = item.get("count")
+        if tag_id not in known_ids:
+            errors.append("Tag count references an unregistered identifier")
+        if status_by_id.get(tag_id) != "Active":
+            errors.append("Tag counts may reference only Active identifiers")
+        if isinstance(count, int) and not isinstance(count, bool) and count > 0:
+            active_counts.add(tag_id)
+
+    query_modes: set = set()
+    queries_value = value.get("queries")
+    queries = queries_value if isinstance(queries_value, list) else []
+    for query in queries:
+        if not isinstance(query, dict):
+            continue
+        mode = query.get("mode")
+        tag_id = str(query.get("tagId"))
+        query_modes.add(str(mode))
+        if tag_id not in known_ids:
+            errors.append("Tag query references an unregistered identifier")
+            continue
+        if mode == "Exact":
+            matches = sorted(item for item in active_counts if item == tag_id)
+        elif mode == "Parent":
+            matches = sorted(item for item in active_counts if _gas_tag_is_descendant(item, str(tag_id)))
+        elif mode == "Child":
+            matches = sorted(item for item in active_counts if _gas_tag_is_descendant(str(tag_id), item))
+        else:
+            matches = []
+        if query.get("matches") != matches:
+            errors.append("Tag {} query matches are not deterministic".format(mode))
+        if query.get("expected") is not bool(matches):
+            errors.append("Tag {} query expected must match its counted result".format(mode))
+    if query_modes and query_modes != set(_GAS_TAG_QUERY_MODES):
+        errors.append("Tag fixtures must exercise Exact, Parent and Child matching")
+
+    handshake = value.get("handshake") if isinstance(value.get("handshake"), dict) else {}
+    table_mismatch = not (
+        handshake.get("localTableHash") == table_hash
+        and handshake.get("peerTableHash") == table_hash
+        and handshake.get("localTableHash") == handshake.get("peerTableHash")
+    )
+    schema_mismatch = not (
+        handshake.get("localSchemaHash") == schema_hash
+        and handshake.get("peerSchemaHash") == schema_hash
+        and handshake.get("localSchemaHash") == handshake.get("peerSchemaHash")
+    )
+    mismatch = table_mismatch or schema_mismatch
+    expected_accepted = not mismatch
+    if handshake.get("accepted") is not expected_accepted:
+        errors.append("Tag handshake accepted must equal full-table/schema hash agreement")
+    if mismatch:
+        expected_reason = "TagTableHashMismatch" if table_mismatch else "TagSchemaHashMismatch"
+        if handshake.get("failureReason") != expected_reason:
+            errors.append("Tag handshake failureReason must be {}".format(expected_reason))
+        if handshake.get("phase") in ("WorldReady", "Running"):
+            errors.append("Tag hash mismatch must hard-fail before WorldReady or Running")
+    elif "failureReason" in handshake:
+        errors.append("an accepted Tag handshake cannot carry failureReason")
+    return list(dict.fromkeys(errors))
+
+
+def _gas_replication_hash(domain: str, fields: List[Dict[str, Any]], included: List[str]) -> str:
+    by_id = {str(item.get("fieldId")): item for item in fields if isinstance(item, dict)}
+    payload = {
+        "domain": domain,
+        "fields": [{"fieldId": field_id, "value": by_id[field_id].get("value")} for field_id in included if field_id in by_id],
+    }
+    return hashlib.sha256(canonical_json(payload).encode("ascii")).hexdigest()
+
+
+def _gas_replication_errors(value: Dict[str, Any]) -> List[str]:
+    """Validate field visibility declarations and the two hash projections."""
+    errors: List[str] = []
+    if not isinstance(value, dict):
+        return ["GAS replication record must be an object"]
+    if value.get("kind") != "ReplicationContract":
+        errors.append("GAS replication record kind must be ReplicationContract")
+    fields_value = value.get("fields")
+    fields = fields_value if isinstance(fields_value, list) else []
+    field_ids = [str(item.get("fieldId")) for item in fields if isinstance(item, dict)]
+    if len(field_ids) != len(set(field_ids)):
+        errors.append("replication fieldId values must be unique")
+    declared_components = {
+        str(item.get("component")) for item in fields if isinstance(item, dict)
+    }
+    if declared_components != set(_GAS_COMPONENT_NAMES):
+        errors.append("replication declarations must cover all four GAS components")
+    field_by_id = {str(item.get("fieldId")): item for item in fields if isinstance(item, dict)}
+    all_ids = [str(item.get("fieldId")) for item in fields if isinstance(item, dict)]
+    authoritative_ids: List[str] = []
+    sync_ids: List[str] = []
+    for item in fields:
+        if not isinstance(item, dict):
+            continue
+        field_id = str(item.get("fieldId"))
+        component = item.get("component")
+        field_name = item.get("field")
+        if field_id != "{}.{}".format(component, field_name):
+            errors.append("fieldId must be component.field for deterministic projections")
+        normalized_field = re.sub(r"[_-]", "", str(field_name)).lower()
+        normalized_field_id = re.sub(r"[_-]", "", field_id).lower()
+        if normalized_field == "modifierledger" or normalized_field_id == "effectcomponent.modifierledger":
+            errors.append("Modifier ledger is a derived Effect view and cannot be a replicated or persisted field")
+        hidden = item.get("hidden") is True
+        public = item.get("thirdPartyPublic") is True
+        sync = item.get("sync") is True
+        predicted = item.get("predicted") is True
+        presentation = item.get("presentation") is True
+        persisted = item.get("persisted") is True
+        if hidden and (public or sync):
+            errors.append("hidden replication fields cannot be public or synchronized")
+        if public and (hidden or not sync):
+            errors.append("third-party-public fields must be visible and synchronized")
+        if public and item.get("owner") != "ThirdParty":
+            errors.append("third-party-public fields must declare owner=ThirdParty")
+        if hidden and item.get("owner") not in ("Server", "None"):
+            errors.append("hidden fields must be owned by Server or None")
+        if presentation and persisted:
+            errors.append("presentation fields are transient and cannot be persisted")
+        if presentation and item.get("authority") == "Server":
+            errors.append("presentation fields cannot claim Server authority")
+        if predicted and item.get("authority") == "Server":
+            errors.append("predicted values cannot claim Server authority")
+        if item.get("authority") == "Client" and sync and not predicted:
+            errors.append("non-predicted Client-authority fields cannot enter the confirmation sync domain")
+        if item.get("authority") == "Server" and not presentation:
+            authoritative_ids.append(field_id)
+        if sync and not predicted and not presentation and not hidden:
+            sync_ids.append(field_id)
+    server = value.get("serverSnapshot") if isinstance(value.get("serverSnapshot"), dict) else {}
+    client = value.get("clientConfirmation") if isinstance(value.get("clientConfirmation"), dict) else {}
+    if server.get("domain") != "ServerSnapshot":
+        errors.append("serverSnapshot domain must be ServerSnapshot")
+    if client.get("domain") != "ClientConfirmation":
+        errors.append("clientConfirmation domain must be ClientConfirmation")
+    server_in = server.get("includedFields") if isinstance(server.get("includedFields"), list) else []
+    server_out = server.get("excludedFields") if isinstance(server.get("excludedFields"), list) else []
+    client_in = client.get("includedFields") if isinstance(client.get("includedFields"), list) else []
+    client_out = client.get("excludedFields") if isinstance(client.get("excludedFields"), list) else []
+    server_in_ids = [str(item) for item in server_in]
+    server_out_ids = [str(item) for item in server_out]
+    client_in_ids = [str(item) for item in client_in]
+    client_out_ids = [str(item) for item in client_out]
+    if server_in_ids != authoritative_ids:
+        errors.append("server snapshot hash must include every authoritative field in declaration order")
+    if client_in_ids != sync_ids:
+        errors.append("client confirmation hash must include only the non-predicted sync domain")
+    expected_out = [field_id for field_id in all_ids if field_id not in set(authoritative_ids)]
+    expected_client_out = [field_id for field_id in all_ids if field_id not in set(sync_ids)]
+    if server_out_ids != expected_out:
+        errors.append("server snapshot excludedFields must be the exact complement of authoritative fields")
+    if client_out_ids != expected_client_out:
+        errors.append("client confirmation excludedFields must be the exact complement of the sync domain")
+    if set(server_in_ids) & set(server_out_ids) or set(client_in_ids) & set(client_out_ids):
+        errors.append("hash inclusion and exclusion sets must be disjoint")
+    if server.get("hash") != _gas_replication_hash("ServerSnapshot", fields, server_in_ids):
+        errors.append("server snapshot hash does not match its authoritative field preimage")
+    if client.get("hash") != _gas_replication_hash("ClientConfirmation", fields, client_in_ids):
+        errors.append("client confirmation hash does not match its sync-domain preimage")
+    # A field excluded from both domains is intentional only for prediction or
+    # presentation; this closes accidental silent omission of authority data.
+    for field_id in all_ids:
+        item = field_by_id[field_id]
+        if field_id in set(server_out_ids) and item.get("authority") == "Server" and item.get("presentation") is not True:
+            errors.append("authoritative field {} cannot be omitted from server snapshot hash".format(field_id))
+    return list(dict.fromkeys(errors))
+
+
+def _gas_prediction_errors(value: Dict[str, Any]) -> List[str]:
+    """Validate frame-keyed prediction rejection and deterministic replay."""
+    errors: List[str] = []
+    if not isinstance(value, dict):
+        return ["GAS prediction record must be an object"]
+    if value.get("kind") != "PredictionRollback":
+        errors.append("GAS prediction record kind must be PredictionRollback")
+    if value.get("inputFrame") != value.get("predictionKey"):
+        errors.append("predictionKey must equal the input frame")
+    if value.get("windowBoundary") != "GasAndEventFinalize":
+        errors.append("prediction window boundary must be GasAndEventFinalize")
+    actions_value = value.get("nonPredictableActions")
+    actions = actions_value if isinstance(actions_value, list) else []
+    names = [str(item.get("action")) for item in actions if isinstance(item, dict)]
+    if tuple(sorted(names)) != tuple(sorted(_GAS_NON_PREDICTABLE_ACTIONS)):
+        errors.append("non-predictable actions must be EffectRemoval, EffectPeriod and OutOfSimulation")
+    for item in actions:
+        if isinstance(item, dict) and item.get("predicted") is not False:
+            errors.append("non-predictable actions must declare predicted=false")
+    rollback = value.get("rollback") if isinstance(value.get("rollback"), dict) else {}
+    if rollback.get("unit") != "EcsGasVoxelFrame" or rollback.get("frameCount") != 1:
+        errors.append("prediction rejection rolls back exactly one ECS/GAS/Voxel frame")
+    if rollback.get("clientRolledBack") is not True:
+        errors.append("client prediction rejection must roll back the client frame")
+    if rollback.get("serverRolledBack") is not False:
+        errors.append("server prediction authority must never roll back")
+    if tuple(rollback.get("steps") or ()) != _GAS_PREDICTION_ROLLBACK_STEPS:
+        errors.append("rollback steps must restore, apply authority, then replay inputs")
+    confirmed = rollback.get("confirmedFrame")
+    input_frame = value.get("inputFrame")
+    if isinstance(confirmed, int) and isinstance(input_frame, int) and confirmed >= input_frame:
+        errors.append("confirmed frame must precede the rejected input frame")
+    replay = rollback.get("replayInputFrames")
+    if isinstance(replay, list):
+        valid_replay_numbers = all(isinstance(frame, int) and not isinstance(frame, bool) for frame in replay)
+        if valid_replay_numbers and (replay != sorted(replay) or len(replay) != len(set(replay))):
+            errors.append("replay input frames must be strictly ascending and deterministic")
+        if not valid_replay_numbers:
+            errors.append("replay input frames must be integers")
+        if isinstance(confirmed, int) and any(isinstance(frame, int) and not isinstance(frame, bool) and frame <= confirmed for frame in replay):
+            errors.append("replay input frames must be after the confirmed frame")
+        if input_frame in replay:
+            errors.append("the rejected input frame cannot be replayed as an accepted command")
+    if rollback.get("deterministicReplay") is not True:
+        errors.append("prediction replay must declare deterministicReplay=true")
+
+    # Guard the closed conceptual vocabulary even when a future schema edit
+    # accidentally makes an open object member available.
+    forbidden_tokens = ("task", "predictionwindow", "wallclock", "timestamp", "datetime", "millisecond", "second")
+    def scan(node: Any) -> None:
+        if isinstance(node, dict):
+            for key, child in node.items():
+                lowered = str(key).lower()
+                if any(token in lowered for token in forbidden_tokens):
+                    errors.append("prediction contract must not introduce Task, PredictionWindow or wall-clock fields")
+                scan(child)
+        elif isinstance(node, list):
+            for child in node:
+                scan(child)
+    scan(value)
+    return list(dict.fromkeys(errors))
+
+
 def semantic_errors(schema_id: str, value: Any) -> List[str]:
     errors: List[str] = []
 
@@ -2581,6 +3094,18 @@ def semantic_errors(schema_id: str, value: Any) -> List[str]:
             errors.append("GAS Effect event record must be an object")
         else:
             errors.extend(_gas_effect_event_errors(value))
+
+    elif schema_id == "gas-components":
+        errors.extend(_gas_components_errors(value))
+
+    elif schema_id == "gas-tag":
+        errors.extend(_gas_tag_errors(value))
+
+    elif schema_id == "gas-replication":
+        errors.extend(_gas_replication_errors(value))
+
+    elif schema_id == "gas-prediction":
+        errors.extend(_gas_prediction_errors(value))
 
     elif schema_id == "state-machine-descriptor":
         states = value.get("states") or []

@@ -1,0 +1,35 @@
+{
+  "kind": "TagState",
+  "schemaVersion": 1,
+  "worldId": "world-alpha",
+  "registrySource": "ids/index.json#Tag",
+  "hashAlgorithm": "SHA-256(CanonicalJsonV1)",
+  "registry": {
+    "namespace": "Tag",
+    "entries": [
+      { "tagId": "Gameplay", "numeric": 1, "status": "Active", "since": "V1" },
+      { "tagId": "Gameplay.Combat", "numeric": 2, "status": "Active", "since": "V1" },
+      { "tagId": "Gameplay.Combat.Fire", "numeric": 3, "status": "Active", "since": "V1" },
+      { "tagId": "Gameplay.Combat.Fire.Projectile", "numeric": 4, "status": "Active", "since": "V1" },
+      { "tagId": "Gameplay.Stunned", "numeric": 5, "status": "Active", "since": "V1" }
+    ],
+    "tableHash": "d8024fd36494a94fb39bb94fb7b74df12b2a22fdee4d9d84d26bac66ac9a7819",
+    "schemaHash": "bec53c55af875b20f6278642a3eb913af75f231d17db3d317c8ea17cb00170f8"
+  },
+  "counts": [
+    { "tagId": "Gameplay.Combat.Fire.Projectile", "count": 2 }
+  ],
+  "queries": [
+    { "mode": "Exact", "tagId": "Gameplay.Combat.Fire.Projectile", "expected": true, "matches": [] },
+    { "mode": "Parent", "tagId": "Gameplay.Combat", "expected": true, "matches": ["Gameplay.Combat.Fire.Projectile"] },
+    { "mode": "Child", "tagId": "Gameplay.Combat.Fire.Projectile", "expected": false, "matches": [] }
+  ],
+  "handshake": {
+    "localTableHash": "d8024fd36494a94fb39bb94fb7b74df12b2a22fdee4d9d84d26bac66ac9a7819",
+    "peerTableHash": "d8024fd36494a94fb39bb94fb7b74df12b2a22fdee4d9d84d26bac66ac9a7819",
+    "localSchemaHash": "bec53c55af875b20f6278642a3eb913af75f231d17db3d317c8ea17cb00170f8",
+    "peerSchemaHash": "bec53c55af875b20f6278642a3eb913af75f231d17db3d317c8ea17cb00170f8",
+    "phase": "WorldReady",
+    "accepted": true
+  }
+}

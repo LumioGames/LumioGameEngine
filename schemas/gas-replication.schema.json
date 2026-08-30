@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/gas-replication.schema.json",
+  "title": "GAS field visibility and dual hash domains",
+  "description": "Every projected field declares authority, owner and visibility. The server snapshot covers authoritative fields; the client confirmation covers only the non-predicted sync domain.",
+  "type": "object",
+  "required": ["kind", "schemaVersion", "finalizePhase", "hashAlgorithm", "fields", "serverSnapshot", "clientConfirmation"],
+  "properties": {
+    "kind": { "type": "string", "const": "ReplicationContract" },
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "finalizePhase": { "type": "string", "const": "GasAndEventFinalize" },
+    "hashAlgorithm": { "type": "string", "const": "SHA-256(CanonicalJsonV1)" },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/field" }
+    },
+    "serverSnapshot": { "$ref": "#/$defs/hashDomain" },
+    "clientConfirmation": { "$ref": "#/$defs/hashDomain" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "field": {
+      "type": "object",
+      "required": ["fieldId", "component", "field", "authority", "owner", "thirdPartyPublic", "hidden", "sync", "persisted", "predicted", "presentation", "value"],
+      "properties": {
+        "fieldId": { "$ref": "common.schema.json#/$defs/id" },
+        "component": {
+          "type": "string",
+          "enum": ["AbilityComponent", "EffectComponent", "AttributeComponent", "TagComponent"]
+        },
+        "field": {
+          "$ref": "common.schema.json#/$defs/id",
+          "not": { "const": "modifierLedger" }
+        },
+        "authority": { "type": "string", "enum": ["Server", "Client", "Shared"] },
+        "owner": { "type": "string", "enum": ["Server", "Owner", "ThirdParty", "None"] },
+        "thirdPartyPublic": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "sync": { "type": "boolean" },
+        "persisted": { "type": "boolean" },
+        "predicted": { "type": "boolean" },
+        "presentation": { "type": "boolean" },
+        "value": {}
+      },
+      "additionalProperties": false
+    },
+    "hashDomain": {
+      "type": "object",
+      "required": ["domain", "includedFields", "excludedFields", "hash"],
+      "properties": {
+        "domain": { "type": "string", "enum": ["ServerSnapshot", "ClientConfirmation"] },
+        "includedFields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "common.schema.json#/$defs/id" }
+        },
+        "excludedFields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "common.schema.json#/$defs/id" }
+        },
+        "hash": { "$ref": "common.schema.json#/$defs/hash256" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

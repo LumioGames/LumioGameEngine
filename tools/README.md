@@ -17,4 +17,10 @@ The validator first attempts the pinned upstream `jsonschema` Draft 2020-12 impl
 
 For GAS A1, the semantic gate checks the frozen lifecycle event table, Admission/Commit order and outcomes, single charging, deterministic evaluation arithmetic/override selection, and same-Tick Effect event order. The schemas remain the public data contract; this tool is the single architecture validator for cross-field invariants and is not a Runtime implementation.
 
+For GAS A2, the same gate checks the four ECS containers and world-bound
+Handle probes, the complete permanent Tag table and hierarchy/hash handshake,
+field visibility and complementary dual hash domains, the derived-only
+Modifier ledger boundary, and frame-keyed prediction rollback/replay. It does
+not implement ECS, replication or Runtime.
+
 Compiler, input, Root ABI, and package output digests cover raw checked-in text bytes. The repository pins the participating source/input/output paths to LF in `.gitattributes`; before publishing from any platform, check `git ls-files --eol` and do not publish identities generated from a CRLF materialization.
