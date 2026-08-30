@@ -62,12 +62,14 @@ stateDiagram-v2
     Activated --> Executing: 首段执行逻辑开跑（可同帧连转）
     Executing --> Completed: 内容层 End
     Executing --> Expired: 执行时限到（配表默认时限，框架强制清场）
-    Executing --> Executing: 挂起⇄恢复（挂起点=可序列化字段：恢复条件枚举+参数）<br/>Commit 判定步（只复查冷却+消耗，不查 Tag）<br/>打断事件→按配表选挂起；业务子状态（内容层）
+    %% 挂起⇄恢复是 Executing 内部内容子状态，不是通用 Ability 状态转换
     Requested --> Cancelled: 任意非终态可取消
     Activated --> Cancelled: （含 Commit 判定失败）
     Executing --> Cancelled: 打断且配表选「作废」
     Executing --> RolledBack: 预测实例被权威拒（客户端整帧回滚）
     note right of Executing
+      挂起⇄恢复仅是内容层子状态（不新增通用转换）；挂起点为可序列化字段
+      （恢复条件枚举+参数），Commit 判定只复查冷却与消耗，不查 Tag
       恢复条件枚举 V1：等帧号 / 等输入事件 /
       等 Tag·属性·效果变更 / 等表现完成信号
       （Task 类家族与 PredictionWindow 概念均不存在）

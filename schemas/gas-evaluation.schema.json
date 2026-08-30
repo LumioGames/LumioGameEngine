@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/gas-evaluation.schema.json",
   "title": "GAS deterministic evaluation contract",
-  "description": "V1 evaluates one channel as (Base + SigmaAdd) * (1 + SigmaPercent), then applies an explicit-priority override. Add and Percent terms are reduced by ascending sequence and a code-point ascending modifier id tie-breaker in a 34-digit decimal context with ROUND_HALF_EVEN rounding; JSON array order is never semantic. Numeric members are parsed as exact JSON decimal values, rounded under Decimal34, bounded to exponent -6176..6144 (normal Emin -6143, subnormal floor -6176) and at most 1024 coefficient digits.",
+  "description": "V1 evaluates one channel as (Base + SigmaAdd) * (1 + SigmaPercent), then applies an explicit-priority override. Add and Percent terms are reduced by ascending sequence and a code-point ascending modifier id tie-breaker in a 34-digit decimal context with ROUND_HALF_EVEN rounding; JSON array order is never semantic. Numeric members are parsed as exact JSON decimal values, rounded under Decimal34, bounded by adjusted exponent -6176..6144 (normal Emin -6143, subnormal floor -6176) and at most 1024 coefficient digits.",
   "type": "object",
   "required": ["kind", "attributeId", "base", "modifiers", "formula", "operators", "percentageAggregation", "overrideTieBreak", "accumulationOrder", "numericPolicy", "result"],
   "properties": {
@@ -34,7 +34,7 @@
   "$defs": {
     "gasNumber": {
       "type": "number",
-      "description": "Exact JSON numeric member; semantic validation applies Decimal34 ROUND_HALF_EVEN with normal Emin -6143, subnormal floor -6176, Emax 6144 and at most 1024 coefficient digits."
+      "description": "Exact JSON numeric member; semantic validation applies Decimal34 ROUND_HALF_EVEN with adjusted exponent -6176..6144 (normal Emin -6143, subnormal floor -6176) and at most 1024 coefficient digits."
     },
     "modifier": {
       "type": "object",

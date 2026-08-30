@@ -1,0 +1,24 @@
+{
+  "kind": "PredictionRollback",
+  "schemaVersion": 1,
+  "worldId": "world-alpha",
+  "inputFrame": 100,
+  "predictionKey": 100,
+  "windowBoundary": "GasAndEventFinalize",
+  "authorityDecision": "Rejected",
+  "nonPredictableActions": [
+    { "action": "EffectRemoval", "predicted": false },
+    { "action": "EffectPeriod", "predicted": false },
+    { "action": "OutOfSimulation", "predicted": false }
+  ],
+  "rollback": {
+    "unit": "EcsGasVoxelFrame",
+    "frameCount": 1,
+    "confirmedFrame": 99,
+    "clientRolledBack": true,
+    "serverRolledBack": false,
+    "steps": "RestoreConfirmedFrame",
+    "replayInputFrames": [101, 102],
+    "deterministicReplay": true
+  }
+}

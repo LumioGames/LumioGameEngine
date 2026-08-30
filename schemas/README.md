@@ -10,9 +10,9 @@ P0 schemas are required before cross-repository integration. `mod-manifest.schem
 
 ## GAS A1 Contracts
 
-`gas-lifecycle.schema.json` keeps the ADR-031 Ability and Effect state sets closed and adds machine-readable Admission and Commit records without adding states. `gas-evaluation.schema.json` freezes the three V1 operators, exact-lexeme Decimal34 (`ROUND_HALF_EVEN`) accumulation with bounded exponents/coefficient size, sequence-ordered decimal accumulation and `(Base + SigmaAdd) * (1 + SigmaPercent)` evaluation. `gas-effect-events.schema.json` freezes same-Tick Effect ordering, suppression as an Active-internal event, and Tick-only duration/period fields.
+`gas-lifecycle.schema.json` keeps the ADR-031 Ability and Effect state sets closed and adds machine-readable Admission and Commit records without adding states. `gas-evaluation.schema.json` freezes the three V1 operators, exact-lexeme Decimal34 (`ROUND_HALF_EVEN`) accumulation with bounded adjusted exponents/coefficient size, sequence-ordered decimal accumulation and `(Base + SigmaAdd) * (1 + SigmaPercent)` evaluation. `gas-effect-events.schema.json` freezes same-Tick Effect ordering, suppression as an Active-internal event, and Tick-only duration/period fields.
 
-Cross-field rules that JSON Schema cannot express, including first-failure order, Commit charging, exact Decimal34 evaluation arithmetic and bounds, override tie-breaks and same-Tick cancellation, are enforced by `tools/lumio_contract.py validate` against the registered positive and negative fixtures.
+Cross-field rules that JSON Schema cannot express, including first-failure order, Commit charging, exact Decimal34 evaluation arithmetic and adjusted-exponent bounds, override tie-breaks and same-Tick cancellation, are enforced by `tools/lumio_contract.py validate` against the registered positive and negative fixtures.
 
 ## GAS A2 Contracts
 

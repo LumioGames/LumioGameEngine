@@ -449,6 +449,12 @@
       "expected": "valid"
     },
     {
+      "id": "gas/evaluation-subnormal-trailing-zero",
+      "schema": "gas-evaluation",
+      "file": "valid/gas-evaluation-subnormal-trailing-zero.json",
+      "expected": "valid"
+    },
+    {
       "id": "gas/evaluation-large-exponent",
       "schema": "gas-evaluation",
       "file": "valid/gas-evaluation-large-exponent.json",
@@ -748,6 +754,38 @@
       "file": "invalid/gas-prediction-rollback-steps-dict.json",
       "expected": "invalid",
       "reason": "rollback steps must be an ordered array rather than an object",
+      "expectedError": "GAS.PREDICTION.ROLLBACK_STEPS"
+    },
+    {
+      "id": "gas/prediction-rollback-steps-null",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-rollback-steps-null.json",
+      "expected": "invalid",
+      "reason": "rollback steps must be an ordered array rather than null",
+      "expectedError": "GAS.PREDICTION.ROLLBACK_STEPS"
+    },
+    {
+      "id": "gas/prediction-rollback-steps-string",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-rollback-steps-string.json",
+      "expected": "invalid",
+      "reason": "rollback steps must be an ordered array rather than a string",
+      "expectedError": "GAS.PREDICTION.ROLLBACK_STEPS"
+    },
+    {
+      "id": "gas/prediction-rollback-steps-array",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-rollback-steps-array.json",
+      "expected": "invalid",
+      "reason": "rollback steps must contain only the frozen ordered step names",
+      "expectedError": "GAS.PREDICTION.ROLLBACK_STEPS"
+    },
+    {
+      "id": "gas/prediction-rollback-steps-missing",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-rollback-steps-missing.json",
+      "expected": "invalid",
+      "reason": "rollback steps are required",
       "expectedError": "GAS.PREDICTION.ROLLBACK_STEPS"
     },
     {

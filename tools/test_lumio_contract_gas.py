@@ -7,6 +7,7 @@ import copy
 import json
 import subprocess
 import sys
+import tempfile
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -37,6 +38,38 @@ class GasContractRegressionTests(unittest.TestCase):
             errors = lumio_contract._gas_prediction_errors(record)
             self.assertTrue(errors)
             self.assertTrue(any(error.startswith("GAS.PREDICTION.ROLLBACK_STEPS:") for error in errors))
+
+    def test_prediction_step_shape_fixtures_are_registered_with_exact_rule(self) -> None:
+        fixture_ids = (
+            "gas/prediction-rollback-steps-null",
+            "gas/prediction-rollback-steps-string",
+            "gas/prediction-rollback-steps-array",
+            "gas/prediction-rollback-steps-missing",
+        )
+        for fixture_id in fixture_ids:
+            with self.subTest(fixture_id=fixture_id):
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(ROOT / "tools" / "lumio_contract.py"),
+                        "validate",
+                        "--fixture",
+                        fixture_id,
+                        "--json",
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    capture_output=True,
+                )
+                self.assertEqual(result.returncode, 0, msg=result.stderr)
+                payload = json.loads(result.stdout)
+                self.assertTrue(payload["passed"])
+                self.assertTrue(
+                    any(
+                        error.startswith("GAS.PREDICTION.ROLLBACK_STEPS:")
+                        for error in payload["fixtureResults"][0]["errors"]
+                    )
+                )
 
     def test_empty_replay_is_rejected_by_the_published_cardinality_policy(self) -> None:
         record = lumio_contract.load_json(ROOT / "fixtures" / "valid" / "gas-prediction-rollback.json")
@@ -74,6 +107,75 @@ class GasContractRegressionTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=f"{path.name}: {result.stderr}")
             self.assertNotIn("Traceback", result.stderr)
             self.assertEqual(json.loads(result.stdout, parse_float=Decimal), lumio_contract.load_json(path))
+
+    def test_decimal_bounds_use_adjusted_exponent_for_trailing_zero_and_zero_values(self) -> None:
+        accepted = (
+            Decimal("1.0e-6176"),
+            Decimal("1.00e-6176"),
+            Decimal("9.999999999999999999999999999999999e-6176"),
+            Decimal("0e-6176"),
+            Decimal("-0.00e-6174"),
+            Decimal("0e6144"),
+            Decimal("1.0e6144"),
+            Decimal("9.99e6144"),
+        )
+        rejected = (
+            Decimal("1e-6177"),
+            Decimal("1.0e-6177"),
+            Decimal("0e-6177"),
+            Decimal("0e6145"),
+            Decimal("1e6145"),
+        )
+        for value in accepted:
+            with self.subTest(value=value):
+                self.assertIsNotNone(lumio_contract._gas_decimal(value))
+        for value in rejected:
+            with self.subTest(value=value):
+                self.assertIsNone(lumio_contract._gas_decimal(value))
+
+    def test_canonical_cli_preserves_decimal_lexemes_for_out_of_tree_files(self) -> None:
+        source = ROOT / "fixtures" / "valid" / "gas-evaluation-decimal-rounding.json"
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "renamed-evaluation.json"
+            target.write_bytes(source.read_bytes())
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "tools" / "lumio_contract.py"), "canonical", str(target)],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        canonical = json.loads(result.stdout, parse_float=Decimal)
+        self.assertEqual(canonical["base"], Decimal("0.12345678901234567890123456789012345"))
+        self.assertEqual(canonical["result"], Decimal("0.1234567890123456789012345678901234"))
+
+    def test_canonical_cli_rejects_nonfinite_constants_without_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "nonfinite.json"
+            target.write_text('{"a":NaN,"b":Infinity}\n', encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "tools" / "lumio_contract.py"), "canonical", str(target)],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("error:", result.stderr)
+
+    def test_canonical_cli_rejects_duplicate_members_without_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "duplicate.json"
+            target.write_text('{"a":1,"a":2}\n', encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "tools" / "lumio_contract.py"), "canonical", str(target)],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("duplicate JSON member", result.stderr)
 
 
 if __name__ == "__main__":

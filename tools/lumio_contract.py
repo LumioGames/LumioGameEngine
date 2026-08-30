@@ -174,6 +174,16 @@ class ContractError(Exception):
     """Raised for malformed registry data or an unreadable contract file."""
 
 
+def _reject_duplicate_members(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
+    """Keep duplicate JSON member names observable instead of silently folding them."""
+    result: Dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON member {!r}".format(key))
+        result[key] = value
+    return result
+
+
 def load_json(path: Path, *, exact_numbers: bool = False) -> Any:
     """Load JSON, optionally retaining decimal numbers as exact Decimals.
 
@@ -187,16 +197,22 @@ def load_json(path: Path, *, exact_numbers: bool = False) -> Any:
                 path.parent.name in ("valid", "invalid")
                 and path.name.startswith("gas-evaluation-")
             )
+            options: Dict[str, Any] = {"object_pairs_hook": _reject_duplicate_members}
             if exact_numbers or evaluation_fixture:
-                return json.load(handle, parse_float=Decimal)
-            return json.load(handle)
+                options["parse_float"] = Decimal
+            return json.load(handle, **options)
     except (OSError, ValueError, DecimalException) as exc:
         raise ContractError("cannot read JSON {}: {}".format(path, exc)) from exc
 
 
 def canonical_json(value: Any) -> str:
     """Return deterministic JSON while retaining exact Decimal value tokens."""
-    options = {"ensure_ascii": True, "sort_keys": True, "separators": (",", ":")}
+    options = {
+        "allow_nan": False,
+        "ensure_ascii": True,
+        "sort_keys": True,
+        "separators": (",", ":"),
+    }
 
     def contains_decimal(node: Any, seen: set) -> bool:
         if isinstance(node, Decimal):
@@ -664,9 +680,10 @@ _GAS_PREDICTION_ROLLBACK_STEPS = (
 # JSON numbers regardless of host floating-point accumulation order.
 _GAS_EVALUATION_DECIMAL_PRECISION = 34
 _GAS_EVALUATION_ROUNDING = ROUND_HALF_EVEN
-# Decimal34 follows the finite exponent window of the published decimal128
-# profile.  The coefficient bound prevents pathological JSON numbers while
-# still allowing values beyond the 34-digit working precision to be rounded.
+# Decimal34 follows the finite adjusted-exponent window of the published
+# decimal128 profile.  The coefficient bound prevents pathological JSON
+# numbers while still allowing values beyond the 34-digit working precision
+# to be rounded.
 _GAS_EVALUATION_MIN_EXPONENT = -6176
 _GAS_EVALUATION_MIN_NORMAL_EXPONENT = -6143
 _GAS_EVALUATION_MAX_EXPONENT = 6144
@@ -1692,10 +1709,10 @@ def _gas_decimal(value: Any) -> Optional[Decimal]:
     if not number.is_finite():
         return None
     digits = len(number.as_tuple().digits)
-    exponent = number.as_tuple().exponent
+    adjusted_exponent = number.adjusted()
     if digits > _GAS_EVALUATION_MAX_COEFFICIENT_DIGITS:
         return None
-    if exponent < _GAS_EVALUATION_MIN_EXPONENT or exponent > _GAS_EVALUATION_MAX_EXPONENT:
+    if adjusted_exponent < _GAS_EVALUATION_MIN_EXPONENT or adjusted_exponent > _GAS_EVALUATION_MAX_EXPONENT:
         return None
     try:
         with localcontext() as context:
@@ -3930,7 +3947,7 @@ def command_validate(selected: Optional[str], json_output: bool = False) -> int:
 
 def command_canonical(path_text: str) -> int:
     path = Path(path_text).resolve()
-    value = load_json(path)
+    value = load_json(path, exact_numbers=True)
     print(canonical_json(value))
     return 0
 
@@ -4039,7 +4056,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return command_hash(args.file)
         if args.command == "generate":
             return command_generate(args.out)
-    except (ContractError, OSError) as exc:
+    except (ContractError, OSError, ValueError) as exc:
         print("error: {}".format(exc), file=sys.stderr)
         return 2
     return 2

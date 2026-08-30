@@ -1,0 +1,35 @@
+{
+  "kind": "Evaluation",
+  "attributeId": "subnormal-trailing-zero",
+  "base": 1.00e-6176,
+  "modifiers": [
+    {
+      "id": "add-lower-floor",
+      "operator": "Add",
+      "value": 1.00e-6176,
+      "priority": 0,
+      "sequence": 0
+    },
+    {
+      "id": "percent-lower-floor",
+      "operator": "Percent",
+      "value": 1.00e-6176,
+      "priority": 0,
+      "sequence": 1
+    },
+    {
+      "id": "override-lower-floor",
+      "operator": "Override",
+      "value": 3.00e-6176,
+      "priority": 1,
+      "sequence": 0
+    }
+  ],
+  "formula": "(Base + SigmaAdd) * (1 + SigmaPercent)",
+  "operators": ["Add", "Percent", "Override"],
+  "percentageAggregation": "Additive",
+  "overrideTieBreak": "PriorityDescendingThenSequenceDescending",
+  "accumulationOrder": "SequenceAscendingThenIdCodePointAscending",
+  "numericPolicy": "Decimal34RoundHalfEven",
+  "result": 3.00e-6176
+}
