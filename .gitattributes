@@ -3,3 +3,13 @@
 *.sha256 text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+
+# Byte authority for generator compiler and hashed contract inputs.
+/tools/lumio_contract.py text eol=lf
+/tools/lumio_generate.py text eol=lf
+/schemas/** text eol=lf
+/ids/index.json text eol=lf
+/fixtures/valid/** text eol=lf
+
+# All generated package artifacts are text and participate in digest checks.
+/packages/** text eol=lf
