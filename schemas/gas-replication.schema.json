@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/gas-replication.schema.json",
   "title": "GAS field visibility and dual hash domains",
-  "description": "Every projected field declares authority, owner and visibility. The server snapshot covers authoritative fields; the client confirmation covers only the non-predicted sync domain. V1.4 uses a closed component-field matrix: AbilityComponent.state and inputFrame, EffectComponent.entries and presentationBuffer, AttributeComponent.current and revision, and TagComponent.counts. Owner means the owning player replica; ThirdParty means every non-owner observer.",
+  "description": "Every projected field declares authority, owner and visibility. The server snapshot covers authoritative fields; the client confirmation covers only the non-predicted sync domain. V1.4 uses an exact seven-pair component-field matrix: AbilityComponent.state and inputFrame, EffectComponent.entries and presentationBuffer, AttributeComponent.current and revision, and TagComponent.counts. Owner means the owning player replica; ThirdParty means every non-owner observer. Hash-domain exclusions do not remove a pair from this declaration.",
   "type": "object",
   "required": ["kind", "schemaVersion", "finalizePhase", "hashAlgorithm", "fields", "serverSnapshot", "clientConfirmation"],
   "properties": {
@@ -12,14 +12,34 @@
     "hashAlgorithm": { "type": "string", "const": "SHA-256(CanonicalJsonV1)" },
     "fields": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 7,
+      "maxItems": 7,
       "items": { "$ref": "#/$defs/field" }
     },
     "serverSnapshot": { "$ref": "#/$defs/hashDomain" },
     "clientConfirmation": { "$ref": "#/$defs/hashDomain" }
   },
   "additionalProperties": false,
+  "allOf": [
+    { "$ref": "#/$defs/requiredMatrixPairs" }
+  ],
   "$defs": {
+    "requiredMatrixPairs": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "allOf": [
+            { "contains": { "type": "object", "required": ["component", "field"], "properties": { "component": { "const": "AbilityComponent" }, "field": { "const": "state" } } }, "minContains": 1, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["component", "field"], "properties": { "component": { "const": "AbilityComponent" }, "field": { "const": "inputFrame" } } }, "minContains": 1, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["component", "field"], "properties": { "component": { "const": "EffectComponent" }, "field": { "const": "entries" } } }, "minContains": 1, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["component", "field"], "properties": { "component": { "const": "EffectComponent" }, "field": { "const": "presentationBuffer" } } }, "minContains": 1, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["component", "field"], "properties": { "component": { "const": "AttributeComponent" }, "field": { "const": "current" } } }, "minContains": 1, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["component", "field"], "properties": { "component": { "const": "AttributeComponent" }, "field": { "const": "revision" } } }, "minContains": 1, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["component", "field"], "properties": { "component": { "const": "TagComponent" }, "field": { "const": "counts" } } }, "minContains": 1, "maxContains": 1 }
+          ]
+        }
+      }
+    },
     "field": {
       "type": "object",
       "required": ["fieldId", "component", "field", "authority", "owner", "thirdPartyPublic", "hidden", "sync", "persisted", "predicted", "presentation", "value"],

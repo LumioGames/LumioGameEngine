@@ -3,9 +3,12 @@
   "attributeId": "determinism",
   "base": 0,
   "modifiers": [
-    { "id": "add-large", "operator": "Add", "value": 1e16, "priority": 0, "sequence": 1 },
-    { "id": "add-small", "operator": "Add", "value": 1, "priority": 0, "sequence": 3 },
-    { "id": "add-cancel", "operator": "Add", "value": -1e16, "priority": 0, "sequence": 2 }
+    { "id": "add-large", "operator": "Add", "value": 1.000000000000000000000000000000001e34, "priority": 0, "sequence": 1 },
+    { "id": "add-small", "operator": "Add", "value": 1, "priority": 0, "sequence": 1 },
+    { "id": "add-cancel", "operator": "Add", "value": -1e34, "priority": 0, "sequence": 1 },
+    { "id": "percent-large", "operator": "Percent", "value": 1.000000000000000000000000000000001e34, "priority": 0, "sequence": 2 },
+    { "id": "percent-small", "operator": "Percent", "value": 1, "priority": 0, "sequence": 2 },
+    { "id": "percent-cancel", "operator": "Percent", "value": -1e34, "priority": 0, "sequence": 2 }
   ],
   "overrides": [],
   "formula": "(Base + SigmaAdd) * (1 + SigmaPercent)",
@@ -15,5 +18,5 @@
   "accumulationOrder": "SequenceAscendingThenIdCodePointAscending",
   "numericPolicy": "Decimal34RoundHalfEven",
   "channel": "Default",
-  "result": 1
+  "result": 132
 }

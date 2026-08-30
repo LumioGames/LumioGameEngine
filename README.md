@@ -28,7 +28,7 @@
 
 ## Architecture Gate 产物
 
-当前基线已经有可执行的公共契约：`schemas/index.json` 注册 53 个 Schema（48 个 P0、4 个 P1 和 1 个 P2 Mod 预留；含 Tick 相矩阵、GAS 生命周期、恢复记录、Replication typed body、双 Scope 激活、状态机描述符、Root ABI Bundle 生成记录、Canonical/Digest、Signature/Trust、Loader 与 Evidence Profile）；`ids/index.json` 维护版本化 ID Namespace（含 MessageType `BaselineAck`/`DeltaAck`/`Error`、Gate 拒绝错误码 1040–1043，以及永久 `Tag` 命名空间 `Gameplay`/`Gameplay.Combat`/`Gameplay.Combat.Fire`/`Gameplay.Combat.Fire.Projectile`/`Gameplay.Stunned`）；`fixtures/index.json` 注册 245 个正向/失败样例（修复前 exact-head 为 238 个，含 12 个状态机描述符实例）；`tools/lumio_contract.py validate` 在本地和 CI 中执行结构与关键语义校验，`common.schema.json` 承载 ADR-037 下沉的公共 `$defs`。它们是生成器、Serializer、ABI Header、Binding 和各仓库测试的输入，不是运行时库。
+当前基线已经有可执行的公共契约：`schemas/index.json` 注册 53 个 Schema（48 个 P0、4 个 P1 和 1 个 P2 Mod 预留；含 Tick 相矩阵、GAS 生命周期、恢复记录、Replication typed body、双 Scope 激活、状态机描述符、Root ABI Bundle 生成记录、Canonical/Digest、Signature/Trust、Loader 与 Evidence Profile）；`ids/index.json` 维护版本化 ID Namespace（含 MessageType `BaselineAck`/`DeltaAck`/`Error`、Gate 拒绝错误码 1040–1043，以及永久 `Tag` 命名空间 `Gameplay`/`Gameplay.Combat`/`Gameplay.Combat.Fire`/`Gameplay.Combat.Fire.Projectile`/`Gameplay.Stunned`）；`fixtures/index.json` 注册 251 个正向/失败样例（112 valid、139 invalid；含 12 个状态机描述符实例）；`tools/lumio_contract.py validate` 在本地和 CI 中执行结构与关键语义校验，`common.schema.json` 承载 ADR-037 下沉的公共 `$defs`。它们是生成器、Serializer、ABI Header、Binding 和各仓库测试的输入，不是运行时库。
 
 ```text
 python3 -m pip install -r requirements-dev.txt

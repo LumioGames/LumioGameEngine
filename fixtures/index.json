@@ -328,7 +328,7 @@
       "file": "invalid/gas-illegal-transition.json",
       "expected": "invalid",
       "reason": "generic GAS transitions cannot be invented",
-      "expectedError": "illegal Ability transition"
+      "expectedError": "GAS.LIFECYCLE.ILLEGAL_TRANSITION"
     },
     {
       "id": "gas/invalid-admission-order",
@@ -336,7 +336,7 @@
       "file": "invalid/gas-invalid-admission-order.json",
       "expected": "invalid",
       "reason": "admission checks must execute in handle, cooldown, cost, Tag, content order",
-      "expectedError": "admission order must be HandlePermission, Cooldown, Cost, Tag, GameCustom"
+      "expectedError": "GAS.ADMISSION.ORDER"
     },
     {
       "id": "gas/admission-success",
@@ -368,7 +368,7 @@
       "file": "invalid/gas-prepared-business-reject.json",
       "expected": "invalid",
       "reason": "Prepared and CommitIntent phases cannot be business-rejected",
-      "expectedError": "Prepared/CommitIntent forbids later business rejection"
+      "expectedError": "GAS.LIFECYCLE.PREPARED_REJECTION"
     },
     {
       "id": "gas/duplicate-charge",
@@ -376,7 +376,7 @@
       "file": "invalid/gas-duplicate-charge.json",
       "expected": "invalid",
       "reason": "Prepared and CommitIntent phases cannot charge cost more than once",
-      "expectedError": "Commit cannot charge more than once"
+      "expectedError": "GAS.COMMIT.DUPLICATE_CHARGE"
     },
     {
       "id": "gas/invalid-commit-recheck",
@@ -384,7 +384,7 @@
       "file": "invalid/gas-invalid-commit-recheck.json",
       "expected": "invalid",
       "reason": "Commit rechecks only Cooldown and Cost",
-      "expectedError": "Commit rechecks only Cooldown then Cost"
+      "expectedError": "GAS.COMMIT.RECHECK_ORDER"
     },
     {
       "id": "gas/commit-failure-charged",
@@ -392,7 +392,7 @@
       "file": "invalid/gas-commit-failure-charged.json",
       "expected": "invalid",
       "reason": "a failed Commit is atomic and cannot retain a cost charge",
-      "expectedError": "a failed Commit cannot charge or retain a partial cost write"
+      "expectedError": "GAS.COMMIT.FAILURE_CHARGE"
     },
     {
       "id": "gas/invalid-check-ordinal",
@@ -400,7 +400,7 @@
       "file": "invalid/gas-invalid-check-ordinal.json",
       "expected": "invalid",
       "reason": "declared check ordinals must equal deterministic execution order",
-      "expectedError": "admission check order must match its list position"
+      "expectedError": "GAS.ADMISSION.CHECK_ORDINAL"
     },
     {
       "id": "gas/invalid-state",
@@ -408,7 +408,7 @@
       "file": "invalid/gas-invalid-state.json",
       "expected": "invalid",
       "reason": "Ability and Effect public state sets are closed",
-      "expectedError": "Suppress is an Active-internal event, not a state transition"
+      "expectedError": "GAS.LIFECYCLE.SUPPRESS_STATE"
     },
     {
       "id": "gas/terminal-handle-valid",
@@ -416,7 +416,7 @@
       "file": "invalid/gas-terminal-handle-valid.json",
       "expected": "invalid",
       "reason": "every terminal Ability and Effect state invalidates its Handle",
-      "expectedError": "a terminal Ability state invalidates the Handle"
+      "expectedError": "GAS.LIFECYCLE.TERMINAL_HANDLE"
     },
     {
       "id": "gas/evaluation-formula",
@@ -437,12 +437,36 @@
       "expected": "valid"
     },
     {
+      "id": "gas/evaluation-decimal-rounding",
+      "schema": "gas-evaluation",
+      "file": "valid/gas-evaluation-decimal-rounding.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/evaluation-subnormal-exponent",
+      "schema": "gas-evaluation",
+      "file": "valid/gas-evaluation-subnormal-exponent.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/evaluation-large-exponent",
+      "schema": "gas-evaluation",
+      "file": "valid/gas-evaluation-large-exponent.json",
+      "expected": "valid"
+    },
+    {
+      "id": "gas/evaluation-fractional-result",
+      "schema": "gas-evaluation",
+      "file": "valid/gas-evaluation-fractional-result.json",
+      "expected": "valid"
+    },
+    {
       "id": "gas/evaluation-invalid-operator",
       "schema": "gas-evaluation",
       "file": "invalid/gas-evaluation-invalid-operator.json",
       "expected": "invalid",
       "reason": "V1 exposes only Add, Percent and Override operators",
-      "expectedError": "unsupported evaluation operator Multiply"
+      "expectedError": "GAS.EVALUATION.UNSUPPORTED_OPERATOR"
     },
     {
       "id": "gas/evaluation-override-tie",
@@ -450,7 +474,7 @@
       "file": "invalid/gas-evaluation-override-tie.json",
       "expected": "invalid",
       "reason": "override priority ties require a unique deterministic sequence",
-      "expectedError": "override priority and sequence must identify one deterministic winner"
+      "expectedError": "GAS.EVALUATION.OVERRIDE_TIE"
     },
     {
       "id": "gas/evaluation-wrong-formula",
@@ -458,7 +482,7 @@
       "file": "invalid/gas-evaluation-wrong-formula.json",
       "expected": "invalid",
       "reason": "evaluation must apply additive modifiers before percentage modifiers",
-      "expectedError": "evaluation formula must be (Base + SigmaAdd) * (1 + SigmaPercent)"
+      "expectedError": "GAS.EVALUATION.FORMULA"
     },
     {
       "id": "gas/effect-event-order",
@@ -484,7 +508,7 @@
       "file": "invalid/gas-effect-invalid-order.json",
       "expected": "invalid",
       "reason": "same-tick Effect events must follow the frozen order",
-      "expectedError": "Effect events must follow Hit -> Overflow -> SnapshotReplacement/Stack -> Duration -> Period -> Removal"
+      "expectedError": "GAS.EFFECT.EVENT_ORDER"
     },
     {
       "id": "gas/effect-wall-clock",
@@ -492,7 +516,7 @@
       "file": "invalid/gas-effect-wall-clock.json",
       "expected": "invalid",
       "reason": "Effect timing is expressed only in Tick numbers",
-      "expectedError": "Effect timing fields must be Tick/frame numbers, not wall-clock values"
+      "expectedError": "GAS.EFFECT.WALL_CLOCK"
     },
     {
       "id": "gas/effect-suppression-state",
@@ -500,7 +524,7 @@
       "file": "invalid/gas-effect-suppression-state.json",
       "expected": "invalid",
       "reason": "suppression is an Active-internal event and cannot change state",
-      "expectedError": "Suppress is an Active-internal event and cannot change state"
+      "expectedError": "GAS.EFFECT.SUPPRESS_STATE"
     },
     {
       "id": "gas/effect-suppression-bit",
@@ -508,7 +532,15 @@
       "file": "invalid/gas-effect-suppression-bit.json",
       "expected": "invalid",
       "reason": "the authoritative suppressed bit must equal the Suppress event value",
-      "expectedError": "Suppress event suppressed bit must equal enclosing suppressed state"
+      "expectedError": "GAS.EFFECT.SUPPRESS_BIT"
+    },
+    {
+      "id": "gas/effect-suppression-history",
+      "schema": "gas-effect-events",
+      "file": "invalid/gas-effect-suppression-history.json",
+      "expected": "invalid",
+      "reason": "every Suppress event bit must equal the enclosing authoritative bit",
+      "expectedError": "GAS.EFFECT.SUPPRESS_BIT"
     },
     {
       "id": "gas/components-forbidden-fx",
@@ -516,7 +548,7 @@
       "file": "invalid/gas-forbidden-fx-component.json",
       "expected": "invalid",
       "reason": "GAS exposes exactly four ECS containers and forbids FxComponent",
-      "expectedError": "FxComponent is forbidden; use EffectComponent.fx_key"
+      "expectedError": "GAS.COMPONENT.FX_FORBIDDEN"
     },
     {
       "id": "gas/components-minimal",
@@ -530,7 +562,7 @@
       "file": "invalid/gas-components-stale-handle.json",
       "expected": "invalid",
       "reason": "stale and cross-world Handles must be rejected",
-      "expectedError": "Handle probe expected Accepted but resolves as Rejected"
+      "expectedError": "GAS.COMPONENT.HANDLE_PROBE"
     },
     {
       "id": "gas/tag-hierarchy",
@@ -544,7 +576,7 @@
       "file": "invalid/gas-tag-hash-mismatch.json",
       "expected": "invalid",
       "reason": "a Tag table/schema hash mismatch hard-fails before WorldReady or Running",
-      "expectedError": "Tag handshake accepted must equal full-table/schema hash agreement"
+      "expectedError": "GAS.TAG.HANDSHAKE_HASH"
     },
     {
       "id": "gas/tag-query-mismatch",
@@ -552,7 +584,7 @@
       "file": "invalid/gas-tag-query-mismatch.json",
       "expected": "invalid",
       "reason": "counted exact, parent and child Tag queries must be deterministic",
-      "expectedError": "Tag Exact query matches are not deterministic"
+      "expectedError": "GAS.TAG.EXACT_QUERY"
     },
     {
       "id": "gas/tag-missing-query-modes",
@@ -560,7 +592,7 @@
       "file": "invalid/gas-tag-missing-query-modes.json",
       "expected": "invalid",
       "reason": "every Tag contract must exercise Exact, Parent and Child queries",
-      "expectedError": "Tag fixtures must exercise Exact, Parent and Child matching"
+      "expectedError": "GAS.TAG.QUERY_MODES"
     },
     {
       "id": "gas/replication-hashes",
@@ -574,7 +606,7 @@
       "file": "invalid/gas-replication-hash-domain-leak.json",
       "expected": "invalid",
       "reason": "predicted values cannot enter either authoritative or confirmation hash",
-      "expectedError": "client confirmation hash must include only the non-predicted sync domain"
+      "expectedError": "GAS.REPLICATION.CLIENT_HASH_DOMAIN"
     },
     {
       "id": "gas/replication-modifier-ledger",
@@ -582,7 +614,7 @@
       "file": "invalid/gas-replication-modifier-ledger.json",
       "expected": "invalid",
       "reason": "Modifier ledger is a derived Effect view and cannot be synchronized or persisted",
-      "expectedError": "Modifier ledger is a derived Effect view and cannot be a replicated or persisted field"
+      "expectedError": "GAS.REPLICATION.MODIFIER_LEDGER"
     },
     {
       "id": "gas/replication-effect-details",
@@ -590,7 +622,7 @@
       "file": "invalid/gas-replication-effect-details.json",
       "expected": "invalid",
       "reason": "Effect details are owner-only and cannot be declared as an arbitrary public field",
-      "expectedError": "replication field EffectComponent.details is outside the frozen GAS component-field visibility matrix"
+      "expectedError": "GAS.REPLICATION.FIELD_EFFECT_DETAILS"
     },
     {
       "id": "gas/replication-internal-handle",
@@ -598,7 +630,7 @@
       "file": "invalid/gas-replication-internal-handle.json",
       "expected": "invalid",
       "reason": "internal Handles are not replicated fields",
-      "expectedError": "replication field EffectComponent.internalHandle is outside the frozen GAS component-field visibility matrix"
+      "expectedError": "GAS.REPLICATION.FIELD_INTERNAL_HANDLE"
     },
     {
       "id": "gas/replication-cost-intermediate",
@@ -606,7 +638,7 @@
       "file": "invalid/gas-replication-cost-intermediate.json",
       "expected": "invalid",
       "reason": "cost intermediates are internal and cannot be replicated",
-      "expectedError": "replication field AbilityComponent.costIntermediate is outside the frozen GAS component-field visibility matrix"
+      "expectedError": "GAS.REPLICATION.FIELD_COST_INTERMEDIATE"
     },
     {
       "id": "gas/replication-prediction-draft",
@@ -614,7 +646,7 @@
       "file": "invalid/gas-replication-prediction-draft.json",
       "expected": "invalid",
       "reason": "prediction drafts are internal and cannot be replicated",
-      "expectedError": "replication field AbilityComponent.predictionDraft is outside the frozen GAS component-field visibility matrix"
+      "expectedError": "GAS.REPLICATION.FIELD_PREDICTION_DRAFT"
     },
     {
       "id": "gas/replication-fx-key-outside-effect",
@@ -622,7 +654,15 @@
       "file": "invalid/gas-replication-fx-key-outside-effect.json",
       "expected": "invalid",
       "reason": "fx_key is public only as an Effect entry presentation value",
-      "expectedError": "replication field AbilityComponent.fx_key is outside the frozen GAS component-field visibility matrix"
+      "expectedError": "GAS.REPLICATION.FIELD_FX_KEY"
+    },
+    {
+      "id": "gas/replication-matrix-omission",
+      "schema": "gas-replication",
+      "file": "invalid/gas-replication-matrix-omission.json",
+      "expected": "invalid",
+      "reason": "every ReplicationContract must declare the exact seven component-field matrix pairs",
+      "expectedError": "GAS.REPLICATION.MATRIX_COMPLETENESS"
     },
     {
       "id": "gas/prediction-rollback",
@@ -636,7 +676,7 @@
       "file": "invalid/gas-prediction-nonpredictable.json",
       "expected": "invalid",
       "reason": "Effect removal, Effect period and out-of-simulation actions are non-predictable",
-      "expectedError": "non-predictable actions must declare predicted=false"
+      "expectedError": "GAS.PREDICTION.NON_PREDICTABLE"
     },
     {
       "id": "gas/prediction-server-rollback",
@@ -644,7 +684,7 @@
       "file": "invalid/gas-prediction-server-rollback.json",
       "expected": "invalid",
       "reason": "prediction rejection never rolls back the server",
-      "expectedError": "server prediction authority must never roll back"
+      "expectedError": "GAS.PREDICTION.SERVER_ROLLBACK"
     },
     {
       "id": "gas/prediction-replay-before-input",
@@ -652,7 +692,7 @@
       "file": "invalid/gas-prediction-replay-before-input.json",
       "expected": "invalid",
       "reason": "replay frames must be strictly greater than the rejected input frame",
-      "expectedError": "replay input frames must be strictly greater than the rejected input frame"
+      "expectedError": "GAS.PREDICTION.REPLAY_ORDER"
     },
     {
       "id": "gate/accept",

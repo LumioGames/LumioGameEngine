@@ -15,7 +15,7 @@ import json
 import math
 import re
 import sys
-from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN, localcontext
+from decimal import Decimal, DecimalException, InvalidOperation, ROUND_HALF_EVEN, localcontext
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import unquote, urlparse
@@ -174,11 +174,23 @@ class ContractError(Exception):
     """Raised for malformed registry data or an unreadable contract file."""
 
 
-def load_json(path: Path) -> Any:
+def load_json(path: Path, *, exact_numbers: bool = False) -> Any:
+    """Load JSON, optionally retaining decimal numbers as exact Decimals.
+
+    GAS evaluation records opt into ``parse_float=Decimal`` so their numeric
+    lexemes never pass through a binary float.  Other contract documents keep
+    the historical decoder and therefore retain the ordinary JSON behavior.
+    """
     try:
         with path.open("r", encoding="utf-8") as handle:
+            evaluation_fixture = (
+                path.parent.name in ("valid", "invalid")
+                and path.name.startswith("gas-evaluation-")
+            )
+            if exact_numbers or evaluation_fixture:
+                return json.load(handle, parse_float=Decimal)
             return json.load(handle)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, DecimalException) as exc:
         raise ContractError("cannot read JSON {}: {}".format(path, exc)) from exc
 
 
@@ -248,7 +260,7 @@ def _type_matches(value: Any, expected: str) -> bool:
     if expected == "integer":
         return isinstance(value, int) and not isinstance(value, bool)
     if expected == "number":
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
+        return isinstance(value, (int, float, Decimal)) and not isinstance(value, bool)
     return True
 
 
@@ -320,7 +332,7 @@ def fallback_validate(
             except re.error as exc:
                 errors.append("{}: invalid schema pattern: {}".format(path, exc))
 
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
+    if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
         if "minimum" in schema and value < schema["minimum"]:
             errors.append("{}: below minimum".format(path))
         if "maximum" in schema and value > schema["maximum"]:
@@ -331,6 +343,25 @@ def fallback_validate(
             errors.append("{}: fewer than minItems".format(path))
         if "maxItems" in schema and len(value) > int(schema["maxItems"]):
             errors.append("{}: more than maxItems".format(path))
+        if "contains" in schema:
+            matched = sum(
+                1
+                for index, item in enumerate(value)
+                if not fallback_validate(
+                    item,
+                    schema["contains"],
+                    resolver,
+                    current_file,
+                    current_schema,
+                    _path(path, index),
+                )
+            )
+            minimum = int(schema.get("minContains", 1))
+            maximum = schema.get("maxContains")
+            if matched < minimum:
+                errors.append("{}: contains matched {} items, fewer than {}".format(path, matched, minimum))
+            if maximum is not None and matched > int(maximum):
+                errors.append("{}: contains matched {} items, more than {}".format(path, matched, maximum))
         if schema.get("uniqueItems"):
             seen = set()
             for index, item in enumerate(value):
@@ -572,6 +603,68 @@ _GAS_PREDICTION_ROLLBACK_STEPS = (
 # JSON numbers regardless of host floating-point accumulation order.
 _GAS_EVALUATION_DECIMAL_PRECISION = 34
 _GAS_EVALUATION_ROUNDING = ROUND_HALF_EVEN
+# Decimal34 follows the finite exponent window of the published decimal128
+# profile.  The coefficient bound prevents pathological JSON numbers while
+# still allowing values beyond the 34-digit working precision to be rounded.
+_GAS_EVALUATION_MIN_EXPONENT = -6176
+_GAS_EVALUATION_MIN_NORMAL_EXPONENT = -6143
+_GAS_EVALUATION_MAX_EXPONENT = 6144
+_GAS_EVALUATION_MAX_COEFFICIENT_DIGITS = 1024
+
+# Registered GAS fixture failures use rule keys, rather than free-form
+# substrings.  The semantic checks emit the key directly, followed by prose
+# for humans, so matching cannot accidentally accept an unrelated diagnostic.
+_GAS_ERROR_RULES = frozenset(
+    {
+        "GAS.LIFECYCLE.ILLEGAL_TRANSITION",
+        "GAS.ADMISSION.ORDER",
+        "GAS.LIFECYCLE.PREPARED_REJECTION",
+        "GAS.COMMIT.DUPLICATE_CHARGE",
+        "GAS.COMMIT.RECHECK_ORDER",
+        "GAS.COMMIT.FAILURE_CHARGE",
+        "GAS.ADMISSION.CHECK_ORDINAL",
+        "GAS.LIFECYCLE.SUPPRESS_STATE",
+        "GAS.LIFECYCLE.TERMINAL_HANDLE",
+        "GAS.EVALUATION.UNSUPPORTED_OPERATOR",
+        "GAS.EVALUATION.OVERRIDE_TIE",
+        "GAS.EVALUATION.FORMULA",
+        "GAS.EFFECT.EVENT_ORDER",
+        "GAS.EFFECT.WALL_CLOCK",
+        "GAS.EFFECT.SUPPRESS_STATE",
+        "GAS.EFFECT.SUPPRESS_BIT",
+        "GAS.COMPONENT.FX_FORBIDDEN",
+        "GAS.COMPONENT.HANDLE_PROBE",
+        "GAS.TAG.HANDSHAKE_HASH",
+        "GAS.TAG.EXACT_QUERY",
+        "GAS.TAG.QUERY_MODES",
+        "GAS.REPLICATION.CLIENT_HASH_DOMAIN",
+        "GAS.REPLICATION.MATRIX_COMPLETENESS",
+        "GAS.REPLICATION.MODIFIER_LEDGER",
+        "GAS.REPLICATION.FIELD_EFFECT_DETAILS",
+        "GAS.REPLICATION.FIELD_INTERNAL_HANDLE",
+        "GAS.REPLICATION.FIELD_COST_INTERMEDIATE",
+        "GAS.REPLICATION.FIELD_PREDICTION_DRAFT",
+        "GAS.REPLICATION.FIELD_FX_KEY",
+        "GAS.PREDICTION.NON_PREDICTABLE",
+        "GAS.PREDICTION.SERVER_ROLLBACK",
+        "GAS.PREDICTION.REPLAY_ORDER",
+    }
+)
+
+
+def _gas_error_rule_id(error: Any) -> Optional[str]:
+    """Return the one registered rule key represented by an emitted error."""
+    if not isinstance(error, str):
+        return None
+    rule_id, separator, _message = error.partition(": ")
+    return rule_id if separator and rule_id in _GAS_ERROR_RULES else None
+
+
+def _gas_error(rule_id: str, message: str) -> str:
+    """Emit a stable GAS rule key alongside a human-readable diagnostic."""
+    if rule_id not in _GAS_ERROR_RULES:
+        raise AssertionError("unregistered GAS error rule {}".format(rule_id))
+    return "{}: {}".format(rule_id, message)
 # This is the closed V1.4 component/field and recipient matrix.  `Owner` means
 # the owning player replica; `ThirdParty` means every non-owner observer.  The
 # matrix intentionally has no hidden/server-only row: internal values are not
@@ -648,6 +741,7 @@ _GAS_REPLICATION_VISIBILITY_MATRIX = {
         "presentation": False,
     },
 }
+_GAS_REPLICATION_MATRIX_PAIRS = frozenset(_GAS_REPLICATION_VISIBILITY_MATRIX)
 _CONFIG_INT_BOUNDS = {
     "i32": (-2147483648, 2147483647),
     "i64": (-9223372036854775808, 9223372036854775807),
@@ -1493,11 +1587,21 @@ def _gas_check_order_errors(checks: List[Any], label: str) -> List[str]:
         if isinstance(order, bool) or not isinstance(order, int):
             errors.append("{} check order must be an integer".format(label))
         elif order != index:
-            errors.append("{} check order must match its list position".format(label))
+            if label == "admission":
+                errors.append(
+                    _gas_error(
+                        "GAS.ADMISSION.CHECK_ORDINAL",
+                        "admission check order must match its list position",
+                    )
+                )
+            else:
+                errors.append("{} check order must match its list position".format(label))
     return errors
 
 
 def _gas_finite_number(value: Any) -> bool:
+    if isinstance(value, Decimal):
+        return value.is_finite()
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return False
     try:
@@ -1507,16 +1611,37 @@ def _gas_finite_number(value: Any) -> bool:
 
 
 def _gas_decimal(value: Any) -> Optional[Decimal]:
-    """Parse a finite JSON number under the published GAS numeric policy."""
-    if not _gas_finite_number(value):
+    """Parse and round one GAS number under the published Decimal34 policy."""
+    try:
+        if isinstance(value, Decimal):
+            number = value
+        elif isinstance(value, int) and not isinstance(value, bool):
+            number = Decimal(value)
+        elif isinstance(value, float) and math.isfinite(value):
+            # This branch supports callers that construct in-memory records;
+            # file-backed GAS fixtures use ``parse_float=Decimal`` above.
+            number = Decimal(str(value))
+        else:
+            return None
+    except (DecimalException, InvalidOperation, ValueError):
+        return None
+    if not number.is_finite():
+        return None
+    digits = len(number.as_tuple().digits)
+    exponent = number.as_tuple().exponent
+    if digits > _GAS_EVALUATION_MAX_COEFFICIENT_DIGITS:
+        return None
+    if exponent < _GAS_EVALUATION_MIN_EXPONENT or exponent > _GAS_EVALUATION_MAX_EXPONENT:
         return None
     try:
-        # ``str`` preserves the JSON parser's shortest decimal spelling and
-        # avoids importing a host binary approximation into the reduction.
-        number = Decimal(str(value))
-    except (InvalidOperation, ValueError):
+        with localcontext() as context:
+            context.prec = _GAS_EVALUATION_DECIMAL_PRECISION
+            context.rounding = _GAS_EVALUATION_ROUNDING
+            context.Emax = _GAS_EVALUATION_MAX_EXPONENT
+            context.Emin = _GAS_EVALUATION_MIN_NORMAL_EXPONENT
+            return +number
+    except (DecimalException, InvalidOperation, ValueError):
         return None
-    return number if number.is_finite() else None
 
 
 def _gas_transition_errors(value: Dict[str, Any]) -> List[str]:
@@ -1528,13 +1653,23 @@ def _gas_transition_errors(value: Dict[str, Any]) -> List[str]:
     if machine == "Ability":
         allowed = _ABILITY_TRANSITIONS.get(source, set()) if isinstance(source, str) else set()
         if not isinstance(dest, str) or dest not in allowed:
-            errors.append("illegal Ability transition {} -> {}".format(source, dest))
+            errors.append(
+                _gas_error(
+                    "GAS.LIFECYCLE.ILLEGAL_TRANSITION",
+                    "illegal Ability transition {} -> {}".format(source, dest),
+                )
+            )
         elif not isinstance(event, str) or event not in _ABILITY_TRANSITION_EVENTS.get((source, dest), set()):
             errors.append(
                 "event {} is not valid for Ability transition {} -> {}".format(event, source, dest)
             )
         if isinstance(dest, str) and dest in _ABILITY_TERMINAL and value.get("handleValid") is not False:
-            errors.append("a terminal Ability state invalidates the Handle")
+            errors.append(
+                _gas_error(
+                    "GAS.LIFECYCLE.TERMINAL_HANDLE",
+                    "a terminal Ability state invalidates the Handle",
+                )
+            )
         if isinstance(dest, str) and dest not in _ABILITY_TERMINAL and "handleValid" in value and value.get("handleValid") is not True:
             errors.append("a non-terminal Ability state keeps the Handle valid")
         if dest == "RolledBack" and value.get("predicted") is not True:
@@ -1543,13 +1678,26 @@ def _gas_transition_errors(value: Dict[str, Any]) -> List[str]:
         internal = {"Stack", "Duration", "Refresh", "Suppress"}
         if isinstance(event, str) and event in internal:
             if source != "Active" or dest != "Active":
-                errors.append("{} is an Active-internal event, not a state transition".format(event))
+                if event == "Suppress":
+                    errors.append(
+                        _gas_error(
+                            "GAS.LIFECYCLE.SUPPRESS_STATE",
+                            "Suppress is an Active-internal event, not a state transition",
+                        )
+                    )
+                else:
+                    errors.append("{} is an Active-internal event, not a state transition".format(event))
             if "handleValid" in value and value.get("handleValid") is not True:
                 errors.append("an Active-internal Effect event keeps the Handle valid")
         else:
             allowed = _EFFECT_TRANSITIONS.get(source, set()) if isinstance(source, str) else set()
             if not isinstance(dest, str) or dest not in allowed:
-                errors.append("illegal Effect transition {} -> {}".format(source, dest))
+                errors.append(
+                    _gas_error(
+                        "GAS.LIFECYCLE.ILLEGAL_TRANSITION",
+                        "illegal Effect transition {} -> {}".format(source, dest),
+                    )
+                )
             elif not isinstance(event, str) or event not in _EFFECT_TRANSITION_EVENTS.get((source, dest), set()):
                 errors.append("event {} is not valid for Effect transition {} -> {}".format(event, source, dest))
             if isinstance(dest, str) and dest in _EFFECT_TERMINAL and value.get("handleValid") is not False:
@@ -1575,7 +1723,12 @@ def _gas_admission_errors(value: Dict[str, Any]) -> List[str]:
         errors.append("Admission event must be Activate")
     order = value.get("admissionOrder")
     if not isinstance(order, list) or tuple(order) != _GAS_ADMISSION_ORDER:
-        errors.append("admission order must be HandlePermission, Cooldown, Cost, Tag, GameCustom")
+        errors.append(
+            _gas_error(
+                "GAS.ADMISSION.ORDER",
+                "admission order must be HandlePermission, Cooldown, Cost, Tag, GameCustom",
+            )
+        )
     checks_value = value.get("checks")
     checks = checks_value if isinstance(checks_value, list) else []
     if checks_value is not None and not isinstance(checks_value, list):
@@ -1628,7 +1781,9 @@ def _gas_commit_errors(value: Dict[str, Any]) -> List[str]:
         errors.append("Commit event must be Commit")
     order = value.get("recheckOrder")
     if not isinstance(order, list) or tuple(order) != _GAS_COMMIT_ORDER:
-        errors.append("Commit rechecks only Cooldown then Cost")
+        errors.append(
+            _gas_error("GAS.COMMIT.RECHECK_ORDER", "Commit rechecks only Cooldown then Cost")
+        )
     checks_value = value.get("checks")
     checks = checks_value if isinstance(checks_value, list) else []
     if checks_value is not None and not isinstance(checks_value, list):
@@ -1660,13 +1815,18 @@ def _gas_commit_errors(value: Dict[str, Any]) -> List[str]:
             errors.append("chargeCount must be an integer")
         charge_count = 0
     if charge_count > 1:
-        errors.append("Commit cannot charge more than once")
+        errors.append(_gas_error("GAS.COMMIT.DUPLICATE_CHARGE", "Commit cannot charge more than once"))
     if charge_count < 0:
         errors.append("chargeCount cannot be negative")
     if isinstance(value.get("charged"), bool) and value.get("charged") != (charge_count == 1):
         errors.append("charged must agree with chargeCount")
     if failed is not None and (charge_count != 0 or value.get("charged") is True):
-        errors.append("a failed Commit cannot charge or retain a partial cost write")
+        errors.append(
+            _gas_error(
+                "GAS.COMMIT.FAILURE_CHARGE",
+                "a failed Commit cannot charge or retain a partial cost write",
+            )
+        )
     prepared = value.get("prepared") is True or value.get("phase") in ("Prepared", "CommitIntent")
     commit_intent = value.get("commitIntent") is True or value.get("phase") == "CommitIntent"
     phase = value.get("phase")
@@ -1684,7 +1844,12 @@ def _gas_commit_errors(value: Dict[str, Any]) -> List[str]:
         errors.append("CommitIntent requires Prepared")
     if prepared or commit_intent:
         if value.get("businessRejected") is True:
-            errors.append("Prepared/CommitIntent forbids later business rejection")
+            errors.append(
+                _gas_error(
+                    "GAS.LIFECYCLE.PREPARED_REJECTION",
+                    "Prepared/CommitIntent forbids later business rejection",
+                )
+            )
     return errors
 
 
@@ -1692,7 +1857,12 @@ def _gas_evaluation_errors(value: Dict[str, Any]) -> List[str]:
     errors: List[str] = []
     formula = "(Base + SigmaAdd) * (1 + SigmaPercent)"
     if value.get("formula") != formula:
-        errors.append("evaluation formula must be (Base + SigmaAdd) * (1 + SigmaPercent)")
+        errors.append(
+            _gas_error(
+                "GAS.EVALUATION.FORMULA",
+                "evaluation formula must be (Base + SigmaAdd) * (1 + SigmaPercent)",
+            )
+        )
     if value.get("operators") != ["Add", "Percent", "Override"]:
         errors.append("V1 evaluation operators must be Add, Percent and Override")
     if value.get("percentageAggregation") != "Additive":
@@ -1739,7 +1909,12 @@ def _gas_evaluation_errors(value: Dict[str, Any]) -> List[str]:
                 candidates.append((priority, sequence, decimal_number, stable_id))
         else:
             if op not in ("Add", "Percent"):
-                errors.append("unsupported evaluation operator {}".format(op))
+                errors.append(
+                    _gas_error(
+                        "GAS.EVALUATION.UNSUPPORTED_OPERATOR",
+                        "unsupported evaluation operator {}".format(op),
+                    )
+                )
             elif not sequence_valid:
                 errors.append("modifier sequence must be a non-negative integer")
     overrides_value = value.get("overrides")
@@ -1774,22 +1949,34 @@ def _gas_evaluation_errors(value: Dict[str, Any]) -> List[str]:
             candidates.append((priority, sequence, decimal_number, stable_id))
     keys = [(item[0], item[1]) for item in candidates]
     if len(keys) != len(set(keys)):
-        errors.append("override priority and sequence must identify one deterministic winner")
+        errors.append(
+            _gas_error(
+                "GAS.EVALUATION.OVERRIDE_TIE",
+                "override priority and sequence must identify one deterministic winner",
+            )
+        )
     base = value.get("base")
     base_decimal = _gas_decimal(base)
     if base_decimal is None:
         errors.append("base must be a finite number")
         base_decimal = Decimal(0)
-    with localcontext() as context:
-        context.prec = _GAS_EVALUATION_DECIMAL_PRECISION
-        context.rounding = _GAS_EVALUATION_ROUNDING
-        # Sequence is the primary order; the modifier id is a stable
-        # code-point tie-breaker when two terms share a sequence.
-        add = sum((item[2] for item in sorted(additive_terms, key=lambda item: (item[0], item[1]))), Decimal(0))
-        percent = sum((item[2] for item in sorted(percent_terms, key=lambda item: (item[0], item[1]))), Decimal(0))
-        computed_decimal = (base_decimal + add) * (Decimal(1) + percent)
-        if candidates:
-            computed_decimal = max(candidates, key=lambda item: (item[0], item[1]))[2]
+    try:
+        with localcontext() as context:
+            context.prec = _GAS_EVALUATION_DECIMAL_PRECISION
+            context.rounding = _GAS_EVALUATION_ROUNDING
+            context.Emax = _GAS_EVALUATION_MAX_EXPONENT
+            context.Emin = _GAS_EVALUATION_MIN_NORMAL_EXPONENT
+            # Sequence is the primary order; the modifier id is a stable
+            # code-point tie-breaker when two terms share a sequence.
+            add = sum((item[2] for item in sorted(additive_terms, key=lambda item: (item[0], item[1]))), Decimal(0))
+            percent = sum((item[2] for item in sorted(percent_terms, key=lambda item: (item[0], item[1]))), Decimal(0))
+            computed_decimal = (base_decimal + add) * (Decimal(1) + percent)
+            if candidates:
+                computed_decimal = max(candidates, key=lambda item: (item[0], item[1]))[2]
+    except DecimalException:
+        # An in-range operand combination can still overflow the published
+        # result window; report the deterministic finite-result failure.
+        computed_decimal = Decimal("Infinity")
     if not computed_decimal.is_finite():
         errors.append("evaluation result must remain finite")
     result = value.get("result")
@@ -1834,7 +2021,12 @@ def _gas_effect_event_errors(value: Dict[str, Any]) -> List[str]:
             else:
                 suppress_values.append(event_suppressed)
             if item.get("fromState") != "Active" or item.get("toState") != "Active":
-                errors.append("Suppress is an Active-internal event and cannot change state")
+                errors.append(
+                    _gas_error(
+                        "GAS.EFFECT.SUPPRESS_STATE",
+                        "Suppress is an Active-internal event and cannot change state",
+                    )
+                )
         elif name in {"Stack", "Refresh", "Duration", "Period", "Hit", "Overflow", "SnapshotReplacement"}:
             if item.get("fromState") != "Active" or item.get("toState") != "Active":
                 errors.append("{} is an Active-internal event".format(name))
@@ -1871,7 +2063,12 @@ def _gas_effect_event_errors(value: Dict[str, Any]) -> List[str]:
     non_apply = [name for name in names if name != "Apply"]
     ranks = [_GAS_EFFECT_EVENT_RANK.get(name, 99) for name in non_apply]
     if any(left > right for left, right in zip(ranks, ranks[1:])):
-        errors.append("Effect events must follow Hit -> Overflow -> SnapshotReplacement/Stack -> Duration -> Period -> Removal")
+        errors.append(
+            _gas_error(
+                "GAS.EFFECT.EVENT_ORDER",
+                "Effect events must follow Hit -> Overflow -> SnapshotReplacement/Stack -> Duration -> Period -> Removal",
+            )
+        )
     if "Apply" in names:
         if value.get("initialState") != "Pending" or names[0] != "Apply":
             errors.append("Apply must be first and begin from Pending")
@@ -1894,8 +2091,13 @@ def _gas_effect_event_errors(value: Dict[str, Any]) -> List[str]:
         enclosing_suppressed = value.get("suppressed")
         if not isinstance(enclosing_suppressed, bool):
             errors.append("Suppress event requires an enclosing suppressed bit")
-        elif enclosing_suppressed != suppress_values[-1]:
-            errors.append("Suppress event suppressed bit must equal enclosing suppressed state")
+        elif any(event_value != enclosing_suppressed for event_value in suppress_values):
+            errors.append(
+                _gas_error(
+                    "GAS.EFFECT.SUPPRESS_BIT",
+                    "Suppress event suppressed bit must equal enclosing suppressed state",
+                )
+            )
     terminal = isinstance(final, str) and final in _EFFECT_TERMINAL
     if terminal and value.get("handleValid") is not False:
         errors.append("terminal Effect states invalidate the Handle")
@@ -1915,7 +2117,12 @@ def _gas_effect_event_errors(value: Dict[str, Any]) -> List[str]:
     for key in value:
         lowered = str(key).lower()
         if any(token in lowered for token in ("second", "millisecond", "wallclock", "timestamp", "datetime")) or lowered == "time":
-            errors.append("Effect timing fields must be Tick/frame numbers, not wall-clock values")
+            errors.append(
+                _gas_error(
+                    "GAS.EFFECT.WALL_CLOCK",
+                    "Effect timing fields must be Tick/frame numbers, not wall-clock values",
+                )
+            )
     if isinstance(tick, int) and not isinstance(tick, bool) and isinstance(value.get("durationTicks"), int) and isinstance(value.get("expiresAtTick"), int):
         if value.get("expiresAtTick") < tick + value.get("durationTicks"):
             errors.append("expiresAtTick must not precede durationTicks from the current Tick")
@@ -1983,7 +2190,12 @@ def _gas_components_errors(value: Dict[str, Any]) -> List[str]:
     def scan(node: Any, context: str = "other") -> None:
         if isinstance(node, dict):
             if node.get("component") == "FxComponent" or "FxComponent" in node:
-                errors.append("FxComponent is forbidden; use EffectComponent.fx_key")
+                errors.append(
+                    _gas_error(
+                        "GAS.COMPONENT.FX_FORBIDDEN",
+                        "FxComponent is forbidden; use EffectComponent.fx_key",
+                    )
+                )
             if "fx_key" in node and context != "effect_entry":
                 errors.append("fx_key is allowed only inside an EffectComponent entry")
             if any(
@@ -2084,7 +2296,12 @@ def _gas_components_errors(value: Dict[str, Any]) -> List[str]:
                     elif current_valid is not True:
                         actual, reason = "Rejected", "Terminal"
             if probe.get("expected") != actual:
-                errors.append("Handle probe expected {} but resolves as {}".format(probe.get("expected"), actual))
+                errors.append(
+                    _gas_error(
+                        "GAS.COMPONENT.HANDLE_PROBE",
+                        "Handle probe expected {} but resolves as {}".format(probe.get("expected"), actual),
+                    )
+                )
             if actual == "Rejected" and probe.get("reason") != reason:
                 errors.append("Handle rejection reason must be {}".format(reason))
             if actual == "Accepted" and "reason" in probe:
@@ -2216,11 +2433,21 @@ def _gas_tag_errors(value: Dict[str, Any]) -> List[str]:
         else:
             matches = []
         if query.get("matches") != matches:
-            errors.append("Tag {} query matches are not deterministic".format(mode))
+            if mode == "Exact":
+                errors.append(
+                    _gas_error("GAS.TAG.EXACT_QUERY", "Tag Exact query matches are not deterministic")
+                )
+            else:
+                errors.append("Tag {} query matches are not deterministic".format(mode))
         if query.get("expected") is not bool(matches):
             errors.append("Tag {} query expected must match its counted result".format(mode))
     if query_modes != set(_GAS_TAG_QUERY_MODES):
-        errors.append("Tag fixtures must exercise Exact, Parent and Child matching")
+        errors.append(
+            _gas_error(
+                "GAS.TAG.QUERY_MODES",
+                "Tag fixtures must exercise Exact, Parent and Child matching",
+            )
+        )
 
     handshake = value.get("handshake") if isinstance(value.get("handshake"), dict) else {}
     table_mismatch = not (
@@ -2236,7 +2463,12 @@ def _gas_tag_errors(value: Dict[str, Any]) -> List[str]:
     mismatch = table_mismatch or schema_mismatch
     expected_accepted = not mismatch
     if handshake.get("accepted") is not expected_accepted:
-        errors.append("Tag handshake accepted must equal full-table/schema hash agreement")
+        errors.append(
+            _gas_error(
+                "GAS.TAG.HANDSHAKE_HASH",
+                "Tag handshake accepted must equal full-table/schema hash agreement",
+            )
+        )
     if mismatch:
         expected_reason = "TagTableHashMismatch" if table_mismatch else "TagSchemaHashMismatch"
         if handshake.get("failureReason") != expected_reason:
@@ -2274,6 +2506,21 @@ def _gas_replication_errors(value: Dict[str, Any]) -> List[str]:
     }
     if declared_components != set(_GAS_COMPONENT_NAMES):
         errors.append("replication declarations must cover all four GAS components")
+    declared_pairs = {
+        (str(item.get("component")), str(item.get("field")))
+        for item in fields
+        if isinstance(item, dict)
+    }
+    if declared_pairs != _GAS_REPLICATION_MATRIX_PAIRS:
+        missing_pairs = sorted(_GAS_REPLICATION_MATRIX_PAIRS - declared_pairs)
+        extra_pairs = sorted(declared_pairs - _GAS_REPLICATION_MATRIX_PAIRS)
+        errors.append(
+            _gas_error(
+                "GAS.REPLICATION.MATRIX_COMPLETENESS",
+                "replication declarations must cover the exact seven component-field matrix pairs"
+                " (missing={!r}, extra={!r})".format(missing_pairs, extra_pairs),
+            )
+        )
     field_by_id = {str(item.get("fieldId")): item for item in fields if isinstance(item, dict)}
     all_ids = [str(item.get("fieldId")) for item in fields if isinstance(item, dict)]
     authoritative_ids: List[str] = []
@@ -2288,11 +2535,28 @@ def _gas_replication_errors(value: Dict[str, Any]) -> List[str]:
             errors.append("fieldId must be component.field for deterministic projections")
         matrix_entry = _GAS_REPLICATION_VISIBILITY_MATRIX.get((component, field_name))
         if matrix_entry is None:
-            errors.append(
-                "replication field {}.{} is outside the frozen GAS component-field visibility matrix".format(
-                    component, field_name
+            field_rule = {
+                ("EffectComponent", "details"): "GAS.REPLICATION.FIELD_EFFECT_DETAILS",
+                ("EffectComponent", "internalHandle"): "GAS.REPLICATION.FIELD_INTERNAL_HANDLE",
+                ("AbilityComponent", "costIntermediate"): "GAS.REPLICATION.FIELD_COST_INTERMEDIATE",
+                ("AbilityComponent", "predictionDraft"): "GAS.REPLICATION.FIELD_PREDICTION_DRAFT",
+                ("AbilityComponent", "fx_key"): "GAS.REPLICATION.FIELD_FX_KEY",
+            }.get((component, field_name))
+            if field_rule:
+                errors.append(
+                    _gas_error(
+                        field_rule,
+                        "replication field {}.{} is outside the frozen GAS component-field visibility matrix".format(
+                            component, field_name
+                        ),
+                    )
                 )
-            )
+            else:
+                errors.append(
+                    "replication field {}.{} is outside the frozen GAS component-field visibility matrix".format(
+                        component, field_name
+                    )
+                )
         else:
             for visibility_key, expected_value in matrix_entry.items():
                 if item.get(visibility_key) != expected_value:
@@ -2304,7 +2568,12 @@ def _gas_replication_errors(value: Dict[str, Any]) -> List[str]:
         normalized_field = re.sub(r"[_-]", "", str(field_name)).lower()
         normalized_field_id = re.sub(r"[_-]", "", field_id).lower()
         if normalized_field == "modifierledger" or normalized_field_id == "effectcomponent.modifierledger":
-            errors.append("Modifier ledger is a derived Effect view and cannot be a replicated or persisted field")
+            errors.append(
+                _gas_error(
+                    "GAS.REPLICATION.MODIFIER_LEDGER",
+                    "Modifier ledger is a derived Effect view and cannot be a replicated or persisted field",
+                )
+            )
         hidden = item.get("hidden") is True
         public = item.get("thirdPartyPublic") is True
         sync = item.get("sync") is True
@@ -2348,7 +2617,12 @@ def _gas_replication_errors(value: Dict[str, Any]) -> List[str]:
     if server_in_ids != authoritative_ids:
         errors.append("server snapshot hash must include every authoritative field in declaration order")
     if client_in_ids != sync_ids:
-        errors.append("client confirmation hash must include only the non-predicted sync domain")
+        errors.append(
+            _gas_error(
+                "GAS.REPLICATION.CLIENT_HASH_DOMAIN",
+                "client confirmation hash must include only the non-predicted sync domain",
+            )
+        )
     expected_out = [field_id for field_id in all_ids if field_id not in set(authoritative_ids)]
     expected_client_out = [field_id for field_id in all_ids if field_id not in set(sync_ids)]
     if server_out_ids != expected_out:
@@ -2388,14 +2662,24 @@ def _gas_prediction_errors(value: Dict[str, Any]) -> List[str]:
         errors.append("non-predictable actions must be EffectRemoval, EffectPeriod and OutOfSimulation")
     for item in actions:
         if isinstance(item, dict) and item.get("predicted") is not False:
-            errors.append("non-predictable actions must declare predicted=false")
+            errors.append(
+                _gas_error(
+                    "GAS.PREDICTION.NON_PREDICTABLE",
+                    "non-predictable actions must declare predicted=false",
+                )
+            )
     rollback = value.get("rollback") if isinstance(value.get("rollback"), dict) else {}
     if rollback.get("unit") != "EcsGasVoxelFrame" or rollback.get("frameCount") != 1:
         errors.append("prediction rejection rolls back exactly one ECS/GAS/Voxel frame")
     if rollback.get("clientRolledBack") is not True:
         errors.append("client prediction rejection must roll back the client frame")
     if rollback.get("serverRolledBack") is not False:
-        errors.append("server prediction authority must never roll back")
+        errors.append(
+            _gas_error(
+                "GAS.PREDICTION.SERVER_ROLLBACK",
+                "server prediction authority must never roll back",
+            )
+        )
     if tuple(rollback.get("steps") or ()) != _GAS_PREDICTION_ROLLBACK_STEPS:
         errors.append("rollback steps must restore, apply authority, then replay inputs")
     confirmed = rollback.get("confirmedFrame")
@@ -2414,7 +2698,12 @@ def _gas_prediction_errors(value: Dict[str, Any]) -> List[str]:
         if isinstance(input_frame, int) and not isinstance(input_frame, bool) and any(
             isinstance(frame, int) and not isinstance(frame, bool) and frame <= input_frame for frame in replay
         ):
-            errors.append("replay input frames must be strictly greater than the rejected input frame")
+            errors.append(
+                _gas_error(
+                    "GAS.PREDICTION.REPLAY_ORDER",
+                    "replay input frames must be strictly greater than the rejected input frame",
+                )
+            )
         if input_frame in replay:
             errors.append("the rejected input frame cannot be replayed as an accepted command")
     if rollback.get("deterministicReplay") is not True:
@@ -3426,9 +3715,21 @@ def registry() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
         expected_error = entry.get("expectedError")
         if expected_error is not None and (not isinstance(expected_error, str) or not expected_error.strip()):
             raise ContractError("fixture {} expectedError must be a non-empty string".format(fixture_id))
-        if str(schema_id).startswith("gas-") and entry.get("expected") == "invalid" and not expected_error:
-            raise ContractError("GAS invalid fixture {} must declare expectedError".format(fixture_id))
-        fixtures[fixture_id] = {"meta": entry, "path": path, "document": load_json(path)}
+        if str(schema_id).startswith("gas-") and entry.get("expected") == "invalid":
+            if expected_error not in _GAS_ERROR_RULES:
+                raise ContractError(
+                    "GAS invalid fixture {} must declare a registered expectedError rule id".format(
+                        fixture_id
+                    )
+                )
+        fixtures[fixture_id] = {
+            "meta": entry,
+            "path": path,
+            # Decimal lexemes are part of the GAS evaluation contract.  Do
+            # not let the default JSON float decoder erase them before the
+            # semantic gate runs.
+            "document": load_json(path, exact_numbers=(schema_id == "gas-evaluation")),
+        }
     registered_fixture_files = {str(item["path"].relative_to(FIXTURE_DIR)) for item in fixtures.values()}
     for directory in (FIXTURE_DIR / "valid", FIXTURE_DIR / "invalid"):
         for path in directory.glob("*.json"):
@@ -3470,11 +3771,11 @@ def validate_fixture(fixture_id: str, fixture: Dict[str, Any], schemas: Dict[str
     expected_error_match = True
     if expected == "invalid" and schema_id.startswith("gas-"):
         expected_error = meta.get("expectedError")
-        if not isinstance(expected_error, str) or not any(
-            isinstance(error, str) and expected_error in error for error in errors
+        if not isinstance(expected_error, str) or expected_error not in _GAS_ERROR_RULES or not any(
+            _gas_error_rule_id(error) == expected_error for error in errors
         ):
             expected_error_match = False
-            errors.append("fixture expectedError {!r} was not emitted".format(expected_error))
+            errors.append("fixture expectedError rule {!r} was not emitted".format(expected_error))
     passed = (expected == "valid" and not errors) or (
         expected == "invalid" and bool(errors) and expected_error_match
     )

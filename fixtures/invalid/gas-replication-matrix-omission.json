@@ -1,0 +1,104 @@
+{
+  "kind": "ReplicationContract",
+  "schemaVersion": 1,
+  "finalizePhase": "GasAndEventFinalize",
+  "hashAlgorithm": "SHA-256(CanonicalJsonV1)",
+  "fields": [
+    {
+      "fieldId": "AbilityComponent.state",
+      "component": "AbilityComponent",
+      "field": "state",
+      "authority": "Server",
+      "owner": "Owner",
+      "thirdPartyPublic": false,
+      "hidden": false,
+      "sync": true,
+      "persisted": true,
+      "predicted": false,
+      "presentation": false,
+      "value": "Executing"
+    },
+    {
+      "fieldId": "EffectComponent.entries",
+      "component": "EffectComponent",
+      "field": "entries",
+      "authority": "Server",
+      "owner": "Owner",
+      "thirdPartyPublic": false,
+      "hidden": false,
+      "sync": true,
+      "persisted": true,
+      "predicted": false,
+      "presentation": false,
+      "value": [{ "instanceId": "effect-instance-1", "state": "Active", "fx_key": "fx.burning" }]
+    },
+    {
+      "fieldId": "AttributeComponent.current",
+      "component": "AttributeComponent",
+      "field": "current",
+      "authority": "Server",
+      "owner": "ThirdParty",
+      "thirdPartyPublic": true,
+      "hidden": false,
+      "sync": true,
+      "persisted": false,
+      "predicted": false,
+      "presentation": false,
+      "value": 75
+    },
+    {
+      "fieldId": "AttributeComponent.revision",
+      "component": "AttributeComponent",
+      "field": "revision",
+      "authority": "Server",
+      "owner": "ThirdParty",
+      "thirdPartyPublic": true,
+      "hidden": false,
+      "sync": true,
+      "persisted": true,
+      "predicted": false,
+      "presentation": false,
+      "value": 4
+    },
+    {
+      "fieldId": "TagComponent.counts",
+      "component": "TagComponent",
+      "field": "counts",
+      "authority": "Server",
+      "owner": "ThirdParty",
+      "thirdPartyPublic": true,
+      "hidden": false,
+      "sync": true,
+      "persisted": true,
+      "predicted": false,
+      "presentation": false,
+      "value": [{ "tagId": "Gameplay.Combat.Fire.Projectile", "count": 2 }]
+    },
+    {
+      "fieldId": "EffectComponent.presentationBuffer",
+      "component": "EffectComponent",
+      "field": "presentationBuffer",
+      "authority": "Shared",
+      "owner": "ThirdParty",
+      "thirdPartyPublic": true,
+      "hidden": false,
+      "sync": true,
+      "persisted": false,
+      "predicted": false,
+      "presentation": true,
+      "value": { "frame": 100, "fx_key": "fx.burning" }
+    }
+  ],
+  "serverSnapshot": {
+    "domain": "ServerSnapshot",
+    "includedFields": ["AbilityComponent.state", "EffectComponent.entries", "AttributeComponent.current", "AttributeComponent.revision", "TagComponent.counts"],
+    "excludedFields": ["EffectComponent.presentationBuffer"],
+    "hash": "f29cb09657781f339cb4db2b5595d3cfab3490456236de4b6862ac89076d1e4c"
+  },
+  "clientConfirmation": {
+    "domain": "ClientConfirmation",
+    "includedFields": ["AbilityComponent.state", "EffectComponent.entries", "AttributeComponent.current", "AttributeComponent.revision", "TagComponent.counts"],
+    "excludedFields": ["EffectComponent.presentationBuffer"],
+    "hash": "e55ff955df8eb4e98377ec57b311277a4896afdfde454b0a3a9530fb9b8014de"
+  }
+}

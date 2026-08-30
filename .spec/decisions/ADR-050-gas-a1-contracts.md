@@ -14,8 +14,8 @@ The frozen GAS V1.4 architecture specifies lifecycle admission, deterministic ev
 - Ability states remain exactly `Requested`, `Activated`, `Executing`, `Completed`, `Rejected`, `Cancelled`, `Expired` and `RolledBack`; Effect states remain exactly `Pending`, `Active`, `Expired`, `Removed`, `Rejected` and `RolledBack`. Existing legal transitions remain explicit, and every terminal transition requires `handleValid=false`.
 - Admission records declare the ordered checks `HandlePermission -> Cooldown -> Cost -> Tag -> GameCustom`; each declared check ordinal matches its list position, the first failed check produces `Rejected` and no charge. Commit records recheck only `Cooldown -> Cost` with matching ordinals; a failed recheck produces `Cancelled` atomically with no charge.
 - Prepared and CommitIntent records cannot carry a later business rejection or more than one charge. Commit charging is represented by an explicit bounded `chargeCount`.
-- Evaluation is one channel using `(Base + SigmaAdd) * (1 + SigmaPercent)`, additive percentage aggregation, and explicit numeric priority followed by descending sequence as the override tie-break. Add and Percent terms are accumulated in ascending `sequence`, with a code-point ascending modifier `id` as the stable tie-breaker. The numeric policy is a 34-digit decimal context with `ROUND_HALF_EVEN`; JSON array order is not semantic.
-- Effect same-Tick events order `Hit -> Overflow -> SnapshotReplacement/Stack -> Duration -> Period -> Removal`. `Suppress` is an Active-internal event whose event bit and enclosing authoritative `suppressed` bit must agree; applying and removing in one Tick has `Cancelled` outcome. Duration and period values are Tick numbers.
+- Evaluation is one channel using `(Base + SigmaAdd) * (1 + SigmaPercent)`, additive percentage aggregation, and explicit numeric priority followed by descending sequence as the override tie-break. Add and Percent terms are accumulated in ascending `sequence`, with a code-point ascending modifier `id` as the stable tie-breaker. Numeric JSON members are parsed as exact decimal values, rounded consistently for `Base`, `Add`, `Percent`, `Override` and `Result` in a 34-digit `ROUND_HALF_EVEN` context, bounded to exponent `-6176..6144` and at most 1024 coefficient digits; JSON array order is not semantic.
+- Effect same-Tick events order `Hit -> Overflow -> SnapshotReplacement/Stack -> Duration -> Period -> Removal`. `Suppress` is an Active-internal event whose every collected event bit must equal the enclosing authoritative `suppressed` bit; applying and removing in one Tick has `Cancelled` outcome. Duration and period values are Tick numbers.
 
 ## Alternatives
 
@@ -31,7 +31,7 @@ The source contracts are `schemas/gas-lifecycle.schema.json`, `schemas/gas-evalu
 
 ## Failure semantics
 
-Unknown states, illegal transitions, wrong check/event order, unsupported operators, ambiguous overrides, non-finite results, invalid numeric policy declarations, wall-clock timing fields, inconsistent suppression bits or transitions, and terminal handles left valid are rejected deterministically.
+Unknown states, illegal transitions, wrong check/event order, unsupported operators, ambiguous overrides, non-finite or out-of-bounds numeric values, invalid numeric policy declarations, wall-clock timing fields, inconsistent suppression bits or transitions, and terminal handles left valid are rejected deterministically. Registered invalid fixtures identify the exact emitted validator rule key (these are fixture diagnostics, not new wire `ErrorCode` IDs); free-form substrings are not accepted as failure metadata.
 
 ## Compatibility and migration
 
@@ -39,8 +39,10 @@ This is additive within the existing baseline: the original generic lifecycle tr
 
 ## Verification
 
-The registered GAS positive and negative fixtures, including the permutation
-case `gas/evaluation-permutation` and the inconsistent suppression-bit case
-`gas/effect-suppression-bit`, the full contract validator, schema lint and
-deterministic generation are the acceptance evidence for this ADR. Every GAS
-invalid fixture also carries an `expectedError` token that the gate must emit.
+The registered GAS positive and negative fixtures, including the Decimal34
+rounding, subnormal-exponent, large-finite-exponent and fractional-result
+cases, the same-sequence `gas/evaluation-permutation` case, and the
+inconsistent suppression-bit/history cases, the full contract validator,
+schema lint and deterministic generation are the acceptance evidence for this
+ADR. Every GAS invalid fixture carries an `expectedError` rule key that the
+gate must emit exactly.

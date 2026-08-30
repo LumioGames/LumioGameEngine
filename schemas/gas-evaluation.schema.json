@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/gas-evaluation.schema.json",
   "title": "GAS deterministic evaluation contract",
-  "description": "V1 evaluates one channel as (Base + SigmaAdd) * (1 + SigmaPercent), then applies an explicit-priority override. Add and Percent terms are reduced by ascending sequence and a code-point ascending modifier id tie-breaker in a 34-digit decimal context with ROUND_HALF_EVEN rounding; JSON array order is never semantic.",
+  "description": "V1 evaluates one channel as (Base + SigmaAdd) * (1 + SigmaPercent), then applies an explicit-priority override. Add and Percent terms are reduced by ascending sequence and a code-point ascending modifier id tie-breaker in a 34-digit decimal context with ROUND_HALF_EVEN rounding; JSON array order is never semantic. Numeric members are parsed as exact JSON decimal values, rounded under Decimal34, bounded to exponent -6176..6144 (normal Emin -6143, subnormal floor -6176) and at most 1024 coefficient digits.",
   "type": "object",
   "required": ["kind", "attributeId", "base", "modifiers", "formula", "operators", "percentageAggregation", "overrideTieBreak", "accumulationOrder", "numericPolicy", "result"],
   "properties": {
     "kind": { "type": "string", "const": "Evaluation" },
     "attributeId": { "$ref": "common.schema.json#/$defs/id" },
-    "base": { "type": "number" },
+    "base": { "$ref": "#/$defs/gasNumber" },
     "modifiers": {
       "type": "array",
       "items": { "$ref": "#/$defs/modifier" }
@@ -28,17 +28,21 @@
     "accumulationOrder": { "type": "string", "const": "SequenceAscendingThenIdCodePointAscending" },
     "numericPolicy": { "type": "string", "const": "Decimal34RoundHalfEven" },
     "channel": { "type": "string", "const": "Default" },
-    "result": { "type": "number" }
+    "result": { "$ref": "#/$defs/gasNumber" }
   },
   "additionalProperties": false,
   "$defs": {
+    "gasNumber": {
+      "type": "number",
+      "description": "Exact JSON numeric member; semantic validation applies Decimal34 ROUND_HALF_EVEN with normal Emin -6143, subnormal floor -6176, Emax 6144 and at most 1024 coefficient digits."
+    },
     "modifier": {
       "type": "object",
       "required": ["id", "operator", "value", "priority", "sequence"],
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/id" },
         "operator": { "type": "string", "enum": ["Add", "Percent", "Override"] },
-        "value": { "type": "number" },
+        "value": { "$ref": "#/$defs/gasNumber" },
         "priority": { "type": "integer", "minimum": 0 },
         "sequence": { "type": "integer", "minimum": 0 }
       },
@@ -49,7 +53,7 @@
       "required": ["id", "value", "priority", "sequence"],
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/id" },
-        "value": { "type": "number" },
+        "value": { "$ref": "#/$defs/gasNumber" },
         "priority": { "type": "integer", "minimum": 0 },
         "sequence": { "type": "integer", "minimum": 0 }
       },

@@ -44,9 +44,13 @@ prediction state machine.
   | `AttributeComponent.revision` | ThirdParty/public | Server | true / true / false / false |
   | `TagComponent.counts` | ThirdParty/public | Server | true / true / false / false |
 
-  No other component-field pair is a V1.4 replication declaration: internal
-  Handles, cost intermediates, prediction drafts, Modifier ledgers and an
-  out-of-place `fx_key` are rejected. The server snapshot hash covers
+  The declaration must contain the exact seven pairs in this matrix. Absence
+  from `fields` is an invalid contract, while membership in `excludedFields`
+  only means that a declared field is outside that hash domain; it does not
+  remove the field from the projection contract. No other component-field
+  pair is a V1.4 replication declaration: internal Handles, cost
+  intermediates, prediction drafts, Modifier ledgers and an out-of-place
+  `fx_key` are rejected. The server snapshot hash covers
   authoritative fields; the owner client confirmation hash covers only
   non-predicted synchronized fields, with explicit complementary exclusion
   lists.
@@ -69,7 +73,8 @@ express are enforced by `tools/lumio_contract.py validate`.
 Unknown or duplicate component containers, `FxComponent`, mismatched row and
 Handle identity, stale or cross-world probes, Tag table/schema disagreement,
 hierarchy result drift, hidden/public visibility contradictions, hash-domain
-leaks, fields outside the closed component-field matrix, standalone Modifier ledger declarations, prediction of a frozen
+leaks, fields outside or missing from the closed component-field matrix,
+standalone Modifier ledger declarations, prediction of a frozen
 non-predictable action and server rollback are rejected deterministically.
 
 ## Alternatives

@@ -1,0 +1,18 @@
+{
+  "kind": "Evaluation",
+  "attributeId": "fractional-result",
+  "base": 1.5,
+  "modifiers": [
+    { "id": "add-quarter", "operator": "Add", "value": 0.25, "priority": 0, "sequence": 1 },
+    { "id": "percent-tenth", "operator": "Percent", "value": 0.1, "priority": 0, "sequence": 2 }
+  ],
+  "overrides": [],
+  "formula": "(Base + SigmaAdd) * (1 + SigmaPercent)",
+  "operators": ["Add", "Percent", "Override"],
+  "percentageAggregation": "Additive",
+  "overrideTieBreak": "PriorityDescendingThenSequenceDescending",
+  "accumulationOrder": "SequenceAscendingThenIdCodePointAscending",
+  "numericPolicy": "Decimal34RoundHalfEven",
+  "channel": "Default",
+  "result": 1.925
+}
