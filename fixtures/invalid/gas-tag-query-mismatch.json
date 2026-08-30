@@ -14,7 +14,7 @@
       { "tagId": "Gameplay.Stunned", "numeric": 5, "status": "Active", "since": "V1" }
     ],
     "tableHash": "d8024fd36494a94fb39bb94fb7b74df12b2a22fdee4d9d84d26bac66ac9a7819",
-    "schemaHash": "bec53c55af875b20f6278642a3eb913af75f231d17db3d317c8ea17cb00170f8"
+    "schemaHash": "532f232409695ce05b17ebfb54ae4794982da1cd384223c171d2956fc9c45998"
   },
   "counts": [
     { "tagId": "Gameplay.Combat.Fire.Projectile", "count": 2 }
@@ -27,8 +27,8 @@
   "handshake": {
     "localTableHash": "d8024fd36494a94fb39bb94fb7b74df12b2a22fdee4d9d84d26bac66ac9a7819",
     "peerTableHash": "d8024fd36494a94fb39bb94fb7b74df12b2a22fdee4d9d84d26bac66ac9a7819",
-    "localSchemaHash": "bec53c55af875b20f6278642a3eb913af75f231d17db3d317c8ea17cb00170f8",
-    "peerSchemaHash": "bec53c55af875b20f6278642a3eb913af75f231d17db3d317c8ea17cb00170f8",
+    "localSchemaHash": "532f232409695ce05b17ebfb54ae4794982da1cd384223c171d2956fc9c45998",
+    "peerSchemaHash": "532f232409695ce05b17ebfb54ae4794982da1cd384223c171d2956fc9c45998",
     "phase": "WorldReady",
     "accepted": true
   }

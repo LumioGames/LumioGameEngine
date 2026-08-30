@@ -2090,7 +2090,7 @@ def _gas_tag_errors(value: Dict[str, Any]) -> List[str]:
             errors.append("Tag {} query matches are not deterministic".format(mode))
         if query.get("expected") is not bool(matches):
             errors.append("Tag {} query expected must match its counted result".format(mode))
-    if query_modes and query_modes != set(_GAS_TAG_QUERY_MODES):
+    if query_modes != set(_GAS_TAG_QUERY_MODES):
         errors.append("Tag fixtures must exercise Exact, Parent and Child matching")
 
     handshake = value.get("handshake") if isinstance(value.get("handshake"), dict) else {}
@@ -2267,6 +2267,10 @@ def _gas_prediction_errors(value: Dict[str, Any]) -> List[str]:
             errors.append("replay input frames must be integers")
         if isinstance(confirmed, int) and any(isinstance(frame, int) and not isinstance(frame, bool) and frame <= confirmed for frame in replay):
             errors.append("replay input frames must be after the confirmed frame")
+        if isinstance(input_frame, int) and not isinstance(input_frame, bool) and any(
+            isinstance(frame, int) and not isinstance(frame, bool) and frame <= input_frame for frame in replay
+        ):
+            errors.append("replay input frames must be strictly greater than the rejected input frame")
         if input_frame in replay:
             errors.append("the rejected input frame cannot be replayed as an accepted command")
     if rollback.get("deterministicReplay") is not True:

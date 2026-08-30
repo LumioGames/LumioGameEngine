@@ -522,6 +522,13 @@
       "reason": "counted exact, parent and child Tag queries must be deterministic"
     },
     {
+      "id": "gas/tag-missing-query-modes",
+      "schema": "gas-tag",
+      "file": "invalid/gas-tag-missing-query-modes.json",
+      "expected": "invalid",
+      "reason": "every Tag contract must exercise Exact, Parent and Child queries"
+    },
+    {
       "id": "gas/replication-hashes",
       "schema": "gas-replication",
       "file": "valid/gas-replication-hashes.json",
@@ -560,6 +567,13 @@
       "file": "invalid/gas-prediction-server-rollback.json",
       "expected": "invalid",
       "reason": "prediction rejection never rolls back the server"
+    },
+    {
+      "id": "gas/prediction-replay-before-input",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-replay-before-input.json",
+      "expected": "invalid",
+      "reason": "replay frames must be strictly greater than the rejected input frame"
     },
     {
       "id": "gate/accept",
