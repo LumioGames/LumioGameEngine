@@ -15,9 +15,13 @@ The `gas/*` fixtures cover the closed Ability/Effect state machines, five-step a
 The A2 `gas/*` fixtures additionally cover the four ECS containers and Handle
 resolution, the permanent Tag table and hierarchy handshake, field visibility
 and dual hash projections, the derived-only Modifier ledger boundary, and
-frame-keyed prediction rollback/replay. The replication fixture declares all
-seven component-field pairs; hash-domain exclusions describe projection
-domains and do not excuse an absent pair. Each new P0 schema has positive and
-negative records in this index.
+frame-keyed prediction rollback/replay. Replication component/field type
+mutations and non-array rollback-step values are registered rejection cases,
+so malformed JSON is diagnosed rather than raising a host exception. The
+prediction contract requires at least one later replay frame; the positive
+rollback record and the empty-replay rejection assert that cardinality. The
+replication fixture declares all seven component-field pairs; hash-domain
+exclusions describe projection domains and do not excuse an absent pair. Each
+new P0 schema has positive and negative records in this index.
 
 Fixtures intentionally use placeholder hashes and signatures. They exercise shape, correlation, ordering and compatibility rules; release signing and cryptographic verification belong to the Release Toolchain implementation.

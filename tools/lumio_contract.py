@@ -195,7 +195,68 @@ def load_json(path: Path, *, exact_numbers: bool = False) -> Any:
 
 
 def canonical_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    """Return deterministic JSON while retaining exact Decimal value tokens."""
+    options = {"ensure_ascii": True, "sort_keys": True, "separators": (",", ":")}
+
+    def contains_decimal(node: Any, seen: set) -> bool:
+        if isinstance(node, Decimal):
+            return True
+        if isinstance(node, (list, tuple, dict)):
+            marker = id(node)
+            if marker in seen:
+                return False
+            seen.add(marker)
+            if isinstance(node, dict):
+                return any(contains_decimal(key, seen) or contains_decimal(item, seen) for key, item in node.items())
+            return any(contains_decimal(item, seen) for item in node)
+        return False
+
+    if not contains_decimal(value, set()):
+        return json.dumps(value, **options)
+
+    # ``json.dumps`` has no hook for a raw numeric token.  Encode Decimal values
+    # as collision-free string markers, then replace only those complete JSON
+    # string tokens with their exact decimal lexemes.
+    reserved_strings: set = set()
+
+    def collect_strings(node: Any, seen: set) -> None:
+        if isinstance(node, str):
+            reserved_strings.add(node)
+        elif isinstance(node, (list, tuple, dict)):
+            marker = id(node)
+            if marker in seen:
+                return
+            seen.add(marker)
+            if isinstance(node, dict):
+                for key, item in node.items():
+                    collect_strings(key, seen)
+                    collect_strings(item, seen)
+            else:
+                for item in node:
+                    collect_strings(item, seen)
+
+    collect_strings(value, set())
+    decimal_tokens: Dict[str, str] = {}
+    marker_index = 0
+
+    def default(node: Any) -> Any:
+        nonlocal marker_index
+        if not isinstance(node, Decimal):
+            raise TypeError("Object of type {} is not JSON serializable".format(type(node).__name__))
+        if not node.is_finite():
+            raise ValueError("non-finite Decimal is not JSON serializable")
+        while True:
+            marker = "\x00lumio-decimal-{}".format(marker_index)
+            marker_index += 1
+            if marker not in reserved_strings:
+                break
+        decimal_tokens[marker] = str(node)
+        return marker
+
+    encoded = json.dumps(value, default=default, **options)
+    for marker, token in decimal_tokens.items():
+        encoded = encoded.replace(json.dumps(marker, ensure_ascii=True), token)
+    return encoded
 
 
 class SchemaResolver:
@@ -645,9 +706,12 @@ _GAS_ERROR_RULES = frozenset(
         "GAS.REPLICATION.FIELD_COST_INTERMEDIATE",
         "GAS.REPLICATION.FIELD_PREDICTION_DRAFT",
         "GAS.REPLICATION.FIELD_FX_KEY",
+        "GAS.REPLICATION.FIELD_TYPE",
         "GAS.PREDICTION.NON_PREDICTABLE",
         "GAS.PREDICTION.SERVER_ROLLBACK",
         "GAS.PREDICTION.REPLAY_ORDER",
+        "GAS.PREDICTION.ROLLBACK_STEPS",
+        "GAS.PREDICTION.REPLAY_CARDINALITY",
     }
 )
 
@@ -2531,49 +2595,66 @@ def _gas_replication_errors(value: Dict[str, Any]) -> List[str]:
         field_id = str(item.get("fieldId"))
         component = item.get("component")
         field_name = item.get("field")
-        if field_id != "{}.{}".format(component, field_name):
-            errors.append("fieldId must be component.field for deterministic projections")
-        matrix_entry = _GAS_REPLICATION_VISIBILITY_MATRIX.get((component, field_name))
-        if matrix_entry is None:
-            field_rule = {
-                ("EffectComponent", "details"): "GAS.REPLICATION.FIELD_EFFECT_DETAILS",
-                ("EffectComponent", "internalHandle"): "GAS.REPLICATION.FIELD_INTERNAL_HANDLE",
-                ("AbilityComponent", "costIntermediate"): "GAS.REPLICATION.FIELD_COST_INTERMEDIATE",
-                ("AbilityComponent", "predictionDraft"): "GAS.REPLICATION.FIELD_PREDICTION_DRAFT",
-                ("AbilityComponent", "fx_key"): "GAS.REPLICATION.FIELD_FX_KEY",
-            }.get((component, field_name))
-            if field_rule:
-                errors.append(
-                    _gas_error(
-                        field_rule,
-                        "replication field {}.{} is outside the frozen GAS component-field visibility matrix".format(
-                            component, field_name
-                        ),
-                    )
-                )
-            else:
-                errors.append(
-                    "replication field {}.{} is outside the frozen GAS component-field visibility matrix".format(
-                        component, field_name
-                    )
-                )
-        else:
-            for visibility_key, expected_value in matrix_entry.items():
-                if item.get(visibility_key) != expected_value:
-                    errors.append(
-                        "replication field {}.{} visibility {} must be {!r}".format(
-                            component, field_name, visibility_key, expected_value
-                        )
-                    )
-        normalized_field = re.sub(r"[_-]", "", str(field_name)).lower()
-        normalized_field_id = re.sub(r"[_-]", "", field_id).lower()
-        if normalized_field == "modifierledger" or normalized_field_id == "effectcomponent.modifierledger":
+        component_is_string = isinstance(component, str)
+        field_is_string = isinstance(field_name, str)
+        if not component_is_string:
             errors.append(
                 _gas_error(
-                    "GAS.REPLICATION.MODIFIER_LEDGER",
-                    "Modifier ledger is a derived Effect view and cannot be a replicated or persisted field",
+                    "GAS.REPLICATION.FIELD_TYPE",
+                    "replication field component must be a string",
                 )
             )
+        if not field_is_string:
+            errors.append(
+                _gas_error(
+                    "GAS.REPLICATION.FIELD_TYPE",
+                    "replication field field must be a string",
+                )
+            )
+        if component_is_string and field_is_string:
+            if field_id != "{}.{}".format(component, field_name):
+                errors.append("fieldId must be component.field for deterministic projections")
+            matrix_entry = _GAS_REPLICATION_VISIBILITY_MATRIX.get((component, field_name))
+            if matrix_entry is None:
+                field_rule = {
+                    ("EffectComponent", "details"): "GAS.REPLICATION.FIELD_EFFECT_DETAILS",
+                    ("EffectComponent", "internalHandle"): "GAS.REPLICATION.FIELD_INTERNAL_HANDLE",
+                    ("AbilityComponent", "costIntermediate"): "GAS.REPLICATION.FIELD_COST_INTERMEDIATE",
+                    ("AbilityComponent", "predictionDraft"): "GAS.REPLICATION.FIELD_PREDICTION_DRAFT",
+                    ("AbilityComponent", "fx_key"): "GAS.REPLICATION.FIELD_FX_KEY",
+                }.get((component, field_name))
+                if field_rule:
+                    errors.append(
+                        _gas_error(
+                            field_rule,
+                            "replication field {}.{} is outside the frozen GAS component-field visibility matrix".format(
+                                component, field_name
+                            ),
+                        )
+                    )
+                else:
+                    errors.append(
+                        "replication field {}.{} is outside the frozen GAS component-field visibility matrix".format(
+                            component, field_name
+                        )
+                    )
+            else:
+                for visibility_key, expected_value in matrix_entry.items():
+                    if item.get(visibility_key) != expected_value:
+                        errors.append(
+                            "replication field {}.{} visibility {} must be {!r}".format(
+                                component, field_name, visibility_key, expected_value
+                            )
+                        )
+            normalized_field = re.sub(r"[_-]", "", field_name).lower()
+            normalized_field_id = re.sub(r"[_-]", "", field_id).lower()
+            if normalized_field == "modifierledger" or normalized_field_id == "effectcomponent.modifierledger":
+                errors.append(
+                    _gas_error(
+                        "GAS.REPLICATION.MODIFIER_LEDGER",
+                        "Modifier ledger is a derived Effect view and cannot be a replicated or persisted field",
+                    )
+                )
         hidden = item.get("hidden") is True
         public = item.get("thirdPartyPublic") is True
         sync = item.get("sync") is True
@@ -2680,14 +2761,34 @@ def _gas_prediction_errors(value: Dict[str, Any]) -> List[str]:
                 "server prediction authority must never roll back",
             )
         )
-    if tuple(rollback.get("steps") or ()) != _GAS_PREDICTION_ROLLBACK_STEPS:
-        errors.append("rollback steps must restore, apply authority, then replay inputs")
+    steps = rollback.get("steps")
+    if not isinstance(steps, list):
+        errors.append(
+            _gas_error(
+                "GAS.PREDICTION.ROLLBACK_STEPS",
+                "rollback steps must be an array in the frozen restore/apply/replay order",
+            )
+        )
+    elif tuple(steps) != _GAS_PREDICTION_ROLLBACK_STEPS:
+        errors.append(
+            _gas_error(
+                "GAS.PREDICTION.ROLLBACK_STEPS",
+                "rollback steps must restore, apply authority, then replay inputs",
+            )
+        )
     confirmed = rollback.get("confirmedFrame")
     input_frame = value.get("inputFrame")
     if isinstance(confirmed, int) and isinstance(input_frame, int) and confirmed >= input_frame:
         errors.append("confirmed frame must precede the rejected input frame")
     replay = rollback.get("replayInputFrames")
     if isinstance(replay, list):
+        if not replay:
+            errors.append(
+                _gas_error(
+                    "GAS.PREDICTION.REPLAY_CARDINALITY",
+                    "a rejection record requires at least one later replay input frame",
+                )
+            )
         valid_replay_numbers = all(isinstance(frame, int) and not isinstance(frame, bool) for frame in replay)
         if valid_replay_numbers and (replay != sorted(replay) or len(replay) != len(set(replay))):
             errors.append("replay input frames must be strictly ascending and deterministic")

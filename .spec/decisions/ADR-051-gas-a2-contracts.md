@@ -57,8 +57,10 @@ prediction state machine.
 - `gas-prediction` uses the input frame as the prediction key and
   `GasAndEventFinalize` as the boundary. Effect removal, Effect period and
   out-of-simulation actions are non-predictable. Rejection rolls back exactly
-  one client ECS/GAS/Voxel frame, replays later inputs deterministically and
-  never rolls back the server.
+  one client ECS/GAS/Voxel frame, requires at least one later replay input
+  frame, replays later inputs deterministically and never rolls back the
+  server. A rejection at the newest input frame is therefore not a valid
+  `PredictionRollback` record in V1.4.
 
 ## Contract
 
@@ -75,7 +77,8 @@ Handle identity, stale or cross-world probes, Tag table/schema disagreement,
 hierarchy result drift, hidden/public visibility contradictions, hash-domain
 leaks, fields outside or missing from the closed component-field matrix,
 standalone Modifier ledger declarations, prediction of a frozen
-non-predictable action and server rollback are rejected deterministically.
+non-predictable action, server rollback and an empty later-input replay are
+rejected deterministically.
 
 ## Alternatives
 
@@ -98,5 +101,7 @@ Run `node .spec/tools/spec-lint.mjs`, `node --test
 .spec/tools/spec-lint.test.mjs`, `python3 -m py_compile
 tools/lumio_contract.py`, `python3 tools/lumio_contract.py validate`, the
 targeted `gas/*` fixtures (including the five closed-matrix rejection records)
-and `git diff --check`. The compatibility ADR entries must resolve as Git mode
-`120000` links to these Draft files.
+and `git diff --check`. The `gas/prediction-rollback` positive and
+`gas/prediction-empty-replay` negative fixtures machine-check the mandatory
+at-least-one replay cardinality. The compatibility ADR entries must resolve as
+Git mode `120000` links to these Draft files.

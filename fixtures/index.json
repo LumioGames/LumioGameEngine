@@ -665,6 +665,38 @@
       "expectedError": "GAS.REPLICATION.MATRIX_COMPLETENESS"
     },
     {
+      "id": "gas/replication-component-list",
+      "schema": "gas-replication",
+      "file": "invalid/gas-replication-component-list.json",
+      "expected": "invalid",
+      "reason": "replication component values must be strings even when malformed JSON uses a list",
+      "expectedError": "GAS.REPLICATION.FIELD_TYPE"
+    },
+    {
+      "id": "gas/replication-component-dict",
+      "schema": "gas-replication",
+      "file": "invalid/gas-replication-component-dict.json",
+      "expected": "invalid",
+      "reason": "replication component values must be strings even when malformed JSON uses an object",
+      "expectedError": "GAS.REPLICATION.FIELD_TYPE"
+    },
+    {
+      "id": "gas/replication-field-list",
+      "schema": "gas-replication",
+      "file": "invalid/gas-replication-field-list.json",
+      "expected": "invalid",
+      "reason": "replication field values must be strings even when malformed JSON uses a list",
+      "expectedError": "GAS.REPLICATION.FIELD_TYPE"
+    },
+    {
+      "id": "gas/replication-field-dict",
+      "schema": "gas-replication",
+      "file": "invalid/gas-replication-field-dict.json",
+      "expected": "invalid",
+      "reason": "replication field values must be strings even when malformed JSON uses an object",
+      "expectedError": "GAS.REPLICATION.FIELD_TYPE"
+    },
+    {
       "id": "gas/prediction-rollback",
       "schema": "gas-prediction",
       "file": "valid/gas-prediction-rollback.json",
@@ -693,6 +725,38 @@
       "expected": "invalid",
       "reason": "replay frames must be strictly greater than the rejected input frame",
       "expectedError": "GAS.PREDICTION.REPLAY_ORDER"
+    },
+    {
+      "id": "gas/prediction-rollback-steps-bool",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-rollback-steps-bool.json",
+      "expected": "invalid",
+      "reason": "rollback steps must be an ordered array rather than a boolean",
+      "expectedError": "GAS.PREDICTION.ROLLBACK_STEPS"
+    },
+    {
+      "id": "gas/prediction-rollback-steps-int",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-rollback-steps-int.json",
+      "expected": "invalid",
+      "reason": "rollback steps must be an ordered array rather than an integer",
+      "expectedError": "GAS.PREDICTION.ROLLBACK_STEPS"
+    },
+    {
+      "id": "gas/prediction-rollback-steps-dict",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-rollback-steps-dict.json",
+      "expected": "invalid",
+      "reason": "rollback steps must be an ordered array rather than an object",
+      "expectedError": "GAS.PREDICTION.ROLLBACK_STEPS"
+    },
+    {
+      "id": "gas/prediction-empty-replay",
+      "schema": "gas-prediction",
+      "file": "invalid/gas-prediction-empty-replay.json",
+      "expected": "invalid",
+      "reason": "a rejection record requires at least one later replay input frame",
+      "expectedError": "GAS.PREDICTION.REPLAY_CARDINALITY"
     },
     {
       "id": "gate/accept",

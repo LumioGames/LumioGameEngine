@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lumio.games/schema/gas-prediction.schema.json",
   "title": "GAS frame-keyed prediction rejection and replay",
-  "description": "The input frame is the prediction key. Rejection restores one ECS/GAS/Voxel client frame and deterministically replays unconfirmed inputs; the server never rolls back.",
+  "description": "The input frame is the prediction key. Rejection restores one ECS/GAS/Voxel client frame and deterministically replays unconfirmed inputs; at least one later replay input frame is required; the server never rolls back.",
   "type": "object",
   "required": ["kind", "schemaVersion", "worldId", "inputFrame", "predictionKey", "windowBoundary", "authorityDecision", "nonPredictableActions", "rollback"],
   "properties": {
@@ -55,6 +55,7 @@
         "replayInputFrames": {
           "type": "array",
           "minItems": 1,
+          "description": "At least one later input frame must be replayed after a rejection; an empty replay is not a valid V1.4 record.",
           "uniqueItems": true,
           "items": { "$ref": "common.schema.json#/$defs/tickId" }
         },
