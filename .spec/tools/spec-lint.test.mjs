@@ -4,11 +4,21 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 const LINT = join(dirname(fileURLToPath(import.meta.url)), 'spec-lint.mjs')
+
+function createFixtureLink(target, link) {
+  try {
+    symlinkSync(target, link, process.platform === 'win32' ? 'dir' : undefined)
+  } catch (error) {
+    if (process.platform !== 'win32' || !['EACCES', 'EPERM', 'ENOTSUP'].includes(error.code)) throw error
+    // Directory junctions preserve the same realpath check when native links are unavailable.
+    symlinkSync(resolve(dirname(link), target), link, 'junction')
+  }
+}
 
 /** 生成一个最小合法仓库,返回根路径;overrides 可改写/追加文件(值为 null 表示删除该默认文件)。 */
 function fixture(overrides = {}) {
@@ -39,9 +49,9 @@ function fixture(overrides = {}) {
   }
   mkdirSync(join(root, '.claude'), { recursive: true })
   mkdirSync(join(root, '.agents'), { recursive: true })
-  symlinkSync('../.spec/agents', join(root, '.claude/agents'))
-  symlinkSync('../.spec/skills', join(root, '.claude/skills'))
-  symlinkSync('../.spec/skills', join(root, '.agents/skills'))
+  createFixtureLink('../.spec/agents', join(root, '.claude/agents'))
+  createFixtureLink('../.spec/skills', join(root, '.claude/skills'))
+  createFixtureLink('../.spec/skills', join(root, '.agents/skills'))
   return root
 }
 
