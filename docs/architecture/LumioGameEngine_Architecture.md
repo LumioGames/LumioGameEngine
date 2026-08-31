@@ -53,6 +53,10 @@ Root 表使用 `#[repr(C)]`，携带 `abi_version`、`struct_size`、`abi_hash[3
 
 NativeCore 和 VoxelEngine 不导出自己的根符号；SDK 聚合层负责把它们组合成一个 Native 库。首期不支持 Native 回调；需要回调时必须新增版本化 C 函数表。
 
+### 3.3 Wire 协议
+
+Browser/Bot 与 Server 之间的 WebSocket 消息是 wire 协议，不是 ABI。开发态里程碑（MS-00002 Hello World）的最小 wire 契约唯一真值是 [`engine/wire/hello-wire-v1.json`](../engine/wire/hello-wire-v1.json)：消息形状、字段语义（sender/sequence/revision/payloadSha256/latency）、失败错误码、进程 readiness/shutdown 边界与审计事件词表。消费方（Rust Server、C# Runtime、Browser、Bot、集成验收）不得另写一份协议真值；校验入口 `node eng/verify-hello-wire.mjs`。
+
 ## 4. 开发期构建与最新代码证明
 
 预上线默认流程只有“编译、加载、证明”三步，不执行 Baseline、镜像同步、全量 Fixture 或正式发布门。
