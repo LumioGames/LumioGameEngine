@@ -13,8 +13,15 @@ use std::sync::OnceLock;
 
 use lumio_clr_host::{clr_host_call, create_clr_host, destroy_clr_host, ClrHostStatus};
 
-/// 夹具入口：类型名 + ';' + 方法名（方法与 UnmanagedCallersOnly 的 EntryPoint 同名）。
+/// 夹具入口：类型名 + ';' + **托管方法名**。方法名（LumioFixtureEntry）刻意不同于
+/// UnmanagedCallersOnly 的 EntryPoint 别名（lumio_fixture_entry）：实测 hostfxr 的
+/// load_assembly_and_get_function_pointer 按托管方法名解析，传别名返回 0x80131513
+/// （MissingMethod）→ ClrInitFailed。双名夹具把该语义钉进本测试。
 const FIXTURE_ENTRY_SPEC: &str =
+    "LumioClrHostFixture.FixtureEntry, LumioClrHostFixture;LumioFixtureEntry";
+
+/// 反例探针：按 EntryPoint 别名请求必须失败（MissingMethod → ClrInitFailed，不产句柄）。
+const FIXTURE_ALIAS_ONLY_SPEC: &str =
     "LumioClrHostFixture.FixtureEntry, LumioClrHostFixture;lumio_fixture_entry";
 
 fn manifest_dir() -> PathBuf {
@@ -249,4 +256,20 @@ fn managed_entry_roundtrip_lowercases_input() {
         unsafe { destroy_clr_host(handle) },
         ClrHostStatus::Success as i32
     );
+
+    // 反例（MS-00002 集成实测钉进测试，置于本测试末尾是刻意的）：load_assembly_and_get_
+    // function_pointer 按**托管方法名**解析；把 UnmanagedCallersOnly 的 EntryPoint 别名当
+    // 方法名传入会得到 0x80131513（MissingMethod）→ ClrInitFailed，且不得产出句柄。
+    // 注：CoreCLR 每进程只能成功 initialize 一次（hostfxr_close 不会卸载已启动的运行时，
+    // 二次 initialize_for_runtime_config 返回 0x80008081）——因此本反例必须在一次成功
+    // create/destroy 之后执行：届时它会在 initialize 或 load_assembly 任一步失败，两种
+    // 失败都映射 ClrInitFailed + 空句柄，断言对执行顺序不敏感。
+    let (status, handle) = create(
+        &hostfxr,
+        &runtime_config,
+        &assembly,
+        FIXTURE_ALIAS_ONLY_SPEC,
+    );
+    assert_eq!(status, ClrHostStatus::ClrInitFailed as i32);
+    assert!(handle.is_null(), "MissingMethod 路径不得产出句柄");
 }

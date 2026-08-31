@@ -4,16 +4,17 @@ using System.Runtime.InteropServices;
 namespace LumioClrHostFixture;
 
 /// <summary>
-/// MS-00002 Wave 2 clr-host 测试夹具入口。托管方法名与 <see cref="UnmanagedCallersOnlyAttribute"/>
-/// 的 EntryPoint 同名（lumio_fixture_entry），使 hostfxr 的 load_assembly_and_get_function_pointer
-/// 无论按托管方法名还是按导出名解析都指向同一入口。
+/// MS-00002 Wave 2 clr-host 测试夹具入口。托管方法名（<c>LumioFixtureEntry</c>）刻意与
+/// <see cref="UnmanagedCallersOnlyAttribute"/> 的 EntryPoint 别名（<c>lumio_fixture_entry</c>）不同：
+/// 实测 hostfxr 的 load_assembly_and_get_function_pointer 按<b>托管方法名</b>解析，传别名会得到
+/// 0x80131513（MissingMethod）——夹具用双名把该语义钉进测试（见 FIXTURE_ENTRY_SPEC 注释）。
 /// 行为约定（供 Rust 侧断言）：把 input 字节做 ASCII 小写化后写入 output 并置 bytes_written；
 /// output 容量不足时返回 2（映射 BufferTooSmall）并把所需长度写入 bytes_written。
 /// </summary>
 public static unsafe class FixtureEntry
 {
     [UnmanagedCallersOnly(EntryPoint = "lumio_fixture_entry")]
-    public static int lumio_fixture_entry(byte* input, int inputLength, byte* output, int outputCapacity, int* bytesWritten)
+    public static int LumioFixtureEntry(byte* input, int inputLength, byte* output, int outputCapacity, int* bytesWritten)
     {
         if (bytesWritten is null || inputLength < 0)
         {
