@@ -51,6 +51,8 @@ lumio_status_t lumio_engine_get_api_v1(
 
 Root 表使用 `#[repr(C)]`，携带 `abi_version`、`struct_size`、`abi_hash[32]` 和 `build_id[16]`，下层 API 的 Handle 输出参数一律使用指针。所有 Header、Rust Binding 和 C# Binding 从 `engine/abi/native-abi.json` 生成。
 
+MS-00002 起，Root 表 v1 另外暴露三个 CLR 装载函数（定义与参数语义见 `engine/abi/native-abi.json` 的字段 doc）：`create_clr_host`（hostfxr → runtimeconfig → 指定托管程序集的 UnmanagedCallersOnly 入口，创建期 fail-fast、失败完整回滚）、`clr_host_call`（单次字节协议调用，输入/输出均由调用方缓冲）、`destroy_clr_host`。状态码相应扩展 `ClrInitFailed/ClrEntryFailed/BufferTooSmall`。两个实测约束已钉进定义文档：入口描述第二段必须是**托管方法名**（不是 UnmanagedCallersOnly 的 EntryPoint 别名）；CoreCLR 每进程只能成功初始化一次（二次 `create_clr_host` 在 initialize 步失败），宿主应在进程生命周期内至多创建一次。
+
 NativeCore 和 VoxelEngine 不导出自己的根符号；SDK 聚合层负责把它们组合成一个 Native 库。首期不支持 Native 回调；需要回调时必须新增版本化 C 函数表。
 
 ### 3.3 Wire 协议
@@ -70,9 +72,25 @@ Browser/Bot 与 Server 之间的 WebSocket 消息是 wire 协议，不是 ABI。
   -> 两端日志打印实际路径、BuildId、ABI Hash、Binary SHA-256
 ```
 
-源码 BuildId 覆盖已跟踪和未跟踪的有效源码文件、工具链和构建参数；二进制 SHA-256 在构建后计算并写入 `build-info.json`。每次运行使用唯一目录，避免旧进程映射或锁定新产物。
+源码 BuildId 覆盖已跟踪和未跟踪的有效源码文件、工具链和构建参数；二进制 SHA-256 在构建后计算并写入 `build-info.json`（BOM-less UTF-8）。每次运行使用唯一目录，避免旧进程映射或锁定新产物。
 
 首个双端验证使用 WSL2 Ubuntu 中的 `Lumio.Server.MvpHost.App` 和 `Lumio.Client.Bot.Host`，Windows DLL 与 Unity Adapter 使用同一 ABI 后续验证。
+
+### 4.1 MS-00002 Hello World 集成验证入口
+
+Hello World 里程碑的 Windows 端到端验收（Rust Server + SDK Native DLL + CoreCLR/C# Runtime 权威 Tick + 真实 Chromium 浏览器 + 独立 Headless Bot，双向消息均经 InputCommand → authoritative Tick → Delta，两轮一致）由 LumioGame 仓的集成启动器执行：
+
+```text
+LumioGame/integration/hello/launcher.mjs
+  消费: eng/dev-build.ps1 产出的 .run/<BuildId>/win-x64（DLL + build-info.json）
+        + LumioGameRuntime modules/hello/entry 构建输出（dll + runtimeconfig.json）
+        + LumioServer target 下的 lumio-server.exe
+        + LumioClient modules/web/hello（静态页）与 modules/hello/host（Bot dll）
+        + engine/wire/hello-wire-v1.json（复制为页面旁 contract.json）
+  产出: evidence/<轮>/ 完整证据包（audit/bot trace/browser result/截图/Playwright trace）
+```
+
+2026-08-31 验收证据归档：`LumioGame/integration/hello/evidence-run1/`（结论 SUCCESS；BUILD_ID `ab12bf280961a39632022f7c6f3be78f`，ABI Hash `1dfc86da…`，双方向延迟 1–12ms，两轮方向/sender/revision/payloadSha256/tickId 一致，全部进程退出码 0、无残留）。各仓交付 commit 与验证证据索引见 Workflow RM-00010 各需求（R-00335~R-00343）的证据评论。
 
 ## 5. SDK 组成
 
