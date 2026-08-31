@@ -7,16 +7,12 @@ VOXEL_ROOT="${VOXEL_ROOT:-"$ROOT/../LumioVoxelEngine"}"
 CONFIGURATION="${CONFIGURATION:-debug}"
 
 source_digest() {
-  local entries
-  entries="$({
-    find "$ROOT" "$NATIVE_CORE_ROOT" "$VOXEL_ROOT" -type f \
-      -not -path '*/.git/*' -not -path '*/target/*' -not -path '*/bin/*' \
-      -not -path '*/obj/*' -not -path '*/.build/*' -not -path '*/.run/*' \
-      -print0 | sort -z | while IFS= read -r -d '' file; do
-        printf '%s\0%s\n' "$file" "$(sha256sum "$file" | cut -d ' ' -f1)"
-      done
-  })"
-  printf '%s' "$entries" | sha256sum | cut -d ' ' -f1
+  find "$ROOT" "$NATIVE_CORE_ROOT" "$VOXEL_ROOT" -type f \
+    -not -path '*/.git/*' -not -path '*/target/*' -not -path '*/bin/*' \
+    -not -path '*/obj/*' -not -path '*/.build/*' -not -path '*/.run/*' \
+    -print0 | sort -z | while IFS= read -r -d '' file; do
+      printf '%s\0%s\n' "$file" "$(sha256sum "$file" | cut -d ' ' -f1)"
+    done | sha256sum | cut -d ' ' -f1
 }
 
 SOURCE_SHA256="$(source_digest)"
