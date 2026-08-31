@@ -7,4 +7,9 @@
     <AssemblyName>Lumio.Engine.NativeLoader</AssemblyName>
     <RootNamespace>Lumio.Engine.NativeLoader</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- 根表布局是跨语言契约，测试需要直接断言字段偏移（MS-00002 Wave 2）。 -->
+    <InternalsVisibleTo Include="Lumio.Engine.NativeLoader.Tests" />
+    <InternalsVisibleTo Include="Lumio.Engine.NativeLoader.IntegrationTests" />
+  </ItemGroup>
 </Project>

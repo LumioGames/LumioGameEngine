@@ -1,4 +1,4 @@
-use std::ffi::c_void;
+use std::ffi::{c_char, c_void};
 
 mod abi_generated;
 
@@ -11,6 +11,9 @@ pub enum LumioStatus {
     Success = 0,
     InvalidArgument = 1,
     UnsupportedVersion = 2,
+    ClrInitFailed = 3,
+    ClrEntryFailed = 4,
+    BufferTooSmall = 5,
 }
 
 /// Compile-time composition marker for the SDK's two provider domains.
@@ -20,6 +23,11 @@ pub fn composed_provider_names() -> (&'static str, &'static str) {
     ("LumioNativeCore", "LumioVoxelEngine")
 }
 
+/// 根 API 表（engine/abi/native-abi.json 的 root.fields 是唯一真值）。
+///
+/// CLR host 三槽直接转发到 `lumio-clr-host` 的 ABI 实现——SDK 内唯一的 CLR 装载链，
+/// 不引入第二套 Loader/ABI。槽位签名与 ABI 定义逐参一致；扩展槽位只追加不插入，
+/// struct_size 随 `size_of` 自动更新，消费方按「≥ 自身布局」协商。
 #[repr(C)]
 pub struct LumioEngineRootApiV1 {
     pub abi_version: u32,
@@ -27,6 +35,26 @@ pub struct LumioEngineRootApiV1 {
     pub abi_hash: [u8; 32],
     pub build_id: [u8; 16],
     pub ping: Option<unsafe extern "C" fn(*mut c_void) -> i32>,
+    pub create_clr_host: Option<
+        unsafe extern "C" fn(
+            *const c_char,    // hostfxr_path（UTF-8 NUL 结尾）
+            *const c_char,    // runtime_config_path
+            *const c_char,    // assembly_path
+            *const c_char,    // entry_type_name：'<程序集限定类型名>;<入口方法名>'
+            *mut *mut c_void, // out opaque handle
+        ) -> i32,
+    >,
+    pub clr_host_call: Option<
+        unsafe extern "C" fn(
+            *mut c_void, // host
+            *const u8,   // input
+            u32,         // input_len
+            *mut u8,     // output
+            u32,         // output_capacity
+            *mut u32,    // out bytes_written
+        ) -> i32,
+    >,
+    pub destroy_clr_host: Option<unsafe extern "C" fn(*mut c_void) -> i32>,
 }
 
 const DEFAULT_ABI_HASH: &str = abi_generated::DEFINITION_SHA256;
@@ -62,6 +90,11 @@ const fn decode_hex<const N: usize>(value: &str) -> [u8; N] {
     output
 }
 
+/// 根表 ping 槽：向 `marker` 写入 1 以证明原生侧可被调用。
+///
+/// # Safety
+///
+/// 调用方必须保证 `marker` 指向可写的 u32（或传 null 走拒绝路径）。
 unsafe extern "C" fn ping(marker: *mut c_void) -> i32 {
     if marker.is_null() {
         return LumioStatus::InvalidArgument as i32;
@@ -78,9 +111,18 @@ static ROOT_API: LumioEngineRootApiV1 = LumioEngineRootApiV1 {
     abi_hash: decode_hex(ABI_HASH),
     build_id: decode_hex(BUILD_ID),
     ping: Some(ping),
+    // 转发即接线：三个槽位直接指向 lumio-clr-host 的 ABI 实现（MS-00002 Wave 2）。
+    create_clr_host: Some(lumio_clr_host::create_clr_host),
+    clr_host_call: Some(lumio_clr_host::clr_host_call),
+    destroy_clr_host: Some(lumio_clr_host::destroy_clr_host),
 };
 
 /// The only Native SDK symbol. All other functions are reached through this table.
+///
+/// # Safety
+///
+/// 调用方必须保证 `out_api` 指向可写的 `*const LumioEngineRootApiV1`；返回的表指针
+/// 具有静态存储期，与 DLL 卸载同生命周期。
 #[no_mangle]
 pub unsafe extern "C" fn lumio_engine_get_api_v1(
     requested_version: u32,
@@ -106,6 +148,9 @@ mod tests {
 
     #[test]
     fn null_ping_is_rejected_without_writing_memory() {
-        assert_eq!(unsafe { ping(std::ptr::null_mut()) }, LumioStatus::InvalidArgument as i32);
+        assert_eq!(
+            unsafe { ping(std::ptr::null_mut()) },
+            LumioStatus::InvalidArgument as i32
+        );
     }
 }

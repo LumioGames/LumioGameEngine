@@ -1,0 +1,3 @@
+# dotnet build 输出只在本机 cargo test 时产生，不入库（dev-build 源摘要同样排除 bin/obj）。
+**/bin/
+**/obj/

@@ -1,11 +1,13 @@
 # LumioEngineSDK Native workspace.
-# 15 个 member 显式列出，禁止 glob / exclude 兜底（规格 §3.2）。
-# crate 名与规格 §3.1 一一对应，不得增删改名。
+# 17 个 member 显式列出，禁止 glob / exclude 兜底（规格 §3.2）。
+# crate 名与规格 §3.1 一一对应，不得增删改名；clr-host 为 MS-00002 Wave 2
+# 架构仓核准的新增（CoreCLR 装载链，SDK 根表直通槽位）。
 
 [workspace]
 resolver = "2"
 members = [
     "modules/sdk-native",
+    "modules/clr-host",
     "modules/composition",
     "modules/root-abi/contracts",
     "modules/root-abi/runtime",
