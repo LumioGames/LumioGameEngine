@@ -715,3 +715,89 @@ Final local gate snapshot after recall: `node .spec/tools/spec-lint.mjs` exit 0;
 because the published Root ABI compiler digest differs from the locked compiler
 hash; this remains a release-blocking baseline/environment gap, not an accepted
 candidate result.
+
+## 2026-08-31 Eight-repository portfolio audit
+
+The coordinator dispatched all eight repository self-audits concurrently in
+Orca Run `run_93b9a2ecdcf9`. This entry records the dated portfolio report and
+the requirement review requested for this session. The coordinator only
+dispatched, collected, and aggregated; it did not change repository code,
+Workflow objects, branches, remote refs, or the user-owned Hello World draft.
+
+### Dispatch and collection
+
+| Repository | Task | Collection result | Report |
+|---|---|---|---|
+| LumioGameEngineArchitecture | `task_dc12c5a48501` | completed; `AUDIT_INCOMPLETE` | `portfolio-audit-architecture-20260831.md/.json` |
+| LumioNativeCore | `task_3c0ad251f678` | completed; `AUDIT_INCOMPLETE` | `portfolio-audit-nativecore-20260831.md/.json` |
+| LumioCoreEngine | `task_3f32abe4b3d8` | completed; `AUDIT_COMPLETE` | `portfolio-audit-coreengine-20260831.md/.json` |
+| LumioGameRuntime | `task_1ff92e128429` | completed; gate failure | `portfolio-audit-runtime-20260831.md/.json` |
+| LumioVoxelEngine | `task_7e992bc1aae1` | completed; `AUDIT_INCOMPLETE` | `portfolio-audit-voxel-20260831.md/.json` |
+| LumioClient | `task_edce7084ab85` | completed; `AUDIT_INCOMPLETE` | `portfolio-audit-client-20260831.md/.json` |
+| LumioServer | `task_17c9a477e584` | blocked/abandoned after `stop_unknown` | no formal report |
+| LumioGame | `task_5e2818c0ad74` | completed; `AUDIT_COMPLETE` | `portfolio-audit-game-20260831.md/.json` |
+
+Server read-only collection reached 68 requirements and 335 acceptance items
+across 212 API calls, but its user-owned terminal produced no Markdown/JSON
+report. Its status distribution is therefore `UNKNOWN`; it is not inferred
+from the collected records and the portfolio remains `AUDIT_INCOMPLETE`.
+
+### Requirement status review
+
+The seven returned reports contain 175 unique canonical requirement IDs with
+no duplicate IDs. Their numbers are independent per-repository counts:
+
+| Repository | Requirements | COMPLETED | PARTIAL | BLOCKED | NOT_STARTED | UNVERIFIABLE | AC verified/total |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Architecture | 25 | 7 | 11 | 1 | 6 | 0 | 22/95 |
+| NativeCore | 3 | 0 | 2 | 1 | 0 | 0 | 8/14 |
+| CoreEngine | 41 | 13 | 0 | 3 | 25 | 0 | 43/154 |
+| GameRuntime | 37 | 0 | 22 | 1 | 13 | 1 | 0/283 |
+| VoxelEngine | 53 | 13 | 14 | 0 | 14 | 12 | 55/212 |
+| Client | 10 | 1 | 3 | 3 | 2 | 1 | 16/54 |
+| Game | 6 | 0 | 1 | 1 | 4 | 0 | 3/31 |
+| **Seven-report aggregate only** | **175** | **34** | **53** | **10** | **64** | **14** | **147/843** |
+
+The `34/175 = 19.4%` completion rate is valid only for the seven returned
+reports. A whole-portfolio percentage is intentionally withheld because the
+Server denominator and statuses are not evidenced. Workflow state is retained
+as source data; the table above is the code-and-evidence completion judgment,
+not a Workflow status rewrite.
+
+### Holds and review outcome
+
+- Runtime command/coordination candidate
+  `79528044f758d188844270bc7e55decce2a7b0cc` remains `UNACCEPTED`; the
+  independent review found unresolved P1 issues (including default
+  `InMemoryTxnJournalPort`, committed-marker/revision ordering, the hand-authored
+  public voxel contract, and generated-contract validation mismatch).
+- `R-00141` remains `BLOCKED_UPSTREAM` until executable `LumioBinV1` is
+  published; no local replacement is accepted.
+- Additional cross-repository gates remain as reported by the individual
+  reports (Runtime zero verified acceptance chains, Voxel spec-lint failure,
+  Client verifier/SDK gates, and the missing Server report).
+
+### Evidence locations and conclusion
+
+The complete aggregate report is
+`C:\Work\LumioGames\_codex-verification\portfolio-audit-20260831.md` with
+machine-readable companion
+`C:\Work\LumioGames\_codex-verification\portfolio-audit-20260831.json`;
+the seven per-repository report pairs are in the same directory. No code,
+Workflow record, remote ref, or user draft was changed by this audit.
+
+### Current-session verification
+
+- `node .spec/tools/spec-lint.mjs`: exit 0 (`spec-lint: OK`).
+- `node --test .spec/tools/spec-lint.test.mjs`: exit 0, 17/17 tests passed.
+- `python -m py_compile tools/lumio_contract.py`: exit 0.
+- `python tools/lumio_contract.py validate`: exit 0; 264 fixtures validated,
+  0 failures.
+- `git diff --check -- .sdd/progress.md`: exit 0.
+- The aggregate JSON cross-check matched all seven-report totals (175
+  requirements and 147/843 verified acceptance items); Server remains excluded
+  from status aggregation because its formal report is missing.
+
+**Conclusion: `AUDIT_INCOMPLETE`.** The next review must obtain and validate a
+formal Server report before publishing a whole-project completion figure; the
+two hard holds above remain in force.
