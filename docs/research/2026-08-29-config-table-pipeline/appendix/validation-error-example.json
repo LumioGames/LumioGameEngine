@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigValidationResultExample",
+  "type": "object",
+  "required": ["code", "severity", "tableId", "rowId", "columnId", "message", "baseHash"],
+  "properties": {
+    "code": {"type": "string", "example": "CFG_REF_NOT_FOUND"},
+    "severity": {"enum": ["Error", "Warning", "Info"]},
+    "tableId": {"type": "string"},
+    "rowId": {"type": ["string", "integer"]},
+    "columnId": {"type": "string"},
+    "source": {
+      "type": "object",
+      "properties": {
+        "uri": {"type": "string"},
+        "sheet": {"type": "string"},
+        "cell": {"type": "string"},
+        "line": {"type": "integer", "minimum": 1},
+        "column": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "schemaPath": {"type": "string"},
+    "actualValue": {},
+    "expectedConstraint": {},
+    "relatedLocations": {"type": "array", "items": {"type": "object"}},
+    "message": {"type": "string"},
+    "fixHints": {"type": "array", "items": {"type": "string"}},
+    "baseHash": {"type": "string"},
+    "candidateHash": {"type": "string"}
+  },
+  "additionalProperties": false
+}

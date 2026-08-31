@@ -1,0 +1,142 @@
+{
+  "report_unicode_chars": 96197,
+  "report_utf8_bytes": 164497,
+  "report_lines": 2386,
+  "chapter_count": 16,
+  "chapters": {
+    "A": {
+      "chars": 2402,
+      "start_line": 68
+    },
+    "B": {
+      "chars": 2391,
+      "start_line": 115
+    },
+    "C": {
+      "chars": 2087,
+      "start_line": 161
+    },
+    "D": {
+      "chars": 2569,
+      "start_line": 209
+    },
+    "E": {
+      "chars": 5310,
+      "start_line": 277
+    },
+    "F": {
+      "chars": 6432,
+      "start_line": 409
+    },
+    "G": {
+      "chars": 11703,
+      "start_line": 534
+    },
+    "H": {
+      "chars": 9186,
+      "start_line": 854
+    },
+    "I": {
+      "chars": 2851,
+      "start_line": 1130
+    },
+    "J": {
+      "chars": 4152,
+      "start_line": 1226
+    },
+    "K": {
+      "chars": 2543,
+      "start_line": 1330
+    },
+    "L": {
+      "chars": 2960,
+      "start_line": 1418
+    },
+    "M": {
+      "chars": 3052,
+      "start_line": 1522
+    },
+    "N": {
+      "chars": 9381,
+      "start_line": 1609
+    },
+    "O": {
+      "chars": 2757,
+      "start_line": 1936
+    },
+    "P": {
+      "chars": 20887,
+      "start_line": 2007
+    }
+  },
+  "source_count": 110,
+  "source_categories": {
+    "论文/演讲": 1,
+    "社区/作者原文": 2,
+    "演讲/官方": 2,
+    "官方文档": 61,
+    "社区/官方论坛": 2,
+    "源码/仓库": 10,
+    "源码/版本": 4,
+    "源码": 5,
+    "社区/Issue": 3,
+    "文档镜像": 1,
+    "官方 API 文档": 1,
+    "官方 API/源码文档": 1,
+    "官方 Wiki": 1,
+    "作者技术文": 1,
+    "Benchmark": 2,
+    "社区": 1,
+    "论文": 3,
+    "规范": 1,
+    "官方规范": 5,
+    "社区/专家": 3
+  },
+  "access_summary": {
+    "全文": 83,
+    "仓库/发布/元数据": 17,
+    "摘要/元数据": 4,
+    "源码行": 5,
+    "其他": 1
+  },
+  "source_refs_unique": 97,
+  "unknown_source_refs": [],
+  "unreferenced_sources": [
+    "S017",
+    "S031",
+    "S042",
+    "S043",
+    "S064",
+    "S067",
+    "S070",
+    "S071",
+    "S079",
+    "S082",
+    "S084",
+    "S092",
+    "S107"
+  ],
+  "missing_conclusion": [],
+  "missing_source_section": [],
+  "confidence_counts": {
+    "Verified": 184,
+    "Reported": 6,
+    "Estimated": 20
+  },
+  "gap_rows": 52,
+  "files": [
+    "README.md",
+    "appendix/acceptance-checklist.md",
+    "appendix/aoi-matrix.csv",
+    "appendix/framework-matrix.csv",
+    "appendix/gap-register.csv",
+    "appendix/lifecycle-matrix.csv",
+    "appendix/manifest.csv",
+    "appendix/methodology.md",
+    "appendix/sync-matrix.csv",
+    "appendix/terms.md",
+    "appendix/validation.json",
+    "report/ecs-framework-research-2026-08-29.md",
+    "sources.md"
+  ]
+}

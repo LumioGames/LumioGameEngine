@@ -1,0 +1,11 @@
+﻿Framework,Lineage,FrontBackSharing,SyncDeclaration,AOI,Prediction,Storage,Evidence,Maintenance
+Unity Entities + Netcode 1.10,Pure DOD + Ghost snapshot,Independent server/client Worlds,Bake/Ghost schema,Ghost relevancy per connection,Predicted/interpolated ghosts,Archetype/chunk,Official docs,Active
+Mirror v96.11.2,Unity object-component networking,Same NetworkBehaviour type by role,Weaver SyncVar + dirty mask,Observer set / spatial hashing,Limited/expanding prediction,Unity GameObject objects,Docs + source,Active
+FishNet 4.7.2R,Unity object-component networking,Same NetworkBehaviour type by role,SyncTypes,ObserverConditions,Prediction feature set,Unity GameObject objects,Official docs,Active
+Photon Fusion 2.1.2,Tick snapshot NetworkObject,Shared NetworkBehaviour type,IL-weaved Networked properties,Object/Behaviour Interest + AOI,Rollback/resimulation,Closed runtime state buffers,Official docs only,Active commercial
+KBEngine,Distributed MMO EntityDef,"Shared schema, distinct runtime implementations",EntityDef property flags,cell/space/client callbacks,Not a primary public prediction model,Undisclosed/custom,Docs + issue,Stable line old/uncertain
+Colyseus 0.18,Authoritative Room + Schema delta,"Shared schema, server logic separate",Schema change tracking,StateView per client,Application-defined client prediction,Schema object graph,Official docs,Active
+Flecs 4.1,Relational DOD ECS,Can run both ends; no network mapping,No built-in network schema,No built-in network AOI,Application-defined,Archetype/table + relations,Official docs/API,Active
+Friflo.Engine.ECS 3.x,Managed C# archetype ECS + Script,Portable .NET types; no network mapping,No built-in network schema,No built-in network AOI,Application-defined,Managed archetype + scripts,Docs/repo/benchmarks,Active
+EnTT 4.0,Sparse-set DOD ECS,Portable C++; no network mapping,No built-in network schema,No built-in AOI,Application-defined,Paged sparse sets,Wiki/author docs,Active
+ET (2026 main),C# client/server game framework,Shared C# and messages; branch-specific,Project-specific generated protocol,Project-specific AOI modules,Project-specific,Entity/component framework,Repo + old community docs,Active; details need commit lock

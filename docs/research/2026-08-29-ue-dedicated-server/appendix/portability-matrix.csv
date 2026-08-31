@@ -1,0 +1,14 @@
+﻿#,原则,判定,优先级,风险/改造点
+1,候选→优先级→预算,可直接借鉴,P0,需要 starvation/aging/预算观测
+2,状态/事件分离,可直接借鉴,P0,事件需幂等与序号
+3,连接/会话分离,需改造后借鉴,P0,resume token/session lease/last ack
+4,可重放预测,可直接借鉴,P0,扩成整帧原子 rollback
+5,离散 rollback 时间,可直接借鉴,P0,目标已满足 fixed step
+6,跨连接共享工作,可直接借鉴,P0,缓存与失效复杂
+7,驻留与兴趣正交,可直接借鉴,P0,需要显式 Missing/Loading/Ready
+8,Dormancy 思想,需改造后借鉴,P1,由 commit change set 自动唤醒
+9,集合稳定身份,可直接借鉴,P1,Entity/Chunk 元素版本化
+10,网络中间表示,可直接借鉴,P0,额外状态副本内存
+11,能力型 Transport,可直接借鉴,P0,WebSocket/WebTransport/WebRTC capability
+12,可归因 Profiling,可直接借鉴,P1,trace 开销
+13,Runtime/Control plane 分离,可直接借鉴,P0,独立路由/排空/持久化服务
