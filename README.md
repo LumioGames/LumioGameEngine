@@ -1,5 +1,7 @@
 # LumioGameEngine
 
+`LumioCoreEngine` 独立仓库已标记为 **Deprecated**，仅保留历史审计与回滚用途；新开发不得继续向该仓库添加功能或依赖。
+
 > Lumio 游戏引擎的 SDK 组装根、Native 聚合根和跨 Host 开发入口。
 
 ## 当前架构
