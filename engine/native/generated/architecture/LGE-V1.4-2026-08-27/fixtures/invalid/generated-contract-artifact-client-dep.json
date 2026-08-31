@@ -1,0 +1,13 @@
+{
+  "artifactId": "mapping-table-v1",
+  "artifactKind": "MappingTable",
+  "publisher": "LumioGameEngineArchitecture",
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "schemaEpoch": 1,
+  "compilerHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "inputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "outputHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "implementationDependencies": ["LumioClient"],
+  "forbiddenDependents": ["LumioClient", "LumioGame"],
+  "consumers": ["LumioClient"]
+}

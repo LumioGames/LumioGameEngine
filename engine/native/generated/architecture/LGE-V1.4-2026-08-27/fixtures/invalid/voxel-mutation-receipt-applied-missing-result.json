@@ -1,0 +1,11 @@
+{
+  "kind": "ParticipantReceipt",
+  "sessionId": "session-001",
+  "txnId": "txn-place-0005",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "state": "Applied",
+  "preparedVoxelToken": "voxel-reservation-0005",
+  "leaseDeadlineTick": 60,
+  "durabilityModel": "CoDurableWithWorldState"
+}

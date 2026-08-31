@@ -1,0 +1,32 @@
+{
+  "machineId": "GasAbility",
+  "owner": "GameRuntime",
+  "sourceAdr": "ADR-031",
+  "initialState": "Requested",
+  "states": [
+    "Requested",
+    "Activated",
+    "Executing",
+    "Completed",
+    "Rejected",
+    "Cancelled",
+    "Expired",
+    "RolledBack"
+  ],
+  "terminalStates": ["Completed", "Rejected", "Cancelled", "Expired", "RolledBack"],
+  "transitions": [
+    { "from": "Requested", "to": "Activated", "event": "Activate" },
+    { "from": "Requested", "to": "Rejected", "event": "Reject" },
+    { "from": "Requested", "to": "Cancelled", "event": "Cancel" },
+    { "from": "Requested", "to": "RolledBack", "event": "RollBack" },
+    { "from": "Activated", "to": "Executing", "event": "Execute" },
+    { "from": "Activated", "to": "Rejected", "event": "Reject" },
+    { "from": "Activated", "to": "Cancelled", "event": "Cancel" },
+    { "from": "Activated", "to": "RolledBack", "event": "RollBack" },
+    { "from": "Executing", "to": "Completed", "event": "Finish" },
+    { "from": "Executing", "to": "Expired", "event": "Expire" },
+    { "from": "Executing", "to": "Cancelled", "event": "Cancel" },
+    { "from": "Executing", "to": "RolledBack", "event": "RollBack" }
+  ],
+  "notes": "Ability instance lifecycle per ADR-031. Every terminal state invalidates the AbilityHandle; RolledBack is the prediction-miss exit and is only reachable on predicted instances."
+}

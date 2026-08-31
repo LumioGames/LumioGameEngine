@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/cross-world-txn.schema.json",
+  "type": "object",
+  "required": [
+    "sessionId",
+    "txnId",
+    "tickId",
+    "commandId",
+    "state",
+    "commandBufferState",
+    "expectedGameRevision",
+    "expectedVoxelRevision",
+    "deadlineTick",
+    "commitOrder",
+    "participantMarkers"
+  ],
+  "properties": {
+    "sessionId": { "$ref": "common.schema.json#/$defs/id" },
+    "txnId": { "$ref": "common.schema.json#/$defs/id" },
+    "tickId": { "$ref": "common.schema.json#/$defs/tickId" },
+    "commandId": { "$ref": "common.schema.json#/$defs/id" },
+    "predictionKey": { "$ref": "common.schema.json#/$defs/id" },
+    "state": {
+      "type": "string",
+      "enum": ["Created", "Prepared", "CommitIntent", "Committed", "Aborted", "Expired", "Indeterminate"]
+    },
+    "commandBufferState": {
+      "type": "string",
+      "enum": ["Open", "Sealed", "Merged", "Prepared", "Applied"]
+    },
+    "ecsApplyResult": {
+      "type": "string",
+      "enum": ["Applied", "AlreadyApplied", "Indeterminate", "Faulted"]
+    },
+    "expectedGameRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "expectedVoxelRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "chunkRevisionSet": { "$ref": "common.schema.json#/$defs/voxelChunkRevisionSet" },
+    "deadlineTick": { "$ref": "common.schema.json#/$defs/tickId" },
+    "preparedGameDelta": { "type": ["object", "null"] },
+    "preparedVoxelToken": { "type": ["string", "null"], "maxLength": 256 },
+    "commitOrder": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["VoxelCommit", "EcsCommandBufferCommit"] },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "commitIntentPersisted": { "type": "boolean" },
+    "participantMarkers": {
+      "type": "object",
+      "required": ["voxelCommit", "ecsCommandBufferCommit"],
+      "properties": {
+        "voxelCommit": { "type": "string", "enum": ["NotStarted", "Unknown", "Applied", "Failed"] },
+        "ecsCommandBufferCommit": { "type": "string", "enum": ["NotStarted", "Unknown", "Applied", "Failed"] }
+      },
+      "additionalProperties": false
+    },
+    "observedGameRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "observedVoxelRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "abortReason": {
+      "type": "string",
+      "enum": [
+        "RevisionConflict",
+        "ChunkUnloaded",
+        "PermissionDenied",
+        "InsufficientResource",
+        "DeadlineExceeded",
+        "Cancelled",
+        "ValidationFailed"
+      ]
+    },
+    "resultRevisionVector": {
+      "anyOf": [
+        { "$ref": "common.schema.json#/$defs/sessionRevisionVector" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

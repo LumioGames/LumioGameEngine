@@ -1,0 +1,12 @@
+{
+  "mappingId": "bad-mapping",
+  "schemaVersion": 1,
+  "source": { "entity": "player", "component": "HealthAuthority", "field": "" },
+  "target": { "entity": "player", "component": "HealthReplica", "field": "current" },
+  "role": "ServerToClient",
+  "owner": "AllClients",
+  "visibility": "AOI",
+  "delivery": { "reliability": "ReliableOnChange", "initial": true, "continuous": true },
+  "lifecycle": "Continuous",
+  "prediction": "Authoritative"
+}

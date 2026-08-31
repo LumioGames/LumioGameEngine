@@ -1,0 +1,30 @@
+{{!-- cargo-about 许可证报告模板（LCE-P0-001，Markdown 输出）。
+  只呈现 accepted 白名单内的许可证；白名单外的依赖在 cargo-about 解析阶段即失败
+ （需法务审核），不会进入本模板渲染。 --}}
+
+# LumioCoreEngine 许可证报告
+
+依赖闭包内全部 crate 及其实际许可证全文如下。白名单口径见 `about.toml` 与 `deny.toml`。
+
+## 许可证概览
+
+{{#each overview}}
+- {{name}}（{{count}} 个 crate）
+{{/each}}
+
+## 许可证明细与全文
+
+{{#each licenses}}
+### {{name}}
+
+被以下 crate 使用：
+
+{{#each used_by}}
+- {{crate.name}} {{crate.version}}
+{{/each}}
+
+许可证明文：
+
+{{text}}
+
+{{/each}}

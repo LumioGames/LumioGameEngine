@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/native-managed-abi.schema.json",
+  "type": "object",
+  "required": [
+    "abiVersion",
+    "structSize",
+    "capabilityBits",
+    "pointerWidth",
+    "endianness",
+    "entrySymbol",
+    "symbolPrefix",
+    "callingConvention",
+    "apiTable",
+    "ownership",
+    "handleModel",
+    "bufferModel",
+    "errorModel",
+    "errorDetail",
+    "panicBoundary",
+    "exceptionBoundary",
+    "threading",
+    "loadPolicy"
+  ],
+  "properties": {
+    "abiVersion": { "type": "integer", "minimum": 1 },
+    "structSize": { "type": "integer", "minimum": 1 },
+    "capabilityBits": { "type": "integer", "minimum": 0 },
+    "pointerWidth": { "type": "integer", "enum": [32, 64] },
+    "endianness": { "type": "string", "enum": ["Little", "Big"] },
+    "entrySymbol": { "type": "string", "pattern": "^lumio_core_get_api_v[0-9]+$" },
+    "symbolPrefix": { "type": "string", "pattern": "^lumio_[a-z0-9_]*$" },
+    "callingConvention": { "type": "string", "enum": ["C"] },
+    "apiTable": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "version", "structSize", "reservedSlots", "functionCount", "slots"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
+          "version": { "type": "integer", "minimum": 1 },
+          "structSize": { "type": "integer", "minimum": 1 },
+          "reservedSlots": { "type": "integer", "minimum": 0 },
+          "functionCount": { "type": "integer", "minimum": 1 },
+          "slots": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/slot" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "ownership": { "type": "string", "enum": ["CreatorFrees", "CallerBuffer", "BorrowedUntilReturn"] },
+    "handleModel": {
+      "type": "object",
+      "required": ["encoding", "invalidation", "doubleDestroy"],
+      "properties": {
+        "encoding": { "type": "string", "enum": ["IndexGenerationContext"] },
+        "invalidation": { "type": "string", "enum": ["GenerationBump"] },
+        "doubleDestroy": { "type": "string", "enum": ["StableError"] }
+      },
+      "additionalProperties": false
+    },
+    "bufferModel": {
+      "type": "object",
+      "required": ["layout", "tooSmall"],
+      "properties": {
+        "layout": { "type": "string", "enum": ["PtrLenCapacity"] },
+        "tooSmall": { "type": "string", "enum": ["RequiredSizeReturned"] }
+      },
+      "additionalProperties": false
+    },
+    "errorModel": { "type": "string", "enum": ["StableErrorCode"] },
+    "errorDetail": {
+      "type": "object",
+      "required": ["retrieval", "lifetime"],
+      "properties": {
+        "retrieval": { "type": "string", "enum": ["PerCallOutParam", "ThreadLocalLastError"] },
+        "lifetime": { "type": "string", "enum": ["CallerOwned", "UntilNextCallSameThread"] }
+      },
+      "additionalProperties": false
+    },
+    "panicBoundary": { "type": "string", "enum": ["CaughtAndMapped"] },
+    "exceptionBoundary": { "type": "string", "enum": ["CaughtAndMapped"] },
+    "threading": { "type": "string", "enum": ["OwnerThreadTick", "ThreadSafeBatched", "CallerSerialized"] },
+    "loadPolicy": { "type": "string", "enum": ["OnePackagePerProcess"] }
+  },
+  "$defs": {
+    "typeRef": {
+      "type": "string",
+      "pattern": "^(u8|u16|u32|u64|i8|i16|i32|i64|f32|f64|bool32|status|handle:[a-z][a-z0-9_]*|buffer:(in|out|inout)|struct:[a-z][a-z0-9_]*:v[0-9]+|ptr:(const|mut):[a-z][a-z0-9_]*)$"
+    },
+    "param": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "type": { "$ref": "#/$defs/typeRef" },
+        "nullable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "slot": {
+      "type": "object",
+      "required": ["slotIndex", "name", "params", "returns"],
+      "properties": {
+        "slotIndex": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/param" }
+        },
+        "returns": { "$ref": "#/$defs/typeRef" },
+        "since": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

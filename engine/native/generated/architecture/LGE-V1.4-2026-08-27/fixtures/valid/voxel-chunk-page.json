@@ -1,0 +1,25 @@
+{
+  "chunkId": "c:-2147483648:-1:2147483647",
+  "coord": { "x": -2147483648, "y": -1, "z": 2147483647 },
+  "chunkState": "Dirty",
+  "dataGeneration": 3,
+  "chunkRevision": 9,
+  "pages": [
+    {
+      "pageIndex": 0,
+      "pageVersion": 9,
+      "encoding": "Dense",
+      "payloadLength": 32768,
+      "hash": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b",
+      "compression": "Zstd"
+    },
+    {
+      "pageIndex": 1,
+      "pageVersion": 7,
+      "encoding": "Sparse",
+      "payloadLength": 512,
+      "hash": "9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c",
+      "compression": "None"
+    }
+  ]
+}

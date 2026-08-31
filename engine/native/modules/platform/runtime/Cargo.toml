@@ -1,0 +1,13 @@
+[package]
+name = "lumio-core-platform-runtime"
+description = "各平台 LoadBackend 实现；P0 为 Linux DynamicLibrary 同对象加载（openat2/memfd seal/常驻不卸载，规格 §9.5）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 运行时 crate：进入运行时发布闭包（规格 §3.7），默认 feature 必须最小。
+[features]
+default = []

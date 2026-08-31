@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/generated-contract-artifact.schema.json",
+  "type": "object",
+  "required": [
+    "artifactId",
+    "artifactKind",
+    "publisher",
+    "baselineId",
+    "schemaEpoch",
+    "compilerHash",
+    "inputHash",
+    "outputHash",
+    "implementationDependencies",
+    "forbiddenDependents"
+  ],
+  "properties": {
+    "artifactId": { "$ref": "common.schema.json#/$defs/id" },
+    "artifactKind": {
+      "type": "string",
+      "enum": [
+        "ProtocolPermissionValidator",
+        "MappingTable",
+        "CanonicalSerializer",
+        "LanguageBinding",
+        "ContractTypes",
+        "ContractRuntime"
+      ]
+    },
+    "publisher": { "type": "string", "enum": ["LumioGameEngineArchitecture"] },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
+    "schemaEpoch": { "$ref": "common.schema.json#/$defs/revision" },
+    "compilerHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "inputHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "outputHash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "implementationDependencies": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "uniqueItems": true
+    },
+    "forbiddenDependents": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string", "enum": ["LumioClient", "LumioGame"] },
+      "uniqueItems": true
+    },
+    "consumers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["LumioClient", "LumioGame", "LumioGameRuntime", "LumioServer"]
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

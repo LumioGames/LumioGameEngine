@@ -1,0 +1,13 @@
+[package]
+name = "lumio-core-diagnostics"
+description = "观测适配平面：LoggingEvent/Failure Evidence Fragment 到 Host EventSink 的非阻塞 Adapter；不拥有队列/批处理/落盘/Bundle（ADR 0003、规格 §13）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 非生产平面（ADR 0003）：由 Host 显式装配，Loader 不依赖本 crate；生产模块不得依赖。
+[features]
+default = []

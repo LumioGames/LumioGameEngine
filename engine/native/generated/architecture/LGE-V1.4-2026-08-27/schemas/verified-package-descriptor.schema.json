@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/verified-package-descriptor.schema.json",
+  "type": "object",
+  "required": ["descriptorVersion", "packageIdentity", "trustDecision", "trustDomain", "verifierVersion", "verifiedAt", "checks"],
+  "properties": {
+    "descriptorVersion": { "type": "integer", "minimum": 1 },
+    "packageIdentity": { "$ref": "common.schema.json#/$defs/packageIdentity" },
+    "trustDecision": { "type": "string", "enum": ["Trusted", "Rejected"] },
+    "rejectReason": { "$ref": "common.schema.json#/$defs/id" },
+    "trustDomain": { "$ref": "common.schema.json#/$defs/trustDomain" },
+    "verifierVersion": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+    "verifiedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "checks": {
+      "type": "object",
+      "required": ["manifestDigestVerified", "artifactDigestsVerified", "signatureVerified", "trustPolicyVerified"],
+      "properties": {
+        "manifestDigestVerified": { "type": "boolean" },
+        "artifactDigestsVerified": { "type": "boolean" },
+        "signatureVerified": { "type": "boolean" },
+        "trustPolicyVerified": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

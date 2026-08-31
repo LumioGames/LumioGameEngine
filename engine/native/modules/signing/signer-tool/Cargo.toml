@@ -1,0 +1,20 @@
+[package]
+name = "lumio-core-signer-tool"
+description = "离线/CI 签名工具：对 Canonical ManifestBody 精确字节产生 Detached SignatureEnvelope（ADR 0002、规格 §11.2）；绝不进入运行时发布闭包。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 构建期/离线 crate：绝对不进入运行时发布闭包（ADR 0002、规格 §3.7）。
+# `test-provider` 当前为空：仅保证规格 §3.4 的 sign-test 命令行可原样执行到 blocked 守卫，
+# 实际 provider 由 LCE-P0-012 在 AG-004/-007 关闭后实现。
+[features]
+default = []
+test-provider = []
+
+[[bin]]
+name = "lumio-core-signer-tool"
+path = "src/bin/lumio-core-signer-tool.rs"

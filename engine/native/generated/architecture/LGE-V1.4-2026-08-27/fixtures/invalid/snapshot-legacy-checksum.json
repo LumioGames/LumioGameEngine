@@ -1,0 +1,26 @@
+{
+  "magic": "LUMIOSNP1",
+  "schemaVersion": 1,
+  "snapshotId": "snapshot-100",
+  "productId": "A",
+  "gameReleaseId": "A-1.1.0",
+  "sessionId": "session-001",
+  "tickId": 42,
+  "revisions": {
+    "tickId": 42,
+    "gameRevision": 18,
+    "voxelWorldRevision": 24,
+    "chunkRevisionSet": { "c:0:0:0": 9 },
+    "replicationRevision": 13,
+    "configRevision": 4,
+    "schemaEpoch": 1
+  },
+  "payloadLength": 19,
+  "compression": "None",
+  "checksum": "crc32c:307fe11e",
+  "hash": "307fe11e12c34a3418ef41456069cf41f0d2d291f41c4fa6355ee9297e858f21",
+  "createdAt": "2026-08-27T01:10:00Z",
+  "encryption": "None",
+  "activationState": "Active",
+  "payload": "snapshot-payload-v1"
+}

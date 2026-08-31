@@ -1,0 +1,3 @@
+# rustfmt 配置。除默认值外只锁两件事：edition 与行尾（LF，与 .gitattributes 一致）。
+edition = "2021"
+newline_style = "Unix"

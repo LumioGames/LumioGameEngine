@@ -1,0 +1,9 @@
+{
+  "tickId": 42,
+  "gameRevision": 17,
+  "voxelWorldRevision": 23,
+  "chunkRevisionSet": { "c:0:0:0": 8, "c:0:1:0": 3 },
+  "replicationRevision": 12,
+  "configRevision": 4,
+  "schemaEpoch": 1
+}

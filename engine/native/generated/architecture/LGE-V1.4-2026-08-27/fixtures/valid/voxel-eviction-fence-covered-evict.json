@@ -1,0 +1,11 @@
+{
+  "kind": "EvictionFence",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "chunkId": "c:0:0:0",
+  "chunkState": "Dirty",
+  "mode": "DurableEviction",
+  "decision": "Evict",
+  "coveringAckId": "dack-0002",
+  "coveredUpToChunkRevision": 11
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/target-profile.schema.json",
+  "type": "object",
+  "required": ["targetProfileId", "os", "arch", "abiRuntime", "minimumOs", "toolchain", "loadBackend", "packaging"],
+  "properties": {
+    "targetProfileId": { "$ref": "common.schema.json#/$defs/id" },
+    "os": { "type": "string", "enum": ["LinuxServer", "WindowsServer", "WindowsDesktop", "MacDesktop", "iOS", "Android"] },
+    "arch": { "type": "string", "enum": ["x86_64", "arm64"] },
+    "abiRuntime": { "type": "string", "enum": ["glibc", "musl", "msvc", "darwin", "bionic"] },
+    "minimumOs": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+    "toolchain": {
+      "type": "object",
+      "required": ["compiler", "version"],
+      "properties": {
+        "compiler": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$" },
+        "version": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+        "sdk": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" }
+      },
+      "additionalProperties": false
+    },
+    "loadBackend": { "type": "string", "enum": ["StaticLinked", "DynamicLibrary"] },
+    "packaging": {
+      "type": "object",
+      "required": ["libraryFileName", "debugSymbolFormat", "archiveFormat"],
+      "properties": {
+        "libraryFileName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "debugSymbolFormat": { "type": "string", "enum": ["DWARF", "PDB", "DSYM"] },
+        "archiveFormat": { "type": "string", "enum": ["TarZst", "Zip"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

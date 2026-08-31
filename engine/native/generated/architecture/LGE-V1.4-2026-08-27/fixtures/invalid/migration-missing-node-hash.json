@@ -1,0 +1,44 @@
+{
+  "migrationId": "missing-node-hash-invalid",
+  "sourceReleaseId": "A-1.0.0",
+  "targetReleaseId": "A-1.1.0",
+  "sourceSchemaEpoch": 1,
+  "targetSchemaEpoch": 2,
+  "staging": "ImmutableSourceCopy",
+  "activation": "AtomicPointer",
+  "nodes": [
+    {
+      "nodeId": "game-state-v2",
+      "owner": "Game",
+      "dependsOn": [],
+      "inputSchema": "GameSnapshotV1",
+      "outputSchema": "GameSnapshotV2",
+      "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "outputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "toolVersion": "1.1.0",
+      "idempotent": true
+    },
+    {
+      "nodeId": "voxel-world-v2",
+      "owner": "VoxelEngine",
+      "dependsOn": [
+        "game-state-v2"
+      ],
+      "inputSchema": "VoxelSnapshotV1",
+      "outputSchema": "VoxelSnapshotV2",
+      "toolVersion": "1.1.0",
+      "idempotent": true
+    }
+  ],
+  "scopeActivation": {
+    "sessionId": "session-001",
+    "oldGeneration": 3,
+    "newGeneration": 4,
+    "stage": "OldUnloaded",
+    "oldScope": "OldUnloaded",
+    "newScope": "NewActive",
+    "switchCommitted": true,
+    "recovery": "KeepOldActive",
+    "reactivatedOldScope": false
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/protocol-permission-gate.schema.json",
+  "type": "object",
+  "allOf": [
+    { "$ref": "common.schema.json#/$defs/sessionReleaseTriple" }
+  ],
+  "required": [
+    "sessionId",
+    "productId",
+    "gameReleaseId",
+    "messageId",
+    "role",
+    "claims",
+    "connectionGeneration",
+    "antiReplay",
+    "admittedSessionId",
+    "admittedProductId",
+    "admittedGameReleaseId",
+    "admittedRole",
+    "admittedClaims",
+    "admittedConnectionGeneration",
+    "verdict"
+  ],
+  "properties": {
+    "sessionId": { "$ref": "common.schema.json#/$defs/id" },
+    "productId": { "$ref": "common.schema.json#/$defs/productId" },
+    "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
+    "messageId": { "$ref": "common.schema.json#/$defs/id" },
+    "role": { "type": "string", "enum": ["Server", "Client", "Replay"] },
+    "claims": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "uniqueItems": true
+    },
+    "connectionGeneration": { "$ref": "common.schema.json#/$defs/revision" },
+    "antiReplay": {
+      "type": "object",
+      "required": ["connectionScopeOwner", "sessionScopeOwner"],
+      "properties": {
+        "connectionScopeOwner": { "type": "string", "enum": ["ConnectionLayer"] },
+        "sessionScopeOwner": { "type": "string", "enum": ["ClientReplicaSession"] }
+      },
+      "additionalProperties": false
+    },
+    "admittedSessionId": { "$ref": "common.schema.json#/$defs/id" },
+    "admittedProductId": { "$ref": "common.schema.json#/$defs/productId" },
+    "admittedGameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
+    "admittedRole": { "type": "string", "enum": ["Server", "Client", "Replay"] },
+    "admittedClaims": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "uniqueItems": true
+    },
+    "admittedConnectionGeneration": { "$ref": "common.schema.json#/$defs/revision" },
+    "verdict": { "type": "string", "enum": ["Accept", "Reject"] },
+    "rejectReason": {
+      "type": "string",
+      "enum": [
+        "SessionMismatch",
+        "ReleaseMismatch",
+        "MessagePermissionDenied",
+        "RoleMismatch",
+        "ClaimNotGranted",
+        "StaleConnectionGeneration",
+        "SessionAntiReplay"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

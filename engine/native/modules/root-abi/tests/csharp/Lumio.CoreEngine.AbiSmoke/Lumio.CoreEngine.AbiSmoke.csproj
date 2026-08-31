@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    C# 侧 ABI 布局探针（规格 §8.2「生成物/跨语言测试」）。
+    只读消费 LCE-P0-005 发布的生成绑定：用 Link 引入原文件，不复制、不改写。
+    纯托管，不做任何 native import（ADR-023/ADR-039 的 packages/csharp no-native 政策）。
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>Lumio.CoreEngine.AbiSmoke</RootNamespace>
+    <AssemblyName>Lumio.CoreEngine.AbiSmoke</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../generated/LGE-V1.4-2026-08-27/csharp/Lumio.CoreEngine.Native.g.cs"
+             Link="Generated/Lumio.CoreEngine.Native.g.cs" />
+  </ItemGroup>
+
+</Project>

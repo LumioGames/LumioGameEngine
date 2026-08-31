@@ -1,0 +1,9 @@
+# Cargo 仓库级默认值（LCE-P0-001）。
+# 约定：凡是能写在命令行里的参数（--locked、--profile、--features）一律由 justfile 转发，
+# 不在本文件重复；这里只放跨命令的仓库级行为。
+# 交叉链接器、target 专属 rustflags 属于 platform/build 执行器（ADR 0001），不进全局 cargo 配置。
+
+[net]
+# git 依赖必须固定 40 位 commit（deny.toml [sources] 校验）；经 git CLI 拉取，
+# 与仓库其余 git 操作走同一实现与凭据路径。
+git-fetch-with-cli = true

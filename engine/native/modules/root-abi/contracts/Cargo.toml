@@ -1,0 +1,20 @@
+[package]
+name = "lumio-core-contracts"
+description = "架构源生成 ContractTypes/ErrorCode/Capability/Schema registry 的唯一 re-export 面；本仓不得手写第二套公共类型（规格 §6.1、§8.2）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 运行时 crate：进入运行时发布闭包（规格 §3.7），默认 feature 必须最小。
+# 禁止动态生成的 build.rs；生成文件只能来自架构源制品（LCE-P0-003）。
+[features]
+default = []
+
+# 消费基线 pin（LCE-P0-003 实现要求：crate package metadata 记录 baseline/commit）；
+# 与 architecture.lock.json 同源，生成物完整性由 tests/generated_integrity.rs 校验。
+[package.metadata.lumio]
+architecture-baseline-id = "LGE-V1.4-2026-08-27"
+architecture-commit = "1f2ead332b3dfc3042e1495bfbe6febb8699df7e"

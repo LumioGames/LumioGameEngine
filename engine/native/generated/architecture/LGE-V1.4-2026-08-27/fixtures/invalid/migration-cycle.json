@@ -1,0 +1,48 @@
+{
+  "migrationId": "cycle-invalid",
+  "sourceReleaseId": "A-1.0.0",
+  "targetReleaseId": "A-1.1.0",
+  "sourceSchemaEpoch": 1,
+  "targetSchemaEpoch": 2,
+  "staging": "ImmutableSourceCopy",
+  "activation": "AtomicPointer",
+  "nodes": [
+    {
+      "nodeId": "a",
+      "owner": "Game",
+      "dependsOn": [
+        "b"
+      ],
+      "inputSchema": "S1",
+      "outputSchema": "S2",
+      "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "outputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "toolVersion": "1.0.0",
+      "idempotent": true
+    },
+    {
+      "nodeId": "b",
+      "owner": "VoxelEngine",
+      "dependsOn": [
+        "a"
+      ],
+      "inputSchema": "S2",
+      "outputSchema": "S3",
+      "inputHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "outputHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "toolVersion": "1.0.0",
+      "idempotent": true
+    }
+  ],
+  "scopeActivation": {
+    "sessionId": "session-001",
+    "oldGeneration": 3,
+    "newGeneration": 4,
+    "stage": "OldUnloaded",
+    "oldScope": "OldUnloaded",
+    "newScope": "NewActive",
+    "switchCommitted": true,
+    "recovery": "KeepOldActive",
+    "reactivatedOldScope": false
+  }
+}

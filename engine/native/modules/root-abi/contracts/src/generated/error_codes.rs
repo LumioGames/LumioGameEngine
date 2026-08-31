@@ -1,0 +1,470 @@
+//! ErrorCode / Capability 消费面（ids/index.json）：registry 全文逐字节嵌入 +
+//! Architecture 所有的两个 namespace 的 1:1 枚举派生。MessageType / FaultClass
+//! （owner: GameRuntime）不属本仓消费面，只随嵌入字节提供，不做类型派生。
+// 本文件由锁定生成器从只读架构镜像派生——禁止手改（rules/system.md 生成物纪律）。
+// 重生成：LUMIO_CONTRACTS_REGENERATE=1 cargo test -p lumio-core-contracts --locked --test generated_integrity
+// 派生输入与逐文件摘要见 modules/root-abi/contracts/generated-contract-artifact.json。
+
+#[rustfmt::skip]
+pub const ID_REGISTRY_VERSION: u32 = 1;
+#[rustfmt::skip]
+pub const IDS_INDEX_SHA256_HEX: &str = "515c1626163d935a85fabf04afa743d38b4ba0fb49a7bf38602d2155f4f097f1";
+#[rustfmt::skip]
+pub const IDS_INDEX_JSON: &[u8] = b"{\n  \"registryVersion\": 1,\n  \"baselineId\": \"LGE-V1.4-2026-08-27\",\n  \"namespaces\": [\n    {\n      \"namespace\": \"MessageType\",\n      \"owner\": \"GameRuntime\",\n      \"values\": [\n        { \"id\": \"Handshake\", \"numeric\": 1, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"FullSnapshot\", \"numeric\": 2, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"Delta\", \"numeric\": 3, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ResyncRequest\", \"numeric\": 4, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"MaintenanceKick\", \"numeric\": 5, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"BaselineAck\", \"numeric\": 6, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"DeltaAck\", \"numeric\": 7, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"Error\", \"numeric\": 8, \"status\": \"Active\", \"since\": \"V1\" }\n      ]\n    },\n    {\n      \"namespace\": \"ErrorCode\",\n      \"owner\": \"Architecture\",\n      \"values\": [\n        { \"id\": \"RevisionConflict\", \"numeric\": 1001, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"MaintenanceKick\", \"numeric\": 1002, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ReleaseMismatch\", \"numeric\": 1003, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"NativeAbiMismatch\", \"numeric\": 1004, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"StaleEpoch\", \"numeric\": 1005, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"FencingTokenStale\", \"numeric\": 1006, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ManifestMalformed\", \"numeric\": 1007, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ManifestUnsupportedVersion\", \"numeric\": 1008, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ManifestDigestMismatch\", \"numeric\": 1009, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ArtifactMissing\", \"numeric\": 1010, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ArtifactDigestMismatch\", \"numeric\": 1011, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"SignatureMissing\", \"numeric\": 1012, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"SignatureInvalid\", \"numeric\": 1013, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"TrustRootUnknown\", \"numeric\": 1014, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"TrustPolicyRejected\", \"numeric\": 1015, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"KeyRevoked\", \"numeric\": 1016, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"EvidenceMissing\", \"numeric\": 1017, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"EvidenceDigestMismatch\", \"numeric\": 1018, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"TargetProfileMismatch\", \"numeric\": 1019, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"CapabilityMissing\", \"numeric\": 1020, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"SymbolMissing\", \"numeric\": 1021, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"SymbolCollision\", \"numeric\": 1022, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"PackageIdentityConflict\", \"numeric\": 1023, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"WorkerPoolDuplicate\", \"numeric\": 1024, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"LoaderTimeout\", \"numeric\": 1025, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"LoaderCancelled\", \"numeric\": 1026, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"LoaderOutOfMemory\", \"numeric\": 1027, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"PartialLoadRolledBack\", \"numeric\": 1028, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"InvalidHandle\", \"numeric\": 1029, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"HandleDoubleRelease\", \"numeric\": 1030, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"MessagePermissionDenied\", \"numeric\": 1031, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"StaleConnectionGeneration\", \"numeric\": 1032, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ChunkUnavailable\", \"numeric\": 1033, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"TargetRevisionUnavailable\", \"numeric\": 1034, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"BudgetExceeded\", \"numeric\": 1035, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"QueueFull\", \"numeric\": 1036, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"CoordinateOutOfBounds\", \"numeric\": 1037, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"DirtyChunkNotDurable\", \"numeric\": 1038, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"SnapshotBaseMismatch\", \"numeric\": 1039, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"SessionMismatch\", \"numeric\": 1040, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"RoleMismatch\", \"numeric\": 1041, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ClaimNotGranted\", \"numeric\": 1042, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"SessionAntiReplay\", \"numeric\": 1043, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"InvalidArgument\", \"numeric\": 1044, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"WrongContext\", \"numeric\": 1045, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"BufferTooSmall\", \"numeric\": 1046, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"CapacityExceeded\", \"numeric\": 1047, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"Cancelled\", \"numeric\": 1048, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"TimedOut\", \"numeric\": 1049, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ContextClosing\", \"numeric\": 1050, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ContextDestroyed\", \"numeric\": 1051, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"PanicBoundary\", \"numeric\": 1052, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"InternalInvariant\", \"numeric\": 1053, \"status\": \"Active\", \"since\": \"V1\" }\n      ]\n    },\n    {\n      \"namespace\": \"Capability\",\n      \"owner\": \"Architecture\",\n      \"values\": [\n        { \"id\": \"Native\", \"numeric\": 1, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"HybridCLR\", \"numeric\": 2, \"status\": \"Reserved\", \"since\": \"V1\" },\n        { \"id\": \"ReferenceVoxel\", \"numeric\": 3, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"VoxelSnapshot\", \"numeric\": 4, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"VoxelStreaming\", \"numeric\": 5, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"VoxelSpatial\", \"numeric\": 6, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"VoxelMeshCollision\", \"numeric\": 7, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"VoxelAllResident\", \"numeric\": 8, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"VoxelVolatileChunks\", \"numeric\": 9, \"status\": \"Active\", \"since\": \"V1\" }\n      ]\n    },\n    {\n      \"namespace\": \"FaultClass\",\n      \"owner\": \"GameRuntime\",\n      \"values\": [\n        { \"id\": \"SessionLocalProven\", \"numeric\": 1, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"SlotStateUnproven\", \"numeric\": 2, \"status\": \"Active\", \"since\": \"V1\" },\n        { \"id\": \"ProcessFault\", \"numeric\": 3, \"status\": \"Active\", \"since\": \"V1\" }\n      ]\n    }\n  ]\n}\n";
+
+/// id-registry（schemas/id-registry.schema.json）status 字段的枚举。
+#[rustfmt::skip]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum IdStatus {
+    Active,
+    Reserved,
+    Deprecated,
+}
+
+/// ids/index.json `ErrorCode` namespace 的 1:1 派生（owner: Architecture）。
+#[rustfmt::skip]
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ErrorCode {
+    RevisionConflict = 1001,
+    MaintenanceKick = 1002,
+    ReleaseMismatch = 1003,
+    NativeAbiMismatch = 1004,
+    StaleEpoch = 1005,
+    FencingTokenStale = 1006,
+    ManifestMalformed = 1007,
+    ManifestUnsupportedVersion = 1008,
+    ManifestDigestMismatch = 1009,
+    ArtifactMissing = 1010,
+    ArtifactDigestMismatch = 1011,
+    SignatureMissing = 1012,
+    SignatureInvalid = 1013,
+    TrustRootUnknown = 1014,
+    TrustPolicyRejected = 1015,
+    KeyRevoked = 1016,
+    EvidenceMissing = 1017,
+    EvidenceDigestMismatch = 1018,
+    TargetProfileMismatch = 1019,
+    CapabilityMissing = 1020,
+    SymbolMissing = 1021,
+    SymbolCollision = 1022,
+    PackageIdentityConflict = 1023,
+    WorkerPoolDuplicate = 1024,
+    LoaderTimeout = 1025,
+    LoaderCancelled = 1026,
+    LoaderOutOfMemory = 1027,
+    PartialLoadRolledBack = 1028,
+    InvalidHandle = 1029,
+    HandleDoubleRelease = 1030,
+    MessagePermissionDenied = 1031,
+    StaleConnectionGeneration = 1032,
+    ChunkUnavailable = 1033,
+    TargetRevisionUnavailable = 1034,
+    BudgetExceeded = 1035,
+    QueueFull = 1036,
+    CoordinateOutOfBounds = 1037,
+    DirtyChunkNotDurable = 1038,
+    SnapshotBaseMismatch = 1039,
+    SessionMismatch = 1040,
+    RoleMismatch = 1041,
+    ClaimNotGranted = 1042,
+    SessionAntiReplay = 1043,
+    InvalidArgument = 1044,
+    WrongContext = 1045,
+    BufferTooSmall = 1046,
+    CapacityExceeded = 1047,
+    Cancelled = 1048,
+    TimedOut = 1049,
+    ContextClosing = 1050,
+    ContextDestroyed = 1051,
+    PanicBoundary = 1052,
+    InternalInvariant = 1053,
+}
+
+#[rustfmt::skip]
+impl ErrorCode {
+    pub const ALL: [ErrorCode; 53] = [
+        ErrorCode::RevisionConflict,
+        ErrorCode::MaintenanceKick,
+        ErrorCode::ReleaseMismatch,
+        ErrorCode::NativeAbiMismatch,
+        ErrorCode::StaleEpoch,
+        ErrorCode::FencingTokenStale,
+        ErrorCode::ManifestMalformed,
+        ErrorCode::ManifestUnsupportedVersion,
+        ErrorCode::ManifestDigestMismatch,
+        ErrorCode::ArtifactMissing,
+        ErrorCode::ArtifactDigestMismatch,
+        ErrorCode::SignatureMissing,
+        ErrorCode::SignatureInvalid,
+        ErrorCode::TrustRootUnknown,
+        ErrorCode::TrustPolicyRejected,
+        ErrorCode::KeyRevoked,
+        ErrorCode::EvidenceMissing,
+        ErrorCode::EvidenceDigestMismatch,
+        ErrorCode::TargetProfileMismatch,
+        ErrorCode::CapabilityMissing,
+        ErrorCode::SymbolMissing,
+        ErrorCode::SymbolCollision,
+        ErrorCode::PackageIdentityConflict,
+        ErrorCode::WorkerPoolDuplicate,
+        ErrorCode::LoaderTimeout,
+        ErrorCode::LoaderCancelled,
+        ErrorCode::LoaderOutOfMemory,
+        ErrorCode::PartialLoadRolledBack,
+        ErrorCode::InvalidHandle,
+        ErrorCode::HandleDoubleRelease,
+        ErrorCode::MessagePermissionDenied,
+        ErrorCode::StaleConnectionGeneration,
+        ErrorCode::ChunkUnavailable,
+        ErrorCode::TargetRevisionUnavailable,
+        ErrorCode::BudgetExceeded,
+        ErrorCode::QueueFull,
+        ErrorCode::CoordinateOutOfBounds,
+        ErrorCode::DirtyChunkNotDurable,
+        ErrorCode::SnapshotBaseMismatch,
+        ErrorCode::SessionMismatch,
+        ErrorCode::RoleMismatch,
+        ErrorCode::ClaimNotGranted,
+        ErrorCode::SessionAntiReplay,
+        ErrorCode::InvalidArgument,
+        ErrorCode::WrongContext,
+        ErrorCode::BufferTooSmall,
+        ErrorCode::CapacityExceeded,
+        ErrorCode::Cancelled,
+        ErrorCode::TimedOut,
+        ErrorCode::ContextClosing,
+        ErrorCode::ContextDestroyed,
+        ErrorCode::PanicBoundary,
+        ErrorCode::InternalInvariant,
+    ];
+
+    pub const fn numeric(self) -> u32 {
+        self as u32
+    }
+
+    pub const fn id(self) -> &'static str {
+        match self {
+            ErrorCode::RevisionConflict => "RevisionConflict",
+            ErrorCode::MaintenanceKick => "MaintenanceKick",
+            ErrorCode::ReleaseMismatch => "ReleaseMismatch",
+            ErrorCode::NativeAbiMismatch => "NativeAbiMismatch",
+            ErrorCode::StaleEpoch => "StaleEpoch",
+            ErrorCode::FencingTokenStale => "FencingTokenStale",
+            ErrorCode::ManifestMalformed => "ManifestMalformed",
+            ErrorCode::ManifestUnsupportedVersion => "ManifestUnsupportedVersion",
+            ErrorCode::ManifestDigestMismatch => "ManifestDigestMismatch",
+            ErrorCode::ArtifactMissing => "ArtifactMissing",
+            ErrorCode::ArtifactDigestMismatch => "ArtifactDigestMismatch",
+            ErrorCode::SignatureMissing => "SignatureMissing",
+            ErrorCode::SignatureInvalid => "SignatureInvalid",
+            ErrorCode::TrustRootUnknown => "TrustRootUnknown",
+            ErrorCode::TrustPolicyRejected => "TrustPolicyRejected",
+            ErrorCode::KeyRevoked => "KeyRevoked",
+            ErrorCode::EvidenceMissing => "EvidenceMissing",
+            ErrorCode::EvidenceDigestMismatch => "EvidenceDigestMismatch",
+            ErrorCode::TargetProfileMismatch => "TargetProfileMismatch",
+            ErrorCode::CapabilityMissing => "CapabilityMissing",
+            ErrorCode::SymbolMissing => "SymbolMissing",
+            ErrorCode::SymbolCollision => "SymbolCollision",
+            ErrorCode::PackageIdentityConflict => "PackageIdentityConflict",
+            ErrorCode::WorkerPoolDuplicate => "WorkerPoolDuplicate",
+            ErrorCode::LoaderTimeout => "LoaderTimeout",
+            ErrorCode::LoaderCancelled => "LoaderCancelled",
+            ErrorCode::LoaderOutOfMemory => "LoaderOutOfMemory",
+            ErrorCode::PartialLoadRolledBack => "PartialLoadRolledBack",
+            ErrorCode::InvalidHandle => "InvalidHandle",
+            ErrorCode::HandleDoubleRelease => "HandleDoubleRelease",
+            ErrorCode::MessagePermissionDenied => "MessagePermissionDenied",
+            ErrorCode::StaleConnectionGeneration => "StaleConnectionGeneration",
+            ErrorCode::ChunkUnavailable => "ChunkUnavailable",
+            ErrorCode::TargetRevisionUnavailable => "TargetRevisionUnavailable",
+            ErrorCode::BudgetExceeded => "BudgetExceeded",
+            ErrorCode::QueueFull => "QueueFull",
+            ErrorCode::CoordinateOutOfBounds => "CoordinateOutOfBounds",
+            ErrorCode::DirtyChunkNotDurable => "DirtyChunkNotDurable",
+            ErrorCode::SnapshotBaseMismatch => "SnapshotBaseMismatch",
+            ErrorCode::SessionMismatch => "SessionMismatch",
+            ErrorCode::RoleMismatch => "RoleMismatch",
+            ErrorCode::ClaimNotGranted => "ClaimNotGranted",
+            ErrorCode::SessionAntiReplay => "SessionAntiReplay",
+            ErrorCode::InvalidArgument => "InvalidArgument",
+            ErrorCode::WrongContext => "WrongContext",
+            ErrorCode::BufferTooSmall => "BufferTooSmall",
+            ErrorCode::CapacityExceeded => "CapacityExceeded",
+            ErrorCode::Cancelled => "Cancelled",
+            ErrorCode::TimedOut => "TimedOut",
+            ErrorCode::ContextClosing => "ContextClosing",
+            ErrorCode::ContextDestroyed => "ContextDestroyed",
+            ErrorCode::PanicBoundary => "PanicBoundary",
+            ErrorCode::InternalInvariant => "InternalInvariant",
+        }
+    }
+
+    pub const fn status(self) -> IdStatus {
+        match self {
+            ErrorCode::RevisionConflict => IdStatus::Active,
+            ErrorCode::MaintenanceKick => IdStatus::Active,
+            ErrorCode::ReleaseMismatch => IdStatus::Active,
+            ErrorCode::NativeAbiMismatch => IdStatus::Active,
+            ErrorCode::StaleEpoch => IdStatus::Active,
+            ErrorCode::FencingTokenStale => IdStatus::Active,
+            ErrorCode::ManifestMalformed => IdStatus::Active,
+            ErrorCode::ManifestUnsupportedVersion => IdStatus::Active,
+            ErrorCode::ManifestDigestMismatch => IdStatus::Active,
+            ErrorCode::ArtifactMissing => IdStatus::Active,
+            ErrorCode::ArtifactDigestMismatch => IdStatus::Active,
+            ErrorCode::SignatureMissing => IdStatus::Active,
+            ErrorCode::SignatureInvalid => IdStatus::Active,
+            ErrorCode::TrustRootUnknown => IdStatus::Active,
+            ErrorCode::TrustPolicyRejected => IdStatus::Active,
+            ErrorCode::KeyRevoked => IdStatus::Active,
+            ErrorCode::EvidenceMissing => IdStatus::Active,
+            ErrorCode::EvidenceDigestMismatch => IdStatus::Active,
+            ErrorCode::TargetProfileMismatch => IdStatus::Active,
+            ErrorCode::CapabilityMissing => IdStatus::Active,
+            ErrorCode::SymbolMissing => IdStatus::Active,
+            ErrorCode::SymbolCollision => IdStatus::Active,
+            ErrorCode::PackageIdentityConflict => IdStatus::Active,
+            ErrorCode::WorkerPoolDuplicate => IdStatus::Active,
+            ErrorCode::LoaderTimeout => IdStatus::Active,
+            ErrorCode::LoaderCancelled => IdStatus::Active,
+            ErrorCode::LoaderOutOfMemory => IdStatus::Active,
+            ErrorCode::PartialLoadRolledBack => IdStatus::Active,
+            ErrorCode::InvalidHandle => IdStatus::Active,
+            ErrorCode::HandleDoubleRelease => IdStatus::Active,
+            ErrorCode::MessagePermissionDenied => IdStatus::Active,
+            ErrorCode::StaleConnectionGeneration => IdStatus::Active,
+            ErrorCode::ChunkUnavailable => IdStatus::Active,
+            ErrorCode::TargetRevisionUnavailable => IdStatus::Active,
+            ErrorCode::BudgetExceeded => IdStatus::Active,
+            ErrorCode::QueueFull => IdStatus::Active,
+            ErrorCode::CoordinateOutOfBounds => IdStatus::Active,
+            ErrorCode::DirtyChunkNotDurable => IdStatus::Active,
+            ErrorCode::SnapshotBaseMismatch => IdStatus::Active,
+            ErrorCode::SessionMismatch => IdStatus::Active,
+            ErrorCode::RoleMismatch => IdStatus::Active,
+            ErrorCode::ClaimNotGranted => IdStatus::Active,
+            ErrorCode::SessionAntiReplay => IdStatus::Active,
+            ErrorCode::InvalidArgument => IdStatus::Active,
+            ErrorCode::WrongContext => IdStatus::Active,
+            ErrorCode::BufferTooSmall => IdStatus::Active,
+            ErrorCode::CapacityExceeded => IdStatus::Active,
+            ErrorCode::Cancelled => IdStatus::Active,
+            ErrorCode::TimedOut => IdStatus::Active,
+            ErrorCode::ContextClosing => IdStatus::Active,
+            ErrorCode::ContextDestroyed => IdStatus::Active,
+            ErrorCode::PanicBoundary => IdStatus::Active,
+            ErrorCode::InternalInvariant => IdStatus::Active,
+        }
+    }
+
+    pub const fn since(self) -> &'static str {
+        match self {
+            ErrorCode::RevisionConflict => "V1",
+            ErrorCode::MaintenanceKick => "V1",
+            ErrorCode::ReleaseMismatch => "V1",
+            ErrorCode::NativeAbiMismatch => "V1",
+            ErrorCode::StaleEpoch => "V1",
+            ErrorCode::FencingTokenStale => "V1",
+            ErrorCode::ManifestMalformed => "V1",
+            ErrorCode::ManifestUnsupportedVersion => "V1",
+            ErrorCode::ManifestDigestMismatch => "V1",
+            ErrorCode::ArtifactMissing => "V1",
+            ErrorCode::ArtifactDigestMismatch => "V1",
+            ErrorCode::SignatureMissing => "V1",
+            ErrorCode::SignatureInvalid => "V1",
+            ErrorCode::TrustRootUnknown => "V1",
+            ErrorCode::TrustPolicyRejected => "V1",
+            ErrorCode::KeyRevoked => "V1",
+            ErrorCode::EvidenceMissing => "V1",
+            ErrorCode::EvidenceDigestMismatch => "V1",
+            ErrorCode::TargetProfileMismatch => "V1",
+            ErrorCode::CapabilityMissing => "V1",
+            ErrorCode::SymbolMissing => "V1",
+            ErrorCode::SymbolCollision => "V1",
+            ErrorCode::PackageIdentityConflict => "V1",
+            ErrorCode::WorkerPoolDuplicate => "V1",
+            ErrorCode::LoaderTimeout => "V1",
+            ErrorCode::LoaderCancelled => "V1",
+            ErrorCode::LoaderOutOfMemory => "V1",
+            ErrorCode::PartialLoadRolledBack => "V1",
+            ErrorCode::InvalidHandle => "V1",
+            ErrorCode::HandleDoubleRelease => "V1",
+            ErrorCode::MessagePermissionDenied => "V1",
+            ErrorCode::StaleConnectionGeneration => "V1",
+            ErrorCode::ChunkUnavailable => "V1",
+            ErrorCode::TargetRevisionUnavailable => "V1",
+            ErrorCode::BudgetExceeded => "V1",
+            ErrorCode::QueueFull => "V1",
+            ErrorCode::CoordinateOutOfBounds => "V1",
+            ErrorCode::DirtyChunkNotDurable => "V1",
+            ErrorCode::SnapshotBaseMismatch => "V1",
+            ErrorCode::SessionMismatch => "V1",
+            ErrorCode::RoleMismatch => "V1",
+            ErrorCode::ClaimNotGranted => "V1",
+            ErrorCode::SessionAntiReplay => "V1",
+            ErrorCode::InvalidArgument => "V1",
+            ErrorCode::WrongContext => "V1",
+            ErrorCode::BufferTooSmall => "V1",
+            ErrorCode::CapacityExceeded => "V1",
+            ErrorCode::Cancelled => "V1",
+            ErrorCode::TimedOut => "V1",
+            ErrorCode::ContextClosing => "V1",
+            ErrorCode::ContextDestroyed => "V1",
+            ErrorCode::PanicBoundary => "V1",
+            ErrorCode::InternalInvariant => "V1",
+        }
+    }
+
+    pub const fn from_numeric(numeric: u32) -> Option<ErrorCode> {
+        match numeric {
+            1001 => Some(ErrorCode::RevisionConflict),
+            1002 => Some(ErrorCode::MaintenanceKick),
+            1003 => Some(ErrorCode::ReleaseMismatch),
+            1004 => Some(ErrorCode::NativeAbiMismatch),
+            1005 => Some(ErrorCode::StaleEpoch),
+            1006 => Some(ErrorCode::FencingTokenStale),
+            1007 => Some(ErrorCode::ManifestMalformed),
+            1008 => Some(ErrorCode::ManifestUnsupportedVersion),
+            1009 => Some(ErrorCode::ManifestDigestMismatch),
+            1010 => Some(ErrorCode::ArtifactMissing),
+            1011 => Some(ErrorCode::ArtifactDigestMismatch),
+            1012 => Some(ErrorCode::SignatureMissing),
+            1013 => Some(ErrorCode::SignatureInvalid),
+            1014 => Some(ErrorCode::TrustRootUnknown),
+            1015 => Some(ErrorCode::TrustPolicyRejected),
+            1016 => Some(ErrorCode::KeyRevoked),
+            1017 => Some(ErrorCode::EvidenceMissing),
+            1018 => Some(ErrorCode::EvidenceDigestMismatch),
+            1019 => Some(ErrorCode::TargetProfileMismatch),
+            1020 => Some(ErrorCode::CapabilityMissing),
+            1021 => Some(ErrorCode::SymbolMissing),
+            1022 => Some(ErrorCode::SymbolCollision),
+            1023 => Some(ErrorCode::PackageIdentityConflict),
+            1024 => Some(ErrorCode::WorkerPoolDuplicate),
+            1025 => Some(ErrorCode::LoaderTimeout),
+            1026 => Some(ErrorCode::LoaderCancelled),
+            1027 => Some(ErrorCode::LoaderOutOfMemory),
+            1028 => Some(ErrorCode::PartialLoadRolledBack),
+            1029 => Some(ErrorCode::InvalidHandle),
+            1030 => Some(ErrorCode::HandleDoubleRelease),
+            1031 => Some(ErrorCode::MessagePermissionDenied),
+            1032 => Some(ErrorCode::StaleConnectionGeneration),
+            1033 => Some(ErrorCode::ChunkUnavailable),
+            1034 => Some(ErrorCode::TargetRevisionUnavailable),
+            1035 => Some(ErrorCode::BudgetExceeded),
+            1036 => Some(ErrorCode::QueueFull),
+            1037 => Some(ErrorCode::CoordinateOutOfBounds),
+            1038 => Some(ErrorCode::DirtyChunkNotDurable),
+            1039 => Some(ErrorCode::SnapshotBaseMismatch),
+            1040 => Some(ErrorCode::SessionMismatch),
+            1041 => Some(ErrorCode::RoleMismatch),
+            1042 => Some(ErrorCode::ClaimNotGranted),
+            1043 => Some(ErrorCode::SessionAntiReplay),
+            1044 => Some(ErrorCode::InvalidArgument),
+            1045 => Some(ErrorCode::WrongContext),
+            1046 => Some(ErrorCode::BufferTooSmall),
+            1047 => Some(ErrorCode::CapacityExceeded),
+            1048 => Some(ErrorCode::Cancelled),
+            1049 => Some(ErrorCode::TimedOut),
+            1050 => Some(ErrorCode::ContextClosing),
+            1051 => Some(ErrorCode::ContextDestroyed),
+            1052 => Some(ErrorCode::PanicBoundary),
+            1053 => Some(ErrorCode::InternalInvariant),
+            _ => None,
+        }
+    }
+}
+
+/// ids/index.json `Capability` namespace 的 1:1 派生（owner: Architecture）。
+#[rustfmt::skip]
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Capability {
+    Native = 1,
+    HybridCLR = 2,
+    ReferenceVoxel = 3,
+    VoxelSnapshot = 4,
+    VoxelStreaming = 5,
+    VoxelSpatial = 6,
+    VoxelMeshCollision = 7,
+    VoxelAllResident = 8,
+    VoxelVolatileChunks = 9,
+}
+
+#[rustfmt::skip]
+impl Capability {
+    pub const ALL: [Capability; 9] = [
+        Capability::Native,
+        Capability::HybridCLR,
+        Capability::ReferenceVoxel,
+        Capability::VoxelSnapshot,
+        Capability::VoxelStreaming,
+        Capability::VoxelSpatial,
+        Capability::VoxelMeshCollision,
+        Capability::VoxelAllResident,
+        Capability::VoxelVolatileChunks,
+    ];
+
+    pub const fn numeric(self) -> u32 {
+        self as u32
+    }
+
+    pub const fn id(self) -> &'static str {
+        match self {
+            Capability::Native => "Native",
+            Capability::HybridCLR => "HybridCLR",
+            Capability::ReferenceVoxel => "ReferenceVoxel",
+            Capability::VoxelSnapshot => "VoxelSnapshot",
+            Capability::VoxelStreaming => "VoxelStreaming",
+            Capability::VoxelSpatial => "VoxelSpatial",
+            Capability::VoxelMeshCollision => "VoxelMeshCollision",
+            Capability::VoxelAllResident => "VoxelAllResident",
+            Capability::VoxelVolatileChunks => "VoxelVolatileChunks",
+        }
+    }
+
+    pub const fn status(self) -> IdStatus {
+        match self {
+            Capability::Native => IdStatus::Active,
+            Capability::HybridCLR => IdStatus::Reserved,
+            Capability::ReferenceVoxel => IdStatus::Active,
+            Capability::VoxelSnapshot => IdStatus::Active,
+            Capability::VoxelStreaming => IdStatus::Active,
+            Capability::VoxelSpatial => IdStatus::Active,
+            Capability::VoxelMeshCollision => IdStatus::Active,
+            Capability::VoxelAllResident => IdStatus::Active,
+            Capability::VoxelVolatileChunks => IdStatus::Active,
+        }
+    }
+
+    pub const fn since(self) -> &'static str {
+        match self {
+            Capability::Native => "V1",
+            Capability::HybridCLR => "V1",
+            Capability::ReferenceVoxel => "V1",
+            Capability::VoxelSnapshot => "V1",
+            Capability::VoxelStreaming => "V1",
+            Capability::VoxelSpatial => "V1",
+            Capability::VoxelMeshCollision => "V1",
+            Capability::VoxelAllResident => "V1",
+            Capability::VoxelVolatileChunks => "V1",
+        }
+    }
+
+    pub const fn from_numeric(numeric: u32) -> Option<Capability> {
+        match numeric {
+            1 => Some(Capability::Native),
+            2 => Some(Capability::HybridCLR),
+            3 => Some(Capability::ReferenceVoxel),
+            4 => Some(Capability::VoxelSnapshot),
+            5 => Some(Capability::VoxelStreaming),
+            6 => Some(Capability::VoxelSpatial),
+            7 => Some(Capability::VoxelMeshCollision),
+            8 => Some(Capability::VoxelAllResident),
+            9 => Some(Capability::VoxelVolatileChunks),
+            _ => None,
+        }
+    }
+}

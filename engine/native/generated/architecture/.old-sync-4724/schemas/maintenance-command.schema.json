@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/maintenance-command.schema.json",
+  "type": "object",
+  "required": ["maintenanceId", "productId", "gameReleaseId", "releasePoolId", "mode", "issuedAt", "graceDeadlineSeconds", "reason", "operator", "action"],
+  "properties": {
+    "maintenanceId": { "$ref": "common.schema.json#/$defs/id" },
+    "productId": { "$ref": "common.schema.json#/$defs/productId" },
+    "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
+    "releasePoolId": { "$ref": "common.schema.json#/$defs/id" },
+    "mode": { "type": "string", "enum": ["Graceful", "Forced"] },
+    "issuedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "graceDeadlineSeconds": { "type": "integer", "minimum": 0, "maximum": 604800 },
+    "fencingToken": { "$ref": "common.schema.json#/$defs/id" },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "operator": { "$ref": "common.schema.json#/$defs/id" },
+    "action": { "type": "string", "enum": ["DrainAndKick", "StopInputAndKick"] },
+    "broadcastCode": { "type": "string", "const": "MaintenanceKick" },
+    "targetSessionIds": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/id" },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,21 @@
+[package]
+name = "lumio-core-root-abi"
+description = "Root API 运行时视图与绑定：AbiExpectation、SymbolResolver、RootApiTableView 与 bind_root_api（规格 §8.3）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 运行时 crate：进入运行时发布闭包（规格 §3.7），默认 feature 必须最小，
+# 禁止 KMS/Signer/测试密钥/网络 client/build-tool feature。
+[features]
+default = []
+
+[dependencies]
+# ADR 0004 第 3 条冻结的允许边：root-abi -> contracts。
+# 公共 ErrorCode 与已发布 ABI 标量的唯一来源，本 crate 不发明任何一项（规格 §6.2）。
+# 带 version 而非纯 path：deny.toml 的 `wildcards = "deny"` 把无版本的 path
+# 依赖判为通配符依赖。版本与 [workspace.package] 的 0.1.0 一致。
+lumio-core-contracts = { path = "../contracts", version = "0.1.0" }

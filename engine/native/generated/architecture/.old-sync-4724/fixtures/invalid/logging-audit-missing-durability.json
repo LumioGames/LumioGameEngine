@@ -1,0 +1,15 @@
+{
+  "eventId": "event-audit-invalid-durability",
+  "category": "Audit",
+  "severity": "Info",
+  "timestamp": "2026-08-27T03:25:00Z",
+  "correlation": {
+    "scope": "Process",
+    "productId": "A",
+    "gameReleaseId": "A-1.1.0",
+    "traceId": "trace-audit-no-durability",
+    "producerId": "server-process",
+    "eventSeq": 9
+  },
+  "message": "This audit event does not declare durability"
+}

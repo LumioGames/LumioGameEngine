@@ -1,0 +1,40 @@
+{
+  "catalogVersion": 1,
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "generatedAt": "2026-08-27T01:30:00Z",
+  "entries": [
+    {
+      "productId": "A",
+      "gameReleaseId": "A-1.1.0",
+      "releasePoolId": "pool-a-1.1",
+      "manifestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "state": "Draining",
+      "endpoint": "quic://a-1.1.example:443",
+      "compatibilityPolicy": "ExactRelease",
+      "healthy": true,
+      "activeSessions": 12
+    },
+    {
+      "productId": "A",
+      "gameReleaseId": "A-1.2.0",
+      "releasePoolId": "pool-a-1.2",
+      "manifestHash": "7777777777777777777777777777777777777777777777777777777777777777",
+      "state": "Warmup",
+      "endpoint": "quic://a-1.2.example:443",
+      "compatibilityPolicy": "ExactRelease",
+      "healthy": true,
+      "activeSessions": 0
+    },
+    {
+      "productId": "BOE",
+      "gameReleaseId": "BOE-2.1.0",
+      "releasePoolId": "pool-boe-2.1",
+      "manifestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "state": "Serving",
+      "endpoint": "quic://boe.example:443",
+      "compatibilityPolicy": "ExactRelease",
+      "healthy": true,
+      "activeSessions": 8
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/snapshot-header.schema.json",
+  "type": "object",
+  "allOf": [
+    { "$ref": "common.schema.json#/$defs/sessionReleaseTriple" }
+  ],
+  "required": ["magic", "schemaVersion", "snapshotId", "productId", "gameReleaseId", "sessionId", "tickId", "revisions", "payloadLength", "compression", "checksum", "hash", "createdAt", "activationState"],
+  "properties": {
+    "magic": { "type": "string", "const": "LUMIOSNP1" },
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "snapshotId": { "$ref": "common.schema.json#/$defs/id" },
+    "productId": { "$ref": "common.schema.json#/$defs/productId" },
+    "gameReleaseId": { "$ref": "common.schema.json#/$defs/releaseId" },
+    "sessionId": { "$ref": "common.schema.json#/$defs/id" },
+    "tickId": { "$ref": "common.schema.json#/$defs/tickId" },
+    "revisions": { "$ref": "common.schema.json#/$defs/sessionRevisionVector" },
+    "payloadLength": { "type": "integer", "minimum": 0 },
+    "compression": { "$ref": "common.schema.json#/$defs/compressionCodec" },
+    "checksum": { "$ref": "common.schema.json#/$defs/hash256" },
+    "hash": { "$ref": "common.schema.json#/$defs/hash256" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "encryption": { "type": "string", "enum": ["None", "AES-256-GCM"] },
+    "activationState": { "type": "string", "enum": ["Staged", "Active", "Invalid"] },
+    "payload": { "type": "string", "maxLength": 1048576 }
+  },
+  "additionalProperties": false
+}

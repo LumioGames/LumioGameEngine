@@ -1,0 +1,13 @@
+{
+  "maintenanceId": "maint-invalid-002",
+  "productId": "A",
+  "gameReleaseId": "A-1.1.0",
+  "releasePoolId": "pool-a-1.1",
+  "mode": "Forced",
+  "issuedAt": "2026-08-27T03:30:00Z",
+  "graceDeadlineSeconds": 600,
+  "reason": "Forced maintenance cannot carry a grace window",
+  "operator": "ops-01",
+  "action": "StopInputAndKick",
+  "broadcastCode": "MaintenanceKick"
+}

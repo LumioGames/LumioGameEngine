@@ -1,0 +1,13 @@
+[package]
+name = "lumio-core-trust-policy"
+description = "只读信任策略：消费架构源 trust metadata 产出 trust decision，不拥有 Rotation/Revocation 写路径（ADR 0002、规格 §11.3）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 运行时 crate：进入运行时发布闭包（规格 §3.7），默认 feature 必须最小，只读、离线。
+[features]
+default = []

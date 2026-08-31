@@ -1,0 +1,12 @@
+{
+  "resultVersion": 1,
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "command": "validate",
+  "passed": true,
+  "validated": 43,
+  "failures": 0,
+  "fixtureResults": [
+    { "id": "txn-committed", "expected": "valid", "passed": true, "errors": [] },
+    { "id": "txn-partial-commit", "expected": "invalid", "passed": true, "errors": ["commit order must be VoxelCommit then EcsCommandBufferCommit"] }
+  ]
+}

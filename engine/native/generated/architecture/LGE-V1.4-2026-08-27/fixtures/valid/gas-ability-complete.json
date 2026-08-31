@@ -1,0 +1,9 @@
+{
+  "machine": "Ability",
+  "instanceId": "ability-place-0001",
+  "fromState": "Executing",
+  "toState": "Completed",
+  "event": "Finish",
+  "handleValid": false,
+  "predicted": false
+}

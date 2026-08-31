@@ -1,0 +1,18 @@
+{
+  "eventId": "event-audit-invalid",
+  "category": "Audit",
+  "severity": "Info",
+  "timestamp": "2026-08-27T03:21:00Z",
+  "correlation": {
+    "scope": "World",
+    "productId": "A",
+    "gameReleaseId": "A-1.1.0",
+    "sessionId": "session-001",
+    "worldId": "world-001",
+    "tickId": 42,
+    "traceId": "trace-audit-invalid",
+    "producerId": "server-host"
+  },
+  "message": "This event has no producer sequence",
+  "durability": "Durable"
+}

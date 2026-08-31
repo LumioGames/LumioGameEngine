@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/replication-mapping.schema.json",
+  "type": "object",
+  "required": ["mappingId", "schemaVersion", "source", "target", "role", "owner", "visibility", "delivery", "lifecycle", "prediction"],
+  "properties": {
+    "mappingId": { "$ref": "common.schema.json#/$defs/id" },
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "source": {
+      "type": "object",
+      "required": ["component", "field"],
+      "properties": {
+        "entity": { "$ref": "common.schema.json#/$defs/id" },
+        "component": { "$ref": "common.schema.json#/$defs/id" },
+        "field": { "$ref": "common.schema.json#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": ["component", "field"],
+      "properties": {
+        "entity": { "$ref": "common.schema.json#/$defs/id" },
+        "component": { "$ref": "common.schema.json#/$defs/id" },
+        "field": { "$ref": "common.schema.json#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "role": { "type": "string", "enum": ["ServerToClient", "ClientToServer", "SharedProjection"] },
+    "owner": { "type": "string", "enum": ["OwnerOnly", "ServerAuthority", "AllClients", "LocalOnly"] },
+    "visibility": { "type": "string", "enum": ["AOI", "Owner", "Global", "None"] },
+    "delivery": {
+      "type": "object",
+      "required": ["reliability", "initial", "continuous"],
+      "properties": {
+        "reliability": { "type": "string", "enum": ["Reliable", "Unreliable", "ReliableOnChange"] },
+        "initial": { "type": "boolean" },
+        "continuous": { "type": "boolean" },
+        "quantization": { "type": "string", "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    "lifecycle": { "type": "string", "enum": ["Spawn", "Continuous", "AddRemove", "Tombstone"] },
+    "prediction": { "type": "string", "enum": ["Authoritative", "Predicted", "PresentationOnly"] },
+    "permission": { "type": "string", "maxLength": 256 }
+  },
+  "additionalProperties": false
+}

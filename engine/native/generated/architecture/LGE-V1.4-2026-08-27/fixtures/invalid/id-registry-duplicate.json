@@ -1,0 +1,14 @@
+{
+  "registryVersion": 1,
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "namespaces": [
+    {
+      "namespace": "MessageType",
+      "owner": "GameRuntime",
+      "values": [
+        { "id": "Delta", "numeric": 3, "status": "Active", "since": "V1" },
+        { "id": "OtherDelta", "numeric": 3, "status": "Reserved", "since": "V1" }
+      ]
+    }
+  ]
+}

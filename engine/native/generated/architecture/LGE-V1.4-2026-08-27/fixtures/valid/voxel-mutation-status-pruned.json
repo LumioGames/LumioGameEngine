@@ -1,0 +1,10 @@
+{
+  "kind": "StatusResponse",
+  "sessionId": "session-001",
+  "txnId": "txn-place-0001",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "statusResult": "ResultPruned",
+  "pruneHorizonTick": 100,
+  "txnDeadlineTick": 50
+}

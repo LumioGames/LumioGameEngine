@@ -1,0 +1,12 @@
+{
+  "kind": "DurabilityAck",
+  "worldId": "world-srv-arena-01",
+  "context": { "contextId": "wctx-srv-01", "generation": 4 },
+  "ackId": "dack-0001",
+  "durabilityPoint": { "snapshotId": "snap-srv-arena-24" },
+  "coveredWorldRevision": 24,
+  "coveredChunks": [
+    { "chunkId": "c:-1:0:0", "upToChunkRevision": 7 },
+    { "chunkId": "c:0:0:0", "upToChunkRevision": 9 }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "targetProfileId": "linux-server-x86_64-glibc",
+  "os": "LinuxServer",
+  "arch": "x86_64",
+  "abiRuntime": "glibc",
+  "minimumOs": "ubuntu-22.04",
+  "toolchain": { "compiler": "rustc", "version": "1.89.0" },
+  "packaging": {
+    "libraryFileName": "liblumio_core.so",
+    "debugSymbolFormat": "DWARF",
+    "archiveFormat": "TarZst"
+  }
+}

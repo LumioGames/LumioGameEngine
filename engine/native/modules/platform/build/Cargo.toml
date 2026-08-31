@@ -1,0 +1,17 @@
+[package]
+name = "lumio-core-platform-build"
+description = "唯一 build/link/layout/ArtifactIndex 执行入口：消费 FrozenBuildPlan，产出平台 staging/finalized 产物（ADR 0001、规格 §9.4）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 构建期 crate：不进入运行时发布闭包（规格 §3.7）。
+[features]
+default = []
+
+[[bin]]
+name = "lumio-core-platform-build"
+path = "src/bin/lumio-core-platform-build.rs"

@@ -1,0 +1,13 @@
+{
+  "artifactId": "protocol-permission-validator-v1",
+  "artifactKind": "ProtocolPermissionValidator",
+  "publisher": "LumioGameEngineArchitecture",
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "schemaEpoch": 1,
+  "compilerHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "inputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "outputHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "implementationDependencies": [],
+  "forbiddenDependents": ["LumioClient", "LumioGame"],
+  "consumers": ["LumioClient", "LumioGame", "LumioGameRuntime", "LumioServer"]
+}

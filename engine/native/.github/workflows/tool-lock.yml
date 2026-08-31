@@ -1,0 +1,169 @@
+name: Tool Lock
+
+# tools/tools.lock.toml 的 linux-x86_64 二进制完整性门禁（R-00265）。
+#
+# 为什么要有这个作业：verify-tool-lock.sh 在「本机不在任何 supported_hosts」时是空跑，
+# 空跑与已校验都是 exit 0。此前锁内只登记 windows-x86_64，CI（ubuntu）与本机（macOS）
+# 双双走空跑分支——工具链完整性从未被真正校验过，绿灯是假绿。本作业在 ubuntu-22.04
+# runner（对齐 TargetProfile minimumOs=ubuntu-22.04 / sdk=glibc-2.35）上把锁内 linux
+# 制品装齐后真跑校验，并以 LCE_REQUIRE_BINARY_VERIFICATION=1 让「空跑」直接判失败。
+#
+# digest 的可复核性：measure 步骤把取值环境（runner 镜像标识、工具版本、解析到的
+# 二进制路径、取值命令）与实测摘要一并打进日志。tools.lock.toml / checksums.sha256
+# 里的每条 linux-x86_64 登记都必须能由本作业的日志复现，否则登记值没有出处。
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # 锁内 rustc/cargo 登记的是**工具链真身**，不是 ~/.cargo/bin 下的 rustup shim：
+  # shim 的摘要是 rustup 版本的函数，把它登记成 rustc 等于锁错了对象。
+  RUST_TOOLCHAIN_VERSION: 1.89.0
+  RUST_TOOLCHAIN_TARGET: x86_64-unknown-linux-gnu
+  # 锁内四项校验器解压落点（PATH 前置，保证 command -v 命中受锁定的那一份）。
+  LCE_TOOLS_DIR: /opt/lce-tools
+  # gcc-11 的 apt 版本钉定：cc 的二进制摘要由该包版本唯一决定，不随 runner 镜像滚动。
+  GCC_11_APT_VERSION: 11.4.0-1ubuntu1~22.04.3
+  # 从 tools.lock.toml 读 linux-x86_64 条目，避免在工作流里另抄一份 URL/摘要。
+  PARSE_LOCK: |
+    import re, sys
+    text = open(sys.argv[1], encoding="utf-8").read()
+    for block in text.split("[[tools]]")[1:]:
+        fields = dict(re.findall(r'^(\w+) = "([^"]*)"', block, re.M))
+        hosts = re.search(r"supported_hosts = \[([^\]]*)\]", block)
+        if not hosts:
+            continue
+        # 按 host key 精确匹配，不用子串：`"linux-x86_64" in "linux-x86_64-p0-build"`
+        # 为真，子串写法会把钉定构建环境的工具链条目也当成 release 归档去下载。
+        # 那些条目由 rustup / apt 安装，不走这条路径。
+        keys = set(re.findall(r'"([^"]+)"', hosts.group(1)))
+        if "linux-x86_64" not in keys:
+            continue
+        print(fields["name"], fields["source_url"], fields["artifact_sha256"], sep="\t")
+  # 取某个工具链条目（linux-x86_64-p0-build）的 artifact_sha256。
+  PARSE_ARTIFACT: |
+    import re, sys
+    text = open(sys.argv[1], encoding="utf-8").read()
+    for block in text.split("[[tools]]")[1:]:
+        fields = dict(re.findall(r'^(\w+) = "([^"]*)"', block, re.M))
+        if fields.get("name") == sys.argv[2] and "linux-x86_64-p0-build" in block:
+            print(fields["artifact_sha256"])
+            break
+
+jobs:
+  linux-tool-lock:
+    name: tools.lock 二进制完整性（linux-x86_64）
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: gcc-11 候选版本（钉定值失配时看这里改 GCC_11_APT_VERSION）
+        run: |
+          sudo apt-get update
+          apt-cache policy gcc-11 libgcc-11-dev gcc-11-base
+
+      - name: 钉定 gcc-11（cc 的摘要由 apt 包版本决定）
+        run: |
+          set -euxo pipefail
+          sudo apt-get install -y --allow-downgrades \
+            "gcc-11-base=${GCC_11_APT_VERSION}" \
+            "libgcc-11-dev=${GCC_11_APT_VERSION}" \
+            "gcc-11=${GCC_11_APT_VERSION}"
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100
+          sudo update-alternatives --set gcc /usr/bin/gcc-11
+
+      - name: 安装钉定 Rust 工具链并前置其 bin 目录
+        run: |
+          set -euxo pipefail
+          rustup toolchain install "$RUST_TOOLCHAIN_VERSION" \
+            --profile minimal --component rustfmt --component clippy
+          echo "$HOME/.rustup/toolchains/${RUST_TOOLCHAIN_VERSION}-${RUST_TOOLCHAIN_TARGET}/bin" \
+            >> "$GITHUB_PATH"
+
+      - name: 按 tools.lock.toml 的 source_url/artifact_sha256 装齐锁内校验器
+        run: |
+          set -euxo pipefail
+          sudo mkdir -p "$LCE_TOOLS_DIR"
+          echo "$LCE_TOOLS_DIR" >> "$GITHUB_PATH"
+          work=$(mktemp -d)
+          printf '%s' "$PARSE_LOCK" > "$work/parse_lock.py"
+          python3 "$work/parse_lock.py" tools/tools.lock.toml > "$work/linux-entries.txt"
+          cat "$work/linux-entries.txt"
+          while IFS="$(printf '\t')" read -r name url sha; do
+            [ -n "$name" ] || continue
+            archive="$work/$(basename "$url")"
+            curl -fsSL --retry 3 -o "$archive" "$url"
+            actual=$(sha256sum "$archive" | awk '{ print $1 }')
+            echo "archive $name: locked=$sha actual=$actual"
+            # archive 漂移不允许被「装上了就算」掩盖：先对账再解压。
+            [ "$actual" = "$sha" ] || { echo "archive SHA-256 与 tools.lock.toml 不一致：$name" >&2; exit 1; }
+            case "$archive" in
+              *.tar.gz) tar -xzf "$archive" -C "$work" ;;
+              *.zip) unzip -q -o "$archive" -d "$work" ;;
+              *) echo "未支持的归档格式：$archive" >&2; exit 1 ;;
+            esac
+            found=$(find "$work" -type f -name "$name" -perm -u+x | head -1)
+            [ -n "$found" ] || { echo "归档内未找到可执行文件 $name" >&2; exit 1; }
+            sudo install -m 0755 "$found" "$LCE_TOOLS_DIR/$name"
+          done < "$work/linux-entries.txt"
+
+      - name: measure — 取值环境与实测摘要（登记值的唯一出处）
+        run: |
+          set -euo pipefail
+          echo "::group::取值环境"
+          echo "runner ImageOS=${ImageOS:-unknown} ImageVersion=${ImageVersion:-unknown}"
+          echo "kernel: $(uname -srm)"
+          echo "libc:   $(ldd --version | head -1)"
+          echo "gcc-11 apt version: $(dpkg-query -W -f='${Version}' gcc-11)"
+          echo "rustc:  $(rustc -vV | tr '\n' ' ')"
+          echo "cargo:  $(cargo -V)"
+          echo "::endgroup::"
+          echo "::group::实测 executable SHA-256（取值命令：sha256sum \$(command -v <name>)）"
+          for name in rustc cargo cc cargo-deny cargo-about cargo-nextest just; do
+            path=$(command -v "$name" || true)
+            if [ -z "$path" ]; then
+              echo "MISSING $name"
+              continue
+            fi
+            printf '%s  %s@linux-x86_64  (resolved: %s -> %s)\n' \
+              "$(sha256sum "$path" | awk '{ print $1 }')" "$name" "$path" "$(readlink -f "$path")"
+          done
+          echo "::endgroup::"
+
+      - name: 工具链三项的 artifact_sha256 对账（记录不等于校验）
+        run: |
+          set -euo pipefail
+          work=$(mktemp -d)
+          # 四项校验器的 archive 在安装步骤已逐个对账；rustc/cargo/cc 走 rustup/apt 安装，
+          # 不经那条路径，其 artifact_sha256 若只打印不断言就只是「记录」而非「校验」。
+          printf '%s' "$PARSE_ARTIFACT" > "$work/parse_artifact.py"
+          check() {
+            name=$1 actual=$2
+            locked=$(python3 "$work/parse_artifact.py" tools/tools.lock.toml "$name")
+            echo "artifact $name: locked=$locked actual=$actual"
+            [ -n "$locked" ] || { echo "tools.lock.toml 缺少 $name 的 p0-build 条目" >&2; exit 1; }
+            [ "$locked" = "$actual" ] || { echo "artifact SHA-256 与 tools.lock.toml 不一致：$name" >&2; exit 1; }
+          }
+          for comp in rustc cargo; do
+            url="https://static.rust-lang.org/dist/${comp}-${RUST_TOOLCHAIN_VERSION}-${RUST_TOOLCHAIN_TARGET}.tar.xz"
+            echo "source: ${url}.sha256"
+            check "$comp" "$(curl -fsSL --retry 3 "${url}.sha256" | awk '{ print $1 }')"
+          done
+          (cd "$work" && apt-get download "gcc-11=${GCC_11_APT_VERSION}")
+          deb=$(find "$work" -name 'gcc-11_*.deb' | head -1)
+          echo "source: $(basename "$deb")"
+          check cc "$(sha256sum "$deb" | awk '{ print $1 }')"
+
+      - name: 二进制完整性校验（空跑与缩水都判失败）
+        env:
+          LCE_REQUIRE_BINARY_VERIFICATION: '1'
+          # 校验器四项 + 工具链三项。改这个数之前先想清楚是不是有条目被悄悄改窄了。
+          LCE_EXPECT_VERIFIED_HASHES: '7'
+          LCE_BUILD_ENVIRONMENT: p0-build
+        run: bash tools/verify-tool-lock.sh

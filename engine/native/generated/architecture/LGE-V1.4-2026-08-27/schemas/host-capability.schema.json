@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/host-capability.schema.json",
+  "type": "object",
+  "required": ["preset", "roomMode", "roles", "capabilities", "platformProfile", "faultProfile"],
+  "properties": {
+    "preset": { "$ref": "common.schema.json#/$defs/id" },
+    "roomMode": { "type": "string", "enum": ["Online", "Singleplayer", "Replay", "Test"] },
+    "roles": { "type": "array", "items": { "type": "string", "enum": ["Server", "Client", "Replay"] }, "minItems": 1, "uniqueItems": true },
+    "capabilities": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" }, "uniqueItems": true },
+    "platformProfile": { "$ref": "common.schema.json#/$defs/id" },
+    "faultProfile": { "$ref": "common.schema.json#/$defs/id" },
+    "requiredCapabilities": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" }, "uniqueItems": true }
+  },
+  "additionalProperties": false
+}

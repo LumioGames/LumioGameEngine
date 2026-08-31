@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/voxel-query.schema.json",
+  "type": "object",
+  "required": [
+    "queryId",
+    "worldId",
+    "context",
+    "consistency",
+    "boundWorldRevision",
+    "limits",
+    "status",
+    "chunkStatuses"
+  ],
+  "$defs": {
+    "voxelQueryConsistency": {
+      "type": "string",
+      "enum": ["ExplicitRevision", "LatestAtBegin"]
+    },
+    "voxelChunkPresence": {
+      "type": "string",
+      "enum": ["Ready", "NotLoaded", "Pending", "Unavailable"]
+    },
+    "voxelQueryStatus": {
+      "type": "string",
+      "enum": [
+        "Created",
+        "Validating",
+        "Running",
+        "Pending",
+        "Completed",
+        "Cancelled",
+        "TimedOut",
+        "Rejected",
+        "Failed"
+      ]
+    },
+    "voxelCoordRange": {
+      "type": "object",
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "$ref": "common.schema.json#/$defs/voxelBlockCoord" },
+        "max": { "$ref": "common.schema.json#/$defs/voxelBlockCoord" }
+      },
+      "additionalProperties": false
+    },
+    "voxelBlockRead": {
+      "type": "object",
+      "required": ["coord", "value"],
+      "properties": {
+        "coord": { "$ref": "common.schema.json#/$defs/voxelBlockCoord" },
+        "value": { "$ref": "common.schema.json#/$defs/voxelBlockValue" }
+      },
+      "additionalProperties": false
+    },
+    "voxelQueryContinuation": {
+      "type": "object",
+      "required": ["token", "boundWorldRevision"],
+      "properties": {
+        "token": { "$ref": "common.schema.json#/$defs/id" },
+        "boundWorldRevision": { "$ref": "common.schema.json#/$defs/revision" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "queryId": { "$ref": "common.schema.json#/$defs/id" },
+    "worldId": { "$ref": "common.schema.json#/$defs/id" },
+    "context": { "$ref": "common.schema.json#/$defs/voxelContext" },
+    "consistency": { "$ref": "#/$defs/voxelQueryConsistency" },
+    "requestedWorldRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "boundWorldRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "points": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/voxelBlockCoord" },
+      "minItems": 1
+    },
+    "ranges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/voxelCoordRange" },
+      "minItems": 1
+    },
+    "limits": {
+      "type": "object",
+      "required": ["maxResults", "maxBatchBytes", "deadlineTick"],
+      "properties": {
+        "maxResults": { "type": "integer", "minimum": 1 },
+        "maxBatchBytes": { "type": "integer", "minimum": 1 },
+        "deadlineTick": { "$ref": "common.schema.json#/$defs/tickId" }
+      },
+      "additionalProperties": false
+    },
+    "status": { "$ref": "#/$defs/voxelQueryStatus" },
+    "chunkStatuses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["chunkId", "presence"],
+        "properties": {
+          "chunkId": { "$ref": "common.schema.json#/$defs/voxelChunkId" },
+          "presence": { "$ref": "#/$defs/voxelChunkPresence" },
+          "chunkRevision": { "$ref": "common.schema.json#/$defs/revision" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "batches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["batchIndex", "reads"],
+        "properties": {
+          "batchIndex": { "type": "integer", "minimum": 0 },
+          "reads": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/voxelBlockRead" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "continuation": { "$ref": "#/$defs/voxelQueryContinuation" },
+    "terminalError": { "$ref": "common.schema.json#/$defs/id" }
+  },
+  "anyOf": [
+    { "required": ["points"] },
+    { "required": ["ranges"] }
+  ],
+  "additionalProperties": false
+}

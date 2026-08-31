@@ -1,0 +1,30 @@
+{
+  "sessionId": "session-001",
+  "txnId": "txn-place-0002",
+  "tickId": 43,
+  "commandId": "cmd-0002",
+  "predictionKey": "prediction-0002",
+  "state": "Aborted",
+  "commandBufferState": "Prepared",
+  "expectedGameRevision": 18,
+  "expectedVoxelRevision": 24,
+  "chunkRevisionSet": {
+    "c:0:0:0": 9
+  },
+  "deadlineTick": 52,
+  "commitOrder": [
+    "VoxelCommit",
+    "EcsCommandBufferCommit"
+  ],
+  "participantMarkers": {
+    "voxelCommit": "NotStarted",
+    "ecsCommandBufferCommit": "NotStarted"
+  },
+  "preparedGameDelta": null,
+  "preparedVoxelToken": null,
+  "commitIntentPersisted": false,
+  "observedGameRevision": 19,
+  "observedVoxelRevision": 24,
+  "abortReason": "RevisionConflict",
+  "resultRevisionVector": null
+}

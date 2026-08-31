@@ -1,0 +1,32 @@
+{
+  "migrationId": "missing-tool-version-invalid",
+  "sourceReleaseId": "A-1.0.0",
+  "targetReleaseId": "A-1.1.0",
+  "sourceSchemaEpoch": 1,
+  "targetSchemaEpoch": 2,
+  "staging": "ImmutableSourceCopy",
+  "activation": "AtomicPointer",
+  "nodes": [
+    {
+      "nodeId": "voxel-world-v2",
+      "owner": "VoxelEngine",
+      "dependsOn": [],
+      "inputSchema": "VoxelSnapshotV1",
+      "outputSchema": "VoxelSnapshotV2",
+      "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "outputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "idempotent": true
+    }
+  ],
+  "scopeActivation": {
+    "sessionId": "session-001",
+    "oldGeneration": 3,
+    "newGeneration": 4,
+    "stage": "OldUnloaded",
+    "oldScope": "OldUnloaded",
+    "newScope": "NewActive",
+    "switchCommitted": true,
+    "recovery": "KeepOldActive",
+    "reactivatedOldScope": false
+  }
+}

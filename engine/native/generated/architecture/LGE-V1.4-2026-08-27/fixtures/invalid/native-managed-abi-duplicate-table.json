@@ -1,0 +1,166 @@
+{
+  "abiVersion": 1,
+  "structSize": 64,
+  "capabilityBits": 7,
+  "pointerWidth": 64,
+  "endianness": "Little",
+  "entrySymbol": "lumio_core_get_api_v1",
+  "symbolPrefix": "lumio_",
+  "callingConvention": "C",
+  "apiTable": [
+    {
+      "name": "lumio_core_api",
+      "version": 1,
+      "structSize": 48,
+      "reservedSlots": 1,
+      "functionCount": 3,
+      "slots": [
+        {
+          "slotIndex": 0,
+          "name": "lumio_core_init",
+          "params": [
+            {
+              "name": "config",
+              "type": "struct:core_config:v1"
+            },
+            {
+              "name": "out_context",
+              "type": "handle:core_context"
+            }
+          ],
+          "returns": "status",
+          "since": 1
+        },
+        {
+          "slotIndex": 1,
+          "name": "lumio_core_shutdown",
+          "params": [
+            {
+              "name": "context",
+              "type": "handle:core_context"
+            }
+          ],
+          "returns": "status",
+          "since": 1
+        },
+        {
+          "slotIndex": 2,
+          "name": "lumio_core_last_error_detail",
+          "params": [
+            {
+              "name": "context",
+              "type": "handle:core_context"
+            },
+            {
+              "name": "out_detail",
+              "type": "buffer:out"
+            }
+          ],
+          "returns": "status",
+          "since": 1
+        }
+      ]
+    },
+    {
+      "name": "lumio_voxel_api",
+      "version": 1,
+      "structSize": 32,
+      "reservedSlots": 0,
+      "functionCount": 2,
+      "slots": [
+        {
+          "slotIndex": 0,
+          "name": "lumio_voxel_world_create",
+          "params": [
+            {
+              "name": "context",
+              "type": "handle:core_context"
+            },
+            {
+              "name": "desc",
+              "type": "struct:voxel_world_desc:v1"
+            },
+            {
+              "name": "out_world",
+              "type": "handle:voxel_world"
+            }
+          ],
+          "returns": "status",
+          "since": 1
+        },
+        {
+          "slotIndex": 1,
+          "name": "lumio_voxel_world_destroy",
+          "params": [
+            {
+              "name": "world",
+              "type": "handle:voxel_world"
+            }
+          ],
+          "returns": "status",
+          "since": 1
+        }
+      ]
+    },
+    {
+      "name": "lumio_core_api",
+      "version": 1,
+      "structSize": 32,
+      "reservedSlots": 0,
+      "functionCount": 2,
+      "slots": [
+        {
+          "slotIndex": 0,
+          "name": "lumio_voxel_world_create",
+          "params": [
+            {
+              "name": "context",
+              "type": "handle:core_context"
+            },
+            {
+              "name": "desc",
+              "type": "struct:voxel_world_desc:v1"
+            },
+            {
+              "name": "out_world",
+              "type": "handle:voxel_world"
+            }
+          ],
+          "returns": "status",
+          "since": 1
+        },
+        {
+          "slotIndex": 1,
+          "name": "lumio_voxel_world_destroy",
+          "params": [
+            {
+              "name": "world",
+              "type": "handle:voxel_world"
+            }
+          ],
+          "returns": "status",
+          "since": 1
+        }
+      ]
+    }
+  ],
+  "ownership": "CallerBuffer",
+  "handleModel": {
+    "encoding": "IndexGenerationContext",
+    "invalidation": "GenerationBump",
+    "doubleDestroy": "StableError"
+  },
+  "bufferModel": {
+    "layout": "PtrLenCapacity",
+    "tooSmall": "RequiredSizeReturned"
+  },
+  "errorModel": "StableErrorCode",
+  "errorDetail": {
+    "retrieval": "PerCallOutParam",
+    "lifetime": "CallerOwned"
+  },
+  "panicBoundary": "CaughtAndMapped",
+  "exceptionBoundary": "CaughtAndMapped",
+  "threading": "OwnerThreadTick",
+  "loadPolicy": "OnePackagePerProcess"
+}

@@ -1,0 +1,260 @@
+{
+  "profileId": "canonical-digest-v1",
+  "baselineId": "LGE-V1.4-2026-08-27",
+  "schemaEpoch": 1,
+  "canonicalForm": {
+    "formId": "CanonicalJsonV1",
+    "encoding": "AsciiEscaped",
+    "memberOrder": "CodePointAscending",
+    "arrayOrder": "DocumentOrder",
+    "separators": {
+      "item": ",",
+      "keyValue": ":"
+    },
+    "numbers": "IntegerOnly",
+    "unknownMembers": "Reject",
+    "duplicateMembers": "Reject"
+  },
+  "digestAlgorithm": {
+    "name": "SHA-256",
+    "framing": "PrefixFreeOverCanonicalBytes"
+  },
+  "digestDomains": [
+    {
+      "digest": "manifestDigest",
+      "domainTag": "CoreEngineManifestBody",
+      "input": "the CoreEngineManifestBody document itself (ADR-018; the one input with no digestDomain member)",
+      "sortRule": "member order only; the body has no array whose order is semantic",
+      "normalization": []
+    },
+    {
+      "digest": "artifactSetDigest",
+      "domainTag": "ArtifactSetV1",
+      "input": "the ArtifactIndex with artifactSetDigest omitted, wrapped as {digestDomain,indexVersion,targetProfileId,entries}",
+      "sortRule": "entries sorted ascending by path (code point); paths are unique within an index",
+      "omitMembers": [
+        "artifactSetDigest"
+      ],
+      "normalization": [
+        {
+          "path": "entries",
+          "op": "sortAscending",
+          "by": "path",
+          "collation": "codePoint"
+        }
+      ]
+    },
+    {
+      "digest": "artifactIndexDigest",
+      "domainTag": "ArtifactIndexV1",
+      "input": "the complete ArtifactIndex document including artifactSetDigest, wrapped as {digestDomain,index}",
+      "sortRule": "index.entries sorted ascending by path (code point)",
+      "normalization": [
+        {
+          "path": "index.entries",
+          "op": "sortAscending",
+          "by": "path",
+          "collation": "codePoint"
+        }
+      ]
+    },
+    {
+      "digest": "targetProfileDigest",
+      "domainTag": "TargetProfileV1",
+      "input": "the complete TargetProfile document, wrapped as {digestDomain,profile}",
+      "sortRule": "member order only; the profile has no array",
+      "normalization": []
+    }
+  ],
+  "goldens": [
+    {
+      "id": "artifact-set-empty",
+      "case": "EmptyArtifactSet",
+      "input": {
+        "digestDomain": "ArtifactSetV1",
+        "indexVersion": 1,
+        "targetProfileId": "linux-server-x86_64-glibc",
+        "entries": []
+      },
+      "canonicalBytes": "{\"digestDomain\":\"ArtifactSetV1\",\"entries\":[],\"indexVersion\":1,\"targetProfileId\":\"linux-server-x86_64-glibc\"}",
+      "sha256": "7a92ee35f0ae0644282f438a675d7624800a8aeac5125c85d7796d844831ce69"
+    },
+    {
+      "id": "artifact-set-single",
+      "case": "SingleArtifact",
+      "input": {
+        "digestDomain": "ArtifactSetV1",
+        "indexVersion": 1,
+        "targetProfileId": "linux-server-x86_64-glibc",
+        "entries": [
+          {
+            "path": "evidence/license.spdx.json",
+            "kind": "License",
+            "size": 20480,
+            "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        ]
+      },
+      "canonicalBytes": "{\"digestDomain\":\"ArtifactSetV1\",\"entries\":[{\"kind\":\"License\",\"path\":\"evidence/license.spdx.json\",\"sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"size\":20480}],\"indexVersion\":1,\"targetProfileId\":\"linux-server-x86_64-glibc\"}",
+      "sha256": "b5102a58a8338bff3200949d01c341abaa66527628ea91cdaa7a928987e9a7e9"
+    },
+    {
+      "id": "artifact-set-multi",
+      "case": "MultiArtifact",
+      "input": {
+        "digestDomain": "ArtifactSetV1",
+        "indexVersion": 1,
+        "targetProfileId": "linux-server-x86_64-glibc",
+        "entries": [
+          {
+            "path": "evidence/license.spdx.json",
+            "kind": "License",
+            "size": 20480,
+            "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "path": "evidence/provenance.json",
+            "kind": "Provenance",
+            "size": 4096,
+            "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          {
+            "path": "evidence/sbom.cdx.json",
+            "kind": "Sbom",
+            "size": 65536,
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          {
+            "path": "include/lumio_core.h",
+            "kind": "Header",
+            "size": 32768,
+            "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          {
+            "path": "lib/liblumio_core.so",
+            "kind": "NativeLibrary",
+            "size": 10485760,
+            "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          {
+            "path": "lib/liblumio_core.so.dwp",
+            "kind": "DebugSymbols",
+            "size": 5242880,
+            "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        ]
+      },
+      "canonicalBytes": "{\"digestDomain\":\"ArtifactSetV1\",\"entries\":[{\"kind\":\"License\",\"path\":\"evidence/license.spdx.json\",\"sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"size\":20480},{\"kind\":\"Provenance\",\"path\":\"evidence/provenance.json\",\"sha256\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"size\":4096},{\"kind\":\"Sbom\",\"path\":\"evidence/sbom.cdx.json\",\"sha256\":\"3333333333333333333333333333333333333333333333333333333333333333\",\"size\":65536},{\"kind\":\"Header\",\"path\":\"include/lumio_core.h\",\"sha256\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"size\":32768},{\"kind\":\"NativeLibrary\",\"path\":\"lib/liblumio_core.so\",\"sha256\":\"5555555555555555555555555555555555555555555555555555555555555555\",\"size\":10485760},{\"kind\":\"DebugSymbols\",\"path\":\"lib/liblumio_core.so.dwp\",\"sha256\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"size\":5242880}],\"indexVersion\":1,\"targetProfileId\":\"linux-server-x86_64-glibc\"}",
+      "sha256": "7d851d441b751469da4c5e935736fe7684b18db9387d195a3dcbd48684d9a365"
+    },
+    {
+      "id": "artifact-set-path-permutation",
+      "case": "PathOrderPermutation",
+      "input": {
+        "digestDomain": "ArtifactSetV1",
+        "indexVersion": 1,
+        "targetProfileId": "linux-server-x86_64-glibc",
+        "entries": [
+          {
+            "path": "lib/liblumio_core.so.dwp",
+            "kind": "DebugSymbols",
+            "size": 5242880,
+            "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+          },
+          {
+            "path": "lib/liblumio_core.so",
+            "kind": "NativeLibrary",
+            "size": 10485760,
+            "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          {
+            "path": "include/lumio_core.h",
+            "kind": "Header",
+            "size": 32768,
+            "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          {
+            "path": "evidence/sbom.cdx.json",
+            "kind": "Sbom",
+            "size": 65536,
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          {
+            "path": "evidence/provenance.json",
+            "kind": "Provenance",
+            "size": 4096,
+            "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          {
+            "path": "evidence/license.spdx.json",
+            "kind": "License",
+            "size": 20480,
+            "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        ]
+      },
+      "canonicalBytes": "{\"digestDomain\":\"ArtifactSetV1\",\"entries\":[{\"kind\":\"License\",\"path\":\"evidence/license.spdx.json\",\"sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"size\":20480},{\"kind\":\"Provenance\",\"path\":\"evidence/provenance.json\",\"sha256\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"size\":4096},{\"kind\":\"Sbom\",\"path\":\"evidence/sbom.cdx.json\",\"sha256\":\"3333333333333333333333333333333333333333333333333333333333333333\",\"size\":65536},{\"kind\":\"Header\",\"path\":\"include/lumio_core.h\",\"sha256\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"size\":32768},{\"kind\":\"NativeLibrary\",\"path\":\"lib/liblumio_core.so\",\"sha256\":\"5555555555555555555555555555555555555555555555555555555555555555\",\"size\":10485760},{\"kind\":\"DebugSymbols\",\"path\":\"lib/liblumio_core.so.dwp\",\"sha256\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"size\":5242880}],\"indexVersion\":1,\"targetProfileId\":\"linux-server-x86_64-glibc\"}",
+      "sha256": "7d851d441b751469da4c5e935736fe7684b18db9387d195a3dcbd48684d9a365"
+    },
+    {
+      "id": "capability-set-permutation",
+      "case": "CapabilityOrderPermutation",
+      "input": {
+        "digestDomain": "CapabilitySetV1",
+        "capabilities": [
+          "VoxelStreaming",
+          "Native",
+          "ReferenceVoxel",
+          "VoxelSnapshot"
+        ]
+      },
+      "canonicalBytes": "{\"capabilities\":[\"Native\",\"ReferenceVoxel\",\"VoxelSnapshot\",\"VoxelStreaming\"],\"digestDomain\":\"CapabilitySetV1\"}",
+      "sha256": "6c0859b0a2c6624a7725bcbdb2d71b1e2a65bbf413cac6874875dc69fc54d19a"
+    },
+    {
+      "id": "escape-boundary",
+      "case": "EscapeBoundary",
+      "input": {
+        "sample": "\"\\/\b\f\n\r\t\u001f\u00e9\u4e16\ud834\udd1e",
+        "empty": ""
+      },
+      "canonicalBytes": "{\"empty\":\"\",\"sample\":\"\\\"\\\\/\\b\\f\\n\\r\\t\\u001f\\u00e9\\u4e16\\ud834\\udd1e\"}",
+      "sha256": "b7fb9362f56ca50b68969d61dd73ee73f31a23a64d4f15a898045c1f6c4cb5eb"
+    },
+    {
+      "id": "integer-boundary",
+      "case": "IntegerBoundary",
+      "input": {
+        "sample": [
+          0,
+          1,
+          -1,
+          9007199254740993,
+          18446744073709551615,
+          -9007199254740993
+        ]
+      },
+      "canonicalBytes": "{\"sample\":[0,1,-1,9007199254740993,18446744073709551615,-9007199254740993]}",
+      "sha256": "a6135f19ccbcd596fb0bd7bc81fcd9770f49609c483812fc776bf71c28c2de73"
+    },
+    {
+      "id": "artifact-set-schema-version",
+      "case": "SchemaVersionChange",
+      "input": {
+        "digestDomain": "ArtifactSetV1",
+        "indexVersion": 2,
+        "targetProfileId": "linux-server-x86_64-glibc",
+        "entries": [
+          {
+            "path": "evidence/license.spdx.json",
+            "kind": "License",
+            "size": 20480,
+            "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        ]
+      },
+      "canonicalBytes": "{\"digestDomain\":\"ArtifactSetV1\",\"entries\":[{\"kind\":\"License\",\"path\":\"evidence/license.spdx.json\",\"sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"size\":20480}],\"indexVersion\":2,\"targetProfileId\":\"linux-server-x86_64-glibc\"}",
+      "sha256": "e0fd1f58d4435bec2365841d68280a6bf03aa158e99de07c3e970f7bc836968e"
+    }
+  ]
+}

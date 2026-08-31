@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/contract-result.schema.json",
+  "type": "object",
+  "required": ["resultVersion", "baselineId", "command", "passed", "validated", "failures"],
+  "properties": {
+    "resultVersion": { "type": "integer", "const": 1 },
+    "baselineId": { "type": "string", "const": "LGE-V1.4-2026-08-27" },
+    "command": { "type": "string", "enum": ["validate", "canonical", "hash"] },
+    "passed": { "type": "boolean" },
+    "validated": { "type": "integer", "minimum": 0 },
+    "failures": { "type": "integer", "minimum": 0 },
+    "fixtureResults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "expected", "passed", "errors"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$" },
+          "expected": { "type": "string", "enum": ["valid", "invalid"] },
+          "passed": { "type": "boolean" },
+          "errors": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

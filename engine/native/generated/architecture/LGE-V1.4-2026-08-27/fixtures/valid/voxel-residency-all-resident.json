@@ -1,0 +1,7 @@
+{
+  "kind": "ResidencyPolicy",
+  "worldId": "world-local-embedded-01",
+  "context": { "contextId": "wctx-local-01", "generation": 1 },
+  "mode": "AllResident",
+  "residencyCapability": "VoxelAllResident"
+}

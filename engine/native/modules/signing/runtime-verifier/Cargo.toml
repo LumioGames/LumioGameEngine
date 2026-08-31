@@ -1,0 +1,14 @@
+[package]
+name = "lumio-core-runtime-verifier"
+description = "运行时包验证：对实际打开的 Artifact 完成 Manifest/ArtifactIndex/Signature/Evidence 校验，产出 VerifiedPackageDescriptor（ADR 0002、规格 §11.4）。"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 运行时 crate：signing 四域中唯一进入运行时发布闭包的 package（ADR 0002、规格 §3.7），
+# 默认 feature 必须最小；Signer/私钥/测试密钥代码不得出现。
+[features]
+default = []

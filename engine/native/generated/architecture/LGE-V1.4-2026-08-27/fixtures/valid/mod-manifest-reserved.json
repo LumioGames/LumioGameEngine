@@ -1,0 +1,12 @@
+{
+  "modId": "example-data-mod",
+  "version": "1.0.0",
+  "kind": "Data",
+  "signature": "mod-signature-placeholder-00000000000000000000000000000000",
+  "capabilities": ["ReadConfig"],
+  "permissions": ["ReadContent"],
+  "quotas": { "memoryBytes": 1048576, "cpuMicrosPerTick": 1000, "entities": 100 },
+  "saveSchema": "ModSaveSchemaV1",
+  "lifecycle": "Reserved",
+  "nativeLibraries": []
+}

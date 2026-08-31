@@ -1,0 +1,22 @@
+{
+  "failureId": "failure-invalid-001",
+  "reasonCode": "SNAPSHOT_CORRUPTION",
+  "createdAt": "2026-08-27T03:22:00Z",
+  "correlation": {
+    "scope": "World",
+    "productId": "A",
+    "gameReleaseId": "A-1.1.0",
+    "sessionId": "session-001",
+    "worldId": "world-001",
+    "tickId": 42,
+    "traceId": "trace-failure-invalid",
+    "producerId": "recovery-agent",
+    "eventSeq": 2
+  },
+  "manifestHash": "not-a-sha256",
+  "snapshotId": "snapshot-invalid-001",
+  "artifacts": [
+    { "name": "snapshot", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "size": 20 }
+  ],
+  "reproducible": false
+}

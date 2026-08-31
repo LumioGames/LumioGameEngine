@@ -1,0 +1,41 @@
+{
+  "machineId": "WorldSlotHost",
+  "owner": "Server",
+  "sourceAdr": "ADR-001",
+  "initialState": "Allocated",
+  "states": [
+    "Allocated",
+    "Bootstrapping",
+    "NativeReady",
+    "ManagedReady",
+    "LoadingSession",
+    "Running",
+    "Quiescing",
+    "Snapshotting",
+    "Reloading",
+    "Migrating",
+    "Stopping",
+    "Destroyed",
+    "Faulted"
+  ],
+  "terminalStates": ["Destroyed", "Faulted"],
+  "anyActiveTo": ["Faulted"],
+  "transitions": [
+    { "from": "Allocated", "to": "Bootstrapping", "event": "BeginBootstrap" },
+    { "from": "Bootstrapping", "to": "NativeReady", "event": "NativeLoaded" },
+    { "from": "NativeReady", "to": "ManagedReady", "event": "ManagedLoaded" },
+    { "from": "ManagedReady", "to": "LoadingSession", "event": "LoadSession" },
+    { "from": "LoadingSession", "to": "Running", "event": "SessionLoaded" },
+    { "from": "Running", "to": "Quiescing", "event": "Quiesce" },
+    { "from": "Quiescing", "to": "Running", "event": "Resume" },
+    { "from": "Quiescing", "to": "Snapshotting", "event": "BeginSnapshot" },
+    { "from": "Quiescing", "to": "Reloading", "event": "BeginReload" },
+    { "from": "Quiescing", "to": "Migrating", "event": "BeginMigrate" },
+    { "from": "Snapshotting", "to": "Quiescing", "event": "SnapshotComplete" },
+    { "from": "Reloading", "to": "Quiescing", "event": "ReloadComplete" },
+    { "from": "Migrating", "to": "Stopping", "event": "MigrationHandedOff" },
+    { "from": "Quiescing", "to": "Stopping", "event": "Stop" },
+    { "from": "Stopping", "to": "Destroyed", "event": "TeardownComplete" }
+  ],
+  "notes": "One world slot hosts one simulation session at a time. Faulted is fail-stop per ADR-027: the slot never resumes; recovery is a new slot restoring from durable records."
+}

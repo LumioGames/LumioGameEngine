@@ -1,0 +1,15 @@
+{
+  "machineId": "EcsCommandBuffer",
+  "owner": "GameRuntime",
+  "sourceAdr": "ADR-026",
+  "initialState": "Open",
+  "states": ["Open", "Sealed", "Merged", "Prepared", "Applied"],
+  "terminalStates": ["Applied"],
+  "transitions": [
+    { "from": "Open", "to": "Sealed", "event": "Seal" },
+    { "from": "Sealed", "to": "Merged", "event": "Merge" },
+    { "from": "Merged", "to": "Prepared", "event": "Prepare" },
+    { "from": "Prepared", "to": "Applied", "event": "Apply" }
+  ],
+  "notes": "Per-tick command buffer. Structural commands only apply at the tick barrier; the state names must stay equal to cross-world-txn.commandBufferState."
+}

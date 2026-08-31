@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/voxel-mutation-receipt.schema.json",
+  "type": "object",
+  "required": ["kind", "sessionId", "txnId", "worldId", "context"],
+  "$defs": {
+    "voxelParticipantState": {
+      "type": "string",
+      "enum": ["Prepared", "Applied", "Aborted", "Duplicate"]
+    },
+    "voxelParticipantStatusResult": {
+      "type": "string",
+      "enum": ["Unknown", "Prepared", "Applied", "Aborted", "ResultPruned"]
+    },
+    "voxelMutationAbortReason": {
+      "type": "string",
+      "enum": [
+        "RevisionConflict",
+        "ChunkUnloaded",
+        "ValidationFailed",
+        "DeadlineExceeded",
+        "LeaseExpired",
+        "Cancelled",
+        "InsufficientResource"
+      ]
+    }
+  },
+  "properties": {
+    "kind": { "type": "string", "enum": ["ParticipantReceipt", "StatusResponse"] },
+    "sessionId": { "$ref": "common.schema.json#/$defs/id" },
+    "txnId": { "$ref": "common.schema.json#/$defs/id" },
+    "worldId": { "$ref": "common.schema.json#/$defs/id" },
+    "context": { "$ref": "common.schema.json#/$defs/voxelContext" },
+    "state": { "$ref": "#/$defs/voxelParticipantState" },
+    "preparedVoxelToken": { "type": "string", "maxLength": 256 },
+    "leaseDeadlineTick": { "$ref": "common.schema.json#/$defs/tickId" },
+    "expectedVoxelRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "expectedChunkRevisionSet": { "$ref": "common.schema.json#/$defs/voxelChunkRevisionSet" },
+    "observedVoxelRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "observedChunkRevisionSet": { "$ref": "common.schema.json#/$defs/voxelChunkRevisionSet" },
+    "resultWorldRevision": { "$ref": "common.schema.json#/$defs/revision" },
+    "resultChunkRevisionSet": { "$ref": "common.schema.json#/$defs/voxelChunkRevisionSet" },
+    "appliedAtTick": { "$ref": "common.schema.json#/$defs/tickId" },
+    "abortReason": { "$ref": "#/$defs/voxelMutationAbortReason" },
+    "durabilityModel": { "type": "string", "const": "CoDurableWithWorldState" },
+    "pruneHorizonTick": { "$ref": "common.schema.json#/$defs/tickId" },
+    "statusResult": { "$ref": "#/$defs/voxelParticipantStatusResult" },
+    "txnDeadlineTick": { "$ref": "common.schema.json#/$defs/tickId" }
+  },
+  "oneOf": [
+    {
+      "properties": { "kind": { "const": "ParticipantReceipt" } },
+      "required": ["kind", "state", "durabilityModel"],
+      "not": { "required": ["statusResult"] },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": { "state": { "const": "Prepared" } },
+              "required": [
+                "state",
+                "preparedVoxelToken",
+                "leaseDeadlineTick",
+                "expectedVoxelRevision",
+                "expectedChunkRevisionSet"
+              ]
+            },
+            {
+              "properties": { "state": { "const": "Applied" } },
+              "required": ["state", "resultWorldRevision", "resultChunkRevisionSet", "appliedAtTick"]
+            },
+            {
+              "properties": { "state": { "const": "Duplicate" } },
+              "required": ["state", "resultWorldRevision", "resultChunkRevisionSet", "appliedAtTick"]
+            },
+            {
+              "properties": { "state": { "const": "Aborted" } },
+              "required": ["state", "abortReason"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "properties": { "kind": { "const": "StatusResponse" } },
+      "required": ["kind", "statusResult"],
+      "not": { "required": ["state"] },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": { "statusResult": { "enum": ["Unknown", "ResultPruned"] } },
+              "required": ["statusResult", "pruneHorizonTick"],
+              "not": {
+                "anyOf": [
+                  { "required": ["resultWorldRevision"] },
+                  { "required": ["resultChunkRevisionSet"] },
+                  { "required": ["appliedAtTick"] },
+                  { "required": ["abortReason"] }
+                ]
+              }
+            },
+            {
+              "properties": { "statusResult": { "const": "Prepared" } },
+              "required": ["statusResult"]
+            },
+            {
+              "properties": { "statusResult": { "const": "Applied" } },
+              "required": ["statusResult", "resultWorldRevision", "resultChunkRevisionSet", "appliedAtTick"]
+            },
+            {
+              "properties": { "statusResult": { "const": "Aborted" } },
+              "required": ["statusResult", "abortReason"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "additionalProperties": false
+}

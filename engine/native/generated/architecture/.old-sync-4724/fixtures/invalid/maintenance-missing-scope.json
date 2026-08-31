@@ -1,0 +1,12 @@
+{
+  "maintenanceId": "maint-invalid-001",
+  "productId": "A",
+  "gameReleaseId": "A-1.1.0",
+  "mode": "Forced",
+  "issuedAt": "2026-08-27T03:00:00Z",
+  "graceDeadlineSeconds": 0,
+  "reason": "Invalid command",
+  "operator": "ops-01",
+  "action": "StopInputAndKick",
+  "broadcastCode": "MaintenanceKick"
+}

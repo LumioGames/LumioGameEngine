@@ -1,0 +1,28 @@
+{
+  "machineId": "CrossWorldTxn",
+  "owner": "Server",
+  "sourceAdr": "ADR-003",
+  "initialState": "Created",
+  "states": [
+    "Created",
+    "Prepared",
+    "CommitIntent",
+    "Committed",
+    "Aborted",
+    "Expired",
+    "Indeterminate"
+  ],
+  "terminalStates": ["Committed", "Aborted", "Expired"],
+  "transitions": [
+    { "from": "Created", "to": "Prepared", "event": "ParticipantsPrepared" },
+    { "from": "Created", "to": "Aborted", "event": "Reject" },
+    { "from": "Created", "to": "Expired", "event": "DeadlineExceeded" },
+    { "from": "Prepared", "to": "CommitIntent", "event": "PersistCommitIntent" },
+    { "from": "Prepared", "to": "Aborted", "event": "Reject" },
+    { "from": "Prepared", "to": "Expired", "event": "DeadlineExceeded" },
+    { "from": "CommitIntent", "to": "Committed", "event": "MarkersApplied" },
+    { "from": "CommitIntent", "to": "Indeterminate", "event": "CrashWindow" },
+    { "from": "Indeterminate", "to": "Committed", "event": "IntentReplayed" }
+  ],
+  "notes": "After CommitIntent is durable the transaction may no longer abort: the crash window resolves through Indeterminate by replaying the intent until markers apply (ADR-003/ADR-026)."
+}

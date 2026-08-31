@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/mod-manifest.schema.json",
+  "type": "object",
+  "required": ["modId", "version", "kind", "signature", "capabilities", "permissions", "quotas", "saveSchema", "lifecycle"],
+  "properties": {
+    "modId": { "$ref": "common.schema.json#/$defs/id" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "kind": { "type": "string", "enum": ["Data", "Managed"] },
+    "signature": { "type": "string", "minLength": 32, "maxLength": 4096 },
+    "capabilities": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" }, "uniqueItems": true },
+    "permissions": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/id" }, "uniqueItems": true },
+    "quotas": {
+      "type": "object",
+      "required": ["memoryBytes", "cpuMicrosPerTick", "entities"],
+      "properties": {
+        "memoryBytes": { "type": "integer", "minimum": 1 },
+        "cpuMicrosPerTick": { "type": "integer", "minimum": 1 },
+        "entities": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "saveSchema": { "type": "string", "pattern": "^ModSaveSchemaV[0-9]+$" },
+    "lifecycle": { "type": "string", "enum": ["Reserved", "Loaded", "Enabled", "Disabled", "Unloaded"] },
+    "nativeLibraries": { "type": "array", "maxItems": 0, "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

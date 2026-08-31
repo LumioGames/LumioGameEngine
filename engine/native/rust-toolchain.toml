@@ -1,0 +1,6 @@
+# Rust 工具链锁（规格 §3.5 原文）。升级工具链必须走规格 §4 的选型与验证流程。
+[toolchain]
+channel = "1.89.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+targets = ["x86_64-unknown-linux-gnu"]

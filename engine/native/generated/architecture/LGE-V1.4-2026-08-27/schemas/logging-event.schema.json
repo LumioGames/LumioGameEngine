@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/logging-event.schema.json",
+  "type": "object",
+  "required": ["eventId", "category", "severity", "timestamp", "correlation", "message", "durability"],
+  "properties": {
+    "eventId": { "$ref": "common.schema.json#/$defs/id" },
+    "category": { "type": "string", "enum": ["Diagnostic", "Audit", "TxnJournal", "CommandLog", "Metrics", "Trace", "FailureBundle"] },
+    "severity": { "type": "string", "enum": ["Trace", "Debug", "Info", "Warn", "Error", "Fatal"] },
+    "timestamp": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "correlation": { "$ref": "common.schema.json#/$defs/correlation" },
+    "message": { "type": "string", "minLength": 1, "maxLength": 8192 },
+    "fields": { "type": "object" },
+    "durability": { "type": "string", "enum": ["BestEffort", "Durable", "EmergencySync"] },
+    "redaction": { "type": "string", "enum": ["None", "Applied"] }
+  },
+  "additionalProperties": false
+}

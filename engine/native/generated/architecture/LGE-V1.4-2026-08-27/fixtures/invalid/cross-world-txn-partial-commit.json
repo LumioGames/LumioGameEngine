@@ -1,0 +1,30 @@
+{
+  "sessionId": "session-001",
+  "txnId": "txn-bad-0001",
+  "tickId": 44,
+  "commandId": "cmd-bad-0001",
+  "predictionKey": "prediction-0001",
+  "state": "Committed",
+  "commandBufferState": "Applied",
+  "expectedGameRevision": 18,
+  "expectedVoxelRevision": 24,
+  "chunkRevisionSet": {
+    "c:0:0:0": 8
+  },
+  "deadlineTick": 52,
+  "commitOrder": [
+    "EcsCommandBufferCommit",
+    "VoxelCommit"
+  ],
+  "participantMarkers": {
+    "voxelCommit": "Applied",
+    "ecsCommandBufferCommit": "NotStarted"
+  },
+  "preparedGameDelta": {
+    "player-1": {
+      "availableBlocks": 8
+    }
+  },
+  "preparedVoxelToken": "voxel-reservation-bad",
+  "commitIntentPersisted": false
+}

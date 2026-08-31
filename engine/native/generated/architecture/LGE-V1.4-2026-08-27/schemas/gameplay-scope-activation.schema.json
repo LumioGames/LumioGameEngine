@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.games/schema/gameplay-scope-activation.schema.json",
+  "type": "object",
+  "required": ["sessionId", "oldGeneration", "newGeneration", "stage", "oldScope", "newScope", "recovery"],
+  "properties": {
+    "sessionId": { "$ref": "common.schema.json#/$defs/id" },
+    "oldGeneration": { "$ref": "common.schema.json#/$defs/revision" },
+    "newGeneration": { "$ref": "common.schema.json#/$defs/revision" },
+    "stage": {
+      "type": "string",
+      "enum": ["OldActiveNewStaging", "NewValidated", "BarrierSwitch", "OldQuiescing", "OldUnloaded"]
+    },
+    "oldScope": { "type": "string", "enum": ["OldActive", "OldQuiescing", "OldUnloaded"] },
+    "newScope": { "type": "string", "enum": ["NewStaging", "NewValidated", "NewActive", "Discarded"] },
+    "switchCommitted": { "type": "boolean" },
+    "failurePhase": { "type": "string", "enum": ["BeforeSwitch", "AfterSwitch"] },
+    "recovery": { "type": "string", "enum": ["KeepOldActive", "SessionFaultedFromSnapshot"] },
+    "reactivatedOldScope": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}
