@@ -21,7 +21,9 @@ comparison is recorded in the closeout report.
 
 ## Integrity
 
-There are 76 files totalling 251,552 bytes. Verify the retained files with:
+There are 77 retained files totalling 253,155 bytes before the checksum file;
+the checksum file contains one entry for each of those 77 files. Verify the
+retained files with:
 
 ```text
 Get-ChildItem .sdd/retained-worktrees -Recurse -File |

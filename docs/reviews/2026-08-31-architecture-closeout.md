@@ -55,7 +55,9 @@ The same commits are present on the integration branch as `c59b95c` and
 `.sdd/retained-worktrees/`; `README.md` and `SHA256SUMS.txt` describe its
 origins and integrity check. The original evidence set was 55 `.sdd` files
 (3,414,507 bytes) and 14 Workflow draft files (50,811 bytes). The retained
-review overlay contains 76 files (251,552 bytes) before its manifest files.
+review overlay contains 76 copied source files (251,552 bytes). The tracked
+retention directory adds its `README.md` as file 77 (253,155 bytes total before
+`SHA256SUMS.txt`); the checksum file has 77 entries.
 
 The following substantive dirty worktrees were preserved or accounted for
 before removal:
@@ -97,8 +99,8 @@ c59b95c  docs(audit): retain closeout evidence and workflow drafts
 0f4d3e1  docs(audit): preserve uncommitted review evidence
 ```
 
-The final report commit itself is added after this document is verified and
-will be included in the final `main` HEAD reported below.
+The report is updated on `main` after verification; the final response records
+the resulting commit ID because a commit cannot contain its own hash.
 
 ## Deliberately Not Integrated
 
@@ -145,8 +147,35 @@ commands were run against that tree):
 | baseline digest check | expected and actual SHA-256 matched (`f1d36acf...`) |
 | `git diff --check` | exit 0 for implementation changes |
 
-These are pre-merge records. A fresh complete gate is required on the final
-`main` after the fast-forward; its exact output supersedes this table.
+These are pre-merge records. The final `main` gate is recorded below.
+
+### Final Main Gate
+
+The final `main` worktree at `bf6f891` was materialized with the committed LF
+attributes for 174 files left as CRLF by its older checkout. The index and
+semantic file contents did not change; this was a working-tree normalization
+required for raw-byte identity checks. The following commands were then run
+again in the real `main` worktree and all exited 0:
+
+| Command | Final output |
+|---|---|
+| `node .spec/tools/spec-lint.mjs` | `spec-lint: OK` |
+| `node --test .spec/tools/spec-lint.test.mjs` | 17 passed, 0 failed |
+| `python -m py_compile tools/lumio_contract.py tools/lumio_generate.py tools/lumio_kat.py tools/test_lumio_contract_gas.py` | exit 0 |
+| `python -m unittest tools.test_lumio_contract_gas -v` | 10 tests, 10 OK |
+| `python tools/lumio_contract.py validate` | `Validated 264 fixture(s), 0 failure(s).` |
+| `python tools/lumio_contract.py generate --out C:\\Temp\\lumio-architecture-main-generated-final-20260831` | 12 artifacts; compiler `07e0c44d...e228ce7`; input `74463fea...1b7b8c`; Root ABI `6b7a5a7...f75021`; stable outputHash |
+| generated tree versus checked-in `packages/` | 70 generated / 70 checked-in; missing 0, extra 0, mismatch 0 |
+| `cargo check --manifest-path packages/rust/Cargo.toml` | exit 0 |
+| `cargo test --manifest-path packages/rust/Cargo.toml` | exit 0; 3 contract-runtime tests passed; all other unit/doc targets 0 failed |
+| `cargo clippy --manifest-path packages/rust/Cargo.toml --all-targets -- -D warnings` | exit 0 |
+| `python tools/lumio_kat.py` | C#, hashlib, Rust each `OK (3 vectors)` |
+| baseline SHA-256 check | expected = actual = `f1d36acf33a1f5e8326a9e58d609fcf7d9fa85177f9b5b60bb3f4742c1afebd0` |
+| `git diff --check` and `git status --short --branch` | exit 0; clean `main` worktree |
+
+The first run before LF normalization failed with raw-byte values
+`published=696a58d...` and `frozen=50743b...`; the discrepancy was resolved
+by materializing the committed LF bytes, without changing tracked content.
 
 ## Open Holds
 
@@ -166,10 +195,9 @@ These are pre-merge records. A fresh complete gate is required on the final
 
 ## Cleanup Record
 
-Cleanup is performed only after the final `main` gate passes. The final report
-revision will append the exact resulting `main` HEAD, the complete deleted
-worktree and local-branch lists, and any deletion refusal. Remote refs remain
-untouched.
+The final `main` gate is green. The non-main worktree and local-branch deletion
+record is appended after the destructive cleanup step; remote refs remain
+untouched. No `git gc`, `git prune`, `git clean`, or reset operation is used.
 
 ## Appendix A: Branch Names at Inventory
 
