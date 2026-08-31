@@ -1,0 +1,23 @@
+{
+  "name": "LumioEngineSDK",
+  "status": "development",
+  "native": {
+    "crate": "engine/native/modules/sdk-native",
+    "entrySymbol": "lumio_engine_get_api_v1",
+    "abiDefinition": "engine/abi/native-abi.json",
+    "outputs": ["dll", "so", "staticlib"]
+  },
+  "managed": {
+    "project": "engine/managed/Lumio.Engine.SDK/Lumio.Engine.SDK.csproj"
+  },
+  "providers": [
+    { "name": "LumioGameRuntime", "repository": "../LumioGameRuntime" },
+    { "name": "LumioVoxelEngine", "repository": "../LumioVoxelEngine" },
+    { "name": "LumioNativeCore", "repository": "../LumioNativeCore" }
+  ],
+  "hosts": [
+    { "name": "LumioServer", "repository": "../LumioServer" },
+    { "name": "LumioClient", "repository": "../LumioClient" },
+    { "name": "LumioGame", "repository": "../LumioGame" }
+  ]
+}

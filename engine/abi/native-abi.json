@@ -1,0 +1,20 @@
+{
+  "abiVersion": 1,
+  "entrySymbol": "lumio_engine_get_api_v1",
+  "callingConvention": "C",
+  "root": {
+    "fields": [
+      { "name": "abi_version", "type": "u32" },
+      { "name": "struct_size", "type": "u32" },
+      { "name": "abi_hash", "type": "bytes32" },
+      { "name": "build_id", "type": "bytes16" },
+      { "name": "ping", "type": "fn(pointer) -> status" }
+    ]
+  },
+  "status": {
+    "Success": 0,
+    "InvalidArgument": 1,
+    "UnsupportedVersion": 2
+  },
+  "generator": "lumio-engine-abi-generator@dev"
+}

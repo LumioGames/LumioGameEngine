@@ -1,4 +1,4 @@
-name: Architecture Policy
+name: LumioGameEngine Development
 
 on:
   push:
@@ -10,97 +10,46 @@ permissions:
   contents: read
 
 jobs:
-  baseline:
-    name: Validate architecture baseline
+  development:
+    name: Build SDK and prove Host loading
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate LumioAgent specification
-        run: |
-          node .spec/tools/spec-lint.mjs
-          node --test .spec/tools/spec-lint.test.mjs
-      - name: Validate required files and baseline identity
-        run: |
-          test -s README.md
-          test -s LICENSE
-          test -s .gitattributes
-          grep -q '^\*\.md text eol=lf$' .gitattributes
-          test -s docs/architecture/LumioGameEngine_Architecture_v1.4.md
-          test -s docs/architecture/ADR_INDEX.md
-          test -s docs/reviews/LumioGameEngine_V3_Architecture_Review_Final_2026-08-27.md
-          test -s schemas/index.json
-          test -s fixtures/index.json
-          test -s ids/index.json
-          test -s tools/lumio_contract.py
-          test -s requirements-dev.txt
-          grep -q '^# LumioGameEngine V3 (v1.4)' docs/architecture/LumioGameEngine_Architecture_v1.4.md
-          grep -q 'LGE-V1.4-2026-08-27' docs/architecture/LumioGameEngine_Architecture_v1.4.md
-          grep -q 'LGE-V1.4-2026-08-27' README.md
-      - name: Check required sections and baseline
-        run: |
-          grep -q '^## 12. 日志、Metrics、Trace 与审计$' docs/architecture/LumioGameEngine_Architecture_v1.4.md
-          grep -q '^## 11. 持久化、序列化与配置$' docs/architecture/LumioGameEngine_Architecture_v1.4.md
-          grep -q '^## 13. Release、版本共存与更新$' docs/architecture/LumioGameEngine_Architecture_v1.4.md
-          grep -q '^## 14. 安全、供应链与 P2 预留$' docs/architecture/LumioGameEngine_Architecture_v1.4.md
-          test -s docs/architecture/.baseline.sha256
-          sha256sum -c docs/architecture/.baseline.sha256
-      - name: Validate executable contract registry and fixtures
-        run: |
-          python3 --version
-          python3 -m pip install --disable-pip-version-check -r requirements-dev.txt
-          python3 -m py_compile tools/lumio_contract.py tools/lumio_generate.py
-          python3 tools/lumio_contract.py validate
-      - name: Publish generated artifacts and prove outputHash stability
-        run: |
-          python3 tools/lumio_contract.py generate --out /tmp/lge-packages
-          python3 - <<'PY'
-          import json, sys
-          from pathlib import Path
-          committed = json.loads(Path("packages/index.json").read_text(encoding="utf-8"))
-          fresh = json.loads(Path("/tmp/lge-packages/index.json").read_text(encoding="utf-8"))
-          a = {item["artifactId"]: item["outputHash"] for item in committed["artifacts"]}
-          b = {item["artifactId"]: item["outputHash"] for item in fresh["artifacts"]}
-          if a != b:
-              print("committed packages/ outputHash drifted from generate", file=sys.stderr)
-              print("committed", a, file=sys.stderr)
-              print("fresh", b, file=sys.stderr)
-              sys.exit(1)
-          if committed.get("compilerHash") != fresh.get("compilerHash"):
-              print("compilerHash drifted; regenerate packages/", file=sys.stderr)
-              sys.exit(1)
-          print("packages/ matches generate: {} artifacts".format(len(a)))
-          PY
-      - uses: dtolnay/rust-toolchain@1.98.0
-      - name: ContractRuntime cargo check, tree and test
-        run: |
-          cargo check --manifest-path packages/rust/Cargo.toml --offline || cargo check --manifest-path packages/rust/Cargo.toml
-          cargo tree --manifest-path packages/rust/Cargo.toml -p lumio-gen-contract-runtime
-          # The generated crate ships FIPS 180-4 known-answer vectors; without
-          # executing them a corrupted round constant reaches release, which is
-          # how K[28] = 0xc6eabbdc survived until bcc8eb9.
-          cargo test --manifest-path packages/rust/Cargo.toml -p lumio-gen-contract-runtime
+        with:
+          path: LumioGameEngineArchitecture
+      - uses: actions/checkout@v4
+        with:
+          repository: LumioGames/LumioNativeCore
+          path: LumioNativeCore
+      - uses: actions/checkout@v4
+        with:
+          repository: LumioGames/LumioVoxelEngine
+          path: LumioVoxelEngine
+      - uses: actions/checkout@v4
+        with:
+          repository: LumioGames/LumioServer
+          path: LumioServer
+      - uses: actions/checkout@v4
+        with:
+          repository: LumioGames/LumioClient
+          path: LumioClient
+      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
-      - name: SHA-256 three-way agreement (Rust, C#, hashlib)
-        run: python3 tools/lumio_kat.py
-      - name: C# packages have no Native / PInvoke / implementation PackageReference
+          dotnet-version: '10.0.x'
+      - name: Generate ABI bindings
+        working-directory: LumioGameEngineArchitecture
+        run: node eng/generate-abi.mjs
+      - name: Build SDK Native library
+        working-directory: LumioGameEngineArchitecture
+        run: chmod +x eng/dev-build.sh && ./eng/dev-build.sh
+      - name: Run SDK Rust tests
+        working-directory: LumioGameEngineArchitecture/engine/native
+        run: cargo test -p lumio-engine-native
+      - name: Run Loader tests
+        working-directory: LumioGameEngineArchitecture
+        run: dotnet test engine/managed/Lumio.Engine.NativeLoader.Tests/Lumio.Engine.NativeLoader.Tests.csproj
+      - name: Build Server and Client hosts
         run: |
-          if grep -RniE 'AllowUnsafeBlocks>true|DllImport|PInvoke|NativeLibrary|PackageReference' packages/csharp | grep -viE 'ImplicitUsings|DisableImplicitNuGetFallbackFolder|no Native'; then
-            echo "C# generated packages contain Native or package references" >&2
-            exit 1
-          fi
-          test -f packages/csharp/Lumio.Gen.ContractRuntime/ContractRuntime.cs
-      - name: C# packages build for both published targets
-        # ADR-048 (D-4): netstandard2.1 is the Unity face and net8.0 the .NET Host
-        # face, and one package must serve both. Building only the host target
-        # would let a net8.0-only construct (a record, a file-scoped namespace,
-        # SHA256.HashData) reach a Unity consumer as a compile error.
-        #
-        # Runs last on purpose: `dotnet build` writes obj/ trees under
-        # packages/csharp, and the purity grep above scans that directory.
-        run: |
-          for project in packages/csharp/*/*.csproj; do
-            echo "== $project"
-            dotnet build "$project" -v quiet --nologo
-          done
+          dotnet build LumioServer/mvp-host/src/Lumio.Server.MvpHost.App/Lumio.Server.MvpHost.App.csproj
+          dotnet build LumioClient/modules/bot/host/Lumio.Client.Bot.Host.csproj

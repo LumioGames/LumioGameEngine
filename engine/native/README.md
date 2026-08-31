@@ -1,11 +1,11 @@
-# LumioCoreEngine
+# LumioEngineSDK Native
 
-> `LumioNativeCore` 与 `LumioVoxelEngine` 的聚合发布、统一 Native ABI、Loader 和平台产物边界。
+> `LumioNativeCore` 与 `LumioVoxelEngine` 的 SDK Native 聚合、统一 ABI、Loader 和开发产物边界。
 
 ## 架构基线
 
-- Baseline：`LGE-V1.4-2026-08-27`
-- 唯一架构源：`LumioGameEngineArchitecture`
+- 开发模式：Living Architecture + BuildId 证明
+- 唯一架构源：`LumioGameEngine`
 - 本地镜像：[`docs/architecture/LumioGameEngine_Architecture_v1.2.md`](docs/architecture/LumioGameEngine_Architecture_v1.2.md)
 
 `LumioCoreEngine` 是 Native 发布层，不是新的运行时或领域引擎。它把锁定版本的 NativeCore/VoxelEngine 组合为一个可验证的平台包，负责 Root ABI、Loader、ArtifactIndex、签名、SBOM 和平台兼容性。

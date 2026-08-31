@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>preview</LangVersion>
+    <AssemblyName>Lumio.Engine.SDK</AssemblyName>
+    <RootNamespace>Lumio.Engine.SDK</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Lumio.Engine.NativeLoader\Lumio.Engine.NativeLoader.csproj" />
+  </ItemGroup>
+</Project>

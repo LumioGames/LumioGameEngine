@@ -1,10 +1,11 @@
-# LumioCoreEngine 根 workspace（LCE-P0-001）。
+# LumioEngineSDK Native workspace.
 # 15 个 member 显式列出，禁止 glob / exclude 兜底（规格 §3.2）。
 # crate 名与规格 §3.1 一一对应，不得增删改名。
 
 [workspace]
 resolver = "2"
 members = [
+    "modules/sdk-native",
     "modules/composition",
     "modules/root-abi/contracts",
     "modules/root-abi/runtime",
@@ -27,7 +28,7 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 rust-version = "1.89.0"
-repository = "https://github.com/LumioGames/LumioCoreEngine"
+repository = "https://github.com/LumioGames/LumioGameEngine"
 publish = false
 
 # 直接依赖统一在此固定精确版本；crate 只能经 `<dep>.workspace = true` 消费，

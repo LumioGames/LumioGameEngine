@@ -1,28 +1,28 @@
 ---
 name: repository-architecture
-description: 架构源治理——Baseline、ADR、Schema/ID/Fixture 所有权与七仓同步门槛;改公共语义或契约前查
+description: 引擎 SDK 组装、API/ABI 边界与开发态构建证明；改跨仓接口或发布边界前查
 metadata:
   type: doc
   status: 已交付
 ---
 
-# 架构源治理
+# 引擎 SDK 组装与接口边界
 
 ## 唯一事实源
 
-- 本仓是 LumioGameEngine V3 架构、状态机、公共契约、依赖图和变更规则的唯一来源；当前基线为 `LGE-V1.4-2026-08-27`。
-- 规范正文是 [`LumioGameEngine_Architecture_v1.4.md`](../../../docs/architecture/LumioGameEngine_Architecture_v1.4.md)，公共决策唯一入口是 [`.spec/decisions/`](../../decisions/README.md)。
-- [`schemas/`](../../../schemas/README.md)、[`ids/`](../../../ids/README.md)、[`fixtures/`](../../../fixtures/README.md) 与 [`tools/lumio_contract.py`](../../../tools/README.md) 共同组成可执行 Architecture Gate。
-- 七个实现仓可以保留同 Baseline/Hash 的只读镜像，但不得独立修改共享公共语义。
+- 本仓是 `LumioEngineSDK` 的组装根，吸收原 `LumioCoreEngine`，并维护当前 Living 架构说明。
+- 规范正文是 [`LumioGameEngine_Architecture.md`](../../../docs/architecture/LumioGameEngine_Architecture.md)，公共决策入口是 [`.spec/decisions/`](../../decisions/README.md)。
+- `engine/abi/native-abi.json`、`eng/generate-abi.mjs`、`engine/native/modules/sdk-native` 与共享 C# Loader 组成开发态接口闭环。
+- NativeCore、VoxelEngine 和 GameRuntime 是 SDK provider；Server、Client 和 Game 是 SDK consumer/Host。
 
 ## 变更顺序
 
-任何改变公共状态、字段、错误、时序、ID、版本或依赖方向的变更必须按顺序完成：
+开发态跨边界变更按以下最短顺序完成：
 
-1. 在 `.spec/decisions/` 新建或修订 `Draft` ADR，写清背景、决策、替代方案、接口/Schema、失败语义、兼容影响、迁移和验证 Fixture。
-2. 更新 Schema、ID Registry 与索引；为变更加入至少一份正向 Fixture 和一份失败 Fixture。
-3. 运行完整 Contract validate，更新架构正文、README、BaselineId/Hash 与 Release/Capability 信息。
-4. 同步七个实现仓库的只读镜像和受影响边界规范；生成物记录 Compiler/Input/Output Hash。
+1. 修改唯一 API 或 ABI 定义（只有托管/Native 二进制边界需要 ABI）。
+2. 运行 `node eng/generate-abi.mjs` 并重编 SDK Native 与直接消费者。
+3. 运行 `eng/dev-run.ps1`，确认 Server/Client 的实际路径、BuildId、ABI Hash 和 Binary SHA-256 一致。
+4. 进入正式硬化时，再启用历史 Schema/Fixture/Baseline 资产并单独建立发布决策。
 
 不得跳步用实现代码、README 镜像或生成物反向定义公共契约。
 

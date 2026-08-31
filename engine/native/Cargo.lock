@@ -174,6 +174,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
+name = "lumio-contract-types"
+version = "0.0.0"
+
+[[package]]
 name = "lumio-core-composition"
 version = "0.1.0"
 dependencies = [
@@ -251,6 +255,64 @@ version = "0.1.0"
 [[package]]
 name = "lumio-core-trust-policy"
 version = "0.1.0"
+
+[[package]]
+name = "lumio-engine-native"
+version = "0.1.0"
+dependencies = [
+ "lumio-kernel",
+ "lumio-voxel-world",
+]
+
+[[package]]
+name = "lumio-kernel"
+version = "0.0.0"
+dependencies = [
+ "lumio-contract-types",
+ "lumio-platform",
+]
+
+[[package]]
+name = "lumio-platform"
+version = "0.0.0"
+
+[[package]]
+name = "lumio-voxel-contracts"
+version = "0.0.0"
+
+[[package]]
+name = "lumio-voxel-domain"
+version = "0.0.0"
+dependencies = [
+ "lumio-voxel-contracts",
+]
+
+[[package]]
+name = "lumio-voxel-ops"
+version = "0.0.0"
+dependencies = [
+ "lumio-voxel-contracts",
+ "lumio-voxel-domain",
+]
+
+[[package]]
+name = "lumio-voxel-project"
+version = "0.0.0"
+dependencies = [
+ "lumio-voxel-contracts",
+ "lumio-voxel-domain",
+ "lumio-voxel-ops",
+]
+
+[[package]]
+name = "lumio-voxel-world"
+version = "0.0.0"
+dependencies = [
+ "lumio-voxel-contracts",
+ "lumio-voxel-domain",
+ "lumio-voxel-ops",
+ "lumio-voxel-project",
+]
 
 [[package]]
 name = "memchr"

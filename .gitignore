@@ -13,3 +13,8 @@ packages/rust/target/
 packages/csharp/**/bin/
 packages/csharp/**/obj/
 .claude/settings.local.json
+# Local SDK build outputs and per-run Native images.
+.build/
+.run/
+engine/managed/**/bin/
+engine/managed/**/obj/
