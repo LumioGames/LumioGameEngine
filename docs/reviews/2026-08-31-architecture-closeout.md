@@ -237,6 +237,17 @@ untouched. No `git gc`, `git prune`, `git clean`, or reset operation is used.
   the draft is data, not an authorization for this closeout to implement it.
   Related user-owned Workflow draft files also appeared concurrently; all such
   new-feature draft content remains untracked and outside this closeout.
+- After the cleanup commit, the user's separate MS-00002 feature flow created
+  branch `codex/ms-00002-r00336` and registered worktree
+  `C:\Work\LumioGames\_codex-worktrees\LumioGameEngineArchitecture-ms-00002-r00336`
+  from the then-current `main` HEAD. Reflog timestamps its creation at
+  `2026-08-31 15:12:01 +0800`, after the legacy cleanup was complete. It is a
+  clean, newly created feature environment rather than a retained legacy
+  worktree. Per the user's newer ownership instruction, this closeout did not
+  inspect its feature content, merge it, or remove it. Consequently the final
+  live inventory is two worktrees and two local branches (`main` plus this
+  explicit post-closeout exception); all 64 legacy worktrees and 54 legacy
+  non-`main` branches listed above remain deleted.
 
 ## Appendix A: Branch Names at Inventory
 
