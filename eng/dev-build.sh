@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NATIVE_CORE_ROOT="${NATIVE_CORE_ROOT:-"$ROOT/../../LumioNativeCore"}"
-VOXEL_ROOT="${VOXEL_ROOT:-"$ROOT/../../LumioVoxelEngine"}"
+NATIVE_CORE_ROOT="${NATIVE_CORE_ROOT:-"$ROOT/../LumioNativeCore"}"
+VOXEL_ROOT="${VOXEL_ROOT:-"$ROOT/../LumioVoxelEngine"}"
 CONFIGURATION="${CONFIGURATION:-debug}"
 
 source_digest() {
