@@ -21,7 +21,7 @@ comparison is recorded in the closeout report.
 
 ## Integrity
 
-There are 77 retained files totalling 253,155 bytes before the checksum file;
+There are 77 retained files totalling 253,223 bytes before the checksum file;
 the checksum file contains one entry for each of those 77 files. Verify the
 retained files with:
 

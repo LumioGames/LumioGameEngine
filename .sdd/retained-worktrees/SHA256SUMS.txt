@@ -69,7 +69,7 @@ b32a7d8a4c2ac9aeb262d702e14eb3936e8155a3b86195aa00613144ad682344  gas-a2-review-
 f57391ca37c76005c343fff6d95392a28c04d7ecb85a62e2af113b696b740f2d  gas-a2-review-snapshot.review-generated/rust/lumio-gen-protocol-permission-validator/src/lib.rs
 fa4bd14550d7e21e9e1996e21e5e157b708c08a6692754d859e13f615b4d5399  gas-a2-review-snapshot.review-generated/trust/trust-profile.json
 7d990da1e20a1f1b1123a765fd0457dc25684220c137a3466eb7d87d170e2c2b  gas-a2-review-snapshot.review-report.tmp.md
-61d3116340d3fec6776040cf91d35345fb331a6269067819ad0860218435144c  README.md
+7e0c29ee02b59b0de800c11ae810eb5e2f0dad9b92e38155af9150dc195b3c4c  README.md
 a87af02b8f42526c125f85972b1ccc485549a0dfe3d5ec988c65e3650d41499c  spec-lint-containment-fix/report.md
 2a2af1de8da1a0472adb586a1b57662c6de76b44add21abf35dd5c99a973f838  w0-architecture-review/w0-task-review.md
 2a92f44aa91f27c4b1e4884634a754a52373a1d98b5eb21f4f81dc78db3ef21f  w0-byte-authority-fix/review-uncommitted.diff

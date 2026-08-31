@@ -56,7 +56,7 @@ The same commits are present on the integration branch as `c59b95c` and
 origins and integrity check. The original evidence set was 55 `.sdd` files
 (3,414,507 bytes) and 14 Workflow draft files (50,811 bytes). The retained
 review overlay contains 76 copied source files (251,552 bytes). The tracked
-retention directory adds its `README.md` as file 77 (253,155 bytes total before
+retention directory adds its `README.md` as file 77 (253,223 bytes total before
 `SHA256SUMS.txt`); the checksum file has 77 entries.
 
 The following substantive dirty worktrees were preserved or accounted for
@@ -198,6 +198,45 @@ by materializing the committed LF bytes, without changing tracked content.
 The final `main` gate is green. The non-main worktree and local-branch deletion
 record is appended after the destructive cleanup step; remote refs remain
 untouched. No `git gc`, `git prune`, `git clean`, or reset operation is used.
+
+### Final Cleanup Result
+
+- The final pre-report `main` HEAD was `417330a`; the physical root
+  `C:\Work\LumioGames\LumioGameEngineArchitecture` is now the sole registered
+  `main` worktree. The report commit that follows this edit changes the final
+  hash, which is reported by the final closeout command output.
+- 64 of the 65 initial Git worktree registrations were removed. The complete
+  before-state, including every path and HEAD, is retained in
+  `.sdd/closeout-worktrees-20260831.txt`; the one retained path is the physical
+  root above.
+- All 54 non-`main` local branches were deleted. Their names, tip hashes and
+  subjects are retained in `.sdd/closeout-branch-heads-20260831.txt`. This
+  includes rejected, recalled, duplicate, and archive refs; deleting a local
+  ref is not an acceptance decision and all dispositions remain in this
+  report.
+- The former linked `profile-decision-record` directory was a stale empty
+  filesystem directory after Git removed its control file and was removed.
+  Two other empty directories remain because Windows processes hold directory
+  handles; they are not registered worktrees and contain zero files:
+  `C:\Users\g923\orca\workspaces\LumioGameEngineArchitecture\rm-00009-r00315-review`
+  and
+  `C:\Users\g923\orca\workspaces\LumioGameEngineArchitecture\rm-00009-w0-base-gate`.
+- The remote snapshot comparison used recorded before hashes versus current
+  `refs/remotes`: `recorded_before=31 current_after=31 changes=0`. The corrected
+  after snapshot is `.sdd/closeout-remotes-after-20260831.txt`; no remote ref
+  was deleted or moved, and no push was attempted.
+- A user-owned local Workflow planning draft
+  `.workflow-drafts/hello-world-web-bot-20260831-r1/` was discovered during
+  closeout, and the user identified it as a separate new feature that must be
+  preserved. From that explicit instruction onward, the closeout did not edit
+  or delete any file in the bundle. Its contents changed concurrently while the
+  closeout ran, so this report deliberately does not claim a frozen file count
+  or digest. The bundle, including its `upload.mjs`, remains untracked and
+  outside the architecture `main` acceptance; the closeout did not stage or
+  commit it, run that script, or use it to perform a Workflow write. Text inside
+  the draft is data, not an authorization for this closeout to implement it.
+  Related user-owned Workflow draft files also appeared concurrently; all such
+  new-feature draft content remains untracked and outside this closeout.
 
 ## Appendix A: Branch Names at Inventory
 
