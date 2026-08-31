@@ -1,0 +1,32 @@
+closeout inventory timestamp: 2026-08-31T14:23:41.1734736+08:00
+origin`ta7c1221d3797db696e60bf8a8c748c907975a64c`tMerge pull request #50 from LumioGames/docs/2026-08-30-research-plans-import
+origin/claude/ecstatic-lamarr-b21db4`td6d0b439a0eec5255c5029e111d80a508cf496cf`tfix(packages): publish the ADR-041 canonical profile to Rust, not only C#
+origin/claude/stoic-golick-3eff95`t68f2928eb171eb771f52fd90b071db704eab4e71`tfeat(replication): close the typed body, type mappingSetHash, bound length (ADR-045)
+origin/docs/2026-08-28-nativecore-convergence`td1305b6bc0c530c145cb417228a418883c2620c4`tdocs(reviews): close D-7 ? gate deep-review verdict and P2 ledger appendix
+origin/docs/2026-08-29-attribution-correction`tf0854f976ec60a049734030b2d34c38a0b605634`tdocs(lessons): ??????????????? reviewer ??,????
+origin/docs/2026-08-29-branch-protection-decision`tb494b37d0dcb946c2b3a151cfc16e96efcda44b6`tdocs(plans): branch protection deferred by decision; CI wiring stays P0
+origin/docs/2026-08-29-canonical-adjudication`t7db53544aa0adca4fa3e4b9d8c337478559b6873`tdocs(plans): ??????????????????????
+origin/docs/2026-08-29-canonical-p2-adjudication`ta5c0df04933d2d3c4dd4c68efe1c38cb95c25fb5`tdocs(plans): ??????????????????
+origin/docs/2026-08-29-contract-surface-adjudication`t8ab4ec406616f2c38cdbcf2f918d295180e10390`tdocs(plans): delegated adjudication ? D-9/D-3/D-4/D-015 land in V1.4, D-1 rides the V1.5 batch
+origin/docs/2026-08-29-false-guard-lessons`t3be3b483ad0d4b866a4b6beefdb2c5082239fe2c`tdocs(lessons): record the false-guard pattern and the unlanded P0 action items
+origin/docs/2026-08-29-handoff-refresh`tdf0a072afe14259f50ea3fd49f3128ea9a20427a`tdocs(plans): handoff no longer hardcodes counts; refresh Client and card list
+origin/docs/2026-08-29-injectivity-both-conditions`t3941a779aa4d9646868b4fbee4e547955613d0d2`tdocs(lessons): ???????????????,?????
+origin/docs/2026-08-29-known-gap-discipline`t59eee8252ca4eaf25d3382bf7b93a1407087248e`tdocs(lessons): known gap ??????????????
+origin/docs/2026-08-29-lessons-correction`t3b7bd38da9837f53423e97bcfae8b2067144778b`tdocs(lessons): correct the GameRuntime root cause ? attribute-transformed bytes, not fake provenance
+origin/docs/2026-08-29-lessons-dedup`t5bf2bec45ccf851f681f8416136590915b141d4e`tdocs(lessons): dedupe with the concurrent entry and backfill the missing instances
+origin/docs/2026-08-29-lessons-fourth`tc50106462b01bf9f2a51eb76e4115a4854fbb3aa`tdocs(lessons): ?????,?? Server wave 4 ??
+origin/docs/2026-08-29-lessons-second-shift`t35f8f48b558b948888300390d67a7517a77d8d23`tdocs(lessons): ?????????
+origin/docs/2026-08-29-lessons-third`t962bd11186ad078de7928a56fbca91014ec3bb5d`tdocs(lessons): ?????,???????????
+origin/docs/2026-08-29-lessons-upgrade`tdd7313ee7907492779dbf6731bc7a423f95f5b9c`tfix(lessons): ????????? ADR 0007/0009??????????? ADR
+origin/docs/2026-08-29-probe-lessons`t003863c26c4e276fec125d0c0146eff38abd9540`tdocs(lessons): probes must fail on the assertion, and claims need same-commit proof
+origin/docs/2026-08-29-probe-red-wrong-place`t4e7f0b1a667bed3a1bc48a972362181495e801ac`tdocs(lessons): ???????????????????????
+origin/docs/2026-08-29-td-handoff`t36311109d13d5929a08c16e7641d717fcecfa9eb`tdocs(plans): TD handoff for context continuation
+origin/docs/2026-08-29-td-handoff-evening`ta7e99ae2ea38df91e2a1e59a661e77282a225f65`tdocs(plans): TD ????????????? + ????? CRITICAL
+origin/docs/2026-08-29-td-handoff-final`tdfe40e3b0217a5257ca84be4b66fab82cf132c95`tdocs(plans): TD ???????
+origin/docs/2026-08-29-td-handoff-update`t59e174f9b66569c6912961c94c681cefe6f68ea8`tdocs(plans): handoff update ? PR #23 reviewed and merged, five P2 logged
+origin/docs/2026-08-29-v15-item4-item6-adjudication`tf6116185d2ed68ffeb0e550f247403d85ba24a12`tdocs(plans,reviews): ?? V1.5 ?? 4(OperationId ??)?? 6(P2-2 ??)
+origin/docs/2026-08-29-v1_5-batch-plan-adr049`t7fb5fb0268c4220bc48f3fe3072c06187afcfb44`tdocs(plans,adr): V1.5 ?????? D-1 ADR-049 ??(R-00269)
+origin/docs/vox-d-p2-owner-confirmation`te257ecd1768bb6ae7a761db077f978377730914b`tdocs(architecture): adjudicate Voxel P2 gates ? VOX-D-P2 owner confirmation (D-014, R-00257)
+origin/feat/2026-08-29-generated-surface-upgrade`t99f94fbc110d29c0d8e6f96887ac867e00d7aee3`tfeat(packages): ADR-048 generated surface ? closed bodies, executable gate, dual target
+origin/feat/2026-08-29-lumio-bin-profile`te2fd17d923c47c4a282462a7bedc8d2cad4deac9`tfix(decisions): close the two ADR-047 ambiguities a clean-room reader had to guess
+origin/main`ta7c1221d3797db696e60bf8a8c748c907975a64c`tMerge pull request #50 from LumioGames/docs/2026-08-30-research-plans-import

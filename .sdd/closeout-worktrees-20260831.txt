@@ -1,0 +1,261 @@
+closeout inventory timestamp: 2026-08-31T14:23:41.1287605+08:00
+worktree C:/Work/LumioGames/LumioGameEngineArchitecture
+HEAD 8b885c30b394408f1db662279db6c9de30b18fc8
+branch refs/heads/codex/ms-00001-w0-byte-authority
+
+worktree C:/Temp/gas-a1-independent-snapshot-20260830
+HEAD 88a3f14379e9f09982acd31c30d5ca8d5a53109a
+detached
+
+worktree C:/Temp/gas-v14-decimal-fix
+HEAD 5812653078ab8f4dd99df71cdf2cc8601592d07a
+detached
+
+worktree C:/Temp/gas-v14-decimal-rereview-native-20260831
+HEAD 5812653078ab8f4dd99df71cdf2cc8601592d07a
+detached
+
+worktree C:/Temp/gas-v14-final-fix2-independent-fac89203fe254f82a25629549c7bfe10
+HEAD ce0b59a649be04705b2d0b2c4afb48cc875ea57b
+detached
+
+worktree C:/Temp/gas-v14-validator-hardening
+HEAD b0058d7d651d70a95ff2bede1fb729861f915cdd
+detached
+
+worktree C:/Temp/lumio-architecture-main-integration
+HEAD bf6f89185a5c4d7eeff1fe1ba5b715172660ec65
+branch refs/heads/closeout/main-integration-20260831
+
+worktree C:/Temp/lumio-r00316-clean-512da
+HEAD 512da155f6480a9989f6f01815bd1e0aa83f9b54
+detached
+
+worktree C:/Temp/lumio-r00316-clean-fix-current
+HEAD 8668dbc34ac29eb0a920639168d6dedede0749ef
+branch refs/heads/archive/rm-00009-r00316-uncommitted
+
+worktree C:/Temp/lumio-r00316-clean-fix-final
+HEAD f317b920bfa6401a82cce600d0874f871de1160b
+detached
+
+worktree C:/Temp/lumio-rm00009-integration-gate-619a199
+HEAD 619a199715d3ef3ad3d461170f33db63a3926ed6
+detached
+
+worktree C:/Temp/r00317-red-wt-0831
+HEAD 2a96a9ebf501cadf12824ca2757719ea0d48f191
+detached
+
+worktree C:/Temp/rm00009-r00315-review-v5-ad65d20
+HEAD ad65d20eb471f7d360fe9cb73638f0b0c21da474
+detached
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a0
+HEAD 05b623b4fe975f84687beadc1c2cf3d81fcab31a
+branch refs/heads/Go1c/gas-a0
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a0-correction-review
+HEAD 938437365922de4311a5d4b9e9cbeb72a74631a2
+branch refs/heads/Go1c/gas-a0-correction-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a0-final-review
+HEAD 938437365922de4311a5d4b9e9cbeb72a74631a2
+branch refs/heads/Go1c/gas-a0-final-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a0-review
+HEAD a56e016401ea861a7fca97bff7c82cdc41343349
+branch refs/heads/Go1c/gas-a0-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a0-s15-fix
+HEAD a56e016401ea861a7fca97bff7c82cdc41343349
+branch refs/heads/Go1c/gas-a0-s15-fix
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a1-contracts
+HEAD 88a3f14379e9f09982acd31c30d5ca8d5a53109a
+branch refs/heads/Go1c/gas-a1-contracts
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a1-review
+HEAD 88a3f14379e9f09982acd31c30d5ca8d5a53109a
+branch refs/heads/Go1c/gas-a1-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a2-contracts
+HEAD e57583d2439938a817a2ceb15a619312f94cfd55
+branch refs/heads/Go1c/gas-a2-contracts
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a2-p1-review
+HEAD e57583d2439938a817a2ceb15a619312f94cfd55
+branch refs/heads/Go1c/gas-a2-p1-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a2-review
+HEAD a4c1c57f0c273346c45ea9a3b6c39c7a223ded16
+branch refs/heads/Go1c/gas-a2-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-a2-review-snapshot
+HEAD a4c1c57f0c273346c45ea9a3b6c39c7a223ded16
+detached
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-acceptance-review
+HEAD 16500b0ba9e1f0ccb80c907df0e8c76c8913507e
+branch refs/heads/Go1c/gas-v14-acceptance-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-decimal-rereview
+HEAD 5812653078ab8f4dd99df71cdf2cc8601592d07a
+branch refs/heads/Go1c/gas-v14-decimal-rereview
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-final-acceptance-3
+HEAD ce0b59a649be04705b2d0b2c4afb48cc875ea57b
+branch refs/heads/Go1c/gas-v14-final-acceptance-3
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-final-fixes
+HEAD f401e57139f7ee11888479ffaaa7af625bed6b96
+branch refs/heads/Go1c/gas-v14-final-fixes
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-final-fixes-2
+HEAD ce0b59a649be04705b2d0b2c4afb48cc875ea57b
+branch refs/heads/Go1c/gas-v14-final-fixes-2
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-final-rereview
+HEAD f401e57139f7ee11888479ffaaa7af625bed6b96
+branch refs/heads/Go1c/gas-v14-final-rereview
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-final-review
+HEAD e57583d2439938a817a2ceb15a619312f94cfd55
+branch refs/heads/Go1c/gas-v14-final-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-rereview-fixes
+HEAD 16500b0ba9e1f0ccb80c907df0e8c76c8913507e
+branch refs/heads/Go1c/gas-v14-rereview-fixes
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-validator-hardening-final-review
+HEAD 2a2dddccb0b1fcaa7c98412c283d59cd77c04ecb
+branch refs/heads/Go1c/gas-v14-validator-hardening-final-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-validator-hardening-fix-review
+HEAD 2a2dddccb0b1fcaa7c98412c283d59cd77c04ecb
+branch refs/heads/Go1c/gas-v14-validator-hardening-fix-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-validator-hardening-fix2
+HEAD 4d1e86db1d27b5dd53c5019ddfc21f2623b893b3
+branch refs/heads/Go1c/gas-v14-validator-hardening-fix2
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/gas-v14-validator-hardening-review
+HEAD b0058d7d651d70a95ff2bede1fb729861f915cdd
+branch refs/heads/Go1c/gas-v14-validator-hardening-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/ms-00001-profile-decision-record
+HEAD f30760b7aeaa940cdc409e7a2cc3d995f9a68c77
+branch refs/heads/codex/ms-00001-profile-decision-record
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/profile-decision-record
+HEAD 884e604ece23e3e0bed70bbcac86df582d5e4d26
+branch refs/heads/main
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-integration
+HEAD 619a199715d3ef3ad3d461170f33db63a3926ed6
+branch refs/heads/Go1c/rm-00009-integration
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00315
+HEAD ad65d20eb471f7d360fe9cb73638f0b0c21da474
+branch refs/heads/Go1c/rm-00009-r00315
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00315-review
+HEAD b7d89dc52d0a4fa54f1c3cd5d9c168766eefd55f
+branch refs/heads/Go1c/rm-00009-r00315-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00315-review-v2
+HEAD c051362c6c0a1cbe9f90d5cdc637966d0b5d53e7
+branch refs/heads/Go1c/rm-00009-r00315-review-v2
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00315-review-v3
+HEAD d7a2cb6f871861a37f068487888e5dd14a8a20bc
+detached
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00315-review-v4
+HEAD d7a2cb6f871861a37f068487888e5dd14a8a20bc
+branch refs/heads/Go1c/rm-00009-r00315-review-v4
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00315-review-v5
+HEAD ad65d20eb471f7d360fe9cb73638f0b0c21da474
+branch refs/heads/Go1c/rm-00009-r00315-review-v5
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00316
+HEAD 512da155f6480a9989f6f01815bd1e0aa83f9b54
+branch refs/heads/Go1c/rm-00009-r00316
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00316-review-v1
+HEAD f317b920bfa6401a82cce600d0874f871de1160b
+branch refs/heads/Go1c/rm-00009-r00316-review-v1
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00316-review-v2
+HEAD 512da155f6480a9989f6f01815bd1e0aa83f9b54
+branch refs/heads/Go1c/rm-00009-r00316-review-v2
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00317
+HEAD 2a96a9ebf501cadf12824ca2757719ea0d48f191
+branch refs/heads/Go1c/rm-00009-r00317
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00317-repair-v4
+HEAD bcac43a36a739cf750172a08e2ff590da008688f
+branch refs/heads/Go1c/rm-00009-r00317-repair-v4
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00317-review-v1
+HEAD d22e18a9b9e34e9be8bbadcbb0f02b60cb2ceae9
+branch refs/heads/Go1c/rm-00009-r00317-review-v1
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00317-review-v2
+HEAD 96b9f7e5a9076ca39f5bbe57ecd9413dabe2f798
+branch refs/heads/Go1c/rm-00009-r00317-review-v2
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-r00317-review-v3
+HEAD 2a96a9ebf501cadf12824ca2757719ea0d48f191
+branch refs/heads/Go1c/rm-00009-r00317-review-v3
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-w0-base
+HEAD 398a2dd5c382260defc9cd6aa70a27e58aa741ba
+branch refs/heads/Go1c/rm-00009-w0-base
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/rm-00009-w0-base-gate
+HEAD 398a2dd5c382260defc9cd6aa70a27e58aa741ba
+branch refs/heads/Go1c/rm-00009-w0-base-gate
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/spec-lint-containment-fix
+HEAD 0e5ea2f621b8943e539377f19d2ef31b49e9e359
+branch refs/heads/Go1c/spec-lint-containment-fix
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/w0-architecture-gate
+HEAD 753920e35b5c6cd590063a9febe8e9254a3ae6e6
+branch refs/heads/Go1c/w0-architecture-gate
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/w0-architecture-review
+HEAD 753920e35b5c6cd590063a9febe8e9254a3ae6e6
+branch refs/heads/Go1c/w0-architecture-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/w0-byte-authority-fix
+HEAD e1705e96c65c3615ccd12511ad8721cc82da472a
+branch refs/heads/Go1c/w0-byte-authority-fix
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/w0-byte-authority-review
+HEAD b7db298658967f63cba37f5de7f4478b5851c18f
+branch refs/heads/Go1c/w0-byte-authority-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/w0-integrated-review
+HEAD 7336e99f554dfad53d5846cbef982f7f81d44810
+branch refs/heads/Go1c/w0-integrated-review
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/w0-release-clean
+HEAD 681ef0e42ccedf94b4c2c9d6db1432851b1db9ce
+branch refs/heads/codex/ms-00001-w0-release
+
+worktree C:/Users/g923/orca/workspaces/LumioGameEngineArchitecture/w0-release-integrated
+HEAD d59afa96092e0ab3c5bd119b4e81cbef0c3f93d3
+branch refs/heads/Go1c/w0-release-integrated
+
+worktree C:/Work/LumioGames/LumioGameEngineArchitecture-latest
+HEAD a7c1221d3797db696e60bf8a8c748c907975a64c
+detached
+
+worktree C:/Work/LumioGames/LumioGameEngineArchitecture-w0-release-integrated
+HEAD c7e84adfad1515933fb8621523477e81c34ce5ac
+branch refs/heads/codex/ms-00001-w0-release-integrated
+
