@@ -1,0 +1,6 @@
+{"event":"bundle_ready","bundleId":"rm00009-r00316-619a199-20260831","target":"01a051bb-764d-76d5-b13e-a1e8b562c89e","status":"ready","evidence":"connection, full card read, dedupe, and allowed acceptance transition checked"}
+{"event":"attachment_verified","opId":"attach-review-v2","http":201,"remoteId":"01a053e6-ff34-7d5b-b9a1-1557df226d5c","bytes":5855,"sha256":"7D9DD4AC4E936662099EBCF6BD0DFFF6A64BAD2B28B0DE5717AC31E87C3430DF"}
+{"event":"attachment_verified","opId":"attach-fix-evidence","http":201,"remoteId":"01a053e7-d4eb-7424-82f7-2dd5ba9977d5","bytes":6402,"sha256":"22FFD6DFAA20CB10B85AB01A16252FEF047271FABABE960224F9B7474EE2AAE3"}
+{"event":"comment_verified","opId":"comment-delivery-evidence","http":201,"remoteId":"01a053e8-b53a-7880-89d6-449d7c337223","targetType":"requirement","targetId":"01a051bb-764d-76d5-b13e-a1e8b562c89e","bodyMatch":"trim-final-newline","remoteLength":7341}
+{"event":"transition_verified","opId":"transition-to-acceptance","http":200,"toStateKey":"acceptance","status":"acceptance","preflightAllowed":true}
+{"event":"aggregate_readback","status":"acceptance","comments":1,"attachments":2,"acceptanceItems":4,"acceptanceItemsNotStarted":4,"activityHttp":200}

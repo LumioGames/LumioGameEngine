@@ -1,0 +1,29 @@
+{
+  "target": {
+    "displayKey": "R-00315",
+    "uuid": "01a051bb-4615-7216-94ab-32142467f758",
+    "statusBefore": "in_progress",
+    "allowedTransition": "acceptance",
+    "statusAfter": "acceptance"
+  },
+  "connection": {
+    "profile": "lumiogamesengine",
+    "apiHost": "https://lumiogamesengine.workflow.games",
+    "projectId": "proj_b6979c277715a6c6c490a541ac69709b",
+    "membershipRole": "project administrator"
+  },
+  "readBack": {
+    "comments": 1,
+    "commentId": "01a05338-c462-787d-bd6a-f89ea9b51e6e",
+    "attachments": 1,
+    "attachmentId": "01a05336-a094-7fff-8eb4-5e81e12b720c",
+    "acceptanceItems": 4,
+    "acceptanceItemsNotStarted": 4,
+    "dedupeDisplayQuery": "one exact R-00315 requirement; no duplicate delivery object",
+    "dedupeCommitQuery": "no matching Workflow object"
+  },
+  "serialization": {
+    "reason": "all operations target one requirement and are ordered attachment -> comment -> transition",
+    "concurrency": 1
+  }
+}

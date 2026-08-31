@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "bundleId": "rm00009-r00317-start-20260831",
+  "project": {
+    "profile": "lumiogamesengine",
+    "projectId": "proj_b6979c277715a6c6c490a541ac69709b",
+    "host": "https://lumiogamesengine.workflow.games"
+  },
+  "policy": {
+    "mode": "auto",
+    "source": "explicit_user_instruction",
+    "digest": "r00317-start-transition"
+  },
+  "source": {
+    "kind": "execution",
+    "revision": "619a199715d3ef3ad3d461170f33db63a3926ed6",
+    "createdAt": "2026-08-31T00:35:00+08:00"
+  },
+  "upload": {
+    "concurrency": 1,
+    "maxConcurrency": 8,
+    "strategy": "bounded-worker-pool",
+    "failurePolicy": "continue-independent"
+  },
+  "nodes": [
+    {
+      "localId": "R-00317",
+      "kind": "requirement",
+      "remoteId": "01a051bb-9e88-7942-b22e-497994e41072",
+      "displayKey": "R-00317"
+    }
+  ],
+  "operations": [
+    {
+      "opId": "transition-to-in-review",
+      "kind": "transition",
+      "target": "R-00317",
+      "dependsOn": [],
+      "request": {
+        "targetType": "requirement",
+        "targetId": "01a051bb-9e88-7942-b22e-497994e41072",
+        "toStateKey": "in_review",
+        "reason": "Begin execution of R-00317 after R-00315 and R-00316 acceptance evidence was verified."
+      },
+      "status": "verified",
+      "remoteId": "in_review",
+      "idempotencyKey": "rm00009-r00317-start-20260831-transition-in-review"
+    }
+  ],
+  "edges": [],
+  "dedupe": {
+    "phase": "verified",
+    "queries": [
+      "R-00317",
+      "619a199715d3ef3ad3d461170f33db63a3926ed6"
+    ],
+    "matches": [
+      {
+        "displayKey": "R-00317",
+        "id": "01a051bb-9e88-7942-b22e-497994e41072",
+        "kind": "requirement",
+        "status": "backlog"
+      }
+    ]
+  },
+  "remoteMap": {
+    "R-00317": "01a051bb-9e88-7942-b22e-497994e41072"
+  },
+  "checkpoint": {
+    "phase": "complete",
+    "completedOpIds": ["transition-to-in-review"],
+    "lastError": null
+  }
+}
