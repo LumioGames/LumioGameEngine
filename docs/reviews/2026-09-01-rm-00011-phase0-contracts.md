@@ -14,7 +14,7 @@ Wave 0 C-1…C-4 are merged on `rm00011/merge-wave0` with ADR index + `docs/adr/
 | R-00355 C-1 | `3ddfd39` | ADR-049 Accepted (existing number, finalized) | `engine/wire/gameplay-command-envelope-v1.json` + `eng/verify-wire.mjs` | Independent review Needs-fixes P1-1, then Approved after fix |
 | R-00356 C-2 | `b075e51` | ADR-053 | `engine/wire/entity-binding-and-query-v1.json` | Returned P1×2, fix Approved |
 | R-00357 C-3 | `e8a758f` | ADR-054 | `engine/wire/account-port-v1.json` | Returned P1×2, fix Approved |
-| R-00358 C-4 | `5ead473` | ADR-055 | `engine/wire/native-timer-abi-v1.json` | Returned P1×2, fix Approved, follow-up uniqueness commit Approved |
+| R-00358 C-4 | `de040dc` (merge-wave0) | ADR-055 | `engine/wire/native-timer-abi-v1.json` | Returned P1×2 then uniqueness fix; later P1 repeating window aligned to (committed, toTick] including 12/17/22 |
 
 Dual-directory ADR max at first merge was ADR-052. New numbers 053–055 assigned at merge time. Missing `docs/adr/` links for ADR-045 and ADR-052 repaired in the C-1 registration commit.
 
@@ -29,16 +29,22 @@ Dual-directory ADR max at first merge was ADR-052. New numbers 053–055 assigne
 
 ## GameRuntime foundation (parallel line)
 
-- R-00139 T06 **BLOCKED** (Workflow comment `01a05c1d-3643-79ea-a15d-59519d816116`): no generated config-table validator remains after architecture `59866ec`; card forbids inventing one. Uncommitted WIP not delivered.
+- R-00139 T06 implementer `6abcff6` on `feat/r-00139-config-merge` (not on Runtime origin/main). Status DONE_WITH_CONCERNS: no generated `ConfigTable.Validate` API after architecture `59866ec`; validator consumes generated column metadata. Independent review in flight. Tests 24/24 via `dotnet exec` (MTP apphost cannot see user-local SDK).
 - R-00159 remains blocked on R-00140/152/154 completion evidence.
-- A-class retro-review of already-committed ECS/command modules is next after Owner decides R-00139 landing.
+- A-class retro-review of already-committed ECS/command modules is next after R-00139 review.
+
+## Workflow (live)
+
+- R-00355 C-1: `done` on origin/main `935a8a9` (PR #52). Acceptance items `passed`.
+- R-00356–358: still `in_progress` until merge-wave0 lands on origin/main.
+- R-00348: `in_progress` (C-1 consumer, LumioGame worktree `feat/r-00348-chat-component`).
 
 ## Known gaps
 
-1. `eng/dev-run.ps1` not yet re-run on this branch (path layout).
-2. Workflow cards R-00355–358 still `in_progress`; transition to 待验收 after `origin/main` push.
+1. `eng/dev-run.ps1` not runnable from `wt-arch/merge-wave0` (sibling host paths). Honest unavailability; validators are the bar for this launch.
+2. C-2/C-3/C-4 not yet on architecture `origin/main` (branch `rm00011/merge-wave0` at `de040dc`).
 3. Card Core Prompts still recite deleted Baseline/mirror chain; closeout comments must cite the Owner landing file.
-4. R-00139 generated-config validator is an Owner architecture decision, not a local bypass.
+4. R-00139 generated-config validator landing is an Owner architecture decision if review rejects the metadata-consumption approach.
 
 ## 沉淀
 
