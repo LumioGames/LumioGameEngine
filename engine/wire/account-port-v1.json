@@ -1,0 +1,418 @@
+{
+  "contractId": "lumio.account-port.v1",
+  "version": 1,
+  "purpose": "RM-00011 ECS Formal Entity and Chat 切片的账号与准入公共契约唯一真值：Account Server 第三服务拓扑、login-or-register 端口、签名过期不透明准入凭证、Bot 工具凭证 claim、顶号语义与全部失败码。LumioServer（account-server 与 game-server 验证端口）、LumioClient、Bot 启动器与集成验收全部以本文件为字段真值，不得另写一份协议真值。宿主无关：C# MVP 宿主先行，切片级最小 Rust 宿主随后复跑同一契约。",
+  "rulings": [
+    "docs/specs/2026-09-01-ecs-formal-entity-chat-decision-log.md · Room Review Rulings (2026-09-01) #3：Account Server 为正式独立服务（六件事：真实 login-or-register 协议 / 哈希凭证存储 / 签名过期不透明准入凭证 / 持久账号库 / 真 Bot 工具凭证 claim / 第三服务拓扑 ADR）",
+    "同文件 #3b：AccountEntity 走 ECS——低频 World，账号数据为专用组件，凭证材料不进普通组件",
+    "同文件 #5：重复准入 = 顶号（单行为；后来者踢前者并经重连重绑继承同一实体）"
+  ],
+  "roles": ["client", "bot-launcher", "account-server", "game-server"],
+  "roleSemantics": {
+    "client": "普通浏览器/普通客户端；以非 Bot 命名空间账号登录，准入后由 Game Server 创建 PlayerEntity。",
+    "bot-launcher": "Bot 启动器（Bot 工具上下文持有者）；循环生成 Bot01–Bot100 登录名、携带默认测试口令与 Bot 工具凭证走与普通客户端相同的 login-or-register 路径；不做EntityType 自选。",
+    "account-server": "独立 C# 进程（LumioServer/account-server/）；拥有持久账号库、login-or-register、准入凭证签发与 Bot 工具凭证验证。",
+    "game-server": "经 verify_admission 端口离线验证准入凭证并做 Player/Bot 分类；不创建账号、不接受用户名口令替代 Account Server 准入。"
+  },
+  "topology": {
+    "accountServer": {
+      "repository": "LumioServer",
+      "directory": "account-server/",
+      "processModel": "独立 C# 进程；每个部署一个中心实例（本切片不做多实例与跨服转移）。必须确认有访问控制后才可暴露到非环回地址。",
+      "durability": "持久账号库为硬性要求：同一账号跨服务重启保持同一 AccountId；禁止纯内存实现。",
+      "ecsModel": {
+        "world": "Account Server 自有的低频 ECS World；不与任何 Game World 混置。",
+        "accountEntity": "AccountEntity 按稳定 AccountId 加载或创建；login 加载/创建，logout 只结束会话、不销毁账号对象；账号身份跨登录会话存活。",
+        "components": {
+          "AccountIdentityComponent": "accountId + loginName + createdAt（持久账号身份数据，作为专用组件建模）"
+        },
+        "credentialRule": "凭证材料绝不进入普通组件：只允许存在于凭证库（静态哈希）或 persist-only 且永不复制的专用声明中；绝不返回给客户端或 Game Server，绝不进日志。"
+      }
+    },
+    "gameServer": {
+      "admission": "准入 = 验证 admissionCredential（verify_admission 端口）+ Room 准入；Game Server 不创建账号、不收口令、不信任客户端自报身份。",
+      "classification": "EntityType 由 Game Server 依据凭证内 loginName 是否命中 Bot 命名空间 + botToolContext 分类（BotEntity / PlayerEntity）；客户端不提交 EntityType 字段。",
+      "crossWorldRule": "Game 侧集成只携带 AccountId 值；绝不携带 AccountEntity 对象引用跨 World。"
+    },
+    "bindingContract": "准入成功后的连接绑定五元组（AccountId+RoomId+NetEntityId+EntityType+ConnectionGeneration）由 R-00356 契约（contractId lumio.entity-binding-query.v1）冻结，本契约只供给 AccountId 与分类依据。",
+    "outOfScope": [
+      "跨服转移（cross-server transfer）",
+      "生产口令策略、找回/改密、外部身份提供方、限流设计（超出受控切片 profile 的均另行决策）",
+      "准入凭证在线吊销/introspection（本切片为离线验证；生产撤销机制另行决策）"
+    ]
+  },
+  "transport": {
+    "kind": "websocket",
+    "subprotocol": "lumio-account-v1",
+    "encoding": "utf8-json-text-frame",
+    "direction": "client-to-account-server（login_or_register 及其应答/Error）",
+    "maxFrameBytes": 65536,
+    "transportIndependence": "端口字段、失败码与语义传输无关；本节是参考绑定（与 lumio.hello-wire.v1 同栈）。verify_admission 是 game-server 进程内端口，不走本传输。"
+  },
+  "identity": {
+    "accountId": {
+      "format": "^acct_[0-9a-f]{32}$",
+      "semantics": "Account Server 密码学随机生成、永不复用、跨重启稳定；是持久业务身份。与运行时网络身份 NetEntityId（由 R-00356 契约定义、销毁后永不复用）严格区分：运行时实体过期销毁后重新登录创建新实体，AccountId 不变。"
+    },
+    "loginName": {
+      "grammar": "^[A-Za-z][A-Za-z0-9_-]{2,31}$",
+      "caseSensitive": true,
+      "botNamespace": {
+        "pattern": "^Bot[0-9]+$",
+        "rule": "命中该命名空间的用户名只能经有效 Bot 工具凭证上下文注册/登录/准入；普通客户端在 register / claim / login / admission 四个触点全部被拒（见 errorCodeSemantics bot_*）。普通客户端不得创建或认领 Bot 号；Bot 号也不得被无工具上下文的登录复用。"
+      }
+    }
+  },
+  "operations": {
+    "login_or_register": {
+      "binding": "websocket message pair（subprotocol lumio-account-v1）",
+      "request": {
+        "required": {
+          "messageType": "const:LoginOrRegister",
+          "loginName": "username",
+          "password": "string"
+        },
+        "optional": {
+          "botToolCredential": "base64url"
+        }
+      },
+      "response": {
+        "required": {
+          "messageType": "const:LoginOrRegisterAck",
+          "accepted": "bool",
+          "accountNewlyCreated": "bool",
+          "accountId": "account-id",
+          "loginName": "username",
+          "admissionCredential": "base64url",
+          "admissionExpiresAt": "epoch-s"
+        },
+        "optional": {}
+      },
+      "error": {
+        "required": {
+          "messageType": "const:Error",
+          "code": "enum:errorCodes",
+          "detail": "string"
+        },
+        "optional": {}
+      },
+      "failureCodes": [
+        "invalid_request",
+        "invalid_username",
+        "invalid_password",
+        "wrong_password",
+        "bot_namespace_register_forbidden",
+        "bot_namespace_login_forbidden",
+        "bot_tool_credential_malformed",
+        "bot_tool_credential_invalid",
+        "bot_tool_credential_expired"
+      ],
+      "semantics": [
+        "幂等 login-or-register：loginName 不存在 → 创建账号与 AccountEntity（accountNewlyCreated=true）；存在且口令正确 → 成功（accountNewlyCreated=false，同一 accountId）；存在且口令错误 → wrong_password 拒绝，且绝不覆写任何已存凭证或账号数据。",
+        "并发首次收敛：同一不存在用户名的并发首次请求必须收敛为恰一个 AccountEntity 与同一 AccountId；全部请求拿到相同 accountId。",
+        "不预置账号：Bot01–Bot100 由启动器循环生成并即时经本操作创建；账号库不预灌。",
+        "命中 Bot 命名空间的请求必须携带 botToolCredential；缺失或无效按 bot_* 失败码拒绝（注册触点=bot_namespace_register_forbidden；登录已存在 Bot 账号触点=bot_namespace_login_forbidden；凭证问题=bot_tool_credential_*）。",
+        "每次成功登录都新签发 admissionCredential（新 nonce/expiry）；旧凭证在过期前仍可验证（幂等重登不吊销已发凭证）。",
+        "password 只出现在本请求；任何响应、事件、日志、组件不得回显口令或其哈希。"
+      ]
+    },
+    "verify_admission": {
+      "binding": "in-process port（game-server 侧，非网络消息）",
+      "input": {
+        "required": {
+          "admissionCredential": "base64url"
+        },
+        "optional": {}
+      },
+      "success": {
+        "required": {
+          "accountId": "account-id",
+          "loginName": "username",
+          "botToolContext": "bool",
+          "expiresAt": "epoch-s",
+          "keyId": "u8"
+        },
+        "optional": {}
+      },
+      "failureCodes": [
+        "admission_credential_malformed",
+        "admission_credential_invalid_signature",
+        "admission_credential_expired",
+        "bot_namespace_admission_forbidden"
+      ],
+      "semantics": [
+        "离线验证：Game Server 以 Account Server 公钥（keyId 对应，经部署面分发）本地验证；不调用 Account Server 网络。",
+        "验证顺序：解形（按 admissionCredential.framing 的字节布局：base64url 解码 → LumioBinV1 payload 解形 → 尾随恰 64 字节 raw 签名；任何一步不合 → admission_credential_malformed）→ 验签（invalid_signature）→ 过期（expired）→ Bot 命名空间准入上下文（loginName 命中 Bot 命名空间且 botToolContext=false → bot_namespace_admission_forbidden）。",
+        "验证通过后 Game Server 才可做 Room 准入并构建 R-00356 绑定五元组；EntityType 分类依据 = loginName 规则 + botToolContext。"
+      ]
+    }
+  },
+  "admissionCredential": {
+    "opaqueToClients": true,
+    "wireForm": "base64url(credentialBytes)",
+    "framing": "credentialBytes = LumioBinV1(canonicalPayload) || rawSignature(64 字节)。容器内签名固定为 64 字节 raw 形态；128 小写 hex 只用于展示与审计，不出现在容器内。verify_admission 的「解形」以此字节布局为判据：base64url 解码后必须成功解出 LumioBinV1 payload 且尾随恰 64 字节签名，否则 admission_credential_malformed。",
+    "canonicalPayload": {
+      "encoding": "LumioBinV1（ADR-047：声明序、无填充、小端定宽、u32 长度前缀；当前 Draft，本契约是其正式消费者之一）",
+      "fields": [
+        { "name": "version", "type": "u16", "value": 1 },
+        { "name": "keyId", "type": "u8" },
+        { "name": "accountId", "type": "string(ascii)" },
+        { "name": "loginName", "type": "string(ascii)" },
+        { "name": "botToolContext", "type": "u8", "value": "0|1" },
+        { "name": "issuedAt", "type": "u64", "unit": "epoch-s" },
+        { "name": "expiresAt", "type": "u64", "unit": "epoch-s" },
+        { "name": "nonce", "type": "bytes16" }
+      ]
+    },
+    "digest": "SHA-256 over canonical payload bytes；摘要以 64 小写 hex 字符拼入 LumioSignatureV1 preimage 参与验签（与 ADR-042 §2 逐句一致：签名从不在裸摘要之上——32 字节是摘要本体，被签字节是含 payloadDigest-hex 的完整 preimage）",
+    "signature": {
+      "profile": "LumioSignatureV1（ADR-042：PureEdDSA Ed25519 / RFC 8032，域分离 preimage，64 字节原始签名 = 128 小写 hex；当前 Draft，本契约是其正式消费者之一）",
+      "trustDomain": "account-admission",
+      "payloadType": "admission-credential-v1",
+      "preimage": "LumioSignatureV1 <0x00> account-admission <0x00> admission-credential-v1 <0x00> <payloadDigest-hex>"
+    },
+    "ttl": "limits.admissionCredentialTtlSeconds",
+    "keyManagement": {
+      "issuer": "Account Server 持 Ed25519 私钥（部署面注入，不入库不入契约）",
+      "verifier": "Game Server 配置 keyId→公钥（64 小写 hex；部署面分发）",
+      "rotation": "keyId 预留轮换位；轮换流程是部署决策，不在本契约",
+      "keyIdNote": "取舍：本切片采纳 payload 内 u8 数字轮换位（0–255 预留），不采纳 ADR-042 §3 的派生串 keyId 规则；实现方不得按 §3 从公钥推导 keyId。"
+    },
+    "replayNote": "nonce 保证签发唯一性与可审计性；过期前的窃取重放不在本切片防护范围（生产撤销/在线吊销另行决策）。"
+  },
+  "botToolCredential": {
+    "purpose": "Bot 启动器的工具上下文真凭证 claim：证明本次注册/登录来自持有 Bot 工具凭证的启动器。它不是用户口令，不得当口令使用或存储。",
+    "possession": "由部署/测试档案向 Bot 工具签发（签发面不在本契约）；启动器经凭证文件/环境注入持有，绝不入库、不进日志。",
+    "format": {
+      "wireForm": "base64url(toolCredentialBytes)",
+      "framing": "toolCredentialBytes = LumioBinV1(canonicalPayload) || rawSignature(64 字节)。容器内签名固定为 raw 形态；hex 只用于展示与审计，不出现在容器内。Account Server 侧解形以本布局为判据，不合 → bot_tool_credential_malformed。",
+      "canonicalPayload": {
+        "encoding": "LumioBinV1（ADR-047）",
+        "fields": [
+          { "name": "version", "type": "u16", "value": 1 },
+          { "name": "toolId", "type": "string(ascii)" },
+          { "name": "scope", "type": "const:string", "value": "bot-namespace" },
+          { "name": "issuedAt", "type": "u64", "unit": "epoch-s" },
+          { "name": "expiresAt", "type": "u64", "unit": "epoch-s" },
+          { "name": "nonce", "type": "bytes16" }
+        ]
+      },
+      "signature": {
+        "profile": "LumioSignatureV1（ADR-042）",
+        "trustDomain": "bot-tool",
+        "payloadType": "bot-tool-credential-v1",
+        "digest": "SHA-256 over canonical payload bytes（与 admissionCredential 同口径：摘要以 64 小写 hex 拼入 preimage 参与验签，ADR-042 §2）",
+        "preimage": "LumioSignatureV1 <0x00> bot-tool <0x00> bot-tool-credential-v1 <0x00> <payloadDigest-hex>"
+      }
+    },
+    "verification": "Account Server 在 login_or_register 内验证：可解形（malformed）→ 验签与 scope=bot-namespace（invalid）→ 过期（expired）；命中 Bot 命名空间的请求缺凭证按缺失触点失败码拒绝。",
+    "scope": "授权持有者注册与登录 `Bot`+十进制数字 命名空间账号；准入侧的 Bot 上下文由 admissionCredential.botToolContext 承载（verify_admission 消费）。"
+  },
+  "takeover": {
+    "semantics": "同一账号的第二条已认证准入是顶号（单行为，Room Review Rulings #5）：Game Server 踢旧连接并向其发送显式终止通知，随后经重连重绑机制（R-00350）把同一保留实体重绑给新连接，NetEntityId 不变。不存在『拒绝或幂等返回』的第二行为。",
+    "terminationNotice": {
+      "carrier": "Game 连接（s2c）。字段形状与语义在本契约冻结；其在游戏连接消息集内的注册与信封由 R-00355 契约（lumio.gameplay-envelope.v1）承载，两端不得另写第二真值。",
+      "shapeName": "TakeoverNotice",
+      "required": {
+        "reasonCode": "const:connection_superseded",
+        "reconnectEligible": "bool",
+        "issuedAt": "epoch-s"
+      },
+      "optional": {
+        "detail": "string"
+      },
+      "clientDuty": "收到通知的客户端必须停止当前会话输入并清本地呈现状态；reconnectEligible=true 时可重新 login_or_register 走重连重绑路径。校验失败（缺字段/错 reasonCode）按 takeover_notice_invalid 拒绝，不得静默忽略。"
+    }
+  },
+  "passwordProfile": {
+    "atRest": "Argon2id（RFC 9106），每账号唯一盐；参数按部署 profile（测试档案默认 m=19456 KiB、t=2、p=1）；禁止明文、可逆存储或日志留存。",
+    "transport": "口令只出现在 login_or_register.request.password；任何响应、审计事件、日志、组件不得回显口令或其哈希。",
+    "testProfile": {
+      "defaultPassword": "123456",
+      "note": "Hello World profile 的配置默认测试口令（决策日志 Topology 节）；生产口令策略是另行安全决策，不在本契约。"
+    }
+  },
+  "errorCodes": [
+    "invalid_request",
+    "invalid_username",
+    "invalid_password",
+    "wrong_password",
+    "bot_namespace_register_forbidden",
+    "bot_namespace_login_forbidden",
+    "bot_namespace_admission_forbidden",
+    "bot_tool_credential_malformed",
+    "bot_tool_credential_invalid",
+    "bot_tool_credential_expired",
+    "admission_credential_malformed",
+    "admission_credential_invalid_signature",
+    "admission_credential_expired",
+    "takeover_notice_invalid"
+  ],
+  "errorCodeSemantics": {
+    "invalid_request": "请求不可解形/缺 messageType/JSON 越界；关闭连接。",
+    "invalid_username": "loginName 不符合 grammar（长度、字符集）。",
+    "invalid_password": "password 不符合长度界限（limits.passwordMinLength/MaxLength）。",
+    "wrong_password": "账号已存在且口令错误；绝不覆写已存凭证，账号数据零变更。",
+    "bot_namespace_register_forbidden": "普通客户端（无有效工具凭证）注册 Bot 命名空间新账号被拒（register 触点）。",
+    "bot_namespace_login_forbidden": "普通客户端（无有效工具凭证）登录已存在 Bot 命名空间账号被拒——即使口令正确（login 触点；Room Review P1-5 补测路径）。",
+    "bot_namespace_admission_forbidden": "verify_admission：loginName 命中 Bot 命名空间但凭证 botToolContext=false（admission 触点）。",
+    "bot_tool_credential_malformed": "botToolCredential 不可解形/长度错（claim 触点）。",
+    "bot_tool_credential_invalid": "botToolCredential 验签失败或 scope 不是 bot-namespace（claim 触点）。",
+    "bot_tool_credential_expired": "botToolCredential 已过期（claim 触点）。",
+    "admission_credential_malformed": "verify_admission：credential 不可解形/字段不闭合。",
+    "admission_credential_invalid_signature": "verify_admission：签名验证失败或 keyId 无对应公钥。",
+    "admission_credential_expired": "verify_admission：当前时间晚于 expiresAt。",
+    "takeover_notice_invalid": "客户端侧校验 TakeoverNotice 失败（缺 required 字段/reasonCode 非 connection_superseded）。"
+  },
+  "limits": {
+    "maxFrameBytes": 65536,
+    "maxRequestJsonBytes": 16384,
+    "loginNameMinLength": 3,
+    "loginNameMaxLength": 32,
+    "passwordMinLength": 6,
+    "passwordMaxLength": 128,
+    "admissionCredentialTtlSeconds": 300,
+    "botToolCredentialMaxTtlSeconds": 86400
+  },
+  "process": {
+    "accountServer": {
+      "listen": "127.0.0.1 动态分配端口（:0），禁止硬编码端口；暴露非环回地址前必须确认访问控制。",
+      "readiness": "stdout 单行前缀 ACCOUNT_SERVER_READY 后接 JSON {\"port\":N,\"pid\":P,\"contractId\":\"lumio.account-port.v1\",\"storePath\":S}",
+      "shutdown": "关闭全部连接、flush 持久账号库、退出码 0",
+      "exitCodes": { "0": "正常关闭", "1": "初始化失败（含账号库打开失败）", "2": "运行期致命错误", "3": "参数错误" }
+    },
+    "auditEventKinds": {
+      "account_created": { "required": ["accountId", "loginName"] },
+      "login_succeeded": { "required": ["accountId", "accountNewlyCreated"] },
+      "login_rejected": { "required": ["loginName", "code"] },
+      "admission_credential_issued": { "required": ["accountId", "keyId", "expiresAt"] }
+    },
+    "auditNote": "全部审计事件禁止携带 password、哈希、botToolCredential、admissionCredential 原文；game-server 侧 verify/takeover 审计由 R-00346 / R-00350 卡定义。"
+  },
+  "fixturesNote": "testCases/invalidCases 是冻结用例集：消费方（R-00344 account-server、R-00346 准入、R-00349 客户端、R-00354 集成）必须把每条实现为自动化测试或在验收报告中逐条对应证据；invalidCases.expectedRejection 必须逐条命中 errorCodeSemantics 的失败码。",
+  "testCases": [
+    {
+      "name": "register_new_account",
+      "operation": "login_or_register",
+      "given": "loginName=alice（不存在、非 Bot 命名空间），password 合法",
+      "expect": "accepted=true；accountNewlyCreated=true；accountId 匹配 ^acct_[0-9a-f]{32}$；admissionCredential 非空且 admissionExpiresAt > 发出时刻。"
+    },
+    {
+      "name": "idempotent_relogin_same_account",
+      "operation": "login_or_register",
+      "given": "同 loginName=alice、同口令再次登录",
+      "expect": "accountNewlyCreated=false；accountId 与首次完全一致；新签发的 admissionCredential（nonce/expiry 更新）。"
+    },
+    {
+      "name": "concurrent_first_login_converges",
+      "operation": "login_or_register",
+      "given": "同一不存在用户名 bob 的两个并发首次请求",
+      "expect": "两个请求全部成功且返回相同 accountId；账号库中恰一个 AccountEntity。"
+    },
+    {
+      "name": "bot_login_with_tool_credential",
+      "operation": "login_or_register",
+      "given": "loginName=Bot07（不存在），password=123456（测试档案默认），携带有效 botToolCredential",
+      "expect": "成功创建 Bot07；verify_admission 对其 admissionCredential 解出 loginName=Bot07 且 botToolContext=true。"
+    },
+    {
+      "name": "verify_admission_accept",
+      "operation": "verify_admission",
+      "given": "合法未过期 admissionCredential",
+      "expect": "返回 accountId/loginName/botToolContext/expiresAt/keyId，五字段与签发一致。"
+    },
+    {
+      "name": "account_restart_stability",
+      "operation": "login_or_register",
+      "given": "Bot01 已注册；Account Server 进程重启后同口令重登",
+      "expect": "accountId 与重启前一致（持久账号库硬性要求；R-00344 验收项）。"
+    },
+    {
+      "name": "takeover_notice_well_formed",
+      "operation": "takeover",
+      "given": "Game Server 对被顶号的旧连接发出终止通知",
+      "expect": "通知含 reasonCode=connection_superseded、reconnectEligible、issuedAt；旧连接端校验通过并停止输入。"
+    }
+  ],
+  "invalidCases": [
+    {
+      "name": "wrong_password_never_overwrites",
+      "operation": "login_or_register",
+      "violates": "已存在账号 + 口令错误 → 拒绝且零覆写",
+      "given": "loginName=alice 已存在，password 错误",
+      "expectedRejection": "wrong_password",
+      "then": "用正确口令重登必须仍成功且 accountId 不变（证明零覆写）。"
+    },
+    {
+      "name": "ordinary_register_bot_name_rejected",
+      "operation": "login_or_register",
+      "violates": "Bot 命名空间 register 触点对普通客户端关闭",
+      "given": "loginName=Bot77（不存在），无 botToolCredential",
+      "expectedRejection": "bot_namespace_register_forbidden"
+    },
+    {
+      "name": "ordinary_login_existing_bot_rejected",
+      "operation": "login_or_register",
+      "violates": "Bot 命名空间 login 触点对普通客户端关闭（即使口令正确）",
+      "given": "loginName=Bot07 已存在，password=123456 正确，无 botToolCredential",
+      "expectedRejection": "bot_namespace_login_forbidden",
+      "note": "Room Review P1-5 补测路径：默认口令公开，必须验证第一层设防。"
+    },
+    {
+      "name": "bot_tool_credential_malformed",
+      "operation": "login_or_register",
+      "violates": "botToolCredential 必须可解形",
+      "given": "loginName=Bot09，botToolCredential=非 base64url 垃圾字节",
+      "expectedRejection": "bot_tool_credential_malformed"
+    },
+    {
+      "name": "bot_tool_credential_bad_signature",
+      "operation": "login_or_register",
+      "violates": "botToolCredential 必须通过 LumioSignatureV1 验签且 scope=bot-namespace",
+      "given": "loginName=Bot09，结构合法但签名错误的 botToolCredential",
+      "expectedRejection": "bot_tool_credential_invalid"
+    },
+    {
+      "name": "bot_tool_credential_expired",
+      "operation": "login_or_register",
+      "violates": "botToolCredential 过期拒绝",
+      "given": "loginName=Bot09，expiresAt 已过期的有效签名 botToolCredential",
+      "expectedRejection": "bot_tool_credential_expired"
+    },
+    {
+      "name": "invalid_username_grammar",
+      "operation": "login_or_register",
+      "violates": "loginName grammar",
+      "given": "loginName=\"x\"（长度 1 < loginNameMinLength=3）",
+      "expectedRejection": "invalid_username"
+    },
+    {
+      "name": "admission_credential_expired",
+      "operation": "verify_admission",
+      "violates": "credential 过期拒绝",
+      "given": "签名合法但 expiresAt < 当前时间的 admissionCredential",
+      "expectedRejection": "admission_credential_expired"
+    },
+    {
+      "name": "admission_credential_bad_signature",
+      "operation": "verify_admission",
+      "violates": "credential 必须通过 LumioSignatureV1 验签",
+      "given": "结构合法但被篡改 payload（签名不匹配）的 admissionCredential",
+      "expectedRejection": "admission_credential_invalid_signature"
+    },
+    {
+      "name": "bot_admission_without_tool_context",
+      "operation": "verify_admission",
+      "violates": "Bot 命名空间 admission 触点要求 botToolContext=true",
+      "given": "loginName=Bot07 的 credential 但 botToolContext=false",
+      "expectedRejection": "bot_namespace_admission_forbidden"
+    },
+    {
+      "name": "takeover_notice_missing_reason_code",
+      "operation": "takeover",
+      "violates": "TakeoverNotice required 字段闭合",
+      "given": "通知缺 reasonCode 或 reasonCode != connection_superseded",
+      "expectedRejection": "takeover_notice_invalid"
+    }
+  ]
+}

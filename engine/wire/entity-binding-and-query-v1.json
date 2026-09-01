@@ -1,0 +1,390 @@
+{
+  "contractId": "lumio.entity-binding-query.v1",
+  "version": 1,
+  "purpose": "RM-00011 ECS Formal Entity and Chat Vertical Slice 的连接绑定与 ECS Attribute Query 公共契约：绑定五元组、客户端自查与服务端解析、AttributeId 寻址的受控查询面、五结局失败矩阵与每属性声明三维。LumioGameRuntime（R-00347）、LumioClient（R-00349）、LumioServer（R-00350）的绑定与查询实现全部以本文件为唯一真值，不得另写一份语义真值。契约措辞宿主无关（当前 C# MVP 宿主，后续最小 Rust 宿主复跑同一语义）。",
+  "scope": {
+    "includes": [
+      "连接到实体的绑定记录形状与不变量（五元组）",
+      "客户端自查自身绑定与服务端解析已准入连接 / NetEntityId 的语义",
+      "按已声明 AttributeId 寻址的类型化属性查询面与观测 Revision/Tick",
+      "五结局失败矩阵（non_existent / stale_generation / invisible / unauthorized / tombstoned）",
+      "每属性 persistence / replication / visibility 三维声明词表与读取范围规则"
+    ],
+    "excludes": [
+      "SQL / 数据库 API、任意属性名查找、直连存储访问（一律拒绝，见 invalidCases）",
+      "跨 Room 查询与解析",
+      "AccountEntity 对象引用跨入 Game World（只允许 AccountId 值）",
+      "查询/绑定在具体传输上的编码承载（上游命令信封与下游状态块归 R-00355 / lumio.gameplay-envelope.v1）",
+      "账号认证、准入凭证与顶号判定（归 R-00357 / lumio.account-port.v1；本契约只消费其结果：一个已认证的 AccountId 与一次已完成的准入）",
+      "服务端重连保留窗、过期销毁的宿主定时（归 R-00350 与 R-00358）"
+    ]
+  },
+  "identityModel": {
+    "accountId": "持久业务身份，不透明字符串；由账号服 login-or-register 分配，登录/登出不改变。可作为身份属性值随实体携带，但不自动对其他客户端公开（见 attributeDeclarations 可见性）。",
+    "roomId": "隔离 Room World 的不透明标识。绑定、解析与查询一律在单一 Room 范围内成立。",
+    "netEntityId": "运行时网络身份，不透明字符串，销毁后永不复用。它是客户端与服务端寻址实体的唯一游戏层引用：不是数组下标、不是数据库主键 API、也不是客户端自造的临时标识。同一账号的运行时实体 A 过期后重登生成 B 时，NetEntityId 变化而 AccountId 不变。",
+    "entityType": "实体类别枚举 player | bot。由服务端按已认证登录名规则分类创建（PlayerEntity / BotEntity），客户端不得提交任意 EntityType 字段。",
+    "connectionGeneration": "绑定纪元号，u64。首次准入为 1；同账号经重连重绑或顶号重绑继承同一实体（NetEntityId 不变）时严格递增。旧纪元的查询/引用在新纪元生效后以 stale_generation 结局返回。"
+  },
+  "binding": {
+    "record": {
+      "required": {
+        "accountId": "string",
+        "roomId": "string",
+        "netEntityId": "string",
+        "entityType": "enum:entityType",
+        "connectionGeneration": "u64"
+      },
+      "optional": {},
+      "notes": "五元组即绑定记录全部字段；不得携带 AccountEntity 对象引用、存储句柄或宿主指针。"
+    },
+    "invariants": [
+      "一个账号同一时刻至多在一个 Room 内活跃（一个活跃绑定）。",
+      "每条已准入连接恰有一条活跃绑定记录；绑定由服务端维护，客户端不得自行声明他人绑定。",
+      "重连窗口内重绑与顶号重绑都继承同一实体：NetEntityId 不变，connectionGeneration 严格递增；旧连接按其终止语义处理（R-00357 / R-00350）。",
+      "断线保留期内实体保持 Room 可见（显式断线状态）；过期销毁后绑定记录进入 tombstone 语义，永不复活、永不改指替代实体。",
+      "AccountId 只是身份属性值；AccountEntity 对象引用在任何方向上都不进入 Game World。"
+    ],
+    "operations": {
+      "selfLookup": {
+        "caller": "client（自查自身连接）",
+        "request": { "required": { "callerScope": "const:client-replica" }, "optional": {} },
+        "result": "成功返回本连接的 binding.record；无活跃绑定时以 binding_not_found 失败。",
+        "notes": "客户端由此取得自身 netEntityId 与 connectionGeneration；结果对自身连接恒为最新纪元。"
+      },
+      "resolveByConnection": {
+        "caller": "server",
+        "request": { "required": { "roomId": "string", "connection": "opaque-connection-ref" }, "optional": {} },
+        "result": "成功返回该连接的 binding.record 与目标实体当前权威 revision（u64）；连接未准入或不在本 Room 以 binding_not_found 失败。",
+        "notes": "opaque-connection-ref 是宿主进程内的不透明连接标识，不是公共线上字段。"
+      },
+      "resolveByNetEntityId": {
+        "caller": "server | client",
+        "request": { "required": { "roomId": "string", "netEntityId": "string" }, "optional": { "connectionGeneration": "u64" } },
+        "result": "成功返回实体引用 {netEntityId, roomId, entityType} 与当前权威 revision；失败按五结局矩阵返回显式结局，绝不返回替代实体。",
+        "notes": "携带 connectionGeneration 时按该纪元校验，过期即 stale_generation；服务端解析以权威存储为准，客户端解析以其 ReplicaWorld 为准。"
+      }
+    }
+  },
+  "attributeQuery": {
+    "addressing": {
+      "attributeId": "字符串，文法 ^[A-Z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$，形如 <ComponentType>.<attributeName>。它必须命中组件 schema 已声明的属性。拒绝分类顺序固定为 errorCodes.classification：①存储寻址识别器（storage_access_forbidden）→ ②文法（invalid_attribute_id；SQL 表达式与自由格式名显式归此码）→ ③已声明判定（undeclared_attribute）。不存在「按任意属性名查找」的通路。",
+      "declarationSource": "属性声明随各组件的公共契约冻结（首个租户 ChatComponent 的声明在 R-00355 / lumio.gameplay-envelope.v1）；本契约只定义声明结构与查询语义。"
+    },
+    "callerScope": {
+      "server-authoritative": "服务端权威读：限定请求 Room/World 范围、在 Simulation Owner Thread 语义角色上执行（不得从网络线程触达 ECS 存储），可按服务端策略读取任何已声明属性。",
+      "client-replica": "客户端本地读：限定在其 ReplicaWorld 内，只能读取已复制（replication=replicated）且当前 Room/AOI/claims 可见、并已实际送达本地副本的属性；服务端专有与 persist-only 数据不可达。"
+    },
+    "request": {
+      "required": {
+        "callerScope": "enum:server-authoritative|client-replica",
+        "roomId": "string",
+        "netEntityId": "string",
+        "attributeId": "attribute-id"
+      },
+      "optional": {
+        "connectionGeneration": "u64"
+      },
+      "notes": "单次查询寻址单个实体的单个属性；批量查询不在本版本。"
+    },
+    "success": {
+      "required": {
+        "outcome": "const:ok",
+        "netEntityId": "string",
+        "roomId": "string",
+        "attributeId": "attribute-id",
+        "value": "declared-type",
+        "observedRevision": "u64",
+        "observedTick": "u64"
+      },
+      "optional": {},
+      "notes": "value 的类型由属性声明给定；observedRevision/observedTick 是观测到的实体修订与权威逻辑 Tick，消费方以此检测 stale 读——这不是缓存提示，而是结果事实的一部分。"
+    },
+    "failure": {
+      "variants": {
+        "outcomeFailure": {
+          "required": { "outcome": "enum:outcomeCodes" },
+          "optional": { "detail": "string" },
+          "notes": "结局类失败（结果语义）：outcome 即分类结果，不携带 code 字段——五结局码表与请求错码表不相交，单码即足。"
+        },
+        "requestError": {
+          "required": { "outcome": "const:request_error", "code": "enum:requestErrorCodes", "detail": "string" },
+          "optional": {},
+          "notes": "请求形错误：outcome 恒为 request_error，code 细分拒绝原因。"
+        }
+      },
+      "notes": "失败与成功互斥；失败结果不携带 value。两个变体二选一：结局类失败用 outcomeFailure，请求形错误用 requestError。"
+    }
+  },
+  "attributeDeclarations": {
+    "structure": {
+      "required": {
+        "attributeId": "attribute-id",
+        "valueType": "string",
+        "persistence": "enum:persistence",
+        "replication": "enum:replication",
+        "visibility": "enum:visibility"
+      },
+      "optional": {},
+      "notes": "每个属性声明独立给出三维；维度组合的读写范围由本节规则决定，而非各仓自行解释。"
+    },
+    "dimensions": {
+      "persistence": { "ephemeral": "不进入 ECS 持久化", "persistent": "进入既有 ECS Snapshot/Restore 流（ADR-010 路径），语义为服务器权威持久化" },
+      "replication": { "not-replicated": "不进入复制流（含 persist-only 字段）", "replicated": "进入复制流，可送达 ReplicaWorld" },
+      "visibility": { "server-only": "仅服务端可见", "room-public": "Room 内公开", "aoi-scoped": "仅观察者 AOI 内可见", "claim-scoped": "仅持对应 claim 的连接可见" }
+    },
+    "readRules": [
+      "server-authoritative 作用域：按服务端策略可读任何已声明属性（三维不限制服务端权威读的范围，但 persist-only 的读取语义仍以权威存储为准）。",
+      "client-replica 作用域：仅当 replication=replicated 且 visibility 允许（room-public；aoi-scoped 需在 AOI 内；claim-scoped 需持 claim）且属性已实际复制进该 ReplicaWorld 时可读。",
+      "visibility=server-only 或 replication=not-replicated 的属性对 client-replica 作用域以 invisible 结局返回；实体本身不可见时同样 invisible。",
+      "实体可见但属性可见性类别与调用方不符（如 claim-scoped 未持 claim）以 unauthorized 结局返回。"
+    ],
+    "example": {
+      "attributeId": "EntityIdentity.entityType",
+      "valueType": "enum:entityType",
+      "persistence": "ephemeral",
+      "replication": "replicated",
+      "visibility": "room-public",
+      "notes": "示例声明（非冻结清单），选用低敏属性。裁决明确 AccountId 不自动公开为客户端属性——其最终可见性声明需显式决策，本示例不预设立场；真实声明表随各组件契约冻结。"
+    }
+  },
+  "outcomes": {
+    "non_existent": {
+      "definition": "目标实体在请求作用域内不存在（从未存在，或已销毁且墓碑保留期已过、记录已遗忘）。",
+      "producerRules": "服务端按权威存储判定；客户端按其 ReplicaWorld 判定。",
+      "consumerObligation": "不得重试同一引用并期待成功；不得将结局解释为「换一个实体」的许可。",
+      "resolvesToReplacement": false
+    },
+    "stale_generation": {
+      "definition": "引用携带的 connectionGeneration（或其等价纪元信息）早于当前活跃纪元：旧纪元在重连/顶号重绑后已失效。",
+      "producerRules": "请求显式携带 connectionGeneration 且小于当前值时必须返回本结局。",
+      "consumerObligation": "以 selfLookup 重新取得最新绑定后再试；不得用旧纪元结果继续推理。",
+      "resolvesToReplacement": false
+    },
+    "invisible": {
+      "definition": "实体存在但不在调用方可见范围（AOI 之外、无对应 claim、或 ReplicaWorld 未含该实体）；或属性为 server-only / not-replicated，对 client-replica 作用域不可达。",
+      "producerRules": "可见性按属性声明三维与调用方作用域判定。",
+      "consumerObligation": "不推定实体不存在；不得据此推断服务端内部状态。",
+      "resolvesToReplacement": false
+    },
+    "unauthorized": {
+      "definition": "调用方身份与属性可见性类别不符：实体可见、属性存在，但调用方不在该属性的可见性主体内（如未持 claim）。",
+      "producerRules": "先判可见（invisible），再判权限（unauthorized）；二者不混用。",
+      "consumerObligation": "不得重试；权限变化只能经正常授权流程。",
+      "resolvesToReplacement": false
+    },
+    "tombstoned": {
+      "definition": "实体已销毁、墓碑仍在保留期内：引用明确指向一个已死实体。",
+      "producerRules": "墓碑期内一律返回本结局；过期遗忘后返回 non_existent。",
+      "consumerObligation": "墓碑永不复活：不得重试、不得改指替代实体（后继实体是新的 NetEntityId，须经正常准入获得）。",
+      "resolvesToReplacement": false
+    }
+  },
+  "errorCodes": {
+    "outcomeCodes": ["non_existent", "stale_generation", "invisible", "unauthorized", "tombstoned"],
+    "requestErrorCodes": [
+      "invalid_attribute_id",
+      "undeclared_attribute",
+      "cross_room_reference",
+      "storage_access_forbidden",
+      "binding_not_found",
+      "invalid_binding_shape",
+      "scope_violation"
+    ],
+    "semantics": {
+      "invalid_attribute_id": "attributeId 不符合文法。SQL 表达式与自由格式属性名显式归此码（它们同样无法通过文法）。",
+      "undeclared_attribute": "attributeId 合法但不在任何已冻结的属性声明表中。",
+      "cross_room_reference": "请求试图解析/查询请求 Room 之外的实体或 Room。判定依据是实体归属表（服务端权威归属或客户端 ReplicaWorld 映射）：目标实体已知属于另一 Room；不解析 netEntityId 字符串本身（该字符串不编码 Room）。",
+      "storage_access_forbidden": "请求试图以任何存储寻址形式（表名、列名、存储路径、主键 API）触达存储；查询面没有任何存储直连通路。",
+      "binding_not_found": "selfLookup/resolveByConnection 找不到活跃绑定（未准入、已终止或不在本 Room）。",
+      "invalid_binding_shape": "绑定记录/请求形状非法（含携带 AccountEntity 对象引用、存储句柄、宿主指针等违禁字段）。",
+      "scope_violation": "调用方作用域与操作不符（如客户端调用 server-authoritative 专属操作）。"
+    },
+    "classification": {
+      "order": [
+        "① 存储寻址识别器：attributeId 命中任一存储寻址特征 → storage_access_forbidden。",
+        "② 文法判定 ^[A-Z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$：不命中 → invalid_attribute_id（SQL 表达式与自由格式名显式归此码）。",
+        "③ 已声明判定：文法通过但不在冻结声明表 → undeclared_attribute。"
+      ],
+      "storageRecognizerFeatures": [
+        "attributeId 含括号行/槽寻址（出现 '(' 字符）",
+        "attributeId 以 Storage. 组件前缀开头",
+        "attributeId 含存储路径分隔符（'/' 或 '\\'）"
+      ],
+      "storageRecognizerRule": "识别器对上述特征是下限：实现可以把未列用例的额外存储寻址形态更早拒为 storage_access_forbidden，不得更宽（把能通过文法的合法已声明 id 误判为存储寻址）。本契约 invalidCases 已钉死 expectedRejection 的输入不得改判（含 sql_expression_payload 必须是 invalid_attribute_id）。",
+      "nonAttributeIdRejections": "cross_room_reference / binding_not_found / invalid_binding_shape / scope_violation 与 outcome 类结局不经 attributeId 分类，各自按请求形状与实体归属独立判定。",
+      "multiViolationTieBreak": {
+        "codes": ["invalid_binding_shape", "scope_violation", "cross_room_reference", "binding_not_found", "attributeIdClassification"],
+        "requestErrorBeforeOutcome": true,
+        "notes": "左高右低。实现必须全部检查，命中项写入 detail，对外只返回最高优先级单码。attributeIdClassification 即本节 order 三步链。请求形错误优先于结局类失败：outcomeFailure 仅在本列表与 attributeId 分类链均未命中时判定。见 invalidCase multi_violation_shape_outranks_scope_and_storage。"
+      },
+      "invalidCaseConventions": "invalidCases 的 expectedRejection 是单码：结局码对应 outcomeFailure 变体，请求码对应 requestError 变体。判定依赖外部状态（声明表、实体归属）或用于钉死多违例裁决的用例必须携带 given 字段声明该状态假设，保证机械可判定。"
+    }
+  },
+  "fieldSemantics": {
+    "callerScope": "查询/操作的调用方作用域：server-authoritative（服务端权威读，Simulation Owner Thread 语义角色）或 client-replica（客户端 ReplicaWorld 本地读）。Simulation Owner Thread 是语义角色名，不是任何宿主的线程 API。",
+    "connectionGeneration": "绑定纪元，见 identityModel；u64，初始 1，重绑严格递增。",
+    "observedRevision": "查询成功时观测到的实体修订号；消费方与后续观测比较以检测 stale 读。",
+    "observedTick": "查询成功时观测到的权威逻辑 Tick；与 observedRevision 一起构成观测事实。",
+    "opaque-connection-ref": "服务端进程内连接的不透明引用，仅 resolveByConnection 请求内部使用，不是公共线上字段。",
+    "outcome": "结果分类枚举：ok（成功）、request_error（请求形错误，配合 code 细分）、五结局码（结局类失败）。三类互斥。",
+    "code": "仅请求形错误携带的细分码，取值 requestErrorCodes；结局类失败的分类即 outcome 本身，不携带 code。"
+  },
+  "limits": {
+    "maxAttributeIdBytes": 128,
+    "maxQueryDetailBytes": 256,
+    "maxValueBytes": 65536,
+    "maxBindingsPerRoom": 4096,
+    "notes": "本表是契约级结构上限；领域级速率与长度策略（如聊天文本上限）由对应领域契约冻结（R-00355）。maxBindingsPerRoom 需覆盖主场景 101 实体并留余量。"
+  },
+  "wordingAudit": {
+    "conclusion": "通过（含一处记法豁免）：契约全文仅使用领域语义角色（Simulation Owner Thread、ReplicaWorld、权威存储）与宿主无关数据形状；整数以 u64 位宽记法表示——沿 hello-wire-v1 先例，u64 指无符号 64 位位宽，不绑定任何宿主类型系统；除此之外无宿主类型名、线程 API、委托、任务或指针语义进入公共面。opaque-connection-ref 显式声明为宿主进程内不透明值，不跨进程。",
+    "exemption": "u64 记法豁免：位宽描述词，非宿主类型引用。",
+    "checkedAt": "2026-09-01"
+  },
+  "testCases": [
+    {
+      "name": "self_lookup_after_admission",
+      "given": "账号 acct-07 已准入 room-01，服务端绑定 {accountId:acct-07, roomId:room-01, netEntityId:N1, entityType:player, connectionGeneration:1}",
+      "when": "该连接以 client-replica 作用域执行 selfLookup",
+      "expect": "ok",
+      "then": "返回完整五元组，netEntityId=N1、connectionGeneration=1。"
+    },
+    {
+      "name": "server_resolves_admitted_connection",
+      "given": "连接 C1 已准入 room-01 且绑定到 N1",
+      "when": "服务端在 room-01 执行 resolveByConnection(C1)",
+      "expect": "ok",
+      "then": "返回完整 binding.record（netEntityId=N1）与当前权威 revision。"
+    },
+    {
+      "name": "server_authoritative_attribute_read",
+      "given": "N1 存在，属性声明表含已声明属性（示例 EntityIdentity.entityType，replicated/room-public）",
+      "when": "server-authoritative 作用域按 netEntityId=N1 查询该属性",
+      "expect": "ok",
+      "then": "返回类型化 value 与 observedRevision/observedTick。"
+    },
+    {
+      "name": "client_replica_read_of_replicated_visible_attribute",
+      "given": "客户端 ReplicaWorld 已复制 N1，属性 replicated 且 room-public",
+      "when": "client-replica 作用域按 N1 查询该属性",
+      "expect": "ok",
+      "then": "返回本地副本值与观测 Revision/Tick；服务端专有字段不可达。"
+    },
+    {
+      "name": "rebind_preserves_entity_and_increments_generation",
+      "given": "acct-07 在 room-01 绑定 N1 generation=1，随后发生重连/顶号重绑",
+      "when": "selfLookup 后以携带 connectionGeneration=1 的引用查询",
+      "expect": "stale_generation",
+      "then": "新绑定 netEntityId 仍为 N1 而 connectionGeneration=2；旧纪元引用以 stale_generation 显式失败。"
+    },
+    {
+      "name": "outcome_non_existent",
+      "given": "netEntityId=N9 在 room-01 从未存在（或墓碑遗忘后）",
+      "when": "任一作用域解析/查询 N9",
+      "expect": "non_existent",
+      "then": "显式 non_existent；不返回替代实体。"
+    },
+    {
+      "name": "outcome_stale_generation",
+      "given": "N1 当前活跃纪元 generation=3",
+      "when": "查询携带 connectionGeneration=2",
+      "expect": "stale_generation",
+      "then": "显式 stale_generation；提示重新 selfLookup。"
+    },
+    {
+      "name": "outcome_invisible",
+      "given": "N5 存在但不在观察者 AOI 内（或属性 server-only 而调用方是 client-replica）",
+      "when": "client-replica 作用域解析/查询 N5",
+      "expect": "invisible",
+      "then": "显式 invisible；不泄露实体存在性事实之外的信息。"
+    },
+    {
+      "name": "outcome_unauthorized",
+      "given": "属性为 claim-scoped，调用方实体可见但未持 claim",
+      "when": "client-replica 作用域查询该属性",
+      "expect": "unauthorized",
+      "then": "显式 unauthorized；与 invisible 严格区分。"
+    },
+    {
+      "name": "outcome_tombstoned",
+      "given": "N1 已销毁，墓碑在保留期内",
+      "when": "任一作用域解析/查询 N1",
+      "expect": "tombstoned",
+      "then": "显式 tombstoned；永不复活、永不改指；重登产生的后继实体是新的 NetEntityId。"
+    }
+  ],
+  "invalidCases": [
+    {
+      "name": "arbitrary_property_name_lookup",
+      "violates": "禁止任意属性名查找：attributeId 必须命中已声明属性",
+      "payload": { "callerScope": "client-replica", "roomId": "room-01", "netEntityId": "N1", "attributeId": "last message text" },
+      "expectedRejection": "invalid_attribute_id"
+    },
+    {
+      "name": "sql_expression_payload",
+      "violates": "查询面不是 SQL/数据库 API",
+      "payload": { "callerScope": "client-replica", "roomId": "room-01", "netEntityId": "N1", "attributeId": "SELECT * FROM entities" },
+      "expectedRejection": "invalid_attribute_id"
+    },
+    {
+      "name": "storage_path_addressing",
+      "violates": "禁止直连存储访问：不存在任何存储寻址通路",
+      "payload": { "callerScope": "server-authoritative", "roomId": "room-01", "netEntityId": "N1", "attributeId": "Storage.tables.entity_row(42)" },
+      "expectedRejection": "storage_access_forbidden"
+    },
+    {
+      "name": "undeclared_attribute_id",
+      "violates": "attributeId 文法合法但未在任何冻结声明表中声明",
+      "given": "声明表（R-00355 冻结的 ChatComponent.* 及其他已冻结声明）不含 notDeclared；请求其余部分合法。",
+      "payload": { "callerScope": "client-replica", "roomId": "room-01", "netEntityId": "N1", "attributeId": "ChatComponent.notDeclared" },
+      "expectedRejection": "undeclared_attribute"
+    },
+    {
+      "name": "cross_room_resolution",
+      "violates": "禁止跨 Room 查询/解析",
+      "given": "N7 是已准入并活跃于 room-02 的实体（实体归属表明示）；请求 roomId 为 room-01。判定依据是实体归属表，不是解析 netEntityId 字符串（该字符串不编码 Room）。",
+      "payload": { "callerScope": "client-replica", "roomId": "room-01", "netEntityId": "N7", "attributeId": "EntityIdentity.entityType" },
+      "expectedRejection": "cross_room_reference"
+    },
+    {
+      "name": "client_reads_persist_only_attribute",
+      "violates": "persist-only / not-replicated 属性对 client-replica 作用域不可达",
+      "given": "该属性已在声明表声明为 persistence=persistent、replication=not-replicated、visibility=server-only（假设性声明示例，实际命名与声明随 R-00355 冻结）；调用方为 client-replica。",
+      "payload": { "callerScope": "client-replica", "roomId": "room-01", "netEntityId": "N1", "attributeId": "ChatComponent.lastMessagePersistOnly" },
+      "expectedRejection": "invisible"
+    },
+    {
+      "name": "binding_record_carries_account_entity_reference",
+      "violates": "AccountEntity 对象引用不得跨入 Game World；绑定记录只允许五元组",
+      "payload": { "accountId": "acct-07", "roomId": "room-01", "netEntityId": "N1", "entityType": "player", "connectionGeneration": 1, "accountEntityRef": "<live object handle>" },
+      "expectedRejection": "invalid_binding_shape"
+    },
+    {
+      "name": "client_invokes_server_authoritative_scope",
+      "violates": "server-authoritative 作用域仅服务端可用",
+      "payload": { "callerScope": "server-authoritative", "roomId": "room-01", "netEntityId": "N1", "attributeId": "EntityIdentity.entityType", "origin": "client-connection" },
+      "expectedRejection": "scope_violation"
+    },
+    {
+      "name": "storage_path_separator_addressing",
+      "violates": "禁止直连存储访问：路径分隔符是存储寻址识别器的下限特征",
+      "payload": { "callerScope": "server-authoritative", "roomId": "room-01", "netEntityId": "N1", "attributeId": "ecs/tables/entity_row" },
+      "expectedRejection": "storage_access_forbidden"
+    },
+    {
+      "name": "multi_violation_shape_outranks_scope_and_storage",
+      "violates": "多违例并存时单码裁决：invalid_binding_shape > scope_violation > attributeId 分类链",
+      "given": "同一请求同时携带违禁 accountEntityRef、client origin 调用 server-authoritative、以及存储寻址 attributeId；N1 在 room-01 存在。实现必须全部检查并把其余命中写入 detail，对外只返回最高优先级单码。",
+      "payload": { "callerScope": "server-authoritative", "roomId": "room-01", "netEntityId": "N1", "attributeId": "Storage.tables.entity_row(42)", "origin": "client-connection", "accountEntityRef": "<live object handle>" },
+      "expectedRejection": "invalid_binding_shape"
+    }
+  ],
+  "boundary": {
+    "noSql": "查询面不接受任何 SQL/数据库表达式。",
+    "noPropertyNameLookup": "只接受已声明 AttributeId；无按名自由检索通路。",
+    "noDirectStorageAccess": "无任何存储寻址形式；storage_access_forbidden 一律拒绝。",
+    "noCrossRoom": "绑定、解析、查询全部限定单一 Room。",
+    "noAccountEntityObjectCarriage": "任何方向不得携带 AccountEntity 对象引用，只允许 AccountId 值。"
+  }
+}
