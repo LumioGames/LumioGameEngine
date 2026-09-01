@@ -1,9 +1,0 @@
-{
-  "machine": "Ability",
-  "instanceId": "ability-place-0002",
-  "fromState": "Completed",
-  "toState": "Requested",
-  "event": "Restart",
-  "handleValid": true,
-  "predicted": false
-}

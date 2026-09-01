@@ -1,2 +1,0 @@
-{"event":"bundle_ready","bundleId":"rm00009-r00317-start-20260831","target":"01a051bb-9e88-7942-b22e-497994e41072","status":"ready","evidence":"predecessor acceptance states and allowed in_review edge checked"}
-{"event":"transition_verified","opId":"transition-to-in-review","http":200,"toStateKey":"in_review","status":"in_review","preflightAllowed":true}

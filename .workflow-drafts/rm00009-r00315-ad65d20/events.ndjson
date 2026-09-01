@@ -1,4 +1,0 @@
-{"event":"bundle_ready","bundleId":"rm00009-r00315-ad65d20-20260830","target":"01a051bb-4615-7216-94ab-32142467f758","status":"ready","evidence":"local read-back, dedupe, and transition checks complete"}
-{"event":"attachment_verified","opId":"attach-v5-review","http":201,"count":1}
-{"event":"comment_verified","opId":"comment-delivery-evidence","remoteId":"01a05338-c462-787d-bd6a-f89ea9b51e6e","count":1}
-{"event":"transition_verified","opId":"transition-to-acceptance","toStateKey":"acceptance","status":"acceptance"}

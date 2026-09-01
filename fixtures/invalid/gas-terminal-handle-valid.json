@@ -1,9 +1,0 @@
-{
-  "machine": "Ability",
-  "instanceId": "ability-terminal-handle-0001",
-  "fromState": "Executing",
-  "toState": "Completed",
-  "event": "Finish",
-  "handleValid": true,
-  "predicted": false
-}

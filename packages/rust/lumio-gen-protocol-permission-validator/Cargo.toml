@@ -1,7 +1,0 @@
-[package]
-name = "lumio-gen-protocol-permission-validator"
-version = "0.0.0"
-edition = "2021"
-publish = false
-
-[dependencies]
