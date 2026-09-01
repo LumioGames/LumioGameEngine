@@ -5,7 +5,8 @@
  *
  * 校验项清单(本注释是全仓「lint 能力清单」的单一权威,其他文档只指回这里):
  *  1. 核心文件存在:CLAUDE.md、.spec/AGENTS.md、.spec/knowledge/README.md 缺失时给可读报错,不崩栈。
- *  2. knowledge 文档 frontmatter:name / description / metadata.type / metadata.status 齐全;
+ *  2. 文档 frontmatter(knowledge/features、knowledge/standards、plans/、reviews/):
+ *     name / description / metadata.type / metadata.status 齐全;
  *     status 只能取枚举(设计中 / 实施中 / 已交付 / 历史归档);description ≤ 120 字符,
  *     且必须单行明文(禁 YAML 多行标量 > / |,防止绕过长度校验)。
  *  3. 导航覆盖:features/ 与 standards/ 及 knowledge 根下的 .md 必须被 knowledge/README.md
@@ -18,6 +19,11 @@
  *  7. 名册一致(双向):agents/ 下每个角色必须出现在 AGENTS.md 名册表;名册表每行也必须有
  *     对应的 .agent.md 文件(幽灵行)。
  *  8. 软链接存活:.claude/agents、.claude/skills、.agents/skills 必须存在且解析进 .spec/。
+ * 8b. 无并行文档根:docs/ / .sdd/ / .workflow-drafts/ 不得存在于仓根;仓根之外不得有第二个
+ *     .spec/(防止第二套 LumioAgent 框架随 subtree 合并混入)。
+ * 8c. ADR 状态枚举:decisions/ 下每条 ADR 前 12 行内必须有状态行,取值只能是
+ *     Historical / Draft / Accepted / Reserved / Superseded / 生效 / 废止
+ *     (写法两收:`- **Status**: X` 或 `- 状态：X`;nativecore/ 子命名空间用中文写法)。
  *  9. 任务卡 frontmatter:.spec/tasks/ 根目录每张卡(README 除外)必须有 frontmatter,
  *     且只允许 status 字段,枚举 pending / in_progress / completed(契约见 tasks/README.md);
  *     子目录不校验。
@@ -103,7 +109,13 @@ for (const [label, file] of Object.entries({
 const knowledgeDir = join(SPEC, 'knowledge')
 const featureDocs = walk(join(knowledgeDir, 'features'), (p) => p.endsWith('.md'))
 const standardDocs = walk(join(knowledgeDir, 'standards'), (p) => p.endsWith('.md'))
-for (const file of [...featureDocs, ...standardDocs]) {
+// 过程物(plans / reviews)同受 frontmatter 约束,但不进 knowledge/README.md 导航——
+// 导航是每次 init 的强制税,过程物按需翻目录即可。
+const processDocs = [
+  ...walk(join(SPEC, 'plans'), (p) => p.endsWith('.md') && basename(p) !== 'README.md'),
+  ...walk(join(SPEC, 'reviews'), (p) => p.endsWith('.md') && basename(p) !== 'README.md'),
+]
+for (const file of [...featureDocs, ...standardDocs, ...processDocs]) {
   const fm = parseFrontmatter(file)
   if (!fm) { err(file, '缺少 frontmatter'); continue }
   for (const key of ['name', 'description']) if (!fm[key]) err(file, `frontmatter 缺 ${key}`)
@@ -225,36 +237,47 @@ for (const rel of ['.claude/agents', '.claude/skills', '.agents/skills']) {
   }
 }
 
-// Compatibility ADR entries must be Git mode 120000 symbolic links to the
-// authoritative .spec/decisions files. Minimal lint fixtures may omit docs/adr;
-// a real checkout reports regular files, including Windows placeholders.
-const compatibilityAdrDir = join(ROOT, 'docs', 'adr')
-const compatibilityAdrs = {
-  'ADR-050-gas-a1-contracts.md': '../../.spec/decisions/ADR-050-gas-a1-contracts.md',
-  'ADR-051-gas-a2-contracts.md': '../../.spec/decisions/ADR-051-gas-a2-contracts.md',
+// ── 8b. 无并行文档根:全仓文档只有 .spec/ 一个根 ──────────────────────────
+// 2026-09-01 治理收敛前,仓里同时存在 docs/ / .sdd/ / .workflow-drafts/ 与
+// engine/native/.spec/ 四个并行文档根,其中三个不受任何机器校验,于是两套互相
+// 矛盾的制度的文档平铺在一起、外观完全一样。这条断言防止它再长回来。
+for (const forbidden of ['docs', '.sdd', '.workflow-drafts']) {
+  const dir = join(ROOT, forbidden)
+  if (existsSync(dir)) {
+    err(dir, `并行文档根:全仓文档只有 .spec/ 一个根,${forbidden}/ 不得重新出现(设计→knowledge/features、计划→plans、审查→reviews、决策→decisions、任务→tasks)`)
+  }
 }
-if (existsSync(compatibilityAdrDir)) {
-  for (const [name, expectedTarget] of Object.entries(compatibilityAdrs)) {
-    const link = join(compatibilityAdrDir, name)
-    try {
-      const stat = lstatSync(link)
-      if (!stat.isSymbolicLink()) {
-        err(link, 'compatibility ADR must be a Git mode 120000 symbolic link (Windows materialization is environmental only)')
-        continue
-      }
-      const target = readlinkSync(link)
-      const resolvedTarget = resolve(dirname(link), target)
-      const expectedResolved = resolve(dirname(link), expectedTarget)
-      if (normalizeContainmentPath(resolvedTarget) !== normalizeContainmentPath(expectedResolved)) {
-        err(link, `compatibility ADR target must resolve to ${expectedResolved}`)
-      }
-      const real = realpathSync(link)
-      const expected = realpathSync(expectedResolved)
-      if (normalizeContainmentPath(real) !== normalizeContainmentPath(expected)) {
-        err(link, `compatibility ADR resolves to ${real}, expected ${expected}`)
-      }
-    } catch {
-      err(link, 'compatibility ADR link is missing or unresolved')
+// 有界扫描:跳过 .git 与构建产物,并容忍悬空软链(它们由第 8 项单独报)。
+const SKIP_DIRS = new Set(['.git', 'node_modules', 'target', 'bin', 'obj', 'dist', '.venv', '__pycache__'])
+function findNestedSpec(dir, depth = 0, out = []) {
+  if (depth > 6) return out
+  let entries
+  try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return out }
+  for (const e of entries) {
+    if (!e.isDirectory() || SKIP_DIRS.has(e.name)) continue
+    const child = join(dir, e.name)
+    try { if (lstatSync(child).isSymbolicLink()) continue } catch { continue }
+    if (e.name === '.spec' && child !== SPEC) { out.push(child); continue }
+    findNestedSpec(child, depth + 1, out)
+  }
+  return out
+}
+for (const nested of findNestedSpec(ROOT)) {
+  err(nested, '第二套 LumioAgent 框架:全仓只允许仓根一个 .spec/(subtree 合并会把下游仓的框架副本一起带进来)')
+}
+
+// ── 8c. ADR 状态枚举 ──────────────────────────────────────────────────────
+// 旧制度下 ADR 状态完全不受校验,于是「Accepted 不可改写」这条规则谁都能绕过。
+// 两种写法都收:英文 `- **Status**: X` 与中文 `状态：X`(ADR-052 用后者)。
+const ADR_STATUS_ENUM = new Set(['Historical', 'Draft', 'Accepted', 'Reserved', 'Superseded', '生效', '废止'])
+if (existsSync(decisionsDir)) {
+  for (const file of walk(decisionsDir, (p) => p.endsWith('.md') && basename(p) !== 'README.md')) {
+    const head = readFileSync(file, 'utf8').split(/\r?\n/).slice(0, 12).join('\n')
+    const m = head.match(/^\s*-?\s*\*\*Status\*\*\s*[:：]\s*(\S+)/m) || head.match(/^\s*-?\s*状态\s*[:：]\s*(\S+)/m)
+    if (!m) { err(file, 'ADR 前 12 行内缺状态行(`- **Status**: X` 或 `状态：X`)'); continue }
+    const first = m[1].replace(/[（(].*$/, '').trim()
+    if (!ADR_STATUS_ENUM.has(first)) {
+      err(file, `ADR 状态「${first}」不在枚举(${[...ADR_STATUS_ENUM].join(' / ')})`)
     }
   }
 }

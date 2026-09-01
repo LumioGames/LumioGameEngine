@@ -7,10 +7,11 @@
 
 ## 项目是什么
 
-`LumioGameEngineArchitecture` 是 LumioGameEngine V3 的唯一架构源、公共契约目录和七个实现仓库的基线，主要资产是 Markdown、JSON Schema/Fixture/ID Registry 与 Python 契约校验工具。
+`LumioGameEngine` 是引擎的 SDK 组装根、Native 聚合根和跨 Host 开发入口，同时是架构说明与公共决策的唯一来源。主要资产是 `engine/`（Native / 托管 / ABI / wire 契约）、`eng/`（生成与构建入口）与 `.spec/`（全仓唯一文档根）。
 
 - 当前主线是预上线 Living Architecture；本仓同时拥有 SDK 组装、Native 聚合、共享 Loader 和架构说明。
 - 开发态公共语义变更先在唯一 ABI/API 定义和可运行 Host 中验证；不要求 Baseline、七仓镜像或全量 Fixture。
+- 全仓文档只有一个根 `.spec/`：设计现状落 `knowledge/features/`（活文档，文件名不带日期），计划落 `plans/`、审查与裁决流水落 `reviews/`（某天的记录，文件名带日期前缀），决策落 `decisions/`，在途任务落 `tasks/`。`docs/` 已废止，spec-lint 会拒绝它重新出现。
 - 开工前先读 [`repository-architecture.md`](knowledge/standards/repository-architecture.md)；规范入口见根 [`README.md`](../README.md)，决策入口见 [`decisions/README.md`](decisions/README.md)。
 
 ## 调度核心
@@ -24,7 +25,7 @@
 > **agents/ 准入门槛:只收「隔离本身即是产出价值」的角色**(当前仅 `reviewer`)。编码 / 拆解不设角色,规程见「编码约定」与 `task-breakdown`。
 
 - **调度取向:快 > 稳 > 好。** 默认并行:文件集互不重叠即并行扇出;能继承上下文的 fork 优先于冷启动 worker;串行只留给有依赖或文件重叠的工作。
-- **默认流程:** 创造性工作(新功能 / 建组件 / 改行为)→ `brainstorming` 出设计共识 → `writing-plans` 出实现计划(设计落 `docs/specs/`、计划落 `docs/plans/`,均为功能级工作产物;跨宿主任务状态真值仍是 `.spec/tasks/`,计划内 checkbox 只是执行内部进度)→ `subagent-driven-development` 逐任务执行(每任务两级审查:spec 合规 + 代码质量;无子代理宿主按其 Inline Fallback 降级);修 bug / 排障先 `systematic-debugging` 找根因再动手;多张独立卡并行扇出仍走 `task-breakdown` + wave(见「并行边界与合入」)。交付 → 收口门槛机器验证 + `verification-before-completion`(证据先于声称);整体收口审查按「派活模板」触发 `reviewer`(默认快审、显式要求才深审),退回按 `receiving-code-review` 处理。分级见 [`agents/reviewer.agent.md`](agents/reviewer.agent.md)。
+- **默认流程:** 创造性工作(新功能 / 建组件 / 改行为)→ `brainstorming` 出设计共识 → `writing-plans` 出实现计划(设计落 `knowledge/features/`、计划落 `plans/`,均为功能级工作产物;跨宿主任务状态真值仍是 `.spec/tasks/`,计划内 checkbox 只是执行内部进度)→ `subagent-driven-development` 逐任务执行(每任务两级审查:spec 合规 + 代码质量;无子代理宿主按其 Inline Fallback 降级);修 bug / 排障先 `systematic-debugging` 找根因再动手;多张独立卡并行扇出仍走 `task-breakdown` + wave(见「并行边界与合入」)。交付 → 收口门槛机器验证 + `verification-before-completion`(证据先于声称);整体收口审查按「派活模板」触发 `reviewer`(默认快审、显式要求才深审),退回按 `receiving-code-review` 处理。分级见 [`agents/reviewer.agent.md`](agents/reviewer.agent.md)。
 - **快速模式(收口白名单,默认优先尝试):** 纯文档 / 纯注释 / 纯配置数据 / 机械套用既有模式 / revert / 生成物随源更新 / 有效 diff < 20 行(去空行注释)——lint + 测试直接收口,交付附一行豁免声明,不派任何 agent。判定须机器可判(文件类型 + diff 行数),拿不准 = 快审。**红线面永不快速**:触碰 `rules/`、鉴权、安全面、可执行配置(如 hooks)的改动至少快审。
 - **审查闭环:** 交付即待审;completed 由主 loop 在 reviewer 通过(或按豁免跳过)后标记;高风险改动审查通过前**不得提交**。
 - **派 worker 三选一:** ① 多个互不依赖任务可并行 ② 改动大到撑爆编排上下文 ③ 需要隔离的干净实现环境。
@@ -65,7 +66,7 @@ Codex 主 loop 本地执行:设计与计划用 `brainstorming` / `writing-plans`
 
 ## 框架自身的决策与校验
 
-- 决策**一律**记 [`decisions/`](decisions/README.md)——本仓公共 ADR 的唯一落点；`Draft` 可随 Schema/Fixture 验证修订，`Accepted` 后不可改写、只能新增 ADR 取代；feature 文档只描述设计现状,不留决策记录。
+- 决策**一律**记 [`decisions/`](decisions/README.md)——本仓公共 ADR 的唯一落点；`Draft` 可随实现验证修订，`Accepted` 后不可改写、只能新增 ADR 取代（旧制度的 `Historical` 段不受此约束，见该目录 README）；feature 文档只描述设计现状,不留决策记录。
 - 结构一致性由 `node .spec/tools/spec-lint.mjs` 校验,改完 `.spec/` 必跑;校验项清单以脚本头部注释为单一权威。
 
 > 硬性禁令(不得再派生子 Agent、frontmatter 限制、调度变更须同步)在 [`rules/system.md`](rules/system.md)。

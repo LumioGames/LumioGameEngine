@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-024-voxel-p0-contract-set.md

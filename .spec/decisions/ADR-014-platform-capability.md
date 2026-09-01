@@ -1,6 +1,6 @@
 # ADR-014: Unity, HybridCLR and Platform Capability
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioClient` (platform adapter), `LumioGameRuntime` (capability contract)
 - **Baseline**: `LGE-V1.1-2026-08-27`
 

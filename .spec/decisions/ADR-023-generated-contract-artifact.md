@@ -1,6 +1,6 @@
 # ADR-023: Generated Contract Artifact Publication
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.2-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.2-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameEngineArchitecture` (toolchain and published artifacts)
 - **Baseline**: `LGE-V1.2-2026-08-27`
 - **Relation**: Refines [ADR-007](ADR-007-contract-toolchain.md) publication and dependency rules; does not supersede the registry or hash contract.

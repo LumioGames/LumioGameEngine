@@ -251,7 +251,7 @@ a ledger file, not only in todos.
 ```
 You: I'm using Subagent-Driven Development to execute this plan.
 
-[Read plan file once: docs/plans/feature-plan.md]
+[Read plan file once: .spec/plans/feature-plan.md]
 [Create todos for all tasks]
 
 Task 1: Hook installation script

@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-007-contract-toolchain.md

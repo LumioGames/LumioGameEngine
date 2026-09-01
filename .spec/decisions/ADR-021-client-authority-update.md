@@ -1,6 +1,6 @@
 # ADR-021: Client Authority Update Transaction
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.2-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.2-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (transaction API), `LumioClient` (submit/ack orchestration only)
 - **Baseline**: `LGE-V1.2-2026-08-27`
 - **Relation**: Refines [ADR-005](ADR-005-replication-prediction.md) with an explicit Runtime transaction boundary; does not reorder the §7.2 step chain.

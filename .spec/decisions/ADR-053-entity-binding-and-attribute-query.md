@@ -5,7 +5,7 @@
 
 ## 背景
 
-RM-00011（ECS Formal Entity and Chat Vertical Slice）的三张实现卡——R-00347（Runtime 通用绑定/查询）、R-00349（Client ReplicaWorld 映射与呈现）、R-00350（Server 五分钟重连与过期）——消费同一张连接绑定与属性查询公共面。该面此前只存在于决策日志散文（`docs/specs/2026-09-01-ecs-formal-entity-chat-decision-log.md` 的「Common Entity Binding and Attribute Query」「Entity Interaction Contract」两节），没有任何可对齐的真值载体；Owner 裁决（2026-09-01）：先冻协议再并行，各仓靠冻结契约与用例对齐、禁止互相等待。
+RM-00011（ECS Formal Entity and Chat Vertical Slice）的三张实现卡——R-00347（Runtime 通用绑定/查询）、R-00349（Client ReplicaWorld 映射与呈现）、R-00350（Server 五分钟重连与过期）——消费同一张连接绑定与属性查询公共面。该面此前只存在于决策日志散文（`../reviews/2026-09-01-ecs-formal-entity-chat-decision-log.md` 的「Common Entity Binding and Attribute Query」「Entity Interaction Contract」两节），没有任何可对齐的真值载体；Owner 裁决（2026-09-01）：先冻协议再并行，各仓靠冻结契约与用例对齐、禁止互相等待。
 
 本仓已于 59866ec 删除旧基线契约系统（schemas/ids/fixtures/packages/tools），现行开发态公共契约载体是 `engine/wire/` 下的自包含契约 JSON（ADR-052 先例）。经 Owner 2026-09-01 裁定，本契约按「ADR → 契约定义 JSON → 正反用例」交付，落点 `engine/wire/entity-binding-and-query-v1.json`；登记与索引同步由主 loop 串行合并时完成。
 

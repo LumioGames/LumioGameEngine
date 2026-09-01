@@ -6,7 +6,7 @@
 
 ## 当前架构
 
-完整拓扑、职责和 API/ABI 说明见 [`docs/architecture/LumioGameEngine_Architecture.md`](docs/architecture/LumioGameEngine_Architecture.md)。
+完整拓扑、职责和 API/ABI 说明见 [`.spec/knowledge/features/architecture.md`](.spec/knowledge/features/architecture.md)。
 
 ```text
 LumioGame

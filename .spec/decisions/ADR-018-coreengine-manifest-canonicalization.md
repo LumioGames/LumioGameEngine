@@ -1,6 +1,6 @@
 # ADR-018: CoreEngineManifestBody Canonicalization and Detached SignatureEnvelope
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioCoreEngine` (`manifest`, `signing`), consumed by `Server`/`Client` release tooling
 - **Baseline**: `LGE-V1.1-2026-08-27`
 

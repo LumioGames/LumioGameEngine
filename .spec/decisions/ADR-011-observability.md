@@ -1,6 +1,6 @@
 # ADR-011: Logging, Metrics, Trace, Audit and Failure Bundle
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioServer`/`LumioClient` Host adapters; all repositories emit domain events
 - **Baseline**: `LGE-V1.1-2026-08-27`
 - **Refined by**: [ADR-032](ADR-032-durable-recovery-records.md)

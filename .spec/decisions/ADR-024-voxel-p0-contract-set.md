@@ -1,6 +1,6 @@
 # ADR-024: Voxel P0 Public Contract Set (World/Port, Chunk/Page, Revision Stamp, Query Consistency)
 
-- **Status**: Accepted (accepted 2026-08-27 additive to `LGE-V1.2-2026-08-27`; formally entered Implementation Baseline `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Accepted (accepted 2026-08-27 additive to `LGE-V1.2-2026-08-27`; formally entered Implementation Baseline `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioVoxelEngine` (contract source), Architecture (registry)
 - **Baseline**: `LGE-V1.2-2026-08-27` line
 - **Relation**: Completes the Voxel milestone of the Architecture Gate. Refines the World/Role ownership of [ADR-001](ADR-001-session-lifecycle.md), the Barrier semantics of [ADR-002](ADR-002-tick-determinism.md) and the Revision meanings of [ADR-003](ADR-003-cross-world-txn.md); supersedes none of them. The write-side participant receipt is [ADR-025](ADR-025-voxel-participant-receipt-durability.md).

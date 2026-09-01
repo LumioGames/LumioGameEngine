@@ -1,6 +1,6 @@
 # ADR-043: Loader Re-entry and Error Priority
 
-- **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioGameEngineArchitecture` (profile publisher), `LumioCoreEngine` (`loader` consumer)
 - **Baseline**: `LGE-V1.4-2026-08-27` (additive; the ADR-038 machine set, its states and its transitions are unchanged)
 - **Relation**: Completes the observable semantics of [ADR-019](ADR-019-loader-state-machine-package-identity.md); the machine itself stays frozen by [ADR-038](ADR-038-state-machine-descriptor.md).

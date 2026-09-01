@@ -1,6 +1,6 @@
 # ADR-019: Loader State Machine, PackageIdentity and Single-Process Lock
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioCoreEngine` (`loader`, `signing/runtime-verifier`)
 - **Baseline**: `LGE-V1.1-2026-08-27`
 

@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-005-replication-prediction.md

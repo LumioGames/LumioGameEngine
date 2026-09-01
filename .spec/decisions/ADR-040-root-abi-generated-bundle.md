@@ -1,6 +1,6 @@
 # ADR-040: Root ABI Generated Bundle
 
-- **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioGameEngineArchitecture` (bundle publisher), `LumioCoreEngine` and `LumioNativeCore` (`root-abi` consumers)
 - **Baseline**: `LGE-V1.4-2026-08-27` (additive; no existing required field, enum or ID changes)
 - **Relation**: Implements the generatable half of [ADR-017](ADR-017-root-abi-generatable-contract.md) and the "generated headers and bindings include layout assertions and compiler/input hashes" clause of [ADR-006](ADR-006-native-managed-abi.md); publishes through the artifact rules of [ADR-023](ADR-023-generated-contract-artifact.md) / [ADR-039](ADR-039-contract-runtime-artifact.md).
@@ -95,7 +95,7 @@ The generated Rust and C# packages are **not** in that list. They publish id *st
 
 - Recompute the SHA-256 of every `outputFiles[].path` and compare it to the recorded `digest`; recompute the bundle file's own digest and compare it to `rootAbi.bundleDigest`.
 - Record `rootAbi.compiler.digest` next to the name and version, so the consumer can state *which* compiler it verified against (§1).
-- `ids/`, `schemas/` and `fixtures/` carry **no per-file digest** in V1, and `docs/architecture/.baseline.sha256` covers the architecture text only. Their integrity guarantee is therefore the object identity of the pinned mirror revision — a consumer pins a revision, never a branch name.
+- `ids/`, `schemas/` and `fixtures/` carry **no per-file digest** in V1, and 旧制度架构正文 Hash 清单（已随 docs/ 删除，见 git 历史） covers the architecture text only. Their integrity guarantee is therefore the object identity of the pinned mirror revision — a consumer pins a revision, never a branch name.
 
 **What this bundle deliberately does not freeze.** A consumer treats each of these as absent rather than inferring a value:
 
@@ -103,7 +103,7 @@ The generated Rust and C# packages are **not** in that list. They publish id *st
 
 ### 7.1 D-015 ruling: the capability key space is published, and the generator is its only emitter
 
-**Ruled 2026-08-29** (delegated adjudication, `docs/plans/2026-08-29-contract-surface-adjudication.md`, ruling two; executed by ADR-048). This subsection supersedes the sentence "a consumer must not derive a capability key from either source; a repository-private key is the only correct model" above, and nothing else in §7.
+**Ruled 2026-08-29** (delegated adjudication, 2026-08-29 契约面裁决（旧制度产物，已随 docs/ 删除，见 git 历史）, ruling two; executed by ADR-048). This subsection supersedes the sentence "a consumer must not derive a capability key from either source; a repository-private key is the only correct model" above, and nothing else in §7.
 
 The prohibition was correct about the danger and wrong about the remedy. Three native repositories needed a capability key; told to keep it private, they were on course to build three private key spaces for one shared concept — which is the divergence the prohibition existed to prevent, arriving by the route it prescribed. `LumioNativeCore` R-00083 could not proceed at all: it must publish `StaticCapabilities` and may not invent a public key.
 

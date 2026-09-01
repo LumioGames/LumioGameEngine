@@ -6,7 +6,7 @@
 
 - 开发模式：Living Architecture + BuildId 证明
 - 唯一架构源：`LumioGameEngine`
-- 本地镜像：[`docs/architecture/LumioGameEngine_Architecture_v1.2.md`](docs/architecture/LumioGameEngine_Architecture_v1.2.md)
+- 架构说明：[`.spec/knowledge/features/architecture.md`](../../.spec/knowledge/features/architecture.md)（本仓单一文档根；旧的 v1.x 本地镜像已随治理收敛删除，见 git 历史）
 
 `LumioCoreEngine` 是 Native 发布层，不是新的运行时或领域引擎。它把锁定版本的 NativeCore/VoxelEngine 组合为一个可验证的平台包，负责 Root ABI、Loader、ArtifactIndex、签名、SBOM 和平台兼容性。
 

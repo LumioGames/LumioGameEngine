@@ -11,7 +11,7 @@ metadata:
 ## 唯一事实源
 
 - 本仓是 `LumioEngineSDK` 的组装根，吸收原 `LumioCoreEngine`，并维护当前 Living 架构说明。
-- 规范正文是 [`LumioGameEngine_Architecture.md`](../../../docs/architecture/LumioGameEngine_Architecture.md)，公共决策入口是 [`.spec/decisions/`](../../decisions/README.md)。
+- 规范正文是 [`architecture.md`](../features/architecture.md)，公共决策入口是 [`.spec/decisions/`](../../decisions/README.md)。
 - `engine/abi/native-abi.json`、`eng/generate-abi.mjs`、`engine/native/modules/sdk-native` 与共享 C# Loader 组成开发态接口闭环。
 - NativeCore、VoxelEngine 和 GameRuntime 是 SDK provider；Server、Client 和 Game 是 SDK consumer/Host。
 
@@ -38,4 +38,3 @@ metadata:
 - `Draft` 表示方向已写明、正在由 Schema/Fixture/实现验证，可在被接受前修订。
 - `Accepted` 后正文不可改写；改变结论必须新增下一编号 ADR 并标明取代关系。
 - `Reserved` 只占用明确的未来扩展边界，不能被实现当作已批准能力。
-- 待选实现与运维默认值集中在 [`DECISIONS_PENDING.md`](../../../docs/architecture/DECISIONS_PENDING.md)，确认前不得提升为稳定公共语义。

@@ -52,5 +52,5 @@ python3 tools/lumio_contract.py validate
 - 每个新增/修改公共 Schema 至少有一份正向 Fixture 和一份失败 Fixture，失败原因可稳定分类。
 - Schema、Fixture、ID Registry 和各自索引必须双向一致；公共 ID 不重复、不复用。
 - Commit ordering、Revision monotonicity、Release exact match、Maintenance action pairing 与 V1 Mod 限制等语义检查必须通过。
-- 修改基线正文后更新 `BaselineId`（适用时）与 `docs/architecture/.baseline.sha256`，并通过 CI 的文件/章节/Hash 检查。
+- 修改架构正文后，通过 CI 的构建与 Host 装载证明（Living Architecture 不再维护 BaselineId 与正文 Hash 清单）。
 - 影响实现仓库的变更必须列出七仓同步范围；Schema/ADR 文档样例不能替代实现仓的单元、Benchmark 或故障测试。

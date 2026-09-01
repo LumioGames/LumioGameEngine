@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-012-release-update-maintenance.md

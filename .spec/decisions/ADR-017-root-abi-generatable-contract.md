@@ -1,6 +1,6 @@
 # ADR-017: Root ABI Generatable Contract Granularity
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioCoreEngine` (`root-abi`)
 - **Baseline**: `LGE-V1.1-2026-08-27`
 - **Relation**: Refines the contract granularity of [ADR-006](ADR-006-native-managed-abi.md); does not supersede its fault-domain or composition decisions.

@@ -15,7 +15,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Context:** If working in an isolated worktree, it should have been created via the `using-git-worktrees` skill at execution time.
 
-**Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
+**Save plans to:** `.spec/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
 
 ## Scope Check
@@ -157,7 +157,7 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 After saving the plan, hand off to execution:
 
-> "Plan complete and saved to `docs/plans/<filename>.md`. Executing with subagent-driven-development: fresh subagent per task, two-stage review per task, broad review at the end."
+> "Plan complete and saved to `.spec/plans/<filename>.md`. Executing with subagent-driven-development: fresh subagent per task, two-stage review per task, broad review at the end."
 
 - **REQUIRED SUB-SKILL:** Use subagent-driven-development
 - Hosts without subagent support execute the same plan via its Inline Fallback section.

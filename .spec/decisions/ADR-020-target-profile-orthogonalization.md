@@ -1,6 +1,6 @@
 # ADR-020: TargetProfile / PackagingProfile / LoadBackend Orthogonalization
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioCoreEngine` (`platform`), consumed by `composition`, `manifest`, `loader`
 - **Baseline**: `LGE-V1.1-2026-08-27`
 

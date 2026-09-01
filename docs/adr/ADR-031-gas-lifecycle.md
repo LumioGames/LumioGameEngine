@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-031-gas-lifecycle.md

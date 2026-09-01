@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-023-generated-contract-artifact.md

@@ -1,9 +1,0 @@
-{
-  "preset": "MobileLocal",
-  "roomMode": "Singleplayer",
-  "roles": [],
-  "capabilities": ["Native"],
-  "platformProfile": "Android",
-  "faultProfile": "NoFault",
-  "requiredCapabilities": ["Renderer", "HybridCLR"]
-}

@@ -25,15 +25,24 @@ metadata:
 
 | 文档 | 一句话 |
 |------|--------|
+| [`features/architecture.md`](features/architecture.md) | 预上线 Living Architecture——产品拓扑、仓库边界与可运行的 API/ABI 接口;改跨仓边界或接口前查 |
+| [`features/ecs.md`](features/ecs.md) | Lumio ECS 设计概要(Active-Component Hybrid)——身份、存储、查询、结构事务与同步;动 ECS 或其消费方前查 |
+| [`features/ds-server.md`](features/ds-server.md) | Lumio DS 设计概要——权威服务端分层、视野与变更集下发、连接生命周期;动服务端或网络面前查 |
+| [`features/gas.md`](features/gas.md) | Lumio GAS 设计概要——Ability/Effect/Attribute/Tag 与表现层;做技能、效果或属性系统前查 |
+| [`features/save-load.md`](features/save-load.md) | Lumio 存档设计概要——场景体素、动态实体事件、玩家本地偏好三类别与耐久档位;做存读档前查 |
+| [`features/config-table.md`](features/config-table.md) | LumioConfig 设计概要——配表编译、typed Table Reader 与 Tick 内不可变快照;做配表或热更前查 |
+| [`features/ecs-entity-chat.md`](features/ecs-entity-chat.md) | ECS 正式实体与聊天垂直切片的需求真值——行为与归属边界;实现该切片或改其验收标准前查 |
 | [`features/_TEMPLATE.md`](features/_TEMPLATE.md) | 新功能文档模板——新增功能记录时照此建,放对 领域 / 模块 |
-
-> 暂无正式功能文档。
 
 ## lessons(经验教训 · 复发问题暂存区)
 
 | 文档 | 一句话 |
 |------|--------|
 | [`lessons.md`](lessons.md) | 经验教训:reviewer 反复退回的同类问题与 Agent 常犯坑——开工前与复盘沉淀时查 |
+
+## 过程物(不进本导航,按需直接翻目录)
+
+`.spec/plans/`(实现计划与派活提示词)、`.spec/reviews/`(审查报告与裁决流水)、`.spec/tasks/`(在途任务卡真值)。与 `knowledge/` 的分界照「活文档 vs 某天的记录」:knowledge 描述**现状**、文件名不带日期;过程物记录**某一次**的计划 / 审查 / 裁决、文件名带日期前缀。
 
 ---
 

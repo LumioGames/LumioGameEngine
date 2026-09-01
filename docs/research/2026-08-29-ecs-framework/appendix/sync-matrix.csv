@@ -1,8 +1,0 @@
-﻿Framework,Declaration,DirtyGranularity,BaselineDelta,Notification,Visibility,Collections,CriticalNotes
-Mirror,Attribute + Weaver,Field dirty bit within NetworkBehaviour,Initial state + deltas,SyncVar hook with guard,Observers/owner modes,SyncObject operation log,64-bit mask; no-observer log guard
-FishNet,SyncVar/SyncType,SyncType-specific,Initial + deltas,OnChange,Read permissions/observers,SyncList/Dictionary etc.,Version-specific options
-Photon Fusion,[Networked] + IL weaving,State buffer property tracking,Snapshot baseline,OnChangedRender/ChangeDetector,Object/Behaviour interest,Network collections,Initial spawn does not call OnChangedRender; per-object consistency
-Unity Netcode,GhostField/GhostVariant Bake,Field/component change and snapshot selection,1/3-baseline delta,Systems/change filters,"Relevancy, owner, prefab variants",Dynamic buffers,Protocol manifest checks; quantization
-KBEngine,EntityDef properties/flags,Property-level engine tracking,Current entity state on client entry,Generated callback conventions,base/cell/client/owner/all flags,Schema collections,Version-specific historical API
-Colyseus,Schema declaration,ChangeTree/property tracking,Full state + binary patches,Listen/OnAdd/OnRemove,StateView,ArraySchema/MapSchema etc.,Field index limits validated in 0.18
-Proposed target,Source generator + manifest,Field mask + component revision + collection oplog,BaselineId + acknowledged deltas,Post-transaction deterministic callback,Default deny entity/component/field policies,Stable-key oplog,"Unresolved refs, epochs, schema migration"

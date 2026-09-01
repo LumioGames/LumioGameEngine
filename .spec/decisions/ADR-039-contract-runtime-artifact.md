@@ -1,6 +1,6 @@
 # ADR-039: ContractRuntime Artifact Kind
 
-- **Status**: Accepted (enters Implementation Baseline `LGE-V1.4-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (enters Implementation Baseline `LGE-V1.4-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameEngineArchitecture` (toolchain and published artifacts)
 - **Baseline**: `LGE-V1.4-2026-08-27`
 - **Relation**: Refines [ADR-023](ADR-023-generated-contract-artifact.md) (adds one artifact kind to its publication contract) and [ADR-007](ADR-007-contract-toolchain.md); consumes the recovery-record and canonical-shape primitives frozen by [ADR-032](ADR-032-durable-recovery-records.md) and [ADR-037](ADR-037-contract-common-primitives.md). Supersedes nothing.

@@ -1,6 +1,6 @@
 # ADR-033: Config Typed Column Validation
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGame` (table source), `LumioGameRuntime` (validation/activation)
 - **Baseline**: `LGE-V1.3-2026-08-27`
 - **Relation**: Refines [ADR-010](ADR-010-persistence-config.md). The Accepted ADR-010 Decision text is unchanged.

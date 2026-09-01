@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-002-tick-determinism.md

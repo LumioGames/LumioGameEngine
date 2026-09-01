@@ -1,6 +1,6 @@
 # ADR-046: Native Kernel Status Band
 
-- **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioGameEngineArchitecture` (`ErrorCode` namespace owner); `LumioNativeCore` and `LumioCoreEngine` (status producers and consumers)
 - **Baseline**: `LGE-V1.4-2026-08-27` (additive; ID Registry values only — no schema, required field or enum changes)
 - **Relation**: makes the `lumio_status_t` clause of [ADR-040](ADR-040-root-abi-generated-bundle.md) §3 satisfiable at the kernel boundary, and closes the "both map to stable Error Codes" / "buffer-too-small returns required size" clauses of [ADR-006](ADR-006-native-managed-abi.md) that had no registered value.

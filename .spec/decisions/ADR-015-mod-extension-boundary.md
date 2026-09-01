@@ -1,6 +1,6 @@
 # ADR-015: P2 Mod SDK Extension Boundary
 
-- **Status**: Reserved (P2; not loaded by V1)
+- **Status**: Historical · Reserved (P2; not loaded by V1)
 - **Owner**: `LumioGame` (content policy), Runtime/Host (sandbox contract)
 - **Baseline**: `LGE-V1.1-2026-08-27`
 

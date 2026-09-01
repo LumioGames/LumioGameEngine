@@ -1,9 +1,0 @@
-﻿Framework,RelationModel,CandidateFilter,Enter,Leave,ChurnControl,Dependencies,CriticalNotes
-Mirror,Server observer set,Spatial hashing/custom,Spawn to added observers,Hide from removed observers,Application/custom,Owner forcibly retained,Network visibility separate from GameObject enable
-FishNet,NetworkObserver per object,Composable conditions,Observer qualifies,Observer disqualified,Custom conditions/cache,Scene/owner/match/distance,Host renderer visibility is separate
-Photon Fusion,Object/Behaviour Interest,AOI/Global/Explicit,InterestEnter + network spawn/baseline,InterestExit; object may remain/different policy,Application-level,AOI override via NetworkTRSP,Callbacks carry PlayerRef
-Unity Netcode,GhostRelevancy per connection/ghost,Application-populated relevancy set,Ghost spawn/current snapshot,Client ghost destruction by default behavior,Application-level,Ghost groups/variants,Reentry is a new client entity in documented behavior
-KBEngine,Cell/space view relation,Engine spatial model,onEnterWorld/onEnterSpace/view callbacks,leave callbacks,Historical behavior/version-specific,EntityDef/property flags,Closest classic MMO precedent
-Colyseus,Client StateView membership,Application query/view,View add / collection OnAdd,View remove / OnRemove,Application-level,Per-client view,Not a built-in large-world spatial index
-Unreal,Actor per-connection relevancy,distance/owner/rules/ReplicationGraph,Channel/object becomes relevant,Stops replicating/channel close policy,Dormancy/update frequency,Object reference rules,"Relevancy, dormancy and component activation are separate"
-Proposed target,"InterestRelation(observer,entity,epoch)",Spatial broadphase + security/semantic filters,Baseline committed then ReplicaEnter,Reasoned hard/soft leave,Dual radius + dwell + cache TTL,Dependency closure + pending refs,"Server interest, client replica and presentation are three state machines"

@@ -1,6 +1,6 @@
 # ADR-027: Tick Fail-Stop and Phase Contract Matrix
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime`
 - **Baseline**: `LGE-V1.3-2026-08-27`
 - **Relation**: Refines [ADR-002](ADR-002-tick-determinism.md). The Accepted ADR-002 Decision text is unchanged.

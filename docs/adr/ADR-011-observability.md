@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-011-observability.md
