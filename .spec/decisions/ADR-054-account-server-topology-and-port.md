@@ -5,7 +5,7 @@
 
 ## 背景
 
-RM-00011「ECS Formal Entity and Chat Vertical Slice」要求 100 个 Bot 账号与 1 个浏览器账号经独立账号服务 login-or-register 取得凭证并进入同一房间。需求室审查（`docs/reviews/2026-09-01-rm-00011-room-review.md`）发现四处悬空：账号服无目标仓归属（P0-4，目标仓虚指 "Account Server integration owner"）；第三服务拓扑无 ADR；「Bot 工具上下文」只是一句话、不是可验证的凭证；「Bot 工具凭证 claim 与失败码」从未冻结。Owner 于 2026-09-01 逐题裁决：Account Server 是 LumioServer 仓 `account-server//` 目录下的**正式独立服务**（真实 login-or-register 协议、哈希凭证存储、签名过期不透明准入凭证、持久账号库、真 Bot 工具凭证 claim 六件事）；AccountEntity 走 ECS；重复准入定为顶号（单行为）。本 ADR 把这些裁决连同端口字段、凭证格式与失败码一并冻结。
+RM-00011「ECS Formal Entity and Chat Vertical Slice」要求 100 个 Bot 账号与 1 个浏览器账号经独立账号服务 login-or-register 取得凭证并进入同一房间。需求室审查（`docs/reviews/2026-09-01-rm-00011-room-review.md`）发现四处悬空：账号服无目标仓归属（P0-4，目标仓虚指 "Account Server integration owner"）；第三服务拓扑无 ADR；「Bot 工具上下文」只是一句话、不是可验证的凭证；「Bot 工具凭证 claim 与失败码」从未冻结。Owner 于 2026-09-01 逐题裁决：Account Server 是 LumioServer 仓 `account-server/` 目录下的**正式独立服务**（真实 login-or-register 协议、哈希凭证存储、签名过期不透明准入凭证、持久账号库、真 Bot 工具凭证 claim 六件事）；AccountEntity 走 ECS；重复准入定为顶号（单行为）。本 ADR 把这些裁决连同端口字段、凭证格式与失败码一并冻结。
 
 ## 决策
 
