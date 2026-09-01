@@ -34,15 +34,18 @@
     }
   },
   "fieldSemantics": {
-    "timerHandle": "opaque 句柄，Index+Generation+Context 编码（ADR-006 句柄模型）。slot 复用必增 generation；解析失败返回 stale_handle，绝不模糊命中同 index 新 generation 的另一定时器。句柄不是对象引用，不得携带 World/session 指针。",
-    "generation": "u32 单调递增，从 1 开始；overflow 必须 Fatal（进程级），不得回绕为 0——与实体世代同纪律。",
-    "scope": "Timer 生命周期归属域。scope teardown/reset 使其 generation+1 并使其名下全部 handle 一次性失效；此后对这些 handle 的一切操作按失效类错误拒绝。",
+    "timerHandle": "opaque 句柄，Index+Generation+Context 编码（ADR-006 句柄模型）。slot 复用必增 generation；解析失败返回 stale_handle，绝不模糊命中同 index 新 generation 的另一定时器。句柄不是对象引用，不得携带 World/session 指针。one-shot 触发已交付（或被任何终态拒绝）后句柄随之失效，此后对该句柄的一切操作按 stale_handle 拒绝。本契约没有 resolve 操作；句柄有效性只通过四操作的返回观测（cancel 对失效句柄返回 stale_handle）。",
+    "generation": "u32 单调递增，从 1 开始；overflow 必须 Fatal（进程级），不得回绕为 0——与实体世代同纪律。generation 溢出不是 errorCodes 词表成员。",
+    "scope": "Timer 生命周期归属域。scope teardown/reset 使其 generation+1 并使其名下全部 handle 一次性失效。schedule* 上：scopeId 未在本 Manager 注册（或已彻底销毁、无活 generation）返回 scope_invalid；scopeId 已注册但 generation 不匹配返回 scope_generation_mismatch。旧 handle 上的操作返回 stale_handle，不返回 scope_*。",
     "scheduleSequence": "每个 Manager 实例内单调递增的调度序号，u64；同刻触发的稳定全序由此决定，保证回放确定性。",
-    "dueTick": "确定性问题刻度：one-shot 的唯一触发刻，repeating 的首次触发刻；只能调度到当前已提交刻度之后的未来刻。",
-    "intervalTicks": "repeating 周期，≥ minIntervalTicks 且 ≥1；非正值非法，调度时拒绝。",
+    "dueTick": "确定性问题刻度：one-shot 的唯一触发刻，repeating 的首次触发刻。scheduleOneShot.dueTick / scheduleRepeating.firstDueTick 必须 > 当前已提交刻度，否则返回 invalid_due_tick。",
+    "intervalTicks": "repeating 周期，≥ minIntervalTicks 且 ≥1；非正值或低于下限在 scheduleRepeating 时返回 invalid_interval。",
     "deliveryOrder": "同刻多定时按 (dueTick, scheduleSequence) 稳定全序投递；跨刻按刻序。给定相同调度集合与顺序，触发集合与顺序唯一——回放确定性是契约属性。",
-    "callbackSlot": "投递载体：创建时预注册的类型化分发目的地（注册 id + adapter 分发表），不是原始函数指针。Native 侧绝不直接调用 managed/gameplay 热路径回调（ADR-006 纪律）：触发先入 adapter 投递队列，adapter 在声明的分发点排空并调用绑定回调。",
-    "lateCompletion": "取消后、scope 失效后、slot 关闭后到达的触发一律终态拒绝：不写任何状态、不调用回调、不重排队。终态不可逆（ADR-006: completion after destruction is terminal）。"
+    "callbackSlot": "投递载体：创建时预注册的类型化分发目的地（注册 id + adapter 分发表），不是原始函数指针。Native 侧绝不直接调用 managed/gameplay 热路径回调（ADR-006 纪律）：触发先入 adapter 投递队列，adapter 在声明的分发点排空并调用绑定回调。每 slot 投递队列有界：满时该触发以 slot_queue_full 终态拒绝、定时器随之终态（不重试、不重排队）、Manager 继续运行并记诊断事件，不静默丢弃、不升级为进程失败。",
+    "lateCompletion": "取消后、scope 失效后、slot 关闭后到达的触发一律终态拒绝：不写任何状态、不调用回调、不重排队。终态不可逆（ADR-006: completion after destruction is terminal）。",
+    "advanceToTick": "advance(toTick) 只允许 toTick ≥ 当前已提交刻度。toTick < 当前刻度（回退）返回 invalid_due_tick，刻度不变、无 FiringRecord。toTick == 当前刻度为合法空推进（空触发集）。与 schedule 的 dueTick 校验共用 invalid_due_tick，判别见 errorTriggers。",
+    "maxSchedulesPerTick": "单刻内 scheduleOneShot + scheduleRepeating 成功次数上限（limits.maxSchedulesPerTick）。超出返回 schedule_budget_exceeded，无部分调度。被拒绝的调用不计入次数。与 maxActiveTimersPerScope 共用该码，判别见 errorTriggers。",
+    "managerLifecycle": "Manager 两态 running / shutdown。进入 shutdown 的路径是宿主/adapter 拆除 Manager 实例（进程退出、adapter 卸载、显式销毁）；该路径不是本契约四个公开操作之一。shutdown 不可逆。进入后 scheduleOneShot / scheduleRepeating / cancel / advance 一律返回 manager_shutdown：无新 handle、无刻度推进、无新 FiringRecord。已由 advance 返回、尚未排空的 FiringRecord 按 late_completion 丢弃。manager_shutdown 是稳定拒绝，不是进程 fatal。"
   },
   "types": {
     "TimerHandle": {
@@ -57,10 +60,17 @@
         "generation": "u32"
       },
       "scopeKinds": ["world", "session", "adapter"],
-      "invalidation": "teardown/reset 一次性失效名下全部 handle；新 scope 可复用 scopeId，靠 generation 区分"
+      "invalidation": "teardown/reset 一次性失效名下全部 handle；新 scope 可复用 scopeId，靠 generation 区分。从未注册或已彻底销毁的 scopeId 是 scope_invalid，不是 generation 失配。"
     },
     "TimerKind": {
       "values": ["one_shot", "repeating"]
+    },
+    "TimerManager": {
+      "lifecycle": ["running", "shutdown"],
+      "states": {
+        "running": "默认态；接受四操作",
+        "shutdown": "不可逆终态。由宿主/adapter 拆除实例进入，不是第五个公开 ABI 操作。此后四操作一律返回 manager_shutdown"
+      }
     },
     "CallbackSlot": {
       "lifecycle": ["closed", "armed", "delivering", "closed"],
@@ -72,7 +82,7 @@
       "constraints": [
         "仅允许创建时绑定一次（注册 id 经 adapter 分发表解析）；不得运行期改绑",
         "回调内不得同步 schedule/cancel（投递与调度相位分离；需要时经队列转下一刻）",
-        "每 slot 投递队列有界（deliveryQueueDepth），满即 fail-stop 上报 slot_queue_full，不静默丢弃"
+        "每 slot 投递队列有界（deliveryQueueDepthPerSlot）；满时该触发以 slot_queue_full 终态拒绝、定时器随之终态（不重试、不重排队）、Manager 继续运行并记诊断事件——单个 slot 的队列满不升级为进程失败"
       ]
     }
   },
@@ -80,22 +90,22 @@
     "scheduleOneShot": {
       "params": { "scope": "TimerScope", "dueTick": "u64", "slot": "CallbackSlot" },
       "returns": { "ok": "TimerHandle", "err": "enum:errorCodes" },
-      "notes": "dueTick ≤ 当前已提交刻度返回 invalid_due_tick；slot 未 armed 返回对应 slot 错误；scope 名下活跃数超限返回 schedule_budget_exceeded（无部分调度）。"
+      "notes": "Manager 已 shutdown 返回 manager_shutdown。scopeId 未注册返回 scope_invalid；scope generation 不匹配返回 scope_generation_mismatch。dueTick ≤ 当前已提交刻度返回 invalid_due_tick。slot 未 armed 返回 slot_unbound 或 slot_closed。scope 名下活跃数达 maxActiveTimersPerScope，或本刻成功 schedule 次数达 maxSchedulesPerTick，均返回 schedule_budget_exceeded（无部分调度）。"
     },
     "scheduleRepeating": {
       "params": { "scope": "TimerScope", "firstDueTick": "u64", "intervalTicks": "u64", "slot": "CallbackSlot" },
       "returns": { "ok": "TimerHandle", "err": "enum:errorCodes" },
-      "notes": "intervalTicks < minIntervalTicks 或 =0 返回 invalid_interval；其余同 scheduleOneShot。"
+      "notes": "intervalTicks < minIntervalTicks 或 =0 返回 invalid_interval；其余同 scheduleOneShot（firstDueTick 对应 dueTick 校验）。"
     },
     "cancel": {
       "params": { "handle": "TimerHandle" },
       "returns": { "ok": "bool", "err": "enum:errorCodes" },
-      "notes": "成功后该 handle 不可再解析（后续操作 stale_handle）；对已取消/已失效句柄再次 cancel 返回 stale_handle（稳定错误，非幂等成功）。已入队的本次触发按 late_completion 终态丢弃。"
+      "notes": "Manager 已 shutdown 返回 manager_shutdown（优先于 stale_handle）。成功后该 handle 不可再解析（后续操作 stale_handle）；对已取消/已失效句柄再次 cancel 返回 stale_handle（稳定错误，非幂等成功）。已入队或已进入 advance 返回集的本次触发按 late_completion 终态丢弃。"
     },
     "advance": {
       "params": { "toTick": "u64" },
       "returns": { "ok": "array:FiringRecord", "err": "enum:errorCodes" },
-      "notes": "Manager 由权威 Tick 循环驱动推进到 toTick，返回 (dueTick, scheduleSequence) 全序的触发记录；adapter 负责经 CallbackSlot 分发。toTick 不得回退。"
+      "notes": "Manager 已 shutdown 返回 manager_shutdown。toTick < 当前已提交刻度返回 invalid_due_tick（回退拒绝，刻度不变）。合法推进返回 (dueTick, scheduleSequence) 全序的触发记录；adapter 负责经 CallbackSlot 分发。单条触发的 slot_queue_full / slot_closed / late_completion / slot_dispatch_mismatch 是逐条拒绝，不使本次 advance 整体失败。"
     }
   },
   "sharedTypes": {
@@ -107,7 +117,7 @@
         "slotDispatchId": "string"
       },
       "optional": {},
-      "notes": "单次触发的确定性记录；被取消/失效终态丢弃的触发不产生 FiringRecord，只产生拒绝语义。"
+      "notes": "单次触发的确定性记录；被取消/失效终态丢弃的触发不产生 FiringRecord，只产生拒绝语义。slotDispatchId 是 schedule 时绑定的注册分发 id，adapter 排空时按此解析。"
     }
   },
   "errorCodes": [
@@ -124,6 +134,145 @@
     "late_completion",
     "manager_shutdown"
   ],
+  "errorTriggers": {
+    "stale_handle": {
+      "kind": "operation-err",
+      "operations": ["cancel"],
+      "trigger": "以 TimerHandle 为参数的操作上，该句柄的 (index, generation) 不能解析到一个仍然活着的定时器：已 cancel、one-shot 已交付或已被任何终态拒绝、index 已被更高 generation 复用、scope teardown 后持有的旧 handle。本契约无 resolve 操作，观测手段是对这些句柄调用 cancel（或未来新增的句柄类操作）并得到本码。",
+      "blastRadius": "stable-reject",
+      "distinctFrom": {
+        "scope_invalid": "主语是 TimerScope.scopeId 未注册，操作是 schedule*，没有 handle 参与",
+        "scope_generation_mismatch": "主语是已注册 scope 的 generation 失配，操作是 schedule*；旧 handle 走 stale_handle 而不是本码",
+        "late_completion": "主语是已经进入 advance 返回集或投递队列的那一次触发在排空时被丢弃，不是对句柄操作的返回",
+        "manager_shutdown": "Manager 已 shutdown 时四操作一律 manager_shutdown，即使句柄同时也是 stale"
+      }
+    },
+    "scope_invalid": {
+      "kind": "operation-err",
+      "operations": ["scheduleOneShot", "scheduleRepeating"],
+      "trigger": "schedule* 的 TimerScope.scopeId 未在本 Manager 注册，或该 scopeId 已彻底销毁且不存在可匹配的活 generation（不是 generation 加一后的旧引用，而是根本没有这个 scope）。scopeKind 不在 scopeKinds 枚举内亦为本码。",
+      "blastRadius": "stable-reject; 无 handle 产生",
+      "distinctFrom": {
+        "scope_generation_mismatch": "scopeId 已注册，只是携带的 generation 不等于活 generation",
+        "stale_handle": "主语是 TimerHandle，不是 TimerScope",
+        "manager_shutdown": "Manager 已停则不诊断 scope 身份，直接 manager_shutdown"
+      }
+    },
+    "scope_generation_mismatch": {
+      "kind": "operation-err",
+      "operations": ["scheduleOneShot", "scheduleRepeating"],
+      "trigger": "schedule* 的 TimerScope.scopeId 已在本 Manager 注册，但携带的 generation 不等于该 scope 当前活 generation（典型：teardown/reset 已 generation+1，调用方仍持旧 TimerScope）。",
+      "blastRadius": "stable-reject; 无 handle 产生",
+      "distinctFrom": {
+        "scope_invalid": "scopeId 根本未注册或已彻底销毁，没有活 generation 可失配",
+        "stale_handle": "cancel 等句柄操作走 stale_handle；本码只出现在以 TimerScope 为参数的 schedule*",
+        "late_completion": "scope teardown 之后、已经产生的触发在排空时丢弃走 late_completion，不是 schedule* 返回本码"
+      }
+    },
+    "invalid_due_tick": {
+      "kind": "operation-err",
+      "operations": ["scheduleOneShot", "scheduleRepeating", "advance"],
+      "trigger": "两种互斥面，共用本码：(a) scheduleOneShot.dueTick 或 scheduleRepeating.firstDueTick ≤ 当前已提交刻度；(b) advance(toTick) 且 toTick < 当前已提交刻度（回退）。(b) 时刻度不变、无 FiringRecord。toTick == 当前刻度不是本码（空推进）。",
+      "blastRadius": "stable-reject; 无部分调度、无刻度回退",
+      "distinctFrom": {
+        "invalid_interval": "只谈 repeating 的 intervalTicks 下限，due/toTick 合法",
+        "schedule_budget_exceeded": "刻度值合法，只是次数/活跃数触顶",
+        "late_completion": "触发时刻本身合法，只是排空时对象已终态"
+      }
+    },
+    "invalid_interval": {
+      "kind": "operation-err",
+      "operations": ["scheduleRepeating"],
+      "trigger": "scheduleRepeating 的 intervalTicks = 0 或 intervalTicks < minIntervalTicks。one-shot 不使用本码。",
+      "blastRadius": "stable-reject; 无 handle 产生",
+      "distinctFrom": {
+        "invalid_due_tick": "firstDueTick 非法走 invalid_due_tick，即使 interval 也非法时优先 interval 还是 dueTick：interval 校验先于 dueTick（interval 是 repeating 专属前置）",
+        "schedule_budget_exceeded": "周期合法，只是预算触顶"
+      }
+    },
+    "schedule_budget_exceeded": {
+      "kind": "operation-err",
+      "operations": ["scheduleOneShot", "scheduleRepeating"],
+      "trigger": "两种互斥面，共用本码：(a) 该 scope 名下活跃定时数已达 maxActiveTimersPerScope；(b) 当前已提交刻度内 scheduleOneShot+scheduleRepeating 成功次数已达 maxSchedulesPerTick。先检查 (a) 再检查 (b)。被拒绝的调用不计入 (b)。无部分调度。",
+      "blastRadius": "stable-reject; 既有定时器集合不变",
+      "distinctFrom": {
+        "slot_queue_full": "发生在触发入队/投递时，不是 schedule 时；且是逐条拒绝不是整次 schedule 失败",
+        "invalid_due_tick": "输入刻度非法，预算未参与",
+        "manager_shutdown": "停机优先于预算诊断"
+      }
+    },
+    "slot_closed": {
+      "kind": "both",
+      "operations": ["scheduleOneShot", "scheduleRepeating", "advance"],
+      "trigger": "CallbackSlot 处于 closed（从未 armed，或 armed 之后被 close）。schedule* 对 closed slot 整次返回本码、无 handle。已调度定时器在 dueTick 时若 slot 已 close，该触发逐条拒绝为本码、定时器终态、advance 整体仍成功。",
+      "blastRadius": "stable-reject; 该定时器终态; Manager 继续; 进程不退出",
+      "distinctFrom": {
+        "slot_unbound": "slot 从未绑定注册分发目的地（不是 closed-after-bind）",
+        "slot_dispatch_mismatch": "slot 仍 armed，只是 FiringRecord.slotDispatchId 在 adapter 分发表解析失败",
+        "slot_queue_full": "slot 仍 armed 且队列满，不是 closed",
+        "late_completion": "触发已进入 advance 返回集之后、排空前对象才终态；slot 在 dueTick 前已 close 走本码而不是 late_completion"
+      }
+    },
+    "slot_unbound": {
+      "kind": "operation-err",
+      "operations": ["scheduleOneShot", "scheduleRepeating"],
+      "trigger": "schedule* 时 CallbackSlot 尚未绑定注册分发目的地（从未 armed）。只在调度期返回，不在排空期返回。",
+      "blastRadius": "stable-reject; 无 handle 产生",
+      "distinctFrom": {
+        "slot_closed": "closed 是生命周期终态（含 bind 后 close）；unbound 是从未 bind",
+        "slot_dispatch_mismatch": "排空期分发 id 解析失败，调度时 slot 是 armed 的",
+        "slot_queue_full": "armed slot 的队列满，调度已成功"
+      }
+    },
+    "slot_dispatch_mismatch": {
+      "kind": "per-firing-reject",
+      "operations": ["advance"],
+      "trigger": "adapter 排空某条 FiringRecord 时，其 slotDispatchId 在 adapter 分发表中解析失败，或解析到的目的地不是该记录对应 slot 在 schedule 时绑定的注册目的地。发生在 drain 期，不发生在 schedule 期。典型原因：分发表条目在 schedule 之后、drain 之前被移除或替换（契约禁止运行期改绑 slot 本身，但 adapter 表仍可能被拆除）。",
+      "blastRadius": "stable-reject; 该条不分发、定时器终态; Manager 与其它 slot 继续; 进程不退出",
+      "distinctFrom": {
+        "slot_unbound": "调度期从未绑定；本码要求当时已经 schedule 成功并产生了带 slotDispatchId 的 FiringRecord",
+        "slot_closed": "slot 生命周期是 closed；本码是分发 id 与表不一致，slot 生命周期仍可以是 armed",
+        "late_completion": "late_completion 是定时器/scope/slot 已终态后的迟到触发；本码是目的地解析失败，定时器在 fire 时仍活",
+        "slot_queue_full": "队列深度触顶，分发 id 本身可解析"
+      }
+    },
+    "slot_queue_full": {
+      "kind": "per-firing-reject",
+      "operations": ["advance"],
+      "trigger": "advance 将一次触发入该 slot 投递队列时，队列深度已达 deliveryQueueDepthPerSlot。该触发以本码终态拒绝：不重试、不重排队、不分发；该定时器随之终态（one-shot 句柄失效；repeating 停止后续周期）。Manager 继续运行并记诊断事件。",
+      "blastRadius": "stable-reject; timer-terminal; manager-continues; process-lives。不是 fail-stop，不是 ProcessFault。",
+      "distinctFrom": {
+        "schedule_budget_exceeded": "schedule 期的次数/活跃数上限，不是投递队列深度",
+        "slot_closed": "slot 已 close，不是队列满",
+        "late_completion": "对象已终态后的迟到触发；本码发生时定时器在入队瞬间仍活，入队失败才把它打成终态",
+        "generation_overflow": "唯一的进程级 fail-stop；队列满绝不升级到这一级（且 generation 溢出不在 errorCodes 词表）"
+      }
+    },
+    "late_completion": {
+      "kind": "per-firing-reject",
+      "operations": ["advance"],
+      "trigger": "一次触发已经进入 advance 的返回集或已经入投递队列之后，在 adapter 排空到该条之前，对应定时器/scope/slot 变为终态（cancel、scope teardown、slot close、manager shutdown）。该条丢弃：不写状态、不调用回调、不重排队。",
+      "blastRadius": "stable-reject; 零状态写入; Manager 与其余定时器不受影响; 进程不退出",
+      "distinctFrom": {
+        "slot_closed": "dueTick 到达时 slot 已 close、本条尚未进入返回集 → slot_closed；已进入返回集再 close → 本码",
+        "stale_handle": "对句柄的后续操作返回 stale_handle；本码是那一次已产生触发的排空结果",
+        "slot_dispatch_mismatch": "目的地解析失败，对象在 fire 时仍活",
+        "slot_queue_full": "入队时队列满并把仍活的定时器打成终态；本码是入队/返回之后才终态"
+      }
+    },
+    "manager_shutdown": {
+      "kind": "operation-err",
+      "operations": ["scheduleOneShot", "scheduleRepeating", "cancel", "advance"],
+      "trigger": "Manager 已进入 shutdown。进入路径：宿主/adapter 拆除 Manager 实例（进程退出、adapter 卸载、显式销毁）。不是四个公开操作之一，也没有第五个 shutdown() ABI。shutdown 不可逆。进入后四操作一律返回本码：无新 handle、无刻度推进、无新 FiringRecord。优先级最高：即使句柄 stale、scope 非法、刻度回退，只要 Manager 已 shutdown 就返回本码而不是兄弟码。已返回未排空的 FiringRecord 按 late_completion 丢弃。",
+      "blastRadius": "stable-reject; Manager 停用; 进程不因本码退出（进程是否退出由宿主拆除路径决定，不由本码升级为 ProcessFault）",
+      "distinctFrom": {
+        "stale_handle": "Manager 仍 running 时的句柄失效",
+        "slot_closed": "单个 slot 终态，Manager 仍 running",
+        "scope_invalid": "单个 scope 身份问题，Manager 仍 running",
+        "generation_overflow": "进程级 fail-stop；本码不是 fatal"
+      }
+    }
+  },
   "limits": {
     "maxActiveTimersPerScope": 1024,
     "maxSchedulesPerTick": 4096,
@@ -139,7 +288,7 @@
       "layer": "nativeTickFrameTimerManager",
       "given": "scope S（generation=1）；slot A armed；当前已提交刻度 = 10",
       "when": "scheduleOneShot(S, dueTick=15, A) → handle H；advance(15)；再 advance(16)",
-      "then": "advance(15) 恰产生 1 条 FiringRecord（dueTick=15, scheduleSequence 单调）且经 A 分发一次；advance(16) 无该 handle 的任何触发；此后 resolve(H) 失败"
+      "then": "advance(15) 恰产生 1 条 FiringRecord（dueTick=15, scheduleSequence 单调）且经 A 分发一次；advance(16) 无该 handle 的任何触发；此后 cancel(H) → stale_handle（one-shot 已交付，句柄失效）"
     },
     {
       "name": "repeating_fires_each_interval",
@@ -172,7 +321,7 @@
       "class": "stale-handle",
       "violates": "timerHandle 解析纪律（同 index 新 generation 不得模糊命中）",
       "given": "handle H1 已取消；其 index 被 slot 复用并分配给 H2（generation 更高）",
-      "when": "cancel(H1)；resolve(H1) 类操作",
+      "when": "再次 cancel(H1)；以及任何以 H1 为参数的后续操作",
       "expectedRejection": "stale_handle",
       "then": "两操作都拒绝；H2 不受影响"
     },
@@ -213,6 +362,42 @@
       "then": "调度整体拒绝，无部分调度、无 handle 产生"
     },
     {
+      "name": "slot_queue_full_timer_terminal_process_lives",
+      "class": "slot-failure",
+      "violates": "CallbackSlot 队列上限显式拒绝（非 fail-stop）",
+      "given": "slot A armed；其投递队列深度已 = deliveryQueueDepthPerSlot（先前触发尚未排空）；one-shot H 绑定 A 且 dueTick 已到；Manager running",
+      "when": "advance 到 H.dueTick（试图把本次触发入 A 的队列）",
+      "expectedRejection": "slot_queue_full",
+      "then": "该触发被显式拒绝并记诊断事件；不重试、不重排队、不分发；H 随之终态（此后 cancel(H) → stale_handle）；Manager 继续（可再 schedule 其它定时器并 advance）；进程不退出、不升级为 generation 溢出那种 fail-stop"
+    },
+    {
+      "name": "slot_dispatch_mismatch_at_drain",
+      "class": "slot-failure",
+      "violates": "adapter 排空时 slotDispatchId 必须能解析到 schedule 时绑定的目的地",
+      "given": "one-shot H 已 schedule 且 advance 已返回含 slotDispatchId=D 的 FiringRecord；slot 在 schedule 时 armed；排空前 adapter 分发表中 D 被移除或解析到非绑定目的地",
+      "when": "adapter 排空该条",
+      "expectedRejection": "slot_dispatch_mismatch",
+      "then": "该条显式拒绝、不分发、定时器终态；Manager 与其它 slot 继续；不是 slot_unbound（调度已成功）也不是 slot_closed（生命周期未 close）"
+    },
+    {
+      "name": "scope_invalid_unregistered_scope",
+      "class": "input-validation",
+      "violates": "schedule* 的 scope 必须已在本 Manager 注册",
+      "given": "TimerScope S 的 scopeId 从未在本 Manager 注册（或已彻底销毁且无活 generation）；slot A armed",
+      "when": "scheduleOneShot(S, dueTick=15, A)",
+      "expectedRejection": "scope_invalid",
+      "then": "调度整体拒绝，无 handle；不是 scope_generation_mismatch（没有可匹配的活 generation），也不是 stale_handle（没有 handle 参与）"
+    },
+    {
+      "name": "manager_shutdown_rejects_all_operations",
+      "class": "shutdown",
+      "violates": "Manager shutdown 后四操作稳定拒绝",
+      "given": "Manager 已进入 shutdown（宿主/adapter 拆除实例；非四操作触发）；此前可能仍持有 handle H 与 armed slot A",
+      "when": "scheduleOneShot / scheduleRepeating / cancel / advance 任一",
+      "expectedRejection": "manager_shutdown",
+      "then": "四操作均稳定拒绝；无新 handle、无刻度推进、无新 FiringRecord；即使 H 已 stale 或 toTick 回退也返回本码而不是兄弟码；进程不因本码退出"
+    },
+    {
       "name": "double_cancel_stable_error",
       "class": "cancel",
       "violates": "句柄生命周期（ADR-006 double-destroy 同纪律）",
@@ -231,6 +416,24 @@
       "then": "拒绝且无任何调度副作用"
     },
     {
+      "name": "invalid_due_tick_at_schedule",
+      "class": "input-validation",
+      "violates": "dueTick 必须晚于当前已提交刻度",
+      "given": "scope S；slot A armed；当前已提交刻度 = 10",
+      "when": "scheduleOneShot(S, dueTick=10, A)",
+      "expectedRejection": "invalid_due_tick",
+      "then": "拒绝且无 handle；刻度仍为 10。判别：这是 schedule 面的 dueTick，不是 advance 回退"
+    },
+    {
+      "name": "advance_rollback_rejected",
+      "class": "input-validation",
+      "violates": "advance(toTick) 不得回退",
+      "given": "当前已提交刻度 = 20；已有未到期定时器集合 T",
+      "when": "advance(15)",
+      "expectedRejection": "invalid_due_tick",
+      "then": "拒绝且刻度仍为 20；无 FiringRecord、T 不变。判别：这是 advance 回退面，不是 schedule 的 dueTick ≤ 当前刻"
+    },
+    {
       "name": "schedule_budget_exceeded_no_partial_schedule",
       "class": "budget",
       "violates": "maxActiveTimersPerScope",
@@ -238,6 +441,15 @@
       "when": "scheduleOneShot(S, …)",
       "expectedRejection": "schedule_budget_exceeded",
       "then": "整体拒绝，既有定时器集合不变"
+    },
+    {
+      "name": "max_schedules_per_tick_exceeded",
+      "class": "budget",
+      "violates": "maxSchedulesPerTick",
+      "given": "当前已提交刻度内 scheduleOneShot+scheduleRepeating 成功次数已 = maxSchedulesPerTick；scope S 活跃数尚未达 maxActiveTimersPerScope；slot A armed",
+      "when": "再 scheduleOneShot(S, dueTick=当前+5, A)",
+      "expectedRejection": "schedule_budget_exceeded",
+      "then": "整体拒绝，无新 handle；既有定时器集合不变。判别：这是单刻调度次数上限，不是 maxActiveTimersPerScope"
     },
     {
       "name": "generation_overflow_is_fatal",
