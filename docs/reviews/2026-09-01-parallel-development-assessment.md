@@ -178,3 +178,40 @@ BLOCKED 理由逐条读是同一句话的变体，没有一条是"做不完"：`
 3. **RM-00004（40 张）整室作废** 是否照准。
 4. **GAS 归谁**——它的「四组件与 Schema」挂在 ECS 上，与 RM-00011 正在冻结的组件 schema 冲突。建议：**GAS 暂不开工，等对方冻结 ECS schema 后由我方接**，否则两边会对着同一个 schema 各写一版。
 5. **存档 / DS 服务器 / ECS 框架三套定稿归谁**——均与 RM-00011 有交集，需与对方 Agent 对边界，我不单方面动。
+
+---
+
+## 9. 与 RM-00011 执行编排的冲突核对（2026-09-01 补）
+
+收到对方会话的完整派活提示词后，逐条核对施工面：
+
+| 对方施工面 | 我方原计划 | 冲突 | 处置 |
+|---|---|---|---|
+| 架构仓 `docs/adr/` + `.spec/decisions/`，**ADR 号合并时现查现占** | 配表阶段 0 落六张 ADR | **严重** | **改落 LumioConfig 新仓 `docs/decisions/`，不占架构仓号**；等对方 Phase 0 收完再搬 |
+| 七仓镜像 / `contract-mirror` / `generated` 更新 | 清理指向已删上游的镜像 | **严重** | **撤回**，改为只读盘点 |
+| Workflow（对方为**唯一写入方**） | 存量需求室重判 + 流转 | **严重** | **撤回写入**，只做本地只读盘点报告 |
+| LumioServer（R-00344/346/350） | 修 xtask 闸门哈希 P1 | **隐性** | xtask 是对方跑门禁的工具，改它会改变其门禁行为——**本轮撤回**，先只出复现报告 |
+| LumioGameRuntime（地基 6 卡 + 3 卡） | Runtime `modules/config`（M9 落点） | **严重** | **M9 暂缓**至对方阶段结束 |
+| LumioClient / LumioGame / LumioNativeCore | 无 | 无 | 禁区 |
+| LumioVoxelEngine | Voxel 独立线 | **五条管线不含 Voxel**，但镜像更新会碰其 `generated/` | 业务 crate 安全；**本轮不排**，避开镜像期 |
+
+**净结果：我方可执行集合收窄为 LumioConfig 一条线，但该线 100% 零重叠。**
+派活提示词见 [`../plans/2026-09-01-lumioconfig-parallel-dispatch.md`](../plans/2026-09-01-lumioconfig-parallel-dispatch.md)。
+
+### 9.1 两处需要 Owner 知悉的事实偏差（对方提示词与 origin/main 实测不符）
+
+只陈述实测结果，不代对方决定：
+
+1. **收口门槛已有两条命令的目标不存在。** AGENTS.md 的收口门槛是四条命令，但 `59866ec`（09-01）
+   已删除 `tools/lumio_contract.py`。实测 `origin/main`：`.spec/tools/spec-lint.mjs` 与
+   `.spec/tools/spec-lint.test.mjs` **仍在**，`tools/lumio_contract.py` **已不存在**。
+   对方提示词要求「过本仓收口门槛」，后两条会直接失败。
+2. **对方第 3 条必读材料尚未在 origin/main 上。** 实测 `docs/reviews/` 无
+   `2026-09-01-rm-00011-room-review.md`；同理其提示词引用的「Room Review Rulings 2026-09-01」
+   在 `docs/specs/2026-09-01-ecs-formal-entity-chat-decision-log.md` 的线上版本中也未见。
+   可能仍在对方本地未推送。若执行方按提示词去读会扑空。
+
+另：对方提示词沿用「ADR→Schema/ID→正反 Fixture→README/Baseline→七仓镜像」的旧变更顺序，
+而 `schemas/`、`ids/`、`fixtures/`、`packages/`、`tools/` 已在 `59866ec` 整体删除（415 文件 / 30932 行）。
+**若对方因此重建这套系统，将与配表 M4 的指纹与产物容器产生新的重叠**——届时需要重新对边界。
+这是本线唯一的远期风险点，现在无需处理，但值得记一笔。
