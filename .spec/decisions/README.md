@@ -63,7 +63,7 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-046](ADR-046-native-kernel-status-band.md) | Native Kernel Status Band（ErrorCode 内核 band 1044–1053、状态值 int32 范围门） | Draft |
 | [ADR-047](ADR-047-lumio-bin-canonical-profile.md) | LumioBinV1 二进制 canonical profile（定宽小端、u32 长度前缀、声明序无填充、Golden 与拒绝向量、snapshot checksum B 档） | Draft |
 | [ADR-048](ADR-048-generated-consumable-surface.md) | Generated 面可消费化（八类闭合契约类型本体、可执行 Protocol/Permission 门、netstandard2.1;net8.0 双目标、capability 常量三形态） | Draft |
-| [ADR-049](ADR-049-replication-state-payload-and-input-command.md) | Replication 状态载荷与 InputCommand 承载（typed body 增 stateBlocks/changedBlocks、LumioBinV1 编码与 payloadHash 绑定、独立 input envelope；**目标 `LGE-V1.5`，属基线事件**） | Draft |
+| [ADR-049](ADR-049-replication-state-payload-and-input-command.md) | Replication 状态载荷与 InputCommand 承载（开发态 wire 契约 `gameplay-command-envelope-v1`：InputCommand / stateBlocks / changedBlocks、LumioBinV1、Chat 租户；非 V1.5 基线事件） | Accepted |
 | [ADR-050](ADR-050-gas-a1-contracts.md) | GAS A1 lifecycle admission, deterministic evaluation and same-Tick Effect events | Draft |
 | [ADR-051](ADR-051-gas-a2-contracts.md) | GAS A2 ECS components, Tag handshake, replication visibility and frame prediction | Draft |
 | [ADR-052](ADR-052-ms00002-hello-wire-and-clr-host-abi.md) | MS-00002 开发态 Hello wire 契约与 CLR 装载 ABI | Accepted |

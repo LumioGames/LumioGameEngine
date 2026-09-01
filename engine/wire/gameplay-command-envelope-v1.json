@@ -345,7 +345,7 @@
       "payload": {
         "scenario": "同一发送者在同一权威 tick 内第二条 chat.input 到达提交面",
         "first": { "messageType": "InputCommand", "commands": [{ "mappingId": "chat.input", "payload": "020000006767", "payloadSha256": "5dbd584f1718b8bcd0dab4abeea83169f4a990defab81a8316ed845798d92dab" }] },
-        "second": { "messageType": "InputCommand", "commands": [{ "mappingId": "chat.input", "payload": "020000006768", "payloadSha256": "0000000000000000000000000000000000000000000000000000000000000000" }] }
+        "second": { "messageType": "InputCommand", "commands": [{ "mappingId": "chat.input", "payload": "020000006768", "payloadSha256": "54018900cb183f329d2a4d9b30f95b2862a6395410b7528295ffbda09cae1fb0" }] }
       },
       "notes": "接收方语义探针：validator 只验证声明完备（错误码存在、规则登记），运行期由 receiver 强制。"
     },

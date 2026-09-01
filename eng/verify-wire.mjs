@@ -26,17 +26,37 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const wireDir = resolve(root, 'engine/wire');
 
 const U64_MAX = Number.MAX_SAFE_INTEGER; // 2^53-1 on the JSON wire
 
-class Rejection extends Error {
+export class Rejection extends Error {
   constructor(code, reason) {
     super(reason);
     this.code = code;
   }
+}
+
+export function collectErrorCodes(contract) {
+  const codes = contract.errorCodes;
+  if (Array.isArray(codes)) return codes.filter((c) => typeof c === 'string');
+  if (codes && typeof codes === 'object') {
+    const out = [];
+    for (const value of Object.values(codes)) {
+      if (Array.isArray(value) && value.every((item) => typeof item === 'string')) out.push(...value);
+    }
+    return out;
+  }
+  return [];
+}
+
+export function admitMessage(contract, message) {
+  checkMessageShape(message, contract);
+  checkMessageSemantics(message, contract);
 }
 
 // ---------- LumioBinV1 (ADR-047 subset used by declared mappings) ----------
@@ -258,9 +278,17 @@ function checkMessageSemantics(message, contract) {
   } else if (t === 'FullSnapshot') {
     if (!Array.isArray(message.stateBlocks)) throw new Rejection('bad_envelope', 'stateBlocks: required array missing');
     checkBlockArray(message.stateBlocks, contract, { allowedKinds: new Set(['state']), unknownCode: 'state_block_kind_mismatch', path: 'stateBlocks' });
+    const maxBlocks = contract.boundedInput?.rules?.maxBlocksPerEnvelope;
+    if (typeof maxBlocks === 'number' && message.stateBlocks.length > maxBlocks) {
+      throw new Rejection('bad_envelope', `stateBlocks length ${message.stateBlocks.length} exceeds maxBlocksPerEnvelope=${maxBlocks}`);
+    }
   } else if (t === 'Delta') {
     if (!Array.isArray(message.changedBlocks)) throw new Rejection('bad_envelope', 'changedBlocks: required array missing');
     checkBlockArray(message.changedBlocks, contract, { allowedKinds: new Set(['event', 'state']), unknownCode: 'state_block_kind_mismatch', path: 'changedBlocks' });
+    const maxBlocks = contract.boundedInput?.rules?.maxBlocksPerEnvelope;
+    if (typeof maxBlocks === 'number' && message.changedBlocks.length > maxBlocks) {
+      throw new Rejection('bad_envelope', `changedBlocks length ${message.changedBlocks.length} exceeds maxBlocksPerEnvelope=${maxBlocks}`);
+    }
   }
 }
 
@@ -280,10 +308,11 @@ function checkStructure(contract, fileName, problems) {
       if (!spec.required?.messageType) problem(`messages.${name}.required.messageType missing`);
     }
   }
+  const errorCodes = collectErrorCodes(contract);
   if (contract.errorCodes !== undefined) {
-    if (!Array.isArray(contract.errorCodes) || contract.errorCodes.some((c) => typeof c !== 'string')) {
-      problem('errorCodes must be an array of strings');
-    } else if (new Set(contract.errorCodes).size !== contract.errorCodes.length) {
+    if (errorCodes.length === 0) {
+      problem('errorCodes must be an array of strings or an object containing string-array code lists');
+    } else if (new Set(errorCodes).size !== errorCodes.length) {
       problem('errorCodes contains duplicates');
     }
   }
@@ -301,12 +330,26 @@ function checkStructure(contract, fileName, problems) {
     if (ids.size !== contract.rules.length) problem('rules contains duplicate ids');
     for (const r of contract.rules) {
       if (!['validator', 'receiver'].includes(r.enforcedBy)) problem(`rules.${r.id}.enforcedBy must be validator|receiver`);
-      if (!contract.errorCodes?.includes(r.onViolation)) problem(`rules.${r.id}.onViolation ${r.onViolation} not in errorCodes`);
+      if (!errorCodes.includes(r.onViolation)) problem(`rules.${r.id}.onViolation ${r.onViolation} not in errorCodes`);
+    }
+  }
+  for (const example of contract.hash?.examples ?? []) {
+    if (typeof example.payload !== 'string' || typeof example.payloadSha256 !== 'string') {
+      problem(`hash.examples ${example.mappingId ?? '?'} missing payload/payloadSha256`);
+      continue;
+    }
+    if (!/^[0-9a-f]*$/.test(example.payload) || example.payload.length % 2 !== 0) {
+      problem(`hash.examples ${example.mappingId ?? '?'} payload is not lowercase hex`);
+      continue;
+    }
+    const digest = createHash('sha256').update(Buffer.from(example.payload, 'hex')).digest('hex');
+    if (digest !== example.payloadSha256) {
+      problem(`hash.examples ${example.mappingId ?? '?'}: payloadSha256 does not recompute (got ${digest})`);
     }
   }
   const allCases = [...(contract.testCases ?? []), ...(contract.invalidCases ?? [])];
   for (const c of contract.invalidCases ?? []) {
-    if (!contract.errorCodes?.includes(c.expectedRejection)) problem(`invalidCases.${c.name}: expectedRejection ${c.expectedRejection} not in errorCodes`);
+    if (!errorCodes.includes(c.expectedRejection)) problem(`invalidCases.${c.name}: expectedRejection ${c.expectedRejection} not in errorCodes`);
     if (contract.rules && !contract.rules.some((r) => r.id === c.violates)) problem(`invalidCases.${c.name}: violates "${c.violates}" names no registered rule`);
   }
   return allCases.length;
@@ -365,27 +408,77 @@ function validateContract(contract, fileName) {
   return { summary, problems };
 }
 
-// ---------- Main ----------
+export { validateContract, wireDir };
 
-const files = (await readdir(wireDir)).filter((f) => f.endsWith('.json')).sort();
-let failed = false;
-console.log(`verify-wire: ${files.length} contract(s) in engine/wire/`);
-for (const fileName of files) {
-  let contract;
-  try {
-    contract = JSON.parse(await readFile(resolve(wireDir, fileName), 'utf8'));
-  } catch (error) {
-    console.log(`${fileName}: FAIL (not valid JSON: ${error.message})`);
-    failed = true;
-    continue;
+async function main() {
+  const files = (await readdir(wireDir)).filter((f) => f.endsWith('.json')).sort();
+  let failed = false;
+  console.log(`verify-wire: ${files.length} contract(s) in engine/wire/`);
+  for (const fileName of files) {
+    let contract;
+    try {
+      contract = JSON.parse(await readFile(resolve(wireDir, fileName), 'utf8'));
+    } catch (error) {
+      console.log(`${fileName}: FAIL (not valid JSON: ${error.message})`);
+      failed = true;
+      continue;
+    }
+    const { summary, problems } = validateContract(contract, fileName);
+    console.log(summary);
+    for (const problem of problems) console.log(`  - ${problem}`);
+    if (problems.length > 0) failed = true;
   }
-  const { summary, problems } = validateContract(contract, fileName);
-  console.log(summary);
-  for (const problem of problems) console.log(`  - ${problem}`);
-  if (problems.length > 0) failed = true;
+  if (failed) {
+    console.error('verify-wire: FAILED');
+    process.exit(1);
+  }
+  console.log('verify-wire: all contracts green');
 }
-if (failed) {
-  console.error('verify-wire: FAILED');
-  process.exit(1);
+
+const isDirectRun = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+if (isDirectRun && !process.env.NODE_TEST_CONTEXT) {
+  await main();
 }
-console.log('verify-wire: all contracts green');
+
+test('gameplay envelope accepts a valid ChatInput InputCommand via shipped admitMessage', async () => {
+  const contract = JSON.parse(await readFile(resolve(wireDir, 'gameplay-command-envelope-v1.json'), 'utf8'));
+  const valid = (contract.testCases ?? []).find((c) => c.name === 'input/chat-single-command');
+  assert.ok(valid?.message, 'embedded valid ChatInput case must exist');
+  assert.doesNotThrow(() => admitMessage(contract, valid.message));
+});
+
+test('gameplay envelope rejects digest-mismatch with bad_payload_hash via shipped admitMessage', async () => {
+  const contract = JSON.parse(await readFile(resolve(wireDir, 'gameplay-command-envelope-v1.json'), 'utf8'));
+  const bad = (contract.invalidCases ?? []).find((c) => c.name === 'input/digest-mismatch');
+  assert.equal(bad.expectedRejection, 'bad_payload_hash');
+  assert.throws(
+    () => admitMessage(contract, bad.payload),
+    (error) => error instanceof Rejection && error.code === 'bad_payload_hash',
+  );
+});
+
+test('shipped envelope contract passes the shipped validator', async () => {
+  const contract = JSON.parse(await readFile(resolve(wireDir, 'gameplay-command-envelope-v1.json'), 'utf8'));
+  const { problems } = validateContract(contract, 'gameplay-command-envelope-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('hello-wire-v1 still passes the unified validator and is not the envelope', async () => {
+  const contract = JSON.parse(await readFile(resolve(wireDir, 'hello-wire-v1.json'), 'utf8'));
+  assert.equal(contract.contractId, 'lumio.hello-wire.v1');
+  assert.ok(!contract.mappings);
+  const { problems } = validateContract(contract, 'hello-wire-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('wrong-kind InputCommand is unknown_command_type via shipped invalidCase', async () => {
+  const contract = JSON.parse(await readFile(resolve(wireDir, 'gameplay-command-envelope-v1.json'), 'utf8'));
+  const ic = (contract.invalidCases ?? []).find((c) => c.name === 'input/registered-wrong-kind');
+  assert.ok(ic, 'missing shipped invalidCase input/registered-wrong-kind');
+  assert.equal(ic.expectedRejection, 'unknown_command_type');
+  const { problems } = validateContract(contract, 'gameplay-command-envelope-v1.json');
+  assert.deepEqual(problems, []);
+  ic.expectedRejection = 'state_block_kind_mismatch';
+  const flipped = validateContract(contract, 'gameplay-command-envelope-v1.json');
+  assert.ok(flipped.problems.some((p) => p.includes('unknown_command_type') && p.includes('input/registered-wrong-kind')));
+});
