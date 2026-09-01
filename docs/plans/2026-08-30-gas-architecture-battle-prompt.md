@@ -2,7 +2,7 @@
 
 > **用法**：在架构仓 `LumioGameEngineArchitecture` 开一个新会话（会话需能读仓内文件），把「提示词正文」整段贴进去。
 > 与调研提示词不同：这一份**不设主持人**——AI 直接下场扮演**Gameplay 架构总监**，与用户（项目 Owner，最终拍板人）一对一对撞。
-> 输入三件套：① 两波 GAS 调研包（第一波文档级预研 + **第二波 UE 5.8.2 源码级解剖**，124 条带路径:行号坐标的源码证据）；② [`2026-08-30-gas-prior-design-reference.md`](2026-08-30-gas-prior-design-reference.md)——**Owner 上一个项目在 UE GAS 之上实战迭代过的 GAS 2.0 概要设计，Owner 明确表示整体倾向这份**；③ 已 Accepted 的 ADR-008/ADR-031（GAS 核心状态骨架，**今天不是重新发明，是往骨架里钻细节**）+ 刚定稿的 ECS/DS 架构。输出 = `docs/specs/2026-08-30-gas-architecture.md`（框架图定稿）。
+> 输入三件套：① 两波 GAS 调研包（第一波文档级预研 + **第二波 UE 5.8.2 源码级解剖**，124 条带路径:行号坐标的源码证据）；② [`2026-08-30-gas-prior-design-reference.md`](2026-08-30-gas-prior-design-reference.md)——**Owner 上一个项目在 UE GAS 之上实战迭代过的 GAS 2.0 概要设计，Owner 明确表示整体倾向这份**；③ 已 Accepted 的 ADR-008/ADR-031（GAS 核心状态骨架，**今天不是重新发明，是往骨架里钻细节**）+ 刚定稿的 ECS/DS 架构。输出 = `docs/specs/lumio-gas-design-overview.md`（框架图定稿）。
 > 姊妹篇：[`2026-08-29-ecs-architecture-battle-prompt.md`](2026-08-29-ecs-architecture-battle-prompt.md)（ECS 定稿会，已跑完出图）、[`2026-08-29-ds-server-architecture-battle-prompt.md`](2026-08-29-ds-server-architecture-battle-prompt.md)（DS 定稿会，已跑完出图）。**今天是这条线的第三块拼图**：ECS 定的是「状态怎么长」，DS 定的是「状态怎么被权威地跑起来、发出去、恢复回来」，今天定的是「Gameplay 能力/效果/属性/标签这套语义怎么长在前两者上」。
 
 ---
@@ -48,8 +48,8 @@
 
 - **`.spec/decisions/ADR-008-gas-state.md`（Accepted）+ `.spec/decisions/ADR-031-gas-lifecycle.md`（Accepted，Refines ADR-008）**——**GAS 的核心状态骨架已经冻结**：Ability 八态（`Requested/Activated/Executing/Completed/Rejected/Cancelled/Expired/RolledBack`）、Effect 六态（`Pending/Active/Expired/Removed/Rejected/RolledBack`，堆叠/时长刷新是 `Active` 内事件不是独立状态）、Runtime/Game 分层原则、ECS 单一权威存储原则。**这两份不是「旧画像」，是 Accepted ADR——今天不能无声推翻，只能在骨架内钻细节，要动骨架本身必须走取代 ADR 并显式指出。**
 - `docs/plans/2026-08-29-ue-gas-research-prompt.md` 第 3 节「目标环境画像」——**七条已知待解的硬问题**（①类型ID/实例ID/句柄三层区分 ②堆叠持续时间取消先后顺序 ③Modifier求值顺序 ④预测键机制 ⑤确认/拒绝/回滚窗口边界 ⑥Ability状态与ECS状态单一真相 ⑦快照与状态哈希投影方式）与「明确推迟」清单（触发图/公式虚拟机/复杂依赖求解器）。**今天必须对七条逐条给答案，对推迟清单逐条复核要不要调整。**
-- `docs/specs/2026-08-29-ecs-architecture-framework.md`——**刚定稿的 ECS 架构**。已经预留了 GAS 的挂载点：内容层「GAS 挂载（ADR-008/031）」、唯一结构提交点命名为 **`GasAndEventFinalize`**（GAS 图必须锚在这个提交点上，不许另发明一个）、Attribute 同步边界「只同步权威结果（当前值+修订号），Modifier 内部表默认不同步（GAS 边界，ADR-008/031）」、本地预表现实体对上号「GAS 把特效搬到正式实体、销毁本地实体，对上号由 gameplay 自认，框架不管」。**今天要把这几处从「留了个洞」变成「洞里装了什么」。**
-- `docs/specs/2026-08-29-ds-server-architecture.md`——**刚定稿的 DS 架构**。ADR-021「ECS+GAS+体素同一确认/回滚单元」已经焊死；预测与信任边界模块（DS 图模块 J）已经把 GAS 列为共用同一确认/回滚单元的三方之一；**D-012「V1 不提供断线重连令牌，新连接重走完整握手」现状与 GAS 2.0 的断线重连诉求正面冲突，见第 10 节。**
+- `docs/specs/lumio-ecs-design-overview.md`——**刚定稿的 ECS 架构**。已经预留了 GAS 的挂载点：内容层「GAS 挂载（ADR-008/031）」、唯一结构提交点命名为 **`GasAndEventFinalize`**（GAS 图必须锚在这个提交点上，不许另发明一个）、Attribute 同步边界「只同步权威结果（当前值+修订号），Modifier 内部表默认不同步（GAS 边界，ADR-008/031）」、本地预表现实体对上号「GAS 把特效搬到正式实体、销毁本地实体，对上号由 gameplay 自认，框架不管」。**今天要把这几处从「留了个洞」变成「洞里装了什么」。**
+- `docs/specs/lumio-ds-design-overview.md`——**刚定稿的 DS 架构**。ADR-021「ECS+GAS+体素同一确认/回滚单元」已经焊死；预测与信任边界模块（DS 图模块 J）已经把 GAS 列为共用同一确认/回滚单元的三方之一；**D-012「V1 不提供断线重连令牌，新连接重走完整握手」现状与 GAS 2.0 的断线重连诉求正面冲突，见第 10 节。**
 - `.spec/decisions/README.md`（ADR 索引）——**框架图不得无声推翻任何其它 Accepted ADR**；发现冲突必须显式指出，并给「新 ADR 取代」路径。
 
 **D. UE 源码（可选增援）**
@@ -188,7 +188,7 @@ ECS 与 DS 都已定稿。GAS 图不是另起炉灶，是接上去。**逐条确
 
 **会中流水**：每拍一个板，立刻追加写进 `docs/specs/2026-08-30-gas-architecture-decisions.md`（一条一行：模块 · 裁决 · 理由 · 落点 · 保留意见）。这是防对话中断的保险，不是最终产物。
 
-**散会定稿**：整理成 `docs/specs/2026-08-30-gas-architecture.md`，包含：
+**散会定稿**：整理成 `docs/specs/lumio-gas-design-overview.md`，包含：
 
 1. **框架图定稿**：分层总图 + Ability/Effect 生命周期状态机图（在 ADR-031 冻结状态之上标注子结构与触发条件）+ 一次技能从激活到复制的时序图（mermaid），配模块职责与对外契约表。
 2. **冻结语义清单**：本次定下的每条语义，注明落点（进哪个 ADR 候选 / 哪个 Schema / 哪份 spec / 暂不冻结）。

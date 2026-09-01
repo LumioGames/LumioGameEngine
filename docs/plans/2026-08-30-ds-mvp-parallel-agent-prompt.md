@@ -29,7 +29,7 @@
 
 按以下顺序读取，读不到或相互矛盾时先停并报告：
 1. 当前仓和目标仓的 `AGENTS.md`、`.spec/AGENTS.md`、`.spec/knowledge/README.md`、`.spec/rules/system.md`、`knowledge/standards/repository-architecture.md`、`knowledge/standards/testing.md`、`knowledge/standards/dispatch.md`。
-2. 架构源：`docs/specs/2026-08-29-ds-server-architecture.md`（重点 §4、§5、§8、§10、§11）、`docs/specs/2026-08-29-ds-server-architecture-decisions.md`（裁决 1--22）、`docs/specs/2026-08-29-ecs-architecture-framework.md`、`docs/architecture/DECISIONS_PENDING.md`、`docs/architecture/TRANSPORT-WEBSOCKET-PROFILE-REGISTRATION.md`、`.spec/decisions/README.md`。
+2. 架构源：`docs/specs/lumio-ds-design-overview.md`（重点 §4、§5、§8、§10、§11）、`docs/specs/2026-08-29-ds-server-architecture-decisions.md`（裁决 1--22）、`docs/specs/lumio-ecs-design-overview.md`、`docs/architecture/DECISIONS_PENDING.md`、`docs/architecture/TRANSPORT-WEBSOCKET-PROFILE-REGISTRATION.md`、`.spec/decisions/README.md`。
 3. 交付计划：`docs/plans/2026-08-29-kickoff-dispatch-prompts.md`、`docs/plans/mvp-browser-voxel-multiplayer.md`、`docs/reviews/2026-08-29-ds-mvp-boundary-reconciliation.md`。
 4. Workflow 逐卡四路读取：正文、评论、附件列表、原生 acceptance items。至少读取 `R-00295`--`R-00298`、`R-00277`--`R-00282` 以及所有本次更新卡的当前状态和 transitions；displayKey 只用于查找，写命令若需要 ID 使用读回 UUID。
 5. 目标仓模块入口：

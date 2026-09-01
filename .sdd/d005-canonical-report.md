@@ -34,7 +34,7 @@ Authority inputs named by the brief:
 
 The raw committed blobs were read with git cat-file and binary redirected before SHA-256 hashing. The resulting SHA-256 values exactly match the brief:
 
-    docs/specs/2026-08-30-save-load-architecture.md
+    docs/specs/lumio-save-design-overview.md
     d69c69374ef960b1968f0e8b2fdd4195d1abd52ed5ab34fd00b406fa85f141f1
 
     docs/specs/2026-08-30-save-load-architecture-decisions.md
@@ -42,7 +42,7 @@ The raw committed blobs were read with git cat-file and binary redirected before
 
 Verification commands and key results:
 
-    git -C C:\Work\LumioGames\LumioGameEngineArchitecture cat-file -e c14df420ac05b0d23f1fb674977b9a4c957edac5:docs/specs/2026-08-30-save-load-architecture.md
+    git -C C:\Work\LumioGames\LumioGameEngineArchitecture cat-file -e c14df420ac05b0d23f1fb674977b9a4c957edac5:docs/specs/lumio-save-design-overview.md
     exit 0
 
     git -C C:\Work\LumioGames\LumioGameEngineArchitecture cat-file -e c14df420ac05b0d23f1fb674977b9a4c957edac5:docs/specs/2026-08-30-save-load-architecture-decisions.md
