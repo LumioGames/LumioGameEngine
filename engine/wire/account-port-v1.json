@@ -73,8 +73,7 @@
           "password": "string"
         },
         "optional": {
-          "botToolCredential": "base64url",
-          "clientName": "string"
+          "botToolCredential": "base64url"
         }
       },
       "response": {
@@ -143,7 +142,7 @@
       ],
       "semantics": [
         "离线验证：Game Server 以 Account Server 公钥（keyId 对应，经部署面分发）本地验证；不调用 Account Server 网络。",
-        "验证顺序：解形（malformed）→ 验签（invalid_signature）→ 过期（expired）→ Bot 命名空间准入上下文（loginName 命中 Bot 命名空间且 botToolContext=false → bot_namespace_admission_forbidden）。",
+        "验证顺序：解形（按 admissionCredential.framing 的字节布局：base64url 解码 → LumioBinV1 payload 解形 → 尾随恰 64 字节 raw 签名；任何一步不合 → admission_credential_malformed）→ 验签（invalid_signature）→ 过期（expired）→ Bot 命名空间准入上下文（loginName 命中 Bot 命名空间且 botToolContext=false → bot_namespace_admission_forbidden）。",
         "验证通过后 Game Server 才可做 Room 准入并构建 R-00356 绑定五元组；EntityType 分类依据 = loginName 规则 + botToolContext。"
       ]
     }
@@ -151,6 +150,7 @@
   "admissionCredential": {
     "opaqueToClients": true,
     "wireForm": "base64url(credentialBytes)",
+    "framing": "credentialBytes = LumioBinV1(canonicalPayload) || rawSignature(64 字节)。容器内签名固定为 64 字节 raw 形态；128 小写 hex 只用于展示与审计，不出现在容器内。verify_admission 的「解形」以此字节布局为判据：base64url 解码后必须成功解出 LumioBinV1 payload 且尾随恰 64 字节签名，否则 admission_credential_malformed。",
     "canonicalPayload": {
       "encoding": "LumioBinV1（ADR-047：声明序、无填充、小端定宽、u32 长度前缀；当前 Draft，本契约是其正式消费者之一）",
       "fields": [
@@ -164,7 +164,7 @@
         { "name": "nonce", "type": "bytes16" }
       ]
     },
-    "digest": "SHA-256 over canonical payload bytes（原始 32 字节摘要作验签输入；hex 仅供展示）",
+    "digest": "SHA-256 over canonical payload bytes；摘要以 64 小写 hex 字符拼入 LumioSignatureV1 preimage 参与验签（与 ADR-042 §2 逐句一致：签名从不在裸摘要之上——32 字节是摘要本体，被签字节是含 payloadDigest-hex 的完整 preimage）",
     "signature": {
       "profile": "LumioSignatureV1（ADR-042：PureEdDSA Ed25519 / RFC 8032，域分离 preimage，64 字节原始签名 = 128 小写 hex；当前 Draft，本契约是其正式消费者之一）",
       "trustDomain": "account-admission",
@@ -175,7 +175,8 @@
     "keyManagement": {
       "issuer": "Account Server 持 Ed25519 私钥（部署面注入，不入库不入契约）",
       "verifier": "Game Server 配置 keyId→公钥（64 小写 hex；部署面分发）",
-      "rotation": "keyId 预留轮换位；轮换流程是部署决策，不在本契约"
+      "rotation": "keyId 预留轮换位；轮换流程是部署决策，不在本契约",
+      "keyIdNote": "取舍：本切片采纳 payload 内 u8 数字轮换位（0–255 预留），不采纳 ADR-042 §3 的派生串 keyId 规则；实现方不得按 §3 从公钥推导 keyId。"
     },
     "replayNote": "nonce 保证签发唯一性与可审计性；过期前的窃取重放不在本切片防护范围（生产撤销/在线吊销另行决策）。"
   },
@@ -184,6 +185,7 @@
     "possession": "由部署/测试档案向 Bot 工具签发（签发面不在本契约）；启动器经凭证文件/环境注入持有，绝不入库、不进日志。",
     "format": {
       "wireForm": "base64url(toolCredentialBytes)",
+      "framing": "toolCredentialBytes = LumioBinV1(canonicalPayload) || rawSignature(64 字节)。容器内签名固定为 raw 形态；hex 只用于展示与审计，不出现在容器内。Account Server 侧解形以本布局为判据，不合 → bot_tool_credential_malformed。",
       "canonicalPayload": {
         "encoding": "LumioBinV1（ADR-047）",
         "fields": [
@@ -198,7 +200,9 @@
       "signature": {
         "profile": "LumioSignatureV1（ADR-042）",
         "trustDomain": "bot-tool",
-        "payloadType": "bot-tool-credential-v1"
+        "payloadType": "bot-tool-credential-v1",
+        "digest": "SHA-256 over canonical payload bytes（与 admissionCredential 同口径：摘要以 64 小写 hex 拼入 preimage 参与验签，ADR-042 §2）",
+        "preimage": "LumioSignatureV1 <0x00> bot-tool <0x00> bot-tool-credential-v1 <0x00> <payloadDigest-hex>"
       }
     },
     "verification": "Account Server 在 login_or_register 内验证：可解形（malformed）→ 验签与 scope=bot-namespace（invalid）→ 过期（expired）；命中 Bot 命名空间的请求缺凭证按缺失触点失败码拒绝。",
@@ -379,7 +383,7 @@
       "name": "invalid_username_grammar",
       "operation": "login_or_register",
       "violates": "loginName grammar",
-      "given": "loginName=\"x\"（长度 2 < loginNameMinLength）",
+      "given": "loginName=\"x\"（长度 1 < loginNameMinLength=3）",
       "expectedRejection": "invalid_username"
     },
     {
