@@ -223,7 +223,7 @@ function checkBlock(block, contract, context) {
   const mapping = contract.mappings?.[block.mappingId];
   if (!mapping) throw new Rejection(context.unknownCode, `${context.path}: mappingId ${block.mappingId} is not registered`);
   if (!context.allowedKinds.has(mapping.kind)) {
-    throw new Rejection('state_block_kind_mismatch', `${context.path}: mappingId ${block.mappingId} has kind=${mapping.kind}, allowed here: ${[...context.allowedKinds].join('|')}`);
+    throw new Rejection(context.unknownCode, `${context.path}: mappingId ${block.mappingId} has kind=${mapping.kind}, allowed here: ${[...context.allowedKinds].join('|')}`);
   }
   const bytes = Buffer.from(block.payload, 'hex');
   const digest = createHash('sha256').update(bytes).digest('hex');

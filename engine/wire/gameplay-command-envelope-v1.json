@@ -269,6 +269,19 @@
       "notes": "voxel.dig 仅在 ADR-049 纸面套验，未在本契约 mappings 注册——用它即 unknown。"
     },
     {
+      "name": "input/registered-wrong-kind",
+      "violates": "command-kind-match",
+      "validatorCheck": true,
+      "expectedRejection": "unknown_command_type",
+      "payload": {
+        "messageType": "InputCommand",
+        "commands": [
+          { "mappingId": "chat.event", "payload": "0100000000000000010000000000000065000000000000000200000067670700000000000000", "payloadSha256": "9fafc556e56dc024a90caf7c102dfccfed4189c708e0a51b0139aab28277670c" }
+        ]
+      },
+      "notes": "chat.event 已注册但 kind=event，不是 command——InputCommand 必须以 unknown_command_type 拒绝。"
+    },
+    {
       "name": "input/duplicate-mapping",
       "violates": "blocks-ascending-unique",
       "validatorCheck": true,
