@@ -69,5 +69,6 @@ ADR-001 至 ADR-020 已随 `LGE-V1.1-2026-08-27` 转为 `Accepted`；ADR-021 至
 | [ADR-052](ADR-052-ms00002-hello-wire-and-clr-host-abi.md) | MS-00002 开发态 Hello wire 契约与 CLR 装载 ABI | Accepted |
 | [ADR-053](ADR-053-entity-binding-and-attribute-query.md) | 连接绑定五元组与 NetEntityId Attribute Query（开发态 `engine/wire/entity-binding-and-query-v1.json`） | Accepted |
 | [ADR-054](ADR-054-account-server-topology-and-port.md) | Account Server 第三服务拓扑与账号/准入端口（开发态 `engine/wire/account-port-v1.json`） | Accepted |
+| [ADR-055](ADR-055-native-timer-abi.md) | Native Timer ABI 与双层定时（开发态 `engine/wire/native-timer-abi-v1.json`） | Accepted |
 
 尚未确认的实现选型和运维默认值见 [`DECISIONS_PENDING.md`](../../docs/architecture/DECISIONS_PENDING.md)；确认前只能使用其中明确标注的临时默认值。
