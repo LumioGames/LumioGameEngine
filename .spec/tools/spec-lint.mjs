@@ -19,8 +19,9 @@
  *  7. 名册一致(双向):agents/ 下每个角色必须出现在 AGENTS.md 名册表;名册表每行也必须有
  *     对应的 .agent.md 文件(幽灵行)。
  *  8. 软链接存活:.claude/agents、.claude/skills、.agents/skills 必须存在且解析进 .spec/。
- * 8b. 无并行文档根:docs/ / .sdd/ / .workflow-drafts/ 不得存在于仓根;仓根之外不得有第二个
- *     .spec/(防止第二套 LumioAgent 框架随 subtree 合并混入)。
+ * 8b. 无并行文档根:docs/ / .sdd/ / .workflow-drafts/ 不得存在于仓内任何层级(历史病灶
+ *     包括嵌套的 engine/native/docs/);仓根之外不得有第二个 .spec/(防止第二套
+ *     LumioAgent 框架随 subtree 合并混入)。扫描有界:跳过 .git 与构建产物目录,深度 ≤7。
  * 8c. ADR 状态枚举:decisions/ 下每条 ADR 前 12 行内必须有状态行,取值只能是
  *     Historical / Draft / Accepted / Reserved / Superseded / 生效 / 废止
  *     (写法两收:`- **Status**: X` 或 `- 状态：X`;nativecore/ 子命名空间用中文写法)。
@@ -248,8 +249,10 @@ for (const forbidden of ['docs', '.sdd', '.workflow-drafts']) {
   }
 }
 // 有界扫描:跳过 .git 与构建产物,并容忍悬空软链(它们由第 8 项单独报)。
+// 嵌套的 docs/ 同样在禁名单里——2026-09 收敛前的重复副本恰恰长在 engine/native/docs/。
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'target', 'bin', 'obj', 'dist', '.venv', '__pycache__'])
-function findNestedSpec(dir, depth = 0, out = []) {
+const FORBIDDEN_DOC_DIRS = new Set(['docs', '.sdd', '.workflow-drafts'])
+function findForbiddenDirs(dir, depth = 0, out = []) {
   if (depth > 6) return out
   let entries
   try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return out }
@@ -257,13 +260,19 @@ function findNestedSpec(dir, depth = 0, out = []) {
     if (!e.isDirectory() || SKIP_DIRS.has(e.name)) continue
     const child = join(dir, e.name)
     try { if (lstatSync(child).isSymbolicLink()) continue } catch { continue }
-    if (e.name === '.spec' && child !== SPEC) { out.push(child); continue }
-    findNestedSpec(child, depth + 1, out)
+    if (e.name === '.spec' && child !== SPEC) { out.push({ path: child, kind: 'spec' }); continue }
+    if (FORBIDDEN_DOC_DIRS.has(e.name)) {
+      if (depth > 0) out.push({ path: child, kind: 'docroot' }) // 根层命中由上面的 existsSync 检查报错
+      continue
+    }
+    findForbiddenDirs(child, depth + 1, out)
   }
   return out
 }
-for (const nested of findNestedSpec(ROOT)) {
-  err(nested, '第二套 LumioAgent 框架:全仓只允许仓根一个 .spec/(subtree 合并会把下游仓的框架副本一起带进来)')
+for (const { path, kind } of findForbiddenDirs(ROOT)) {
+  err(path, kind === 'spec'
+    ? '第二套 LumioAgent 框架:全仓只允许仓根一个 .spec/(subtree 合并会把下游仓的框架副本一起带进来)'
+    : `并行文档根:${basename(path)}/ 不得在仓内任何层级出现(文档一律进 .spec/,历史病灶正是嵌套的 engine/native/docs/)`)
 }
 
 // ── 8c. ADR 状态枚举 ──────────────────────────────────────────────────────

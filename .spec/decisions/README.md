@@ -94,4 +94,4 @@
 | [0009](nativecore/0009-root-abi-generator-adapter-boundary.md) | root-abi generator 的适配器边界：摘要链锚点必须落在 lock 上 | 生效 |
 | [0010](nativecore/0010-root-abi-runtime-unfrozen-semantics-seams.md) | Root ABI 运行时对「上游未冻结」语义保持缺位，只做不透明相等校验 | 生效 |
 
-> `0005` 及原仓若干编号未随迁移进入本仓（原目录即无该文件）；`engine/native/` 内仍有指向 `0005-linux-same-object-loader.md` 的历史引用，属已知悬空引用，需要时按新决策补号，不回填旧号。
+> `0005` 及原仓若干编号未随迁移进入本仓（原目录即无该文件）；曾指向 `0005-linux-same-object-loader.md` 的历史引用已随 `engine/native/` 内第二套框架副本一并删除，编号空洞保留，需要时按新决策补号，不回填旧号。

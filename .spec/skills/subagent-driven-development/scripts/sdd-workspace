@@ -9,6 +9,10 @@
 # .gitignore keeps the workspace out of `git status` and out of accidental
 # commits without modifying any tracked file.
 #
+# The directory must NOT be named `.sdd`: that name was a parallel doc root
+# before the 2026-09-01 governance consolidation, and spec-lint now fails the
+# repo if it reappears (check 8b). `.sdd-scratch` is outside that ban.
+#
 # Single source of truth for the workspace location, so task-brief and
 # review-package cannot drift to different directories.
 #
@@ -16,7 +20,7 @@
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
-dir="$root/.sdd"
+dir="$root/.sdd-scratch"
 mkdir -p "$dir"
 printf '*\n' > "$dir/.gitignore"
 cd "$dir" && pwd

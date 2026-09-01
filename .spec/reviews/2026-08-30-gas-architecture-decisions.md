@@ -99,7 +99,7 @@ metadata:
 # LumioGameEngine 自研 GAS 框架架构（定稿）
 
 > **状态**：2026-08-30 定稿。Owner 与 Gameplay 架构总监双方认账；会中逐板裁决流水见 [`2026-08-30-gas-architecture-decisions.md`](2026-08-30-gas-architecture-decisions.md)（引用记作「板 N」）。本文档是自研 Gameplay Ability 框架（Ability/Effect/Attribute/Tag/表现）的唯一架构框架源；参数数值归配表/实现仓自由度；机器化契约按「ADR 候选清单」逐条落 ADR（本文档不占号）。
-> **弹药**：第二波源码级调研 [UE GAS 源码级调研包（旧制度产物，已随 docs/ 删除，见 git 历史）](../research/2026-08-29-ue-gas-source-analysis/)（UE 5.8.2，124 条坐标级证据，权威）；第一波仅取野心/跨品类/Lyra 补丁；**GAS 2.0 概要设计**（[GAS 2.0 上一项目概要设计参考（旧制度产物，已随 docs/ 删除，见 git 历史）](../plans/2026-08-30-gas-prior-design-reference.md)，Owner 上一项目实战迭代，本次第二权威输入）。
+> **弹药**：第二波源码级调研 UE GAS 源码级调研包（旧制度产物，已随 docs/ 删除，见 git 历史）（UE 5.8.2，124 条坐标级证据，权威）；第一波仅取野心/跨品类/Lyra 补丁；**GAS 2.0 概要设计**（GAS 2.0 上一项目概要设计参考（旧制度产物，已随 docs/ 删除，见 git 历史），Owner 上一项目实战迭代，本次第二权威输入）。
 > **对账基线**：ADR-001–049、ECS 架构定稿（2026-08-29）、DS 架构定稿（2026-08-29）。**无任何 Accepted ADR 被推翻；ADR-008/031 冻结骨架寸土未动（板 0）；今日零 BaselineId 变更。**
 > **会议原则（Owner 定）**：①第一性原理，不加需求；②奥卡姆剃刀，如无必要勿增实体；③每条结论配游戏示例与大白话。
 > **快速模式豁免声明**：本次交付为纯文档（架构定稿 + 会中流水），按 AGENTS.md 快速模式白名单收口（lint + 测试），不派 reviewer。

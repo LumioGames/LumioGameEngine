@@ -89,13 +89,13 @@ NativeCore 的 9 条生效决策并入 `decisions/nativecore/` 子命名空间�
 
 1. `plans/` `reviews/` 下每份文档必须有 frontmatter（沿用既有 status 枚举）
 2. ADR 状态纳入枚举校验（中英两种写法都收）——此前 ADR 状态完全不受校验
-3. **无并行文档根**：`docs/` `.sdd/` `.workflow-drafts/` 不得重现；仓根之外不得有第二个 `.spec/`（防止 subtree 合并再带一套框架进来）
+3. **无并行文档根**：`docs/` `.sdd/` `.workflow-drafts/` 不得在仓内任何层级重现（历史病灶包括嵌套的 `engine/native/docs/`）；仓根之外不得有第二个 `.spec/`（防止 subtree 合并再带一套框架进来）。`subagent-driven-development` 技能的临时工作区因此从 `.sdd/` 改名 `.sdd-scratch/`，避开禁名单
 
 ## 6. 已知缺口
 
-- `engine/native/` 内仍有指向 `0005-linux-same-object-loader.md` 与 `0007-production-key-management-remote-signing.md` 的历史引用，原目录即无这两个文件——先于本次收敛存在的悬空引用，未回填。
+- NativeCore 决策的 `0005` / 部分 `0007` 编号未随迁移进入本仓（原目录即无对应文件）；曾指向它们的历史引用已随 `engine/native/` 第二套框架副本一并删除，编号空洞保留，需要时按新决策补号。
 - `engine/native/generated/architecture/LGE-V1.4-2026-08-27/` 里仍有一份旧 ADR 快照。它是测试底座的一部分，随底座保留；不是文档入口，不被任何治理索引引用。
-- 保留的三处 `docs/` 字样均非本仓路径：`lessons.md` 里 LumioClient 仓自己的 `docs/spikes/`、技能文档里的通用散文示例、RM-00011 报告里的 git 分支名。
+- 仍保留的 `docs/` 字样均为对废止制度的元引用（禁令声明、删除记录）或非本仓路径（LumioClient 的 `docs/spikes/`、git 分支名），无一是本仓活路径。
 
 ## 7. 验证
 

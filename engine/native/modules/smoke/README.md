@@ -38,4 +38,4 @@
 ## 相关文档
 
 - [模块索引](../README.md)
-- [测试与验收标准](../../.spec/knowledge/standards/testing.md)
+- [测试与验收标准](../../../../.spec/knowledge/standards/testing.md)

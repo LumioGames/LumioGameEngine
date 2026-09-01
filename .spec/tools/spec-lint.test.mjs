@@ -233,6 +233,24 @@ test('并行文档根 .sdd\/ 与 .workflow-drafts\/ 一并被抓', () => {
   assert.match(output, /\.workflow-drafts/)
 })
 
+test('嵌套的并行文档根被抓(历史病灶 engine/native/docs/ 形态)', () => {
+  const root = fixture()
+  mkdirSync(join(root, 'engine', 'native', 'docs', 'architecture'), { recursive: true })
+  writeFileSync(join(root, 'engine', 'native', 'docs', 'architecture', 'x.md'), '# 副本\n')
+  const { code, output } = lint(root)
+  assert.equal(code, 1)
+  assert.match(output, /并行文档根/)
+  assert.match(output, /docs[\\/]?/)
+})
+
+test('.sdd-scratch 工作区不在禁名单里(subagent-driven-development 的落点)', () => {
+  const root = fixture()
+  mkdirSync(join(root, '.sdd-scratch'), { recursive: true })
+  writeFileSync(join(root, '.sdd-scratch', 'progress.md'), 'Task 1: complete\n')
+  const { code, output } = lint(root)
+  assert.equal(code, 0, output)
+})
+
 test('仓根之外的第二个 .spec 被抓(subtree 合并带进来的框架副本)', () => {
   const root = fixture()
   mkdirSync(join(root, 'engine', 'native', '.spec', 'decisions'), { recursive: true })
