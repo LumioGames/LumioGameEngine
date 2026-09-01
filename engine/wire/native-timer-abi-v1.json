@@ -38,7 +38,7 @@
     "generation": "u32 单调递增，从 1 开始；overflow 必须 Fatal（进程级），不得回绕为 0——与实体世代同纪律。generation 溢出不是 errorCodes 词表成员。",
     "scope": "Timer 生命周期归属域。scope teardown/reset 使其 generation+1 并使其名下全部 handle 一次性失效。schedule* 上：scopeId 未在本 Manager 注册（或已彻底销毁、无活 generation）返回 scope_invalid；scopeId 已注册但 generation 不匹配返回 scope_generation_mismatch。旧 handle 上的操作返回 stale_handle，不返回 scope_*。",
     "scheduleSequence": "每个 Manager 实例内单调递增的调度序号，u64；同刻触发的稳定全序由此决定，保证回放确定性。",
-    "dueTick": "确定性问题刻度：one-shot 的唯一触发刻，repeating 的首次触发刻。scheduleOneShot.dueTick / scheduleRepeating.firstDueTick 必须 > 当前已提交刻度，否则返回 invalid_due_tick。",
+    "dueTick": "确定性问题刻度：one-shot 的唯一触发刻，repeating 的首次触发刻。scheduleOneShot.dueTick / scheduleRepeating.firstDueTick 必须 > 当前已提交刻度，否则返回 invalid_due_tick。advance 开火窗口是左开右闭 (committedTick, toTick]：dueTick == toTick 必须开火。repeating 在同一次 advance 内每次开火后 due += intervalTicks，并继续收取仍落在该窗口内的后续刻（含 toTick）。",
     "intervalTicks": "repeating 周期，≥ minIntervalTicks 且 ≥1；非正值或低于下限在 scheduleRepeating 时返回 invalid_interval。",
     "deliveryOrder": "同刻多定时按 (dueTick, scheduleSequence) 稳定全序投递；跨刻按刻序。给定相同调度集合与顺序，触发集合与顺序唯一——回放确定性是契约属性。",
     "callbackSlot": "投递载体：创建时预注册的类型化分发目的地（注册 id + adapter 分发表），不是原始函数指针。Native 侧绝不直接调用 managed/gameplay 热路径回调（ADR-006 纪律）：触发先入 adapter 投递队列，adapter 在声明的分发点排空并调用绑定回调。每 slot 投递队列有界：满时该触发以 slot_queue_full 终态拒绝、定时器随之终态（不重试、不重排队）、Manager 继续运行并记诊断事件，不静默丢弃、不升级为进程失败。",
@@ -297,7 +297,7 @@
       "layer": "nativeTickFrameTimerManager",
       "given": "scope S；slot A armed；当前刻度 = 10",
       "when": "scheduleRepeating(S, firstDueTick=12, intervalTicks=5, A) → H；advance(22)",
-      "then": "恰在 12 与 17 两刻各触发一次（每次一条 FiringRecord）；advance 未跨过的刻不触发；同刻无重复触发"
+      "then": "恰在 12、17 与 22 三刻各触发一次（每次一条 FiringRecord；22 = 12+5+5 且 22 == toTick，窗口 (10,22] 含右端）；advance 未进入窗口的刻不触发；同刻无重复触发"
     },
     {
       "name": "cancel_prevents_delivery",
