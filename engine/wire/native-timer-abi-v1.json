@@ -73,11 +73,12 @@
       }
     },
     "CallbackSlot": {
-      "lifecycle": ["closed", "armed", "delivering", "closed"],
+      "lifecycle": ["unbound", "armed", "delivering", "closed"],
       "states": {
-        "closed": "初始态与终态；对 closed slot 调度定时返回 slot_closed",
+        "unbound": "初始态：已分配但尚未绑定注册分发目的地；schedule* 返回 slot_unbound",
         "armed": "已绑定注册分发目的地，可承接调度",
-        "delivering": "adapter 正在排空投递队列并调用绑定回调；此间不得 arm/close 重入"
+        "delivering": "adapter 正在排空投递队列并调用绑定回调；此间不得 arm/close 重入",
+        "closed": "终态（armed 之后被 close）；对 closed slot 调度定时返回 slot_closed；不可再 armed"
       },
       "constraints": [
         "仅允许创建时绑定一次（注册 id 经 adapter 分发表解析）；不得运行期改绑",
@@ -90,7 +91,7 @@
     "scheduleOneShot": {
       "params": { "scope": "TimerScope", "dueTick": "u64", "slot": "CallbackSlot" },
       "returns": { "ok": "TimerHandle", "err": "enum:errorCodes" },
-      "notes": "Manager 已 shutdown 返回 manager_shutdown。scopeId 未注册返回 scope_invalid；scope generation 不匹配返回 scope_generation_mismatch。dueTick ≤ 当前已提交刻度返回 invalid_due_tick。slot 未 armed 返回 slot_unbound 或 slot_closed。scope 名下活跃数达 maxActiveTimersPerScope，或本刻成功 schedule 次数达 maxSchedulesPerTick，均返回 schedule_budget_exceeded（无部分调度）。"
+      "notes": "Manager 已 shutdown 返回 manager_shutdown。scopeId 未注册返回 scope_invalid；scope generation 不匹配返回 scope_generation_mismatch。dueTick ≤ 当前已提交刻度返回 invalid_due_tick。slot 处于 unbound 返回 slot_unbound；slot 处于 closed 返回 slot_closed（两码互斥，不得 OR 上报）。scope 名下活跃数达 maxActiveTimersPerScope，或本刻成功 schedule 次数达 maxSchedulesPerTick，均返回 schedule_budget_exceeded（无部分调度）。"
     },
     "scheduleRepeating": {
       "params": { "scope": "TimerScope", "firstDueTick": "u64", "intervalTicks": "u64", "slot": "CallbackSlot" },
@@ -204,7 +205,7 @@
     "slot_closed": {
       "kind": "both",
       "operations": ["scheduleOneShot", "scheduleRepeating", "advance"],
-      "trigger": "CallbackSlot 处于 closed（从未 armed，或 armed 之后被 close）。schedule* 对 closed slot 整次返回本码、无 handle。已调度定时器在 dueTick 时若 slot 已 close，该触发逐条拒绝为本码、定时器终态、advance 整体仍成功。",
+      "trigger": "CallbackSlot 处于 closed 终态（曾经 armed 之后被 close）。unbound 初始态不是本码。schedule* 对 closed slot 整次返回本码、无 handle。已调度定时器在 dueTick 时若 slot 已 close，该触发逐条拒绝为本码、定时器终态、advance 整体仍成功（本条不进入 FiringRecord 返回集）。",
       "blastRadius": "stable-reject; 该定时器终态; Manager 继续; 进程不退出",
       "distinctFrom": {
         "slot_unbound": "slot 从未绑定注册分发目的地（不是 closed-after-bind）",
@@ -216,7 +217,7 @@
     "slot_unbound": {
       "kind": "operation-err",
       "operations": ["scheduleOneShot", "scheduleRepeating"],
-      "trigger": "schedule* 时 CallbackSlot 尚未绑定注册分发目的地（从未 armed）。只在调度期返回，不在排空期返回。",
+      "trigger": "schedule* 时 CallbackSlot 处于 unbound 初始态（已分配、尚未绑定注册分发目的地、从未 armed）。只在调度期返回，不在排空期返回。closed 终态（armed 之后被 close）不是本码。",
       "blastRadius": "stable-reject; 无 handle 产生",
       "distinctFrom": {
         "slot_closed": "closed 是生命周期终态（含 bind 后 close）；unbound 是从未 bind",
@@ -330,9 +331,18 @@
       "class": "stale-handle",
       "violates": "scope 失效语义",
       "given": "scope S 名下有活跃 handle H；S 被 teardown/reset（generation+1）",
-      "when": "cancel(H)；scheduleOneShot(S(旧 generation), …)",
-      "expectedRejection": "stale_handle / scope_generation_mismatch",
-      "then": "旧 handle 与旧 scope 引用全部拒绝；teardown 后排空中的触发按 late_completion 终态丢弃"
+      "when": "cancel(H)",
+      "expectedRejection": "stale_handle",
+      "then": "旧 handle 拒绝；H 不得命中同 scopeId 新 generation 的定时器；teardown 后排空中的触发按 late_completion 终态丢弃"
+    },
+    {
+      "name": "scope_generation_mismatch_at_schedule",
+      "class": "input-validation",
+      "violates": "schedule* 的 TimerScope.generation 必须等于活 generation",
+      "given": "scope S 已在本 Manager 注册且 teardown/reset 后 generation=2；slot A armed；调用方仍持 generation=1 的 TimerScope",
+      "when": "scheduleOneShot(S(generation=1), dueTick=15, A)",
+      "expectedRejection": "scope_generation_mismatch",
+      "then": "调度整体拒绝，无 handle；不是 scope_invalid（scopeId 仍注册且有活 generation=2），也不是 stale_handle（没有 handle 参与）"
     },
     {
       "name": "late_completion_terminal_no_state_write",
@@ -356,10 +366,19 @@
       "name": "slot_unbound_rejected_at_schedule",
       "class": "slot-failure",
       "violates": "slot 绑定校验",
-      "given": "slot U 未绑定注册分发目的地",
+      "given": "slot U 处于 unbound 初始态（从未绑定注册分发目的地）",
       "when": "scheduleOneShot(S, dueTick=15, U)",
       "expectedRejection": "slot_unbound",
-      "then": "调度整体拒绝，无部分调度、无 handle 产生"
+      "then": "调度整体拒绝，无部分调度、无 handle 产生；不是 slot_closed（从未 armed，不是终态）"
+    },
+    {
+      "name": "slot_closed_rejected_at_schedule",
+      "class": "slot-failure",
+      "violates": "closed 终态 slot 不得再调度",
+      "given": "slot A 曾 armed 后被 close（终态 closed，不是 unbound）",
+      "when": "scheduleOneShot(S, dueTick=15, A)",
+      "expectedRejection": "slot_closed",
+      "then": "调度整体拒绝，无 handle；不是 slot_unbound（曾经 bind 过）"
     },
     {
       "name": "slot_queue_full_timer_terminal_process_lives",
