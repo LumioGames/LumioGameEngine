@@ -4,7 +4,7 @@
 
 ## 文档范围
 
-本目录描述当前架构设计，不代表对应模块已经完成实现。公共 ABI、Manifest、Capability、ID 和错误语义仍以 `LumioGameEngineArchitecture` 的 `LGE-V1.4-2026-08-27` 为唯一来源；本仓的架构文件是只读镜像。
+本目录描述当前架构设计，不代表对应模块已经完成实现。公共 ABI、Manifest、Capability、ID 和错误语义仍以 `LumioGameEngine` 的 `LGE-V1.4-2026-08-27` 为唯一来源；本仓的架构文件是只读镜像。
 
 文中语句分三类：**Current Fact**（当前事实）、**Design Requirement**（设计要求，默认类别）、**Pending Decision**（待决策，须 ADR 后生效）。
 

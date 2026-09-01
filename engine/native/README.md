@@ -12,7 +12,7 @@
 
 ## Architecture Gate
 
-Root ABI、Capability、Manifest/ID Schema 和失败 Fixture 的唯一来源是 `LumioGameEngineArchitecture`。Loader 或平台包变更必须消费已发布 Schema/Artifact，保留 Compiler/Input/Output Hash，并在架构源执行 `python3 tools/lumio_contract.py validate`；不得在聚合层手写第二套 P/Invoke 布局。
+Root ABI、Capability、Manifest/ID Schema 和失败 Fixture 的唯一来源是 `LumioGameEngine`。Loader 或平台包变更必须消费已发布 Schema/Artifact，保留 Compiler/Input/Output Hash，并在架构源执行 `python3 tools/lumio_contract.py validate`；不得在聚合层手写第二套 P/Invoke 布局。
 
 ## 拥有的状态与生命周期
 
