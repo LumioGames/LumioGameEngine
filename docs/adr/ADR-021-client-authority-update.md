@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-021-client-authority-update.md

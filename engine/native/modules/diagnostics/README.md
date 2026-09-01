@@ -41,4 +41,4 @@
 
 - [模块索引](../README.md)
 - [Loader](../loader/README.md)
-- [测试与验收标准](../../.spec/knowledge/standards/testing.md)
+- [测试与验收标准](../../../../.spec/knowledge/standards/testing.md)

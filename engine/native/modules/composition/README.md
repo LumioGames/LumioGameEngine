@@ -39,4 +39,4 @@
 
 - [模块索引](../README.md)
 - [Platform](../platform/README.md)
-- [仓库边界与架构契约](../../.spec/knowledge/standards/repository-architecture.md)
+- [仓库边界与架构契约](../../../../.spec/knowledge/standards/repository-architecture.md)

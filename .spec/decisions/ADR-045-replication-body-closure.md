@@ -1,6 +1,6 @@
 # ADR-045: Replication Body Closure, MappingSetHash Domain and Length Bound
 
-- **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioGameEngineArchitecture` (envelope publisher), `LumioServer` / `LumioClient` / `LumioGameRuntime` (wire consumers)
 - **Baseline**: `LGE-V1.4-2026-08-27` (no existing required field, enum or ID changes; adds one digest domain and closes an already-typed body)
 - **Relation**: Makes [ADR-028](ADR-028-replication-typed-bodies.md)'s own stated rationale machine-enforceable. Reuses the canonical form and digest framing frozen by [ADR-041](ADR-041-canonical-digest-profiles.md), adding a sixth domain in the same shape as its `CapabilitySetV1`.

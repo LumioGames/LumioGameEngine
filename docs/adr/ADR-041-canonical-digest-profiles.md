@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-041-canonical-digest-profiles.md

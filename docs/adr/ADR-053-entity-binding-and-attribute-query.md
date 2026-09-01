@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-053-entity-binding-and-attribute-query.md

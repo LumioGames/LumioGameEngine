@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-010-persistence-config.md

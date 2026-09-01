@@ -1,6 +1,6 @@
 # ADR-026: CrossWorldTxn CommandBuffer and Participant Markers
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (Coordinator, CommandBuffer)
 - **Baseline**: `LGE-V1.3-2026-08-27`
 - **Relation**: Refines [ADR-003](ADR-003-cross-world-txn.md). The Accepted ADR-003 Decision text is unchanged; this ADR is the normative participant/CommandBuffer contract.

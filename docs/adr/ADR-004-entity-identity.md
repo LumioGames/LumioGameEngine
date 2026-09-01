@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-004-entity-identity.md

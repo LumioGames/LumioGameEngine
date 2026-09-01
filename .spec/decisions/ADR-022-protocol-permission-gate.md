@@ -1,9 +1,9 @@
 # ADR-022: Generated Protocol/Permission Gate
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.2-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.2-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameEngineArchitecture` (generated validator), `LumioGameRuntime` (MessageType namespace)
 - **Baseline**: `LGE-V1.2-2026-08-27`
-- **Relation**: Uses the V1 replication `MessageType` surface from [ADR-005](ADR-005-replication-prediction.md). Does not freeze [D-009](../../docs/architecture/DECISIONS_PENDING.md) RPC/Message dispatch.
+- **Relation**: Uses the V1 replication `MessageType` surface from [ADR-005](ADR-005-replication-prediction.md). Does not freeze D-009（旧制度 `DECISIONS_PENDING` 台账，已随架构源制度废止；见 git 历史） RPC/Message dispatch.
 
 ## Context
 

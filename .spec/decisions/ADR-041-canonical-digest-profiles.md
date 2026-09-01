@@ -1,6 +1,6 @@
 # ADR-041: Canonical and Digest Profiles
 
-- **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioGameEngineArchitecture` (profile publisher), `LumioCoreEngine` (`manifest`, `platform`, `runtime-verifier` consumers)
 - **Baseline**: `LGE-V1.4-2026-08-27` (additive; no existing required field, enum or ID changes)
 - **Relation**: Completes the canonicalization clause of [ADR-018](ADR-018-coreengine-manifest-canonicalization.md) without rewriting it; publishes through the artifact rules of [ADR-023](ADR-023-generated-contract-artifact.md) / [ADR-039](ADR-039-contract-runtime-artifact.md).

@@ -114,10 +114,10 @@ composition / root-abi / platform / manifest / signing / loader / smoke
 
 每个模块 README 必须包含以下章节（spec-lint 机器校验）：**负责什么、明确不负责什么、输入与输出、依赖关系、生命周期与失败行为、验收范围、相关文档**。
 
-README 只描述当前设计；架构决策写入 [ADR](../.spec/decisions/README.md)，公共契约变更先回到架构源。
+README 只描述当前设计；架构决策写入 [ADR](../../../.spec/decisions/README.md)，公共契约变更先回到架构源。
 
 ## 相关文档
 
 - [仓库根 README](../README.md)
-- [仓库边界与架构契约](../.spec/knowledge/standards/repository-architecture.md)
-- [架构基线镜像](../docs/architecture/LumioGameEngine_Architecture_v1.2.md)
+- [仓库边界与架构契约](../../../.spec/knowledge/standards/repository-architecture.md)
+- [架构与开发说明](../../../.spec/knowledge/features/architecture.md)

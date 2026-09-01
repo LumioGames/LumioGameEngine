@@ -1,6 +1,6 @@
 # ADR-028: Replication Typed Bodies and MessageType Registry
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime`
 - **Baseline**: `LGE-V1.3-2026-08-27`
 - **Relation**: Refines [ADR-005](ADR-005-replication-prediction.md). The Accepted ADR-005 Decision text is unchanged.

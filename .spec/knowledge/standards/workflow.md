@@ -28,7 +28,7 @@ metadata:
 ## 合并 / PR 流程
 
 - PR 交付说明必须包含 Summary、公共语义变化、兼容/迁移影响、Schema/ID/Fixture 清单、验证命令与关键输出、七仓同步范围和 known gaps。
-- 根 `.github/CODEOWNERS` 将全仓及 `docs/` 指派给 `@Go1c`；所有架构变化必须由架构所有者审查。
+- 根 `.github/CODEOWNERS` 将全仓及 `.spec/` 指派给 `@Go1c`；所有架构变化必须由架构所有者审查。
 - 预上线合并前运行 SDK 开发态收口命令，证明 Host 加载最新 BuildId；完整 Contract validate、Baseline 和 reviewer 闭环仅在正式硬化阶段启用。
 
 ## 改动完成 = 知识已同步

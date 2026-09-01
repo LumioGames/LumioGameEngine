@@ -1,6 +1,6 @@
 # ADR-031: GAS Ability and Effect Lifecycle
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (framework), `LumioGame` (content hooks only)
 - **Baseline**: `LGE-V1.3-2026-08-27`
 - **Relation**: Refines [ADR-008](ADR-008-gas-state.md). The Accepted ADR-008 Decision text is unchanged. State names below are frozen and must not be added or removed.

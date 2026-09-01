@@ -1,6 +1,6 @@
 # ADR-044: Evidence Profiles
 
-- **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioGameEngineArchitecture` (profile publisher), `LumioCoreEngine` (`evidence-generator`, `runtime-verifier` consumers)
 - **Baseline**: `LGE-V1.4-2026-08-27` (additive; no existing required field, enum or ID changes)
 - **Relation**: Gives `core-engine-manifest.evidenceSet` (frozen in shape by [ADR-018](ADR-018-coreengine-manifest-canonicalization.md)) its byte-level meaning; digests follow [ADR-041](ADR-041-canonical-digest-profiles.md)'s framing but **not** its canonicalization, for the reason in §2.

@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-045-replication-body-closure.md

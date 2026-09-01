@@ -5,7 +5,7 @@
 # tasks intact.
 #
 # Usage: review-package BASE HEAD [OUTFILE]
-# Default OUTFILE: <repo-root>/.sdd/review-<base7>..<head7>.diff
+# Default OUTFILE: <repo-root>/.sdd-scratch/review-<base7>..<head7>.diff
 # (named per range, so a re-review after fixes gets a distinct fresh file).
 set -euo pipefail
 

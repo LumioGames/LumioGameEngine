@@ -1,6 +1,6 @@
 # ADR-037: Contract Common Primitive Consolidation
 
-- **Status**: Accepted (enters Implementation Baseline `LGE-V1.4-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (enters Implementation Baseline `LGE-V1.4-2026-08-27`, accepted 2026-08-27)
 - **Owner**: Architecture (schema registry), all implementation repositories (consumers)
 - **Baseline**: `LGE-V1.4-2026-08-27`
 - **Relation**: Refines the contract surfaces of [ADR-003](ADR-003-cross-world-txn.md) (chunk revision keys), [ADR-005](ADR-005-replication-prediction.md)/[ADR-028](ADR-028-replication-typed-bodies.md) (envelope integrity), [ADR-010](ADR-010-persistence-config.md) (snapshot header), [ADR-011](ADR-011-observability.md) (error vocabulary), [ADR-018](ADR-018-coreengine-manifest-canonicalization.md)/[ADR-019](ADR-019-loader-state-machine-package-identity.md) (package identity, signatures), [ADR-022](ADR-022-protocol-permission-gate.md) (gate reject reasons) and [ADR-032](ADR-032-durable-recovery-records.md) (recovery record chain). Consumes the voxel `ChunkId` key format frozen by [ADR-024](ADR-024-voxel-p0-contract-set.md) and completes the semantic-validation mandates of [ADR-035](ADR-035-voxel-snapshot-payload.md)/[ADR-036](ADR-036-voxel-streaming-durability-ack.md). Supersedes none of them; every refined ADR stays authoritative for its domain semantics.

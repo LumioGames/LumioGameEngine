@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-033-config-typed-columns.md

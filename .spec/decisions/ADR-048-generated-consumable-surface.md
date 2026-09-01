@@ -1,6 +1,6 @@
 # ADR-048: Generated Surface — Closed Contract Bodies, Executable Gate, Dual Target
 
-- **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioGameEngineArchitecture` (generator and published artifacts); `LumioGameRuntime`, `LumioClient`, `LumioCoreEngine`, `LumioServer`, `LumioGame` (consumers)
 - **Baseline**: `LGE-V1.4-2026-08-27` (additive; packaging and generated content only — no schema, required field, enum, ID or published Golden changes meaning)
 - **Relation**: makes [ADR-023](ADR-023-generated-contract-artifact.md) / [ADR-039](ADR-039-contract-runtime-artifact.md) artifacts consumable rather than catalog-only, and delivers the "generated validator" that [ADR-022](ADR-022-protocol-permission-gate.md) specified but never shipped. Projects the closed bodies [ADR-045](ADR-045-replication-body-closure.md) froze; does not extend them. Records the D-015 ruling whose text lands in [ADR-040](ADR-040-root-abi-generated-bundle.md) §7.

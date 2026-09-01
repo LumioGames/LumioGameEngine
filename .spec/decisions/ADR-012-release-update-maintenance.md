@@ -1,6 +1,6 @@
 # ADR-012: Release Catalog, Rolling Update and Forced Maintenance
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.1-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioServer` (orchestration), `LumioGame` (release composition)
 - **Baseline**: `LGE-V1.1-2026-08-27`
 

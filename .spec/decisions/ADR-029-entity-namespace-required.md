@@ -1,6 +1,6 @@
 # ADR-029: Entity Namespace Required and Domain Constraints
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime`
 - **Baseline**: `LGE-V1.3-2026-08-27`
 - **Relation**: Refines [ADR-004](ADR-004-entity-identity.md). The Accepted ADR-004 Decision text is unchanged.

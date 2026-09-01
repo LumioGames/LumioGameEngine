@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-022-protocol-permission-gate.md

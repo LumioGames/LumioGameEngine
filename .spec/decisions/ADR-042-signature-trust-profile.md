@@ -1,6 +1,6 @@
 # ADR-042: Signature and Trust Profile
 
-- **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioGameEngineArchitecture` (profile publisher), `LumioCoreEngine` (`signing`, `runtime-verifier` consumers)
 - **Baseline**: `LGE-V1.4-2026-08-27` (additive; no existing required field, enum or ID changes)
 - **Relation**: Completes the detached-envelope decision of [ADR-018](ADR-018-coreengine-manifest-canonicalization.md); signs the digests frozen by [ADR-041](ADR-041-canonical-digest-profiles.md); rejection codes come from the ID Registry family fixed by [ADR-019](ADR-019-loader-state-machine-package-identity.md).

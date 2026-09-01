@@ -1,6 +1,6 @@
 # ADR-047: LumioBinV1 Binary Canonical Profile
 
-- **Status**: Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
+- **Status**: Historical · Draft (targets the next Implementation Baseline; additive within `LGE-V1.4-2026-08-27`)
 - **Owner**: `LumioGameEngineArchitecture` (profile publisher); `LumioGameRuntime` (persistence format consumer), `LumioVoxelEngine` (payload producer/consumer), `LumioServer` (host durability), `LumioGame` (domain payload schemas)
 - **Baseline**: `LGE-V1.4-2026-08-27` (additive; no existing schema, required field, enum, ID or Golden changes meaning)
 - **Relation**: supplies the primitive layer that [ADR-010](ADR-010-persistence-config.md) §Contract referred to as "the same canonical codec rules" and that [ADR-035](ADR-035-voxel-snapshot-payload.md) assumed when it froze voxel payload ordering, offsets and hashing. It sits beside `CanonicalJsonV1` ([ADR-041](ADR-041-canonical-digest-profiles.md)), not above or below it: ADR-041 is the form for canonicalizable JSON documents, this is the form for binary payload bytes. Section 4 also completes the `snapshot-header.checksum` domain (the "B profile") that ADR-010 left as one undocumented sentence.

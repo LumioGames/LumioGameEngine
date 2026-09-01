@@ -1,6 +1,6 @@
 # ADR-032: Durable Recovery Records
 
-- **Status**: Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (Implementation Baseline `LGE-V1.3-2026-08-27`, accepted 2026-08-27)
 - **Owner**: `LumioGameRuntime` (format), Host persistence (durability)
 - **Baseline**: `LGE-V1.3-2026-08-27`
 - **Relation**: Refines [ADR-010](ADR-010-persistence-config.md) and [ADR-011](ADR-011-observability.md). Those Accepted Decision texts are unchanged. A `LoggingEvent` is not a recovery record.

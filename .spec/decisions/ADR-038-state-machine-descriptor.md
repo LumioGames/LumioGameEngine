@@ -1,6 +1,6 @@
 # ADR-038: State Machine Descriptor Contract
 
-- **Status**: Accepted (enters Implementation Baseline `LGE-V1.4-2026-08-27`, accepted 2026-08-27)
+- **Status**: Historical · Accepted (enters Implementation Baseline `LGE-V1.4-2026-08-27`, accepted 2026-08-27)
 - **Owner**: Architecture (descriptor registry), every repository that owns a machine (semantics)
 - **Baseline**: `LGE-V1.4-2026-08-27`
 - **Relation**: Makes machine-readable the state machines frozen in prose by [ADR-001](ADR-001-session-lifecycle.md) (WorldSlotHost, SimulationSession), [ADR-005](ADR-005-replication-prediction.md) (ClientReplicaSession), [ADR-003](ADR-003-cross-world-txn.md)/[ADR-026](ADR-026-crossworld-commandbuffer-markers.md) (CrossWorldTxn, EcsCommandBuffer), [ADR-012](ADR-012-release-update-maintenance.md) (ReleasePool), [ADR-019](ADR-019-loader-state-machine-package-identity.md) (CoreEngineLoader), [ADR-031](ADR-031-gas-lifecycle.md) (GasAbility, GasEffect), [ADR-034](ADR-034-hot-reload-dual-scope.md) (GameplayScopeActivation), [ADR-024](ADR-024-voxel-p0-contract-set.md)/[ADR-036](ADR-036-voxel-streaming-durability-ack.md) (VoxelChunkResidency) and [ADR-035](ADR-035-voxel-snapshot-payload.md) (VoxelSnapshotCapture). Consumes the `stateTransitionEvent`/`stateName` primitives of [ADR-037](ADR-037-contract-common-primitives.md). Supersedes none; each source ADR stays authoritative for what its machine *means*.

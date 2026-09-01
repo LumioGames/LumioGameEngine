@@ -1,1 +1,0 @@
-../../.spec/decisions/ADR-027-tick-fail-stop.md

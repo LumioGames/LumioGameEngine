@@ -59,22 +59,14 @@ function fixture(overrides = {}, linkOverrides = {}) {
   return root
 }
 
-function compatibilityFixture(regular = false) {
+/** 在最小合法仓库上加一个 decisions/ 分区,ADR 内容可覆写。 */
+function decisionsFixture(adrs = { 'ADR-050-x.md': '# ADR-050\n\n- **Status**: Draft\n' }) {
   const root = fixture()
   const decisions = join(root, '.spec', 'decisions')
   mkdirSync(decisions, { recursive: true })
-  writeFileSync(join(decisions, 'README.md'), '# Decisions\n\n[ADR-050](ADR-050-gas-a1-contracts.md)\n[ADR-051](ADR-051-gas-a2-contracts.md)\n')
-  for (const name of ['ADR-050-gas-a1-contracts.md', 'ADR-051-gas-a2-contracts.md']) {
-    writeFileSync(join(decisions, name), `# ${name}\n`)
-  }
-  const compatibility = join(root, 'docs', 'adr')
-  mkdirSync(compatibility, { recursive: true })
-  for (const name of ['ADR-050-gas-a1-contracts.md', 'ADR-051-gas-a2-contracts.md']) {
-    const link = join(compatibility, name)
-    const target = `../../.spec/decisions/${name}`
-    if (regular) writeFileSync(link, target)
-    else createFixtureLink(target, link, 'file')
-  }
+  const index = Object.keys(adrs).map((n) => `[${n}](${n})`).join('\n')
+  writeFileSync(join(decisions, 'README.md'), `# Decisions\n\n${index}\n`)
+  for (const [name, body] of Object.entries(adrs)) writeFileSync(join(decisions, name), body)
   return root
 }
 
@@ -222,24 +214,91 @@ test('case-variant link target follows platform case semantics', () => {
   }
 })
 
-test('compatibility ADR regular files are rejected', () => {
-  const { code, output } = lint(compatibilityFixture(true))
+test('并行文档根 docs/ 重新出现被抓', () => {
+  const root = fixture()
+  mkdirSync(join(root, 'docs', 'specs'), { recursive: true })
+  writeFileSync(join(root, 'docs', 'specs', 'x.md'), '# x\n')
+  const { code, output } = lint(root)
   assert.equal(code, 1)
-  assert.match(output, /compatibility ADR must be a Git mode 120000 symbolic link/)
+  assert.match(output, /并行文档根/)
 })
 
-test('compatibility ADR file symlinks resolve to authoritative decisions', (t) => {
-  let root
-  try {
-    root = compatibilityFixture(false)
-  } catch (error) {
-    if (process.platform === 'win32' && ['EACCES', 'EPERM', 'ENOTSUP'].includes(error.code)) {
-      t.skip('file symlinks unavailable in this Windows environment')
-      return
-    }
-    throw error
-  }
+test('并行文档根 .sdd\/ 与 .workflow-drafts\/ 一并被抓', () => {
+  const root = fixture()
+  mkdirSync(join(root, '.sdd'), { recursive: true })
+  mkdirSync(join(root, '.workflow-drafts'), { recursive: true })
+  const { code, output } = lint(root)
+  assert.equal(code, 1)
+  assert.match(output, /\.sdd/)
+  assert.match(output, /\.workflow-drafts/)
+})
+
+test('嵌套的并行文档根被抓(历史病灶 engine/native/docs/ 形态)', () => {
+  const root = fixture()
+  mkdirSync(join(root, 'engine', 'native', 'docs', 'architecture'), { recursive: true })
+  writeFileSync(join(root, 'engine', 'native', 'docs', 'architecture', 'x.md'), '# 副本\n')
+  const { code, output } = lint(root)
+  assert.equal(code, 1)
+  assert.match(output, /并行文档根/)
+  assert.match(output, /docs[\\/]?/)
+})
+
+test('.sdd-scratch 工作区不在禁名单里(subagent-driven-development 的落点)', () => {
+  const root = fixture()
+  mkdirSync(join(root, '.sdd-scratch'), { recursive: true })
+  writeFileSync(join(root, '.sdd-scratch', 'progress.md'), 'Task 1: complete\n')
   const { code, output } = lint(root)
   assert.equal(code, 0, output)
+})
+
+test('仓根之外的第二个 .spec 被抓(subtree 合并带进来的框架副本)', () => {
+  const root = fixture()
+  mkdirSync(join(root, 'engine', 'native', '.spec', 'decisions'), { recursive: true })
+  writeFileSync(join(root, 'engine', 'native', '.spec', 'AGENTS.md'), '# 第二套\n')
+  const { code, output } = lint(root)
+  assert.equal(code, 1)
+  assert.match(output, /第二套 LumioAgent 框架/)
+})
+
+test('ADR 缺状态行被抓', () => {
+  const { code, output } = lint(decisionsFixture({ 'ADR-050-x.md': '# ADR-050\n\n没有状态行。\n' }))
+  assert.equal(code, 1)
+  assert.match(output, /缺状态行/)
+})
+
+test('ADR 状态非枚举被抓', () => {
+  const { code, output } = lint(decisionsFixture({ 'ADR-050-x.md': '# ADR-050\n\n- **Status**: Cooking\n' }))
+  assert.equal(code, 1)
+  assert.match(output, /ADR 状态「Cooking」不在枚举/)
+})
+
+test('ADR 状态两种写法都收,Historical 前缀合法', () => {
+  const { code, output } = lint(decisionsFixture({
+    'ADR-050-x.md': '# ADR-050\n\n- **Status**: Historical · Accepted (旧基线)\n',
+    'ADR-051-y.md': '# ADR-051\n\n状态：Accepted（2026-08-31）\n',
+    '0001-nativecore.md': '# 0001\n\n- 状态:生效\n',
+  }))
+  assert.equal(code, 0, output)
   assert.match(output, /spec-lint: OK/)
+})
+
+test('plans\/ 文档缺 frontmatter 被抓,且不要求进 knowledge 导航', () => {
+  const root = fixture()
+  mkdirSync(join(root, '.spec', 'plans'), { recursive: true })
+  writeFileSync(join(root, '.spec', 'plans', 'p.md'), '# 计划\n')
+  const { code, output } = lint(root)
+  assert.equal(code, 1)
+  assert.match(output, /缺少 frontmatter/)
+  assert.doesNotMatch(output, /未登记进 knowledge\/README\.md 导航/)
+})
+
+test('reviews\/ 合法文档全绿,不需登记进 knowledge 导航', () => {
+  const root = fixture()
+  mkdirSync(join(root, '.spec', 'reviews'), { recursive: true })
+  writeFileSync(
+    join(root, '.spec', 'reviews', 'r.md'),
+    '---\nname: r\ndescription: 审查报告\nmetadata:\n  type: doc\n  status: 已交付\n---\n\n# 审查\n',
+  )
+  const { code, output } = lint(root)
+  assert.equal(code, 0, output)
 })
