@@ -1,139 +1,106 @@
 # ADR-049: Replication State Payload and InputCommand Carriage
 
-- **Status**: Draft (targets `LGE-V1.5`; **a baseline event — not additive within `LGE-V1.4-2026-08-27`**, and not in force until the V1.5 batch lands)
-- **Owner**: `LumioGameRuntime` (`MessageType` namespace owner and replication semantics), `LumioServer` / `LumioClient` (wire adapters), `LumioGame` (domain mapping schemas)
-- **Baseline**: targets `LGE-V1.5`. Extends a closed body's required set and adds a `MessageType` enum value; both are baseline events under the `schemas/README.md` change rule. Rides the single V1.5 transition planned in [`docs/plans/2026-08-29-v1_5-baseline-batch-plan.md`](../../docs/plans/2026-08-29-v1_5-baseline-batch-plan.md).
-- **Relation**: fills the two holes [ADR-045](ADR-045-replication-body-closure.md) §4 deliberately left open ("no world-state payload is frozen here"; "client-to-server gameplay command carriage is likewise not decided"). Encodes payload bytes under [ADR-047](ADR-047-lumio-bin-canonical-profile.md)'s `LumioBinV1`, which ADR-047 §Compatibility already named as this payload's decided encoding. Refines [ADR-028](ADR-028-replication-typed-bodies.md) and, through it, [ADR-005](ADR-005-replication-prediction.md); the Accepted text of both is unchanged. Digest framing follows [ADR-041](ADR-041-canonical-digest-profiles.md) §2.
+- **Status**: Accepted (2026-09-01; D-009 unblocked for the RM-00011 slice by the Room Review Rulings 2026-09-01 — `docs/specs/2026-09-01-ecs-formal-entity-chat-decision-log.md`. Delivered as a pre-launch living-architecture wire contract, not a baseline event; see §Compatibility.)
+- **Owner**: `LumioGameEngineArchitecture` (contract truth), `LumioGameRuntime` (replication semantics and mapping consumption), `LumioServer` / `LumioClient` (wire adapters), `LumioGame` (domain mapping declarations)
+- **Relation**: fills the two holes [ADR-045](ADR-045-replication-body-closure.md) §4 deliberately left open ("no world-state payload is frozen here"; "client-to-server gameplay command carriage is likewise not decided"). Encodes payload bytes under [ADR-047](ADR-047-lumio-bin-canonical-profile.md)'s `LumioBinV1`, which ADR-047 §Compatibility already named as this payload's decided encoding. Refines [ADR-028](ADR-028-replication-typed-bodies.md) and, through it, [ADR-005](ADR-005-replication-prediction.md); the Accepted text of both is unchanged. Digest framing follows [ADR-041](ADR-041-canonical-digest-profiles.md) §2. [ADR-052](ADR-052-ms00002-hello-wire-and-clr-host-abi.md) recorded that this ADR's original V1.5 baseline-batch delivery route was not adopted; §Migration records how this Accepted text supersedes that route without reopening the decision.
 
-## Context
+## 背景（Context）
 
-ADR-028 separated the replication envelope from a typed `body`. ADR-045 closed that body per MessageType — every legal member of every registered type is now fixed, with `additionalProperties: false` — and in doing so made explicit what had previously been reachable by accident: **there is nowhere to put world state, and nowhere to put a client input.**
+ADR-028 separated the replication envelope from a typed `body`. ADR-045 closed that body per MessageType and made explicit what had previously been reachable by accident: **there is nowhere to put world state, and nowhere to put a client input.** Two consequences were measured, not predicted: `A1-β` was unmeetable because a conforming `FullSnapshot`/`Delta` carried no world state (`LumioServer` hit the wall and correctly refused a private body member), and client-to-server gameplay commands had no carriage at all after ADR-045 §1 closed the `Ack`-smuggling route on purpose.
 
-ADR-045 §4 says so in its own words, and names the reason for the deferral: freezing a payload member without its byte layout would inherit the dangling reference that `ADR-010:20` had at the time. That blocker is now gone. ADR-047 froze `LumioBinV1` — fixed-width little-endian integers, `u32`-prefixed strings/byte-strings/arrays, structs as declaration-order concatenation with no padding, closed field sets, prefix-free SHA-256 over the encoded bytes — and its own §Compatibility states the conclusion this ADR executes: the D-1 replication state payload "is *not* implemented here — its required-field extension and `MessageType` addition are baseline events and ride the V1.5 batch — but its encoding is now decided: `LumioBinV1`."
+The direction was adjudicated on 2026-08-29 (`docs/plans/2026-08-29-contract-surface-adjudication.md` §裁决三): *what* to build was settled there. What happened since:
 
-Two consequences are measured, not predicted:
+- **2026-08-31** — ADR-052 delivered MS-00002 on a minimal dev-state contract (`engine/wire/hello-wire-v1.json`) and explicitly recorded that "ADR-049 的 V1.5 基线化路线未被采纳执行": the mainline became a pre-launch living architecture, the baseline/Schema/Fixture/mirror governance system was removed, and re-baselining the envelope through a V1.5 batch had no vehicle. That decision concerned the **delivery route only**; the envelope semantics this ADR freezes were never rejected.
+- **2026-09-01** — The RM-00011 room review ruled D-009 unblocked for the ECS entity/chat slice: this ADR is to be finalized as the generic gameplay command envelope, with `ChatInput` as the first tenant, paper-validated against a second tenant (voxel-dig) before freezing. The same ruling froze the delivery shape: contracts land as self-contained dev-state wire contract JSON under `engine/wire/` (hello-wire precedent, Owner adjudication 2026-09-01).
 
-- **Downstream is blocked on the downstream half.** The MVP acceptance criterion `A1-β` ("another client sees the block get mined") cannot be met, because a `FullSnapshot` or `Delta` that conforms to the published schema carries no world state. `LumioServer` reached this wall while designing its MVP host, correctly refused to add a private body member, and escalated rather than working around it.
-- **The upstream half has no carriage at all.** Client-to-server gameplay commands had exactly one previously-available route — smuggling them through an `Ack` body — and ADR-045 §1 closed it on purpose (`replication/ack-smuggled-command`). Closing the workaround without opening the road is the state this ADR ends.
+This ADR is therefore the first place the envelope's **field-level and failure semantics** are written down in their final, host-agnostic form.
 
-The direction was adjudicated on 2026-08-29 (`docs/plans/2026-08-29-contract-surface-adjudication.md` §裁决三) and is recorded here unchanged. What that adjudication settled is *what* to build; this ADR is the first place its **byte-level and failure semantics** are written down.
+## 决策（Decision）
 
-## Decision
+### 1. 下行状态以声明块进入既有 typed bodies
 
-### 1. Downstream state travels in the existing typed bodies, as declared blocks
-
-`FullSnapshot.body` gains a required `stateBlocks`; `Delta.body` gains a required `changedBlocks`. Both are arrays of the same block shape. **No new envelope and no new MessageType is introduced for downstream state** — the envelope, its `transportPolicy`, its `length` bound (ADR-045 §3), its integrity member and its sequencing already apply, and duplicating them into a parallel envelope would be a second source of truth for the same properties.
+`FullSnapshot` gains a required `stateBlocks`; `Delta` gains a required `changedBlocks`. Both are arrays of the same block shape. **No parallel downstream envelope is introduced** — sequencing, transport policy, length bound, integrity and session identity remain properties of the messages that already exist for this purpose in the carrying contract.
 
 Each block carries:
 
 | Member | Type | Meaning |
 | --- | --- | --- |
-| `mappingId` | `common.schema.json#/$defs/id` | which registered mapping this block's bytes belong to |
-| `payload` | `common.schema.json#/$defs/hexOrBase64` | the block's bytes, encoded under `LumioBinV1` per the mapping's declared field order |
-| `payloadHash` | `common.schema.json#/$defs/hash256` | prefix-free `SHA-256` of the payload bytes (ADR-047 §2 construction, no domain tag, no length framing) |
+| `mappingId` | registered mapping id | which registered mapping this block's bytes belong to |
+| `payload` | lowercase hex | the block's bytes, encoded under `LumioBinV1` per the mapping's declared `fieldOrder` |
+| `payloadSha256` | sha256-hex | prefix-free SHA-256 of the payload bytes (ADR-047 §2 construction, no domain tag, no length framing) |
 
 `stateBlocks` and `changedBlocks` are **required, and MAY be empty**. An empty array is the defined encoding of "this snapshot/delta carries no state for any mapping" — the same reasoning ADR-045 §2 used to refuse a sentinel for the empty mapping set: an empty array runs the same rules and yields a defined value, whereas an omitted member reopens the "missing means what?" ambiguity ADR-028 closed.
 
-### 2. Block order is the mappingSet declaration order, and it is machine-checkable
+### 2. 块序即映射注册表声明序，且机器可查
 
-The blocks in `stateBlocks` / `changedBlocks` appear in **the order of the mapping set that produced the envelope's `mappingSetHash`** — that is, the code-point-ascending sorted `mappings` list frozen by ADR-045 §2 as the `ReplicationMappingSetV1` normalization. Blocks are a subset of that list (a Delta typically touches few mappings), and a subset preserves the order of the whole.
+The blocks in one array appear in **code-point-ascending `mappingId` order**. Ascending also forbids a repeated `mappingId`, which would otherwise make "which block wins" an implementation choice. Two conforming encoders that produce different bytes for the same state are a fatal contract violation, not a tolerable variance — the position ADR-035 fixed for `chunkOrder` and ADR-047 fixed for struct declaration order, applied to block arrays.
 
-Order is fixed for the same reason ADR-035 fixed `chunkOrder` and ADR-047 fixed struct declaration order: **two conforming encoders that produce different bytes for the same state are a fatal contract violation, not a tolerable variance.** Sorting at the receiver would hide the divergence rather than prevent it.
+### 3. `payloadSha256` 绑定字节，且校验器重算
 
-This makes order a property the gate can check without knowing any domain semantics: the `mappingId` sequence must be strictly ascending under code-point collation, and every `mappingId` must appear in the mapping set the envelope's `mappingSetHash` digests. Strictly ascending also forbids a repeated `mappingId`, which would otherwise make "which block wins" an implementation choice.
+A published digest a gate does not recompute rots into a lie. `eng/verify-wire.mjs` **decodes `payload` and recomputes the digest**, and rejects **before** the payload is interpreted, so a divergent encoder fails at admission rather than corrupting state. `payloadSha256` covers the payload bytes only; message-level integrity, where the carrying transport defines one, stays in the transport. The two do not overlap and neither substitutes for the other.
 
-### 3. `payloadHash` binds the bytes, and the gate recomputes it
+### 4. 上行输入是 InputCommand 信封，不带 gameplay 序号/帧/tick，也不带发送者
 
-`payloadHash` is not a declared value the gate merely type-checks. `tools/lumio_contract.py` **decodes `payload` and recomputes the digest**, exactly as ADR-047 §3 does for its Goldens and ADR-041 §4 does for its normalization declarations. The rule this repository has already learned twice is that a published digest a gate does not recompute rots into a lie; a `payloadHash` that is merely *shaped* like a hash256 would let two implementations disagree on the bytes and still pass.
+Client-to-server gameplay input travels as an `InputCommand` message carrying a `commands` array of `CommandBlock`s under the same §1–§3 discipline. Two properties are **final rulings, not omissions**:
 
-`payloadHash` covers the **payload bytes only** — not the block, not the body, not the envelope. Envelope-level integrity stays where ADR-028 put it, in the envelope's own `integrity` member. The two do not overlap and neither substitutes for the other.
+- **No client gameplay sequence, frame or tick.** The Room Review decision log (2026-09-01): "`ChatInput` carries message text only at the gameplay level. The client does not supply a gameplay input sequence or frame number. Transport/session sequencing and duplicate handling remain protocol-layer concerns." The Draft of this ADR carried `commandSequence`, `tickId` and `predictionKey`; the finalization **removes** them. A future tenant that needs client prediction forces its own ADR; none is designed here (no prediction/rollback design is a boundary of the freeze card).
+- **No sender field.** The sender is resolved server-side from the connection's common binding (`AccountId + RoomId + NetEntityId + EntityType + ConnectionGeneration`, frozen by the binding-and-query contract). A client cannot choose an arbitrary sender entity, so the envelope carries nothing to choose.
 
-### 4. Upstream input is a new MessageType with its own envelope schema
+### 5. Chat 映射三件与有界输入
 
-Client-to-server gameplay input travels as `MessageType` **`InputCommand`**, registered in `ids/index.json` under the `MessageType` namespace (owner `GameRuntime`) at the next unused numeric — `9` at the time of writing; **values are never reused or backfilled**, so the executing session re-reads the registry and takes whatever the next free numeric then is.
+The first tenant mapping set, frozen in `engine/wire/gameplay-command-envelope-v1.json`:
 
-Input carriage gets its **own schema** (`input-envelope.schema.json`), not another `if`/`then` clause on the replication envelope. Three reasons, in decreasing order of weight:
+- **`chat.input`** (kind `command`, c2s): field `text` only, `maxUtf8Bytes = 512`.
+- **`chat.event`** (kind `event`, s2c, delivery `delta-live-only`): `messageId`, `roomSequence` (strictly increasing per Room), `senderNetEntityId`, `text`, `appliedTick` — all server-stamped. Live notification only: it appears exclusively in `Delta.changedBlocks`, never in `FullSnapshot.stateBlocks` (reconnect does not replay chat events; the client chat window is rebuilt empty), and the server does not persist chat history.
+- **`chat.component`** (kind `componentState`, direction `none`): `lastMessageText`, `lastMessageTick`, dimensions `persist-only / replication:none / visibility:server-only`. It participates in the existing ECS field-attribute persistence flow (component-level snapshot/restore) and never appears in any wire block array — it is not a client property-sync stream.
 
-1. **Direction is not a body detail.** Every other registered MessageType is server-authored or an acknowledgement of one. Input is the only client-authored *state-bearing* message, so its admission path, its rate limits and its permission checks are not the outbound ones. Folding it into the outbound envelope would make "who may send this" a per-clause convention rather than a schema boundary.
-2. **The outbound envelope's members do not fit.** `sequence`, `snapshotId`-family identity and the outbound `transportPolicy` are properties of a server→client stream; an input message needs a client-side sequence and a prediction key, which have no meaning outbound.
-3. **ADR-022's permission gate can then key on the schema**, not on a string compare inside a shared document.
+Bounded input is frozen to a **single behavior: reject** — `chat_text_too_long` for the text cap, `chat_rate_exceeded` for more than one `chat.input` per sender per authoritative tick. Reject was chosen over drop because explicit rejection keeps the 100-Bot acceptance deterministic: a sender can always distinguish "rejected" from "accepted", whereas silent drops would make cadence verification ambiguous. The rate rule is receiver-enforced (it needs tick state the validator does not have); the text cap is validator-enforced on the decoded bytes.
 
-`InputCommand` is registered in the `MessageType` namespace nonetheless, because ADR-028's three-way consistency assertion (schema enum = ID registry = fixture-used types) is what keeps the namespace honest, and a MessageType that lives outside the registry would be exactly the private de-facto contract this repository exists to prevent.
+### 6. 通用性纸面套验：voxel-dig 第二租户
 
-The input envelope carries the session/release triple (`common.schema.json#/$defs/sessionReleaseTriple`), a client-monotonic `commandSequence`, the `predictionKey` ADR-005 already names in its prediction loop, the `tickId` the client believes it is acting on, and a `commands` array whose entries carry `mappingId` / `payload` / `payloadHash` under **the same §1–§3 rules** — same `LumioBinV1` encoding, same ascending-`mappingId` order, same recomputed digest. The two directions share one encoding discipline; only the framing differs.
+Before freezing, the envelope was paper-validated against a voxel-dig command — the worked example, in full:
 
-### 5. What this ADR does not decide
+A `voxel.dig` tenant mapping would be declared as `fieldOrder: ["x","y","z"]`, `fields: { x: u32, y: u32, z: u32 }`, kind `command`. The command block for digging block (10, 64, 3) is exactly 12 bytes — `0a000000 40000000 03000000` — under the same §1–§3 rules (registered id, ascending order alongside other commands, digest recomputed over those 12 bytes). The downstream acknowledgement would be a kind `state` mapping `voxel.chunk-delta` with its own declared layout; it rides `changedBlocks` with zero envelope change.
 
-- **No role→message permission table.** ADR-048 §2 states the generated validator checks registration, not role authority, because the architecture source has no such table and inventing one would front-run `D-009`. This ADR adds a message a client may send; it does **not** thereby publish who may send what. That stays `D-009`.
-- **No wire byte encoding for the envelope itself.** ADR-045 §3 deliberately left `length` a bound rather than a byte count because the envelope's wire form is unfrozen. This ADR freezes the **payload** bytes and changes nothing about the envelope's own serialization, so `length` keeps its ADR-045 meaning.
-- **No compression.** `common.schema.json` has a `compressionCodec` def and voxel payloads use one; a compressed block would need its digest domain settled (bytes before or after compression) and nothing yet requires it. Blocks are uncompressed; a future ADR may add a codec member with its digest rule stated explicitly.
-- **No float rule.** ADR-047 refuses `f32`/`f64` as an unknown layout kind. A mapping needing a float declares its rule in its own domain ADR; this ADR does not reopen that.
+What the example proves: adding a tenant requires **one mapping declaration** and no envelope, block, digest or ordering change; fixed-width integer-only tenants need no new wire types; the block-kind rules (§5's delta-only/no-replay partition) generalize by kind, not by tenant name. What it does not prove, and does not claim: float/variable-layout tenants (an ADR-047 refused kind) and prediction-bearing tenants (§4) remain outside until their own ADRs.
 
-## Contract
+## 接口与 Schema（Contract）
 
-`schemas/replication-envelope.schema.json` (`messageType` enum gains `InputCommand`; `FullSnapshot.body` required set gains `stateBlocks`; `Delta.body` required set gains `changedBlocks`), a new `schemas/input-envelope.schema.json` registered in `schemas/index.json`, and `ids/index.json`'s `MessageType` namespace. Semantic rules land in `tools/lumio_contract.py`:
+The single truth is `engine/wire/gameplay-command-envelope-v1.json` (`lumio.gameplay-envelope.v1`): messages (`InputCommand`, `FullSnapshot`, `Delta`, `Error`), shared block types, the `mappings` registry (which **is** the mapping-id namespace for this contract — the role the ID registry played under the removed governance system), per-mapping `dimensions` (persistence / replication / visibility), `boundedInput`, `errorCodes`, `limits`, the `rules` table with `enforcedBy: validator|receiver`, and embedded `testCases` / `invalidCases`.
 
-- every `mappingId` in a block list is in the mapping set whose digest is the envelope's `mappingSetHash`;
-- block `mappingId`s are strictly ascending under code-point collation;
-- every `payloadHash` is recomputed from the decoded `payload` and must match;
-- every `payload` decodes as `LumioBinV1` for its mapping's declared layout, or the envelope is rejected;
-- the `MessageType` schema enum, the ID Registry and the fixture-used set stay one set (the existing ADR-028 assertion, now covering `InputCommand`).
+The gate is `node eng/verify-wire.mjs`: it auto-discovers every `engine/wire/*.json`, enforces structural grammar, reference integrity (case codes and rule ids resolve), block semantics (digest recompute, LumioBinV1 decode/re-encode equality, per-field caps, block-kind rules, ascending-unique order), and executes the embedded cases — validator-checkable cases must fail with their declared code; receiver-enforced cases are verified for declaration completeness. `hello-wire-v1.json` passes the structural layer unchanged; `eng/verify-hello-wire.mjs` remains the deep validator for that contract and is untouched.
 
-## Failure semantics
+Downstream consumption (Owner adjudication 2026-09-01): implementation repos hand-write their typed surface against the JSON as field truth and carry contract-conformance tests; no generation pipeline is rebuilt.
 
-A `FullSnapshot` without `stateBlocks`, or a `Delta` without `changedBlocks`, is invalid — the member is required, and an empty array is how "nothing to send" is spelled. A block whose `payloadHash` does not recompute from its `payload` is invalid, and is rejected **before** the payload is interpreted, so a divergent encoder fails at admission rather than corrupting state. A block list that is not strictly ascending by `mappingId`, or that repeats a `mappingId`, or that names a `mappingId` outside the digested mapping set, is invalid. A payload that does not decode under `LumioBinV1` produces no state and no partial application: per ADR-047, an unencodable value yields no bytes, and by symmetry an undecodable byte string yields no value — never a truncated, padded or reordered read. An `InputCommand` sent on the replication envelope rather than the input envelope is invalid, as is an input envelope carrying any other `messageType`.
+## 失败语义（Failure semantics）
 
-Rejection of any of the above is a `Rejectable` envelope-level error under ADR-028's three error classes; it does not by itself request a resync, because a malformed message proves nothing about baseline continuity. Gap and resync semantics are unchanged by this ADR.
+A `FullSnapshot` without `stateBlocks`, or a `Delta` without `changedBlocks`, is invalid — the member is required, and an empty array is how "nothing to send" is spelled. A block whose `payloadSha256` does not recompute from its `payload` is rejected **before** the payload is interpreted (`bad_payload_hash`). A block list that is not strictly ascending by `mappingId`, or that repeats a `mappingId`, is invalid (`block_order_violation`). A payload that does not decode as canonical `LumioBinV1` for its mapping yields no state and no partial application (`undecodable_payload`): an undecodable byte string yields no value — never a truncated, padded or reordered read. An `InputCommand` block whose `mappingId` is unregistered or not kind `command` is `unknown_command_type`; a `chat.event` block in `FullSnapshot.stateBlocks`, or any block of the wrong kind for its array, is `state_block_kind_mismatch`. Oversized chat text is `chat_text_too_long` at admission; a second `chat.input` from the same sender within one authoritative tick is `chat_rate_exceeded` at the commit face. `chat.event.roomSequence` regressions (duplicate or decrease within a Room) are `bad_envelope` at the receiver.
 
-## Alternatives
+None of these by itself requests a resync: a malformed message proves nothing about baseline continuity. Gap and resync semantics are unchanged by this ADR.
 
-**A single opaque `payload` blob per body, with no per-mapping blocks**, was rejected. It reproduces the exact defect ADR-028 named when it refused a free-form payload — "two implementations can pass the gate and disagree on Snapshot identity" — one level down: the gate could check that bytes exist but never that they mean the same thing on both ends, and a per-mapping digest would be impossible.
+## 替代方案（Alternatives）
 
-**A separate downstream state envelope (a new `StateSnapshot` MessageType)** was rejected. The envelope properties that matter — sequencing, `transportPolicy`, `length` bound, integrity, session/release identity — would have to be duplicated, and a duplicated property is one that can disagree. The typed bodies already exist and are already closed; extending a closed body is a smaller and more checkable change than adding a parallel one.
+- **A single opaque `payload` blob per message, no per-mapping blocks** — rejected. The gate could check that bytes exist but never that they mean the same thing on both ends, and a per-mapping digest would be impossible (ADR-028's free-form-payload defect one level down).
+- **A separate downstream state envelope (a `StateSnapshot` message)** — rejected. Sequencing, transport policy, length bound and session identity would be duplicated, and a duplicated property is one that can disagree. Extending the existing messages is smaller and more checkable.
+- **Carrying gameplay sequence / frame / prediction fields on the input envelope** — rejected by ruling (§4): protocol-layer sequencing stays protocol-layer; no prediction design exists in this slice to hang them on.
+- **Drop instead of reject for bounded input** — rejected (§5): silent drops make the 100-Bot cadence acceptance unverifiable from the sender side.
+- **JSON-native bodies without LumioBinV1** — rejected. ADR-047 already decided this payload's encoding; canonical-JSON key ordering would be a second, weaker byte discipline.
+- **V1.5 baseline-batch delivery** (the Draft's route) — superseded by the living-architecture mainline (ADR-052's record); this Accepted text delivers the same semantics through the dev-state wire-contract vehicle. See §Migration.
 
-**Folding `InputCommand` into `replication-envelope.schema.json` as a ninth `if`/`then` clause** was rejected for §4's three reasons; the decisive one is that direction and authority would become a convention inside a shared document rather than a schema boundary that ADR-022's gate can key on.
+## 兼容影响（Compatibility）
 
-**Sorting blocks at the receiver instead of fixing sender order** was rejected: it converts a detectable divergence into a silent one. This is ADR-035's `SameCutSameBytes` position and ADR-047's declaration-order position applied to the same problem a third time.
+Pre-launch living architecture: breaking changes carry no compatibility window, and there is no deployed consumer of the formal replication path to migrate (the position ADR-028 recorded when it broke the envelope shape in V1.3). `hello-wire-v1` (MS-00002) is untouched and remains independently valid; this contract neither extends it nor reuses its message set — the two coexist until the hello milestone retires. On the JSON wire, `u64` is carried as a number bounded to 2⁵³−1; hosts using true u64 internally must bound-check at their adapter.
 
-**Letting `payloadHash` be optional when the envelope already carries `integrity`** was rejected. Envelope integrity covers the envelope as transmitted; it says nothing about whether two encoders produced the same *state* bytes, which is the property `A1-β` depends on. They are different assertions with different failure meanings.
+## 迁移方案（Migration）
 
-**Landing this inside `LGE-V1.4-2026-08-27` as "additive"** was rejected as factually wrong, not merely cautious. Adding a member to a closed body's *required* set breaks every conforming producer, and `schemas/README.md` names required-field and enum changes as baseline events. Calling it additive would be the kind of self-contradicting claim `lessons.md` records twice.
+From the Draft: the semantics of §1–§3 are unchanged from the Draft's decision; §4 is narrowed by the 2026-09-01 ruling (no client sequence/tick/prediction members) and §5–§6 are new (chat tenant freeze, bounded input, paper validation). The Draft's `MessageType`-registry registration, `schemas/*` files and `tools/lumio_contract.py` rules are obsolete with the removed governance system; their function lives in the contract's `mappings` registry and `eng/verify-wire.mjs`. ADR-052's record that "the V1.5 route was not adopted" stands; this text is the adopted replacement route, so no new ADR is needed to supersede it. If the project later re-hardens into a baseline system, this contract upgrades per the governance decision of that time; the frozen semantics (block shape, ordering, digest rule, kind partition, bounded input) carry over unchanged.
 
-## Compatibility and migration
+## 验证（Verification）
 
-**Breaking, by construction.** Two changes each independently require a new BaselineId:
+Embedded in the contract and executed by the gate (`node eng/verify-wire.mjs`):
 
-1. `FullSnapshot.body` and `Delta.body` gain required members. A producer emitting the V1.4 shape is invalid under V1.5.
-2. The `MessageType` enum gains a value. Every consumer that treats the enum as exhaustive must be recompiled against the regenerated surface.
+- Positive cases: `input/chat-single-command` (one well-formed `chat.input` block), `snapshot/empty-state-blocks` (empty array pins the no-sentinel rule), `delta/chat-event` (one well-formed `chat.event`), `error/rate-exceeded` (rejection receipt carries the mapping id).
+- Negative cases, one per rule clause, each rejected with the declared code: `input/text-too-long` (513-byte text), `input/digest-mismatch`, `input/unknown-command-type` (`voxel.dig` — registered nowhere, deliberately), `input/duplicate-mapping`, `input/undecodable-payload` (length prefix runs past the bytes), `snapshot/event-replay` (delta-only event inside a snapshot), `delta/component-state-on-wire` (persist-only mapping on the wire).
+- Receiver-side probes (declaration-checked, runtime-enforced): `runtime/chat-rate-second-per-tick`, `runtime/chat-room-sequence-regression`.
 
-There is no deployed wire consumer to migrate — the same position ADR-028 recorded when it broke the envelope shape in V1.3 — so no compatibility window is declared and no dual-shape acceptance period exists. `A1-β` and the `LumioGameRuntime` replication cards unblock when V1.5 lands, and not before.
-
-Downstream absorbs, per repository:
-
-- **GameRuntime** owns the `MessageType` namespace and confirms the new value; implements block production/consumption and the input path's server side.
-- **Server** and **Client** take the new required members and the new input envelope. Server's inbound `Delta` acceptance must continue to admit `gapDetected` and `resyncReason` (ADR-045 §1 keeps them legal-but-optional); this ADR does not narrow that set.
-- **Game** declares the per-mapping layouts whose declaration order §1 encodes against.
-- **VoxelEngine** is affected only indirectly: its ADR-035 payload already assumed the primitive layer ADR-047 published, and this ADR does not change voxel payload framing.
-- Every artifact's `compilerHash` moves with the batch, and `packages/` is reissued. Consumers pinning an `outputHash` re-pin against the V1.5 tag rather than a branch name (`D-5`).
-
-## Verification
-
-Positive fixtures:
-
-- `replication/full-snapshot-state-blocks` — a `FullSnapshot` whose `stateBlocks` carries two blocks in ascending `mappingId` order, each `payloadHash` recomputing from its `LumioBinV1` payload.
-- `replication/delta-changed-blocks` — a `Delta` carrying a strict subset of the mapping set, proving subset-of-order is legal.
-- `replication/full-snapshot-empty-state-blocks` — the empty array is valid and is the defined "no state" encoding, pinning §1's no-sentinel rule the way ADR-045's `EmptyMappingSet` Golden pins its own.
-- `input/command` — a well-formed `InputCommand` on the input envelope.
-
-Negative fixtures, one per decision clause, each constructed so that removing the clause makes it pass:
-
-- `replication/state-block-payload-hash-mismatch` — a block whose `payloadHash` is not the digest of its payload (§3).
-- `replication/state-block-order-violation` — two blocks in descending `mappingId` order (§2).
-- `replication/state-block-duplicate-mapping` — the same `mappingId` twice (§2).
-- `replication/state-block-unknown-mapping` — a `mappingId` outside the set digested by `mappingSetHash` (§2).
-- `replication/full-snapshot-missing-state-blocks` — the V1.4 shape, which must now fail (§1 and the Compatibility claim; this fixture is what makes "breaking" a fact rather than an assertion).
-- `replication/state-block-undecodable-payload` — a payload that is not valid `LumioBinV1` for its layout (§Failure semantics).
-- `input/on-replication-envelope` — an `InputCommand` presented on `replication-envelope.schema.json` (§4).
-- `input/unregistered-target` — an input envelope whose `messageType` is not `InputCommand` (§4).
-
-**Acceptance bar for the executing session** (承 `lessons.md` 的对照组探针纪律): each negative above must be shown to *actually* fail — produce the real non-zero `validate` output with the fixture in place, restore, and produce the passing output. "The gate passed" is not evidence that a guard works; only a probe that goes red and then green is. Each new rule in §Contract must be introduced in the **same commit** as the negative fixture constructed against it.
+Acceptance bar (对照组探针纪律, carried from the Draft): a deliberately broken probe contract placed in `engine/wire/` must turn the gate red with clean rejections, and its removal must restore green — only a probe that goes red and then green proves the guard works. The executing session's evidence: probe run rejected with exit 1 (duplicate error codes, malformed contractId, bad dir, unresolvable case codes), removal restored `verify-wire: all contracts green` with `hello-wire-v1.json` passing unchanged and `eng/verify-hello-wire.mjs` 9/9. `node eng/generate-abi.mjs` zero-diff; `node .spec/tools/spec-lint.mjs` OK.

@@ -19,10 +19,10 @@ metadata:
 
 开发态跨边界变更按以下最短顺序完成：
 
-1. 修改唯一 API 或 ABI 定义（只有托管/Native 二进制边界需要 ABI）。
-2. 运行 `node eng/generate-abi.mjs` 并重编 SDK Native 与直接消费者。
+1. 修改唯一 API 或 ABI 定义（只有托管/Native 二进制边界需要 ABI）。玩法/绑定/账号/定时等非 ABI 公共语义落 `engine/wire/<name>-v1.json`，由 `eng/verify-wire.mjs` 执行内嵌正反例；**不得扩展** `hello-wire-v1.json`。
+2. 运行 `node eng/generate-abi.mjs` 并重编 SDK Native 与直接消费者；wire 契约另跑 `node eng/verify-wire.mjs` 与 `node eng/verify-hello-wire.mjs`。
 3. 运行 `eng/dev-run.ps1`，确认 Server/Client 的实际路径、BuildId、ABI Hash 和 Binary SHA-256 一致。
-4. 进入正式硬化时，再启用历史 Schema/Fixture/Baseline 资产并单独建立发布决策。
+4. 进入正式硬化时，再启用历史 Schema/Fixture/Baseline 资产并单独建立发布决策。已删除的 Schema/ID/Fixture/镜像工具链不得作为切片卡的附带产物恢复。
 
 不得跳步用实现代码、README 镜像或生成物反向定义公共契约。
 
