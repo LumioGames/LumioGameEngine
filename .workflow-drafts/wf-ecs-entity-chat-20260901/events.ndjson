@@ -1,0 +1,61 @@
+{"event":"planning.created","bundleId":"wf-ecs-entity-chat-20260901","projectId":"proj_b6979c277715a6c6c490a541ac69709b","rooms":1,"requirements":11,"milestones":0}
+{"event":"dedupe.completed","queries":7,"matches":0}
+{"event":"planning.readiness","ready":1,"conditional":10,"blocked":0}
+{"event":"planning.entity-count","botEntities":100,"playerEntities":1,"gameEntities":101}
+{"event":"operation.verified","opId":"create-room","remoteId":"01a05b5a-6fd3-797f-8608-580c55491802","displayKey":"RM-00011","updatedAt":"2026-09-01T05:04:08Z"}
+{"event":"operation.failed","opId":"create-r-source","error":"Error: R-SOURCE requirement read-back mismatch"}
+{"event":"operation.failed","opId":"create-r-admission","error":"Error: R-ADMISSION requirement read-back mismatch"}
+{"event":"operation.failed","opId":"create-r-account","error":"Error: R-ACCOUNT requirement read-back mismatch"}
+{"event":"operation.failed","opId":"create-r-identity","error":"Error: R-IDENTITY requirement read-back mismatch"}
+{"event":"operation.verified","opId":"create-r-source","remoteId":"01a05b5a-75ad-7062-bfb9-b9df66ea7ca2","displayKey":"R-00345","updatedAt":"2026-09-01T05:04:10Z","recovered":true}
+{"event":"operation.verified","opId":"create-r-account","remoteId":"01a05b5a-75a6-77f1-a568-7b044e1a0053","displayKey":"R-00344","updatedAt":"2026-09-01T05:04:10Z","recovered":true}
+{"event":"operation.verified","opId":"create-r-admission","remoteId":"01a05b5a-783a-797a-9726-10e26f9e5c76","displayKey":"R-00346","updatedAt":"2026-09-01T05:04:10Z","recovered":true}
+{"event":"operation.verified","opId":"create-r-identity","remoteId":"01a05b5a-78c3-747f-8235-fe05e55bc4b1","displayKey":"R-00347","updatedAt":"2026-09-01T05:04:10Z","recovered":true}
+{"event":"operation.verified","opId":"create-r-client","remoteId":"01a05b5d-19c6-7365-859a-810b1810638a","displayKey":"R-00349","updatedAt":"2026-09-01T05:07:03Z"}
+{"event":"operation.verified","opId":"create-r-chat-component","remoteId":"01a05b5d-1812-7f95-889c-b191e395dc01","displayKey":"R-00348","updatedAt":"2026-09-01T05:07:02Z"}
+{"event":"operation.verified","opId":"create-r-reconnect","remoteId":"01a05b5d-19e0-79fc-af62-2007435d1348","displayKey":"R-00350","updatedAt":"2026-09-01T05:07:03Z"}
+{"event":"operation.verified","opId":"create-r-chat-replication","remoteId":"01a05b5d-1ad1-7d07-83e8-0aecc3f6c31b","displayKey":"R-00351","updatedAt":"2026-09-01T05:07:03Z"}
+{"event":"operation.verified","opId":"create-r-persistence","remoteId":"01a05b5d-1d12-7762-a802-f08e6639f27b","displayKey":"R-00353","updatedAt":"2026-09-01T05:07:04Z"}
+{"event":"operation.verified","opId":"create-r-e2e","remoteId":"01a05b5d-1d29-77e0-8220-a50e39aafc06","displayKey":"R-00354","updatedAt":"2026-09-01T05:07:04Z"}
+{"event":"operation.verified","opId":"create-r-timer","remoteId":"01a05b5d-1d0f-73ec-be64-fae3392ca684","displayKey":"R-00352","updatedAt":"2026-09-01T05:07:04Z"}
+{"event":"operation.verified","opId":"acceptance-r-source-3","remoteId":"01a05b5d-2155-7a97-a2bd-fd3a1750c1b3","updatedAt":"2026-09-01T05:07:05Z"}
+{"event":"operation.verified","opId":"acceptance-r-account-1","remoteId":"01a05b5d-215d-7517-b182-c6ca2deb722d","updatedAt":"2026-09-01T05:07:05Z"}
+{"event":"operation.verified","opId":"acceptance-r-source-2","remoteId":"01a05b5d-216b-7e9b-b75d-928c2bfe978b","updatedAt":"2026-09-01T05:07:05Z"}
+{"event":"operation.verified","opId":"acceptance-r-source-1","remoteId":"01a05b5d-2160-7bbd-93e9-eca7867c7b6f","updatedAt":"2026-09-01T05:07:05Z"}
+{"event":"operation.verified","opId":"acceptance-r-account-3","remoteId":"01a05b5d-247a-7f74-a7d5-f577c7dc9189","updatedAt":"2026-09-01T05:07:05Z"}
+{"event":"operation.verified","opId":"acceptance-r-account-2","remoteId":"01a05b5d-2481-78e4-9ce7-d0525fbf8a30","updatedAt":"2026-09-01T05:07:05Z"}
+{"event":"operation.verified","opId":"acceptance-r-account-4","remoteId":"01a05b5d-248a-792e-9bb4-ecb93913630d","updatedAt":"2026-09-01T05:07:05Z"}
+{"event":"operation.verified","opId":"acceptance-r-account-5","remoteId":"01a05b5d-2491-7c4b-bb20-16252c8a94e7","updatedAt":"2026-09-01T05:07:06Z"}
+{"event":"operation.verified","opId":"acceptance-r-admission-2","remoteId":"01a05b5d-2797-7710-be19-5df7d7d8dd8e","updatedAt":"2026-09-01T05:07:06Z"}
+{"event":"operation.verified","opId":"acceptance-r-admission-1","remoteId":"01a05b5d-2793-70fb-90fb-b072cfa4d2d4","updatedAt":"2026-09-01T05:07:06Z"}
+{"event":"operation.verified","opId":"acceptance-r-admission-3","remoteId":"01a05b5d-27b3-7f79-a4da-4aefc7f75e69","updatedAt":"2026-09-01T05:07:06Z"}
+{"event":"operation.verified","opId":"acceptance-r-admission-4","remoteId":"01a05b5d-27b6-7f72-a564-606c521dce9a","updatedAt":"2026-09-01T05:07:06Z"}
+{"event":"operation.verified","opId":"acceptance-r-identity-1","remoteId":"01a05b5d-2a9b-7fc0-87db-5b0d81411edb","updatedAt":"2026-09-01T05:07:07Z"}
+{"event":"operation.verified","opId":"acceptance-r-identity-2","remoteId":"01a05b5d-2aad-7fc8-a19b-b7fb81243af6","updatedAt":"2026-09-01T05:07:07Z"}
+{"event":"operation.verified","opId":"acceptance-r-identity-3","remoteId":"01a05b5d-2ad4-7df6-8cae-6dfe9c84ca6e","updatedAt":"2026-09-01T05:07:07Z"}
+{"event":"operation.verified","opId":"acceptance-r-identity-4","remoteId":"01a05b5d-2ae7-75d2-887d-d79226a3e865","updatedAt":"2026-09-01T05:07:07Z"}
+{"event":"operation.verified","opId":"acceptance-r-chat-component-1","remoteId":"01a05b5d-2da0-72a8-8d2f-e828f1ebdd37","updatedAt":"2026-09-01T05:07:08Z"}
+{"event":"operation.verified","opId":"acceptance-r-chat-component-2","remoteId":"01a05b5d-2db5-7d3b-af0d-ccb786472f19","updatedAt":"2026-09-01T05:07:08Z"}
+{"event":"operation.verified","opId":"acceptance-r-chat-component-3","remoteId":"01a05b5d-2dd6-74ae-a66b-6f4217ca30f9","updatedAt":"2026-09-01T05:07:08Z"}
+{"event":"operation.verified","opId":"acceptance-r-chat-component-4","remoteId":"01a05b5d-2e0d-7c2e-bf43-2c99035c95d9","updatedAt":"2026-09-01T05:07:08Z"}
+{"event":"operation.verified","opId":"acceptance-r-chat-replication-1","remoteId":"01a05b5d-3099-7725-adc0-1221377b3b28","updatedAt":"2026-09-01T05:07:09Z"}
+{"event":"operation.verified","opId":"acceptance-r-chat-replication-2","remoteId":"01a05b5d-30c5-778a-a74b-ed50068cc893","updatedAt":"2026-09-01T05:07:09Z"}
+{"event":"operation.verified","opId":"acceptance-r-chat-replication-3","remoteId":"01a05b5d-30dc-7b2a-b65b-50d5360770f3","updatedAt":"2026-09-01T05:07:09Z"}
+{"event":"operation.verified","opId":"acceptance-r-client-1","remoteId":"01a05b5d-3107-7c0d-a9e7-548fc170285c","updatedAt":"2026-09-01T05:07:09Z"}
+{"event":"operation.verified","opId":"acceptance-r-client-2","remoteId":"01a05b5d-33a2-7123-a680-d09f8947c85d","updatedAt":"2026-09-01T05:07:09Z"}
+{"event":"operation.verified","opId":"acceptance-r-client-3","remoteId":"01a05b5d-33ed-787c-88cd-80f4097dd1ef","updatedAt":"2026-09-01T05:07:09Z"}
+{"event":"operation.verified","opId":"acceptance-r-reconnect-2","remoteId":"01a05b5d-3412-7944-9ac5-22ad3a17a4e5","updatedAt":"2026-09-01T05:07:09Z"}
+{"event":"operation.verified","opId":"acceptance-r-reconnect-1","remoteId":"01a05b5d-33fd-7c53-921a-5e535a52ad28","updatedAt":"2026-09-01T05:07:09Z"}
+{"event":"operation.verified","opId":"acceptance-r-reconnect-3","remoteId":"01a05b5d-36a8-7e8b-87a1-d2629a241b9e","updatedAt":"2026-09-01T05:07:10Z"}
+{"event":"operation.verified","opId":"acceptance-r-reconnect-4","remoteId":"01a05b5d-36f5-7ed9-bbfe-9dfbeb029863","updatedAt":"2026-09-01T05:07:10Z"}
+{"event":"operation.verified","opId":"acceptance-r-persistence-1","remoteId":"01a05b5d-371a-7e38-8d57-6d8413f647fc","updatedAt":"2026-09-01T05:07:10Z"}
+{"event":"operation.verified","opId":"acceptance-r-persistence-2","remoteId":"01a05b5d-3722-786e-b13e-b107efbd2dd1","updatedAt":"2026-09-01T05:07:10Z"}
+{"event":"operation.verified","opId":"acceptance-r-persistence-3","remoteId":"01a05b5d-39c2-7137-aeb7-6ee17801f0cd","updatedAt":"2026-09-01T05:07:11Z"}
+{"event":"operation.failed","opId":"acceptance-r-timer-1","error":"Error: POST /requirements/01a05b5d-1d0f-73ec-be64-fae3392ca684/acceptance-items -> 429 traceId=53ade7c5-54d7-4c19-8006-3f78aaa3bce2: {\"type\":\"urn:gameflow:problem:too-many-requests\",\"title\":\"请求过于频繁\",\"status\":429,\"detail\":\"该 API Token 请求过于频繁，请等待 1 秒后再试\",\"traceId\":\"53ade7c5-54d7-4c19-8006-3f78aaa3bce2\"}"}
+{"event":"operation.verified","opId":"acceptance-r-timer-2","remoteId":"01a05b5d-3fa8-7384-ba96-8b0b0d4b68c3","updatedAt":"2026-09-01T05:07:12Z"}
+{"event":"operation.verified","opId":"acceptance-r-e2e-1","remoteId":"01a05b5d-47cb-7d23-b105-dcdd4ebcf03e","updatedAt":"2026-09-01T05:07:15Z"}
+{"event":"operation.verified","opId":"acceptance-r-timer-3","remoteId":"01a05b5d-4550-767a-9d9f-c8c75aff9ddb","updatedAt":"2026-09-01T05:07:14Z"}
+{"event":"operation.verified","opId":"acceptance-r-e2e-2","remoteId":"01a05b5d-4dd1-78b1-867d-a4db7561a48a","updatedAt":"2026-09-01T05:07:16Z"}
+{"event":"operation.verified","opId":"acceptance-r-e2e-3","remoteId":"01a05b5d-55e3-7bc1-b397-ad8dafa565f7","updatedAt":"2026-09-01T05:07:18Z"}
+{"event":"operation.verified","opId":"acceptance-r-timer-1","remoteId":"01a05b5e-2b27-7e09-b057-be695eeae0fd","updatedAt":"2026-09-01T05:08:13Z"}
+{"event":"operation.failed","opId":"edge-source-account","error":"Error: PUT /requirements/01a05b5a-75ad-7062-bfb9-b9df66ea7ca2/references/01a05b5a-75a6-77f1-a568-7b044e1a0053 -> 500 traceId=ed48c86f-1659-4fc2-b58b-9bc520fd84d6: {\"type\":\"urn:gameflow:problem:internal-error\",\"title\":\"服务内部错误\",\"status\":500,\"detail\":\"需求引用操作失败\",\"traceId\":\"ed48c86f-1659-4fc2-b58b-9bc520fd84d6\"}"}

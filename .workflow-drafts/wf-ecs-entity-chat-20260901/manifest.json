@@ -1,0 +1,3000 @@
+{
+  "schemaVersion": 1,
+  "bundleId": "wf-ecs-entity-chat-20260901",
+  "project": {
+    "profile": "lumiogamesengine",
+    "projectId": "proj_b6979c277715a6c6c490a541ac69709b",
+    "host": "https://lumiogamesengine.workflow.games"
+  },
+  "policy": {
+    "mode": "auto",
+    "source": "default"
+  },
+  "source": {
+    "kind": "user_authorization",
+    "revision": "2026-09-01-r1",
+    "createdAt": "2026-09-01T00:00:00+08:00",
+    "documents": [
+      "docs/specs/2026-09-01-ecs-formal-entity-chat-decision-log.md",
+      "docs/specs/2026-09-01-ecs-formal-entity-chat-requirements.md"
+    ]
+  },
+  "planning": {
+    "context": "new_blueprint",
+    "roomName": "ECS Formal Entity and Chat Vertical Slice",
+    "createsMilestone": false,
+    "oldRoomPolicy": "RM-00010 remains archived and untouched"
+  },
+  "authorization": {
+    "scope": "new Room + 11 new Requirements + 39 acceptance items + 23 direct Requirement references",
+    "rooms": 1,
+    "requirements": 11,
+    "acceptanceItems": 39,
+    "milestones": 0,
+    "oldRoomsChanged": 0,
+    "authorizedByLatestReply": "1"
+  },
+  "upload": {
+    "concurrency": 4,
+    "maxConcurrency": 8,
+    "strategy": "bounded-worker-pool",
+    "failurePolicy": "continue-independent"
+  },
+  "nodes": [
+    {
+      "localId": "room",
+      "objectType": "room",
+      "readiness": "ready",
+      "title": "ECS Formal Entity and Chat Vertical Slice"
+    },
+    {
+      "localId": "R-SOURCE",
+      "objectType": "requirement",
+      "readiness": "ready",
+      "title": "[Original Requirement] Formal ECS Entity and Chat Vertical Slice"
+    },
+    {
+      "localId": "R-ACCOUNT",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[Account] Account Server login-or-register and AccountEntity"
+    },
+    {
+      "localId": "R-ADMISSION",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[Game Server] Room admission and Player/Bot Entity lifecycle"
+    },
+    {
+      "localId": "R-IDENTITY",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[Runtime] Common connection binding and NetEntityId Attribute Query"
+    },
+    {
+      "localId": "R-CHAT-COMPONENT",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[ECS] ChatComponent field declarations and SetMessage"
+    },
+    {
+      "localId": "R-CHAT-REPLICATION",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[Replication] ChatInput and ChatMessageEvent typed mapping"
+    },
+    {
+      "localId": "R-CLIENT",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[Client] ReplicaWorld entity mapping and chat presentation"
+    },
+    {
+      "localId": "R-RECONNECT",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[Server] Five-minute reconnect and expiry lifecycle"
+    },
+    {
+      "localId": "R-PERSISTENCE",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[Runtime] ECS Snapshot/Restore for ChatComponent state"
+    },
+    {
+      "localId": "R-TIMER",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[NativeCore] Fixed Tick/Frame Timer Manager"
+    },
+    {
+      "localId": "R-E2E",
+      "objectType": "requirement",
+      "readiness": "conditional",
+      "title": "[Integration] 100 Bot plus Browser 101 Entity acceptance"
+    }
+  ],
+  "operations": [
+    {
+      "opId": "create-room",
+      "kind": "createRoom",
+      "localId": "room",
+      "dependsOn": [],
+      "request": {
+        "name": "ECS Formal Entity and Chat Vertical Slice",
+        "description": "workflow-plan: ecs-entity-chat-20260901/r1\n\n规划范围：正式 ECS Entity、Account Server、Room admission、通用 NetEntityId/Attribute Query、ChatComponent、ReplicaWorld、五分钟重连与 ECS Snapshot/Restore。\n\n主验收场景：100 BotEntity + 1 PlayerEntity = 101 Game ECS Entities。\n\nRM-00010 Hello World 保持 archived 且不修改；本次不创建里程碑。",
+        "module": "ECS / Account / Room / Chat"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/rooms"
+      },
+      "requestDigest": "802442af4036c5ad1669579a45117ea2b4445e79838ef29ffd29d293a5c37769",
+      "status": "verified",
+      "remoteId": "01a05b5a-6fd3-797f-8608-580c55491802",
+      "displayKey": "RM-00011",
+      "updatedAt": "2026-09-01T05:04:08Z"
+    },
+    {
+      "opId": "create-r-source",
+      "kind": "createRequirement",
+      "localId": "R-SOURCE",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[Original Requirement] Formal ECS Entity and Chat Vertical Slice",
+        "description": "# [Original Requirement] Formal ECS Entity and Chat Vertical Slice\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1`\n- Category: product integration\n- Module: ECS / Account / Room / Chat\n- Wave: 0\n- Priority: P0\n- Risk: high\n- Readiness: ready (source record)\n\n## Background\n\nHello World proved process connectivity and message display, but it did not create formal Game ECS Entities from authenticated accounts or exercise Entity identity, Attribute Query, component state, reconnect lifecycle or ECS persistence.\n\n## Goal\n\nDefine and deliver the first formal vertical slice with one central Account Server, multiple Room boundaries, 100 BotEntity instances, one PlayerEntity Browser observer, generic NetEntityId binding/query and a ChatComponent live event path.\n\n## Acceptance\n\n- The slice has an executable requirement source, decision log, dependency DAG and explicit non-goals.\n- The main scenario is unambiguously 100 BotEntity plus 1 PlayerEntity = 101 Game ECS Entities.\n- Existing Hello World and module-room objects remain unchanged and are referenced as prerequisites.\n\n## Boundary\n\nThis is a planning/source record. It does not itself implement code, move existing requirements or create a new milestone.\n\n",
+        "priority": "P0",
+        "risk": "high",
+        "module": "ECS / Account / Room / Chat",
+        "category": "product integration",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-SOURCE.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "119853b1e72f43ed0066d678f51e7436caa806d06469229224e9b943f36381ba",
+      "status": "verified",
+      "error": "Error: R-SOURCE requirement read-back mismatch",
+      "remoteId": "01a05b5a-75ad-7062-bfb9-b9df66ea7ca2",
+      "displayKey": "R-00345",
+      "updatedAt": "2026-09-01T05:04:10Z",
+      "recovered": true
+    },
+    {
+      "opId": "create-r-account",
+      "kind": "createRequirement",
+      "localId": "R-ACCOUNT",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[Account] Account Server login-or-register and AccountEntity",
+        "description": "# [Account] Account Server Login-or-Register and AccountEntity\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-ACCOUNT`\n- Target repository: Account Server integration owner (central account service)\n- Category: server / account\n- Module: Account Server\n- Wave: 1\n- Priority: P0\n- Risk: high\n- Readiness: conditional until the Account Auth/Profile Port is frozen\n\n## Background\n\nEvery Bot and Browser must authenticate through one real Account Server before entering a Room. The test harness must not bypass the account system or use a pre-provisioned in-memory map.\n\n## Goal\n\nProvide username/password login-or-register, stable AccountId allocation, long-lived AccountEntity load/create, profile response and an opaque Game Server admission credential.\n\n## Preconditions\n\n- Existing auth behavior and verifier Port: `R-00218`.\n- Source and decisions in `docs/specs/2026-09-01-ecs-formal-entity-chat-requirements.md`.\n\n## Requirements\n\n- Accept username and password; use default test password `123456` only in the controlled Hello World profile.\n- If username is absent, create the account and AccountEntity during the request; if present, validate without overwriting.\n- Permit `Bot` plus decimal digits usernames only from the authenticated Bot-tool registration context; reject ordinary client attempts to create or claim that namespace.\n- Return the same stable AccountId on repeated successful logins.\n- Never return password material to clients or Game Server.\n- Support Bot launcher names `Bot01` through `Bot100`; the caller generates names in a loop rather than relying on pre-provisioning.\n- Return an opaque admission credential for Game Server Room admission.\n\n## Acceptance\n\n- First `Bot01` request creates one AccountEntity and AccountId; repeat returns the same AccountId.\n- Wrong password for an existing username is rejected and leaves the account unchanged.\n- Ordinary Browser/client registration of `Bot01`-style names is rejected; the Bot tool can register its generated names through the approved context.\n- Concurrent first requests for one username converge on one AccountEntity and AccountId.\n- 100 generated Bot names can authenticate through the same endpoint.\n\n## Boundary\n\nDo not implement production identity providers, password rotation policy or Game Server account bypass in this card. The default password is test-profile configuration, not a production security contract.\n",
+        "priority": "P0",
+        "risk": "high",
+        "module": "Account Server",
+        "category": "server / account",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-ACCOUNT.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "ebc58759c33df14bb1660e43c214a2f177cedbf3f757ed2b60cb289847bcdd1c",
+      "status": "verified",
+      "error": "Error: R-ACCOUNT requirement read-back mismatch",
+      "remoteId": "01a05b5a-75a6-77f1-a568-7b044e1a0053",
+      "displayKey": "R-00344",
+      "updatedAt": "2026-09-01T05:04:10Z",
+      "recovered": true
+    },
+    {
+      "opId": "create-r-admission",
+      "kind": "createRequirement",
+      "localId": "R-ADMISSION",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[Game Server] Room admission and Player/Bot Entity lifecycle",
+        "description": "# [Game Server] Room Admission and Player/Bot Entity Lifecycle\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-ADMISSION`\n- Target repository: `C:/Work/LumioGames/LumioServer`\n- Category: server / world\n- Module: Room admission and ECS lifecycle\n- Wave: 2\n- Priority: P0\n- Risk: high\n- Readiness: conditional\n\n## Background\n\nGame Server must create Game ECS Entities only after Account Server admission and Room entry. Entity kind is derived from the authenticated login name, not from a client-controlled arbitrary type field.\n\n## Goal\n\nCreate isolated Room Worlds and enforce the account-to-Entity lifecycle for `PlayerEntity` and `BotEntity`.\n\n## Preconditions\n\n- Account login/admission: `R-ACCOUNT`.\n- ECS identity/storage: `R-00149`.\n- WorldSlot/admission primitives: `R-00235`, `R-00277`.\n\n## Requirements\n\n- Accept only a valid Account Server admission credential.\n- Enforce one active Room per AccountId.\n- Classify login names matching `Bot` plus decimal digits as BotEntity; other normal names create PlayerEntity.\n- Require the authenticated Bot-tool context when admitting a Bot-numbered account; do not allow a normal client to claim BotEntity by naming alone.\n- Store AccountId on the Game Entity as an identity attribute, never as an AccountEntity object reference.\n- Create exactly 100 BotEntity instances for Bot01-Bot100 and one PlayerEntity for the Browser in the main Room.\n- Keep Room Worlds isolated; no cross-Room Entity resolution or Chat delivery.\n\n## Acceptance\n\n- Main admission trace proves 100 BotEntity plus 1 PlayerEntity in one Room.\n- Duplicate Room admission for one AccountId is rejected or idempotently returns its existing binding according to the frozen session contract.\n- A second Room cannot see or address the first Room's Entities.\n- A normal Browser/client cannot enter as BotEntity using a Bot-numbered account without the Bot-tool admission context.\n\n## Boundary\n\nDo not add multi-World authority transfer, cross-server migration or client-selected EntityType.\n",
+        "priority": "P0",
+        "risk": "high",
+        "module": "Room admission and ECS lifecycle",
+        "category": "server / world",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-ADMISSION.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "b122a9a5357522c3182f3d3d53bd705bb2f0ec6ce1d5a198f83f0601aa9d419f",
+      "status": "verified",
+      "error": "Error: R-ADMISSION requirement read-back mismatch",
+      "remoteId": "01a05b5a-783a-797a-9726-10e26f9e5c76",
+      "displayKey": "R-00346",
+      "updatedAt": "2026-09-01T05:04:10Z",
+      "recovered": true
+    },
+    {
+      "opId": "create-r-identity",
+      "kind": "createRequirement",
+      "localId": "R-IDENTITY",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[Runtime] Common connection binding and NetEntityId Attribute Query",
+        "description": "# [Runtime] Common Connection Binding and NetEntityId Attribute Query\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-IDENTITY`\n- Target repository: `C:/Work/LumioGames/LumioGameRuntime`\n- Category: runtime / contract\n- Module: ECS identity and query\n- Wave: 1\n- Priority: P0\n- Risk: high\n- Readiness: conditional until the public query contract is frozen\n\n## Background\n\nChat, targeting, ownership, UI inspection and future gameplay all need the same way to map a connection to its Entity and query Entity attributes. This is a shared ECS capability, not Chat-specific sender logic.\n\n## Goal\n\nProvide generation-safe connection binding, self Entity lookup and typed Attribute Query by NetEntityId for server and client worlds.\n\n## Preconditions\n\n- ECS World/LocalEntityId/Generation: `R-00149`.\n- ECS Query and Snapshot Views: `R-00150`.\n- Owner-thread fail-stop: `R-00152`.\n- Replication Mapping and Net/Local identity context: `R-00172`.\n\n## Requirements\n\n- Maintain `AccountId + RoomId + NetEntityId + EntityType + ConnectionGeneration` binding after admission.\n- Expose the current self NetEntityId to a client and resolve admitted connections/NetEntityIds on the server.\n- Address Attribute Query with generated stable AttributeId values and return typed values plus observed Revision/Tick.\n- Enforce World/Room, visibility, claims and stale-generation checks.\n- Return explicit non-existent, stale, invisible and unauthorized outcomes; never alias a destroyed or tombstoned ID.\n- Keep server reads on the Simulation Owner Thread and client reads local to ReplicaWorld.\n\n## Acceptance\n\n- Every admitted connection resolves exactly one current NetEntityId.\n- Server lookup maps each ID to the correct authoritative Entity and AccountId.\n- Client lookup reads only replicated/visible fields; server-only and persist-only fields are rejected.\n- Delayed references to destroyed A do not resolve to replacement B.\n\n## Boundary\n\nNo SQL, arbitrary property-name lookup, direct storage access, cross-Room query or public AccountEntity object reference.\n\n",
+        "priority": "P0",
+        "risk": "high",
+        "module": "ECS identity and query",
+        "category": "runtime / contract",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-IDENTITY.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "26c5996522772615cc9e6f7d62c4428b93bac1376f2c0777fc757f69695190ba",
+      "status": "verified",
+      "error": "Error: R-IDENTITY requirement read-back mismatch",
+      "remoteId": "01a05b5a-78c3-747f-8235-fe05e55bc4b1",
+      "displayKey": "R-00347",
+      "updatedAt": "2026-09-01T05:04:10Z",
+      "recovered": true
+    },
+    {
+      "opId": "create-r-chat-component",
+      "kind": "createRequirement",
+      "localId": "R-CHAT-COMPONENT",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[ECS] ChatComponent field declarations and SetMessage",
+        "description": "# [ECS] ChatComponent Field Declarations and SetMessage\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-CHAT-COMPONENT`\n- Target repository: `C:/Work/LumioGames/LumioGame`\n- Category: gameplay / ECS component\n- Module: ChatComponent\n- Wave: 2\n- Priority: P0\n- Risk: high\n- Readiness: conditional until the component mapping contract is frozen\n\n## Background\n\nThe first gameplay component is a ChatComponent attached to PlayerEntity and BotEntity. Its job is to update last-message state and produce a live event; it does not own transport or persistence infrastructure.\n\n## Goal\n\nDeclare ChatComponent in ECS and make `SetMessage` a deterministic authoritative Tick operation.\n\n## Preconditions\n\n- ECS lifecycle/query/field markers: `R-00149`, `R-00150`, `R-00152`.\n- Input capture and commit barrier: `R-00178`, `R-00189`.\n\n## Requirements\n\n- `SetMessage(text)` runs only on the Simulation Owner Thread through the normal command/commit path.\n- Update `LastMessageText` and `LastMessageTick/Frame` in the same committed Tick.\n- Mark those fields persist-only on the authoritative ECS component; they are not a client property-sync stream.\n- Emit one authoritative ChatMessageEvent after the component update is committed.\n- Perform no network I/O, file I/O or direct Account Server access inside the component.\n\n## Acceptance\n\n- A valid ChatInput updates exactly one sender component at the next fixed Tick.\n- The resulting event and component state carry the same applied Tick.\n- Direct writes from a network thread or after Entity destruction fail safely.\n- Snapshot/Restore can observe the declared last-message fields without restoring Chat history.\n\n## Boundary\n\nNo Chat history list, moderation, private channel, client-side state mutation or custom persistence subsystem.\n\n",
+        "priority": "P0",
+        "risk": "high",
+        "module": "ChatComponent",
+        "category": "gameplay / ECS component",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-CHAT-COMPONENT.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "74418d4ce0c171cce5bb53f34b6873c8425481371f693abc64037217cb1aa855",
+      "status": "verified",
+      "remoteId": "01a05b5d-1812-7f95-889c-b191e395dc01",
+      "displayKey": "R-00348",
+      "updatedAt": "2026-09-01T05:07:02Z"
+    },
+    {
+      "opId": "create-r-chat-replication",
+      "kind": "createRequirement",
+      "localId": "R-CHAT-REPLICATION",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[Replication] ChatInput and ChatMessageEvent typed mapping",
+        "description": "# [Replication] ChatInput and ChatMessageEvent Typed Mapping\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-CHAT-REPLICATION`\n- Target repository: `C:/Work/LumioGames/LumioGameRuntime` plus Server/Client adapters\n- Category: protocol / replication\n- Module: Chat typed mapping\n- Wave: 2\n- Priority: P0\n- Risk: high\n- Readiness: conditional until the formal generated mapping surface is frozen\n\n## Background\n\nThe old Hello wire contract is a development artifact and cannot become a second protocol truth. Formal Chat must use the typed mapping path already planned for InputCommand and replication state blocks.\n\n## Goal\n\nDefine the minimum formal Chat input/event mapping and reliable ordered Room delivery.\n\n## Preconditions\n\n- Typed replication bodies and registry: `ADR-028`, `ADR-045`.\n- Draft state/input carriage: `ADR-049`.\n- Runtime identity mapping: `R-IDENTITY`.\n\n## Requirements\n\n- Gameplay ChatInput contains message text only; no client input sequence or client frame.\n- Transport/session sequencing and connection-generation validation remain protocol-layer concerns.\n- ChatMessageEvent contains server MessageId, strict Room order, sender NetEntityId, text and authoritative applied Tick.\n- The first channel is the current Room public channel and all permitted Room members receive the event reliably and in order.\n- Duplicate events are suppressed by server identity/order; malformed or unauthorized input produces no ECS write.\n- State uses the formal typed mapping path: InputCommand upstream and stateBlocks/changedBlocks downstream. Do not extend hello-wire-v1.\n\n## Acceptance\n\n- A Bot or Browser sends only text and all permitted clients display one ordered event.\n- Out-of-order, duplicate, stale-generation and unauthorized inputs are rejected or suppressed without state corruption.\n- The same mapping validates in two identical runs and maps the event sender to the correct NetEntityId.\n\n## Boundary\n\nNo Chat-specific parallel envelope, free-form Ack payload, client-selected sender, Chat history or compression policy.\n\n",
+        "priority": "P0",
+        "risk": "high",
+        "module": "Chat typed mapping",
+        "category": "protocol / replication",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-CHAT-REPLICATION.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "da8704728da65d8a93ea6eac531a07d9ae02d4366dba374496454277aee5861b",
+      "status": "verified",
+      "remoteId": "01a05b5d-1ad1-7d07-83e8-0aecc3f6c31b",
+      "displayKey": "R-00351",
+      "updatedAt": "2026-09-01T05:07:03Z"
+    },
+    {
+      "opId": "create-r-client",
+      "kind": "createRequirement",
+      "localId": "R-CLIENT",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[Client] ReplicaWorld entity mapping and chat presentation",
+        "description": "# [Client] ReplicaWorld Entity Mapping and Chat Presentation\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-CLIENT`\n- Target repository: `C:/Work/LumioGames/LumioClient`\n- Category: client / replica\n- Module: ReplicaWorld and Browser/Bot consumers\n- Wave: 3\n- Priority: P0\n- Risk: high\n- Readiness: conditional\n\n## Background\n\nEvery client owns a separate ReplicaWorld. The Browser and each Bot do not share ECS objects with the server or with one another.\n\n## Goal\n\nConsume full snapshots and Chat events into a client ReplicaWorld, expose self Entity lookup and render live Room chat.\n\n## Preconditions\n\n- Common identity/query: `R-IDENTITY`.\n- Formal Chat mapping: `R-CHAT-REPLICATION`.\n- Existing ClientReplicaSession and full snapshot path: `R-00279`, `R-00281`.\n\n## Requirements\n\n- Maintain one independent ReplicaWorld per client connection.\n- Apply FullSnapshot and Delta through the existing client authority-update transaction.\n- Resolve the client's self NetEntityId and visible remote NetEntityIds locally.\n- Query only replicated, visible AttributeIds from ReplicaWorld.\n- Append accepted ChatMessageEvents to the Browser/Bot chat presentation in server order.\n- Treat chat-window contents as client-only presentation state.\n\n## Acceptance\n\n- Browser displays messages from BotEntity senders with the correct sender NetEntityId and text.\n- Two clients receive equivalent ordered events without sharing object references.\n- A malformed or unauthorized event does not mutate ReplicaWorld or the chat window.\n\n## Boundary\n\nNo direct server database query, shared World/Entity storage, Chat history restore or client authority over server Entity state.\n\n",
+        "priority": "P0",
+        "risk": "high",
+        "module": "ReplicaWorld and Browser/Bot consumers",
+        "category": "client / replica",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-CLIENT.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "60ba8c38d0fbf699763e7acc54bfc5adaf034b3a1440200b890b96e5b013ea9b",
+      "status": "verified",
+      "remoteId": "01a05b5d-19c6-7365-859a-810b1810638a",
+      "displayKey": "R-00349",
+      "updatedAt": "2026-09-01T05:07:03Z"
+    },
+    {
+      "opId": "create-r-reconnect",
+      "kind": "createRequirement",
+      "localId": "R-RECONNECT",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[Server] Five-minute reconnect and expiry lifecycle",
+        "description": "# [Server] Five-minute Reconnect and Expiry Lifecycle\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-RECONNECT`\n- Target repository: `C:/Work/LumioGames/LumioServer`\n- Category: server / session lifecycle\n- Module: reconnect retention\n- Wave: 4\n- Priority: P0\n- Risk: high\n- Readiness: conditional\n\n## Background\n\nReconnect is a client connection event. The server Room continues normally; the client rebuilds its local view as if it logged in again.\n\n## Goal\n\nKeep a disconnected server Entity for five minutes, reject its input, rebind it after a fresh login, and destroy it after expiry without corrupting Room state.\n\n## Preconditions\n\n- Room admission/entity lifecycle: `R-ADMISSION`.\n- Client ReplicaWorld: `R-CLIENT`.\n- Host monotonic clock: `R-00212`.\n- Existing reconnect/session orchestration: `R-00240`, `R-00279`.\n- ECS persistence recovery: `R-PERSISTENCE`.\n\n## Requirements\n\n- Retain Entity A and keep the Room/server simulation running normally after disconnect.\n- Reject only that account's input and expose explicit disconnected state to Room observers.\n- Measure five minutes with the process-local monotonic Host clock; record Tick for audit only.\n- Reconnect through fresh login and full handshake, then rebind A if within the window.\n- Rebuild only the reconnecting client's ReplicaWorld from a full snapshot, clear its chat window and re-enable input after completion.\n- Do not replay Chat history and do not roll back/rebuild the Room.\n- On expiry destroy and tombstone A; later login creates B with the same AccountId and a different NetEntityId.\n\n## Acceptance\n\n- Input from the disconnected connection is rejected while other Room clients and entities continue.\n- Reconnect within five minutes reuses A and produces a clean client ReplicaWorld.\n- Expiry produces a tombstone; a later login creates B and stale A references never alias B.\n- Process restart requires a new login and does not claim to preserve the old connection window.\n\n## Boundary\n\nNo implicit Resume Token, server Room rollback, live migration or cross-process retention guarantee.\n\n",
+        "priority": "P0",
+        "risk": "high",
+        "module": "reconnect retention",
+        "category": "server / session lifecycle",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-RECONNECT.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "a72b38cedb4aa8f9c1e947ea60b0ef94f4e7b411f172851fa02596b81041d81c",
+      "status": "verified",
+      "remoteId": "01a05b5d-19e0-79fc-af62-2007435d1348",
+      "displayKey": "R-00350",
+      "updatedAt": "2026-09-01T05:07:03Z"
+    },
+    {
+      "opId": "create-r-persistence",
+      "kind": "createRequirement",
+      "localId": "R-PERSISTENCE",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[Runtime] ECS Snapshot/Restore for ChatComponent state",
+        "description": "# [Runtime] ECS Snapshot and Restore for ChatComponent State\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-PERSISTENCE`\n- Target repository: `C:/Work/LumioGames/LumioGameRuntime`\n- Category: runtime / persistence\n- Module: ECS Snapshot/Restore\n- Wave: 3\n- Priority: P0\n- Risk: medium\n- Readiness: conditional\n\n## Background\n\nECS field attributes already distinguish persistence from replication. Chat must use that system rather than create a Chat-owned storage path.\n\n## Goal\n\nPersist and restore only each Entity's declared last-message text and logical Tick/Frame through the existing ECS snapshot pipeline.\n\n## Preconditions\n\n- ECS field persistence and Snapshot View: `R-00150`.\n- Existing persistence adapter and recovery contract: `R-00231`.\n- Canonical Snapshot/WAL architecture: `ADR-010`, `docs/specs/2026-08-30-save-load-architecture.md`.\n- ChatComponent declarations: `R-CHAT-COMPONENT`.\n\n## Requirements\n\n- Mark only LastMessageText and LastMessageTick/Frame as persist-only ChatComponent fields.\n- Use the existing canonical Snapshot/Restore and WAL/Command Log pipeline.\n- Exclude ChatMessageEvent history and client chat-window contents.\n- Restore fields deterministically and preserve AccountId/Entity identity rules.\n- Reject malformed, stale or incompatible snapshots through existing recovery semantics.\n\n## Acceptance\n\n- A snapshot contains the last-message fields for eligible Entities.\n- Restore reproduces those fields and no Chat event history.\n- A process restart restores Room state through the existing recovery path; old connection bindings still require new login.\n\n## Boundary\n\nNo per-message synchronous disk write, Chat history database, client cache persistence or parallel serializer.\n\n",
+        "priority": "P0",
+        "risk": "medium",
+        "module": "ECS Snapshot/Restore",
+        "category": "runtime / persistence",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-PERSISTENCE.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "5b38c98efece28005dc747b4883d806107b38f9cc3fe240114081f42f8aec6fc",
+      "status": "verified",
+      "remoteId": "01a05b5d-1d12-7762-a802-f08e6639f27b",
+      "displayKey": "R-00353",
+      "updatedAt": "2026-09-01T05:07:04Z"
+    },
+    {
+      "opId": "create-r-timer",
+      "kind": "createRequirement",
+      "localId": "R-TIMER",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[NativeCore] Fixed Tick/Frame Timer Manager",
+        "description": "# [NativeCore] Fixed Tick/Frame Timer Manager\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-TIMER`\n- Target repository: `C:/Work/LumioGames/LumioNativeCore`\n- Category: native infrastructure / contract\n- Module: Timer Manager\n- Wave: 1\n- Priority: P1\n- Risk: high\n- Readiness: conditional until the Native timer ABI is frozen\n\n## Background\n\nThe reconnect deadline belongs to Host monotonic time, while gameplay timers need a shared deterministic Tick/Frame foundation for Server and Client.\n\n## Goal\n\nProvide the first bounded Native Timer Manager surface without allowing arbitrary hot Gameplay callbacks.\n\n## Preconditions\n\n- Existing monotonic/timer host primitives: `R-00272`, `R-00212`.\n- Native ABI handle and callback constraints: `ADR-006`, `ADR-017`.\n\n## Requirements\n\n- Support fixed Tick/Frame one-shot and repeating timers, cancellation and scope/generation validation.\n- Use opaque generation-safe TimerHandle values.\n- Permit only controlled CallbackSlot callbacks with lifecycle scope and explicit failure behavior.\n- Reject late completions after cancellation, scope close or generation change.\n- Expose shared Server/Client infrastructure through adapters; do not add a second timer truth in gameplay.\n\n## Acceptance\n\n- One-shot, repeating, cancel and stale-handle cases have deterministic fixtures.\n- CallbackSlot lifecycle and failure boundaries are observable and safe.\n- Server reconnect deadline is demonstrably separate from gameplay Tick/Frame TimerManager scheduling.\n\n## Boundary\n\nNo full GameTime/RealTime/Scaled/Unscaled matrix, arbitrary function pointers, C# delegate ABI or direct hot Gameplay callbacks.\n\n",
+        "priority": "P1",
+        "risk": "high",
+        "module": "Timer Manager",
+        "category": "native infrastructure / contract",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-TIMER.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "d9e3357c970d5f2df5b9d84645644c0975edf45ff40947e1b12c2c1ed8bbe74f",
+      "status": "verified",
+      "remoteId": "01a05b5d-1d0f-73ec-be64-fae3392ca684",
+      "displayKey": "R-00352",
+      "updatedAt": "2026-09-01T05:07:04Z"
+    },
+    {
+      "opId": "create-r-e2e",
+      "kind": "createRequirement",
+      "localId": "R-E2E",
+      "dependsOn": [
+        "create-room"
+      ],
+      "request": {
+        "title": "[Integration] 100 Bot plus Browser 101 Entity acceptance",
+        "description": "# [Integration] 100 Bot plus Browser 101 Entity Acceptance\n\n## Metadata\n\n- Blueprint: `ecs-entity-chat-20260901/r1/R-E2E`\n- Target repository: `C:/Work/LumioGames/LumioGame` integration harness\n- Category: integration / acceptance\n- Module: formal ECS entity-chat slice\n- Wave: 5\n- Priority: P0\n- Risk: high\n- Readiness: conditional until all consumed contracts and implementations are available\n\n## Background\n\nThe existing Hello World run demonstrated connectivity only. This acceptance must prove the formal account, entity, binding, query, ChatComponent, ReplicaWorld, reconnect and persistence path.\n\n## Goal\n\nRun the complete deterministic scenario with 100 Bot clients and one Browser client in one Room, plus smaller Room isolation and lifecycle failure cases.\n\n## Preconditions\n\n- Account Server: `R-ACCOUNT`.\n- Room admission: `R-ADMISSION`.\n- Entity binding/query: `R-IDENTITY`.\n- Chat component and mapping: `R-CHAT-COMPONENT`, `R-CHAT-REPLICATION`.\n- Client ReplicaWorld: `R-CLIENT`.\n- Reconnect/expiry: `R-RECONNECT`.\n- Snapshot/Restore: `R-PERSISTENCE`.\n- E2E shell and fixture wiring: `R-00247`.\n\n## Requirements\n\n- Generate Bot01-Bot100 in a loop, login-or-register each using `123456`, and enter one Room.\n- Login a normal Browser account through Account Server and enter the same Room.\n- Verify 100 BotEntity plus 1 PlayerEntity = 101 Game ECS Entities.\n- Verify self binding, server NetEntityId resolution and permitted Attribute Query.\n- Send ChatInput text from Bots and Browser; verify reliable ordered event display in Browser.\n- Exercise reconnect within five minutes, expiry/new Entity B and stale reference rejection.\n- Exercise Snapshot/Restore of last-message fields without Chat history restore.\n- Repeat the run twice and compare entity counts, event order and applied Tick evidence.\n\n## Acceptance\n\n- All 11 scenarios in the requirements source have executable evidence or an explicit blocked prerequisite.\n- No client or server crosses Room boundaries, resurrects tombstoned IDs or bypasses Account Server.\n- Evidence includes command lines, key output, lifecycle traces and failure cases; no claim is based on plan text alone.\n\n## Boundary\n\nNo performance capacity claim beyond this measured 101-Entity scenario, no production auth claim and no changes to archived Hello World objects.\n\n",
+        "priority": "P0",
+        "risk": "high",
+        "module": "formal ECS entity-chat slice",
+        "category": "integration / acceptance",
+        "reason": "User-authorized ECS formal entity/chat blueprint 2026-09-01-r1; source R-E2E.",
+        "roomId": "01a05b5a-6fd3-797f-8608-580c55491802"
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements"
+      },
+      "requestDigest": "f946adeccfdc057af28bc22bf922437dfe7c25d53f7a3fc45cc0aed80a21e4f8",
+      "status": "verified",
+      "remoteId": "01a05b5d-1d29-77e0-8220-a50e39aafc06",
+      "displayKey": "R-00354",
+      "updatedAt": "2026-09-01T05:07:04Z"
+    },
+    {
+      "opId": "acceptance-r-source-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-SOURCE",
+      "dependsOn": [
+        "create-r-source"
+      ],
+      "request": {
+        "text": "The slice has an executable requirement source, decision log, dependency DAG and explicit non-goals.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-SOURCE#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-SOURCE."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "4d97d7a6da831a2d33f9dc6b31ab39cdcc85ccb99fb193fda1a5f13fe7cea7df",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-2160-7bbd-93e9-eca7867c7b6f",
+      "updatedAt": "2026-09-01T05:07:05Z"
+    },
+    {
+      "opId": "acceptance-r-source-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-SOURCE",
+      "dependsOn": [
+        "create-r-source"
+      ],
+      "request": {
+        "text": "The main scenario is unambiguously 100 BotEntity plus 1 PlayerEntity = 101 Game ECS Entities.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-SOURCE#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-SOURCE."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "6538462ef94c9ae351ddd9da4ba103a267900ba73ddaf2a6dbb9b71bbd80c5e9",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-216b-7e9b-b75d-928c2bfe978b",
+      "updatedAt": "2026-09-01T05:07:05Z"
+    },
+    {
+      "opId": "acceptance-r-source-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-SOURCE",
+      "dependsOn": [
+        "create-r-source"
+      ],
+      "request": {
+        "text": "Existing Hello World and module-room objects remain unchanged and are referenced as prerequisites.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-SOURCE#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-SOURCE."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "ac06a0897a665c12b2c81f0a198d715777f3a3113b18c2d7cf4343ecc7006fec",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-2155-7a97-a2bd-fd3a1750c1b3",
+      "updatedAt": "2026-09-01T05:07:05Z"
+    },
+    {
+      "opId": "acceptance-r-account-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-ACCOUNT",
+      "dependsOn": [
+        "create-r-account"
+      ],
+      "request": {
+        "text": "First `Bot01` request creates one AccountEntity and AccountId; repeat returns the same AccountId.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-ACCOUNT#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-ACCOUNT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "0111ad033520e615d0cb470f6038bb01d45130b423f730af254c1969f54e0df9",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-215d-7517-b182-c6ca2deb722d",
+      "updatedAt": "2026-09-01T05:07:05Z"
+    },
+    {
+      "opId": "acceptance-r-account-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-ACCOUNT",
+      "dependsOn": [
+        "create-r-account"
+      ],
+      "request": {
+        "text": "Wrong password for an existing username is rejected and leaves the account unchanged.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-ACCOUNT#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-ACCOUNT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "d3055779bdfbdcf69b92639aed4aad79e74dd961833c01bbaa572316f4e08751",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-2481-78e4-9ce7-d0525fbf8a30",
+      "updatedAt": "2026-09-01T05:07:05Z"
+    },
+    {
+      "opId": "acceptance-r-account-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-ACCOUNT",
+      "dependsOn": [
+        "create-r-account"
+      ],
+      "request": {
+        "text": "Ordinary Browser/client registration of `Bot01`-style names is rejected; the Bot tool can register its generated names through the approved context.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-ACCOUNT#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-ACCOUNT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "5678814d49a0f62b9adc599cc74ac38a1c7d2b574ca7157b7eadcbdf8b91a49a",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-247a-7f74-a7d5-f577c7dc9189",
+      "updatedAt": "2026-09-01T05:07:05Z"
+    },
+    {
+      "opId": "acceptance-r-account-4",
+      "kind": "createAcceptanceItem",
+      "localId": "R-ACCOUNT",
+      "dependsOn": [
+        "create-r-account"
+      ],
+      "request": {
+        "text": "Concurrent first requests for one username converge on one AccountEntity and AccountId.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-ACCOUNT#acceptance-4",
+        "sortOrder": 4,
+        "reason": "Blueprint acceptance item from R-ACCOUNT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "3cf1d1adf541a734d58cd87dc68d70ae3df49a1a2a5907739d0c9243b5aabaa2",
+      "status": "verified",
+      "acceptanceIndex": 3,
+      "remoteId": "01a05b5d-248a-792e-9bb4-ecb93913630d",
+      "updatedAt": "2026-09-01T05:07:05Z"
+    },
+    {
+      "opId": "acceptance-r-account-5",
+      "kind": "createAcceptanceItem",
+      "localId": "R-ACCOUNT",
+      "dependsOn": [
+        "create-r-account"
+      ],
+      "request": {
+        "text": "100 generated Bot names can authenticate through the same endpoint.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-ACCOUNT#acceptance-5",
+        "sortOrder": 5,
+        "reason": "Blueprint acceptance item from R-ACCOUNT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "d55fb4af742c887766c657623e73528912be2d2d27f3726800da88778c264604",
+      "status": "verified",
+      "acceptanceIndex": 4,
+      "remoteId": "01a05b5d-2491-7c4b-bb20-16252c8a94e7",
+      "updatedAt": "2026-09-01T05:07:06Z"
+    },
+    {
+      "opId": "acceptance-r-admission-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-ADMISSION",
+      "dependsOn": [
+        "create-r-admission"
+      ],
+      "request": {
+        "text": "Main admission trace proves 100 BotEntity plus 1 PlayerEntity in one Room.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-ADMISSION#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-ADMISSION."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "0d5378ad53b9981b9e1ac03aff1a5ade0934163a00abe93b6c61b0ba6eff2720",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-2793-70fb-90fb-b072cfa4d2d4",
+      "updatedAt": "2026-09-01T05:07:06Z"
+    },
+    {
+      "opId": "acceptance-r-admission-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-ADMISSION",
+      "dependsOn": [
+        "create-r-admission"
+      ],
+      "request": {
+        "text": "Duplicate Room admission for one AccountId is rejected or idempotently returns its existing binding according to the frozen session contract.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-ADMISSION#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-ADMISSION."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "5d74fd53381fbb6c3c1d82f49eda14bbe97e4f23a4e3ad002a445c612f1dfd3f",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-2797-7710-be19-5df7d7d8dd8e",
+      "updatedAt": "2026-09-01T05:07:06Z"
+    },
+    {
+      "opId": "acceptance-r-admission-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-ADMISSION",
+      "dependsOn": [
+        "create-r-admission"
+      ],
+      "request": {
+        "text": "A second Room cannot see or address the first Room's Entities.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-ADMISSION#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-ADMISSION."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "a25a2ceb5ff2ee03ae46223988884877dd3bd322a7a8ce51254b2bf54f5d1224",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-27b3-7f79-a4da-4aefc7f75e69",
+      "updatedAt": "2026-09-01T05:07:06Z"
+    },
+    {
+      "opId": "acceptance-r-admission-4",
+      "kind": "createAcceptanceItem",
+      "localId": "R-ADMISSION",
+      "dependsOn": [
+        "create-r-admission"
+      ],
+      "request": {
+        "text": "A normal Browser/client cannot enter as BotEntity using a Bot-numbered account without the Bot-tool admission context.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-ADMISSION#acceptance-4",
+        "sortOrder": 4,
+        "reason": "Blueprint acceptance item from R-ADMISSION."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "9180e80e0378b52b76e7969ab70a9d5162b96be39c337adf3e2a7fdbd44bcec5",
+      "status": "verified",
+      "acceptanceIndex": 3,
+      "remoteId": "01a05b5d-27b6-7f72-a564-606c521dce9a",
+      "updatedAt": "2026-09-01T05:07:06Z"
+    },
+    {
+      "opId": "acceptance-r-identity-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-IDENTITY",
+      "dependsOn": [
+        "create-r-identity"
+      ],
+      "request": {
+        "text": "Every admitted connection resolves exactly one current NetEntityId.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-IDENTITY#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-IDENTITY."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "cf43847d87a5eca4eccbf68a02ced89de57db14b2853a05b5251f3f9bdc51132",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-2a9b-7fc0-87db-5b0d81411edb",
+      "updatedAt": "2026-09-01T05:07:07Z"
+    },
+    {
+      "opId": "acceptance-r-identity-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-IDENTITY",
+      "dependsOn": [
+        "create-r-identity"
+      ],
+      "request": {
+        "text": "Server lookup maps each ID to the correct authoritative Entity and AccountId.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-IDENTITY#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-IDENTITY."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "90055a0e9e0a1940e453687aef0b079acc2984ae2b5233b5adf808bf35a68094",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-2aad-7fc8-a19b-b7fb81243af6",
+      "updatedAt": "2026-09-01T05:07:07Z"
+    },
+    {
+      "opId": "acceptance-r-identity-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-IDENTITY",
+      "dependsOn": [
+        "create-r-identity"
+      ],
+      "request": {
+        "text": "Client lookup reads only replicated/visible fields; server-only and persist-only fields are rejected.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-IDENTITY#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-IDENTITY."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "40b420f025065781a4e253ed635d43c382bf0f78f545157ff1d4c9bdb698ab5a",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-2ad4-7df6-8cae-6dfe9c84ca6e",
+      "updatedAt": "2026-09-01T05:07:07Z"
+    },
+    {
+      "opId": "acceptance-r-identity-4",
+      "kind": "createAcceptanceItem",
+      "localId": "R-IDENTITY",
+      "dependsOn": [
+        "create-r-identity"
+      ],
+      "request": {
+        "text": "Delayed references to destroyed A do not resolve to replacement B.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-IDENTITY#acceptance-4",
+        "sortOrder": 4,
+        "reason": "Blueprint acceptance item from R-IDENTITY."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "d0f467ca00aa44ea3d23fa82d4c49ae9fd65c132360c414fb618e1f4cb78b806",
+      "status": "verified",
+      "acceptanceIndex": 3,
+      "remoteId": "01a05b5d-2ae7-75d2-887d-d79226a3e865",
+      "updatedAt": "2026-09-01T05:07:07Z"
+    },
+    {
+      "opId": "acceptance-r-chat-component-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CHAT-COMPONENT",
+      "dependsOn": [
+        "create-r-chat-component"
+      ],
+      "request": {
+        "text": "A valid ChatInput updates exactly one sender component at the next fixed Tick.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CHAT-COMPONENT#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-CHAT-COMPONENT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "dab972340911456c1b70b8bb8e0a7ef7807f9dd6d6ff1b994ccf29a503f15d9e",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-2da0-72a8-8d2f-e828f1ebdd37",
+      "updatedAt": "2026-09-01T05:07:08Z"
+    },
+    {
+      "opId": "acceptance-r-chat-component-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CHAT-COMPONENT",
+      "dependsOn": [
+        "create-r-chat-component"
+      ],
+      "request": {
+        "text": "The resulting event and component state carry the same applied Tick.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CHAT-COMPONENT#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-CHAT-COMPONENT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "edb5aabb6c41fafcf97078fa58d8aa980107ca5c57bb5721aeeef29aa56dddfb",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-2db5-7d3b-af0d-ccb786472f19",
+      "updatedAt": "2026-09-01T05:07:08Z"
+    },
+    {
+      "opId": "acceptance-r-chat-component-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CHAT-COMPONENT",
+      "dependsOn": [
+        "create-r-chat-component"
+      ],
+      "request": {
+        "text": "Direct writes from a network thread or after Entity destruction fail safely.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CHAT-COMPONENT#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-CHAT-COMPONENT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "6c40a579a33f2f74b174536f3f15a2617d53fc859b4cb385ed271cb965d51c05",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-2dd6-74ae-a66b-6f4217ca30f9",
+      "updatedAt": "2026-09-01T05:07:08Z"
+    },
+    {
+      "opId": "acceptance-r-chat-component-4",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CHAT-COMPONENT",
+      "dependsOn": [
+        "create-r-chat-component"
+      ],
+      "request": {
+        "text": "Snapshot/Restore can observe the declared last-message fields without restoring Chat history.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CHAT-COMPONENT#acceptance-4",
+        "sortOrder": 4,
+        "reason": "Blueprint acceptance item from R-CHAT-COMPONENT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "1e22fa8e112b4b8e49f012aca11aa11cc91bb9a29f3621ca82388bde131ce441",
+      "status": "verified",
+      "acceptanceIndex": 3,
+      "remoteId": "01a05b5d-2e0d-7c2e-bf43-2c99035c95d9",
+      "updatedAt": "2026-09-01T05:07:08Z"
+    },
+    {
+      "opId": "acceptance-r-chat-replication-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CHAT-REPLICATION",
+      "dependsOn": [
+        "create-r-chat-replication"
+      ],
+      "request": {
+        "text": "A Bot or Browser sends only text and all permitted clients display one ordered event.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CHAT-REPLICATION#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-CHAT-REPLICATION."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "d093a3a3e441a84976e99b55228466d4c459f008f9aa46c367bd106c5800fba4",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-3099-7725-adc0-1221377b3b28",
+      "updatedAt": "2026-09-01T05:07:09Z"
+    },
+    {
+      "opId": "acceptance-r-chat-replication-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CHAT-REPLICATION",
+      "dependsOn": [
+        "create-r-chat-replication"
+      ],
+      "request": {
+        "text": "Out-of-order, duplicate, stale-generation and unauthorized inputs are rejected or suppressed without state corruption.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CHAT-REPLICATION#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-CHAT-REPLICATION."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "4b93beb786d2e3d4eb8e4a42cf09efaff559df067cc60aaf2bf5dbd18157831b",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-30c5-778a-a74b-ed50068cc893",
+      "updatedAt": "2026-09-01T05:07:09Z"
+    },
+    {
+      "opId": "acceptance-r-chat-replication-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CHAT-REPLICATION",
+      "dependsOn": [
+        "create-r-chat-replication"
+      ],
+      "request": {
+        "text": "The same mapping validates in two identical runs and maps the event sender to the correct NetEntityId.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CHAT-REPLICATION#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-CHAT-REPLICATION."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "4b9dadd30e19d09cdcc56e58aa55d2a2889dddfe888af0bf31cd842d2798dd93",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-30dc-7b2a-b65b-50d5360770f3",
+      "updatedAt": "2026-09-01T05:07:09Z"
+    },
+    {
+      "opId": "acceptance-r-client-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CLIENT",
+      "dependsOn": [
+        "create-r-client"
+      ],
+      "request": {
+        "text": "Browser displays messages from BotEntity senders with the correct sender NetEntityId and text.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CLIENT#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-CLIENT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "c28bc85f3e9e3bf37881dcf393181217bac280f5c286350c01fc1aaee0ae86cc",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-3107-7c0d-a9e7-548fc170285c",
+      "updatedAt": "2026-09-01T05:07:09Z"
+    },
+    {
+      "opId": "acceptance-r-client-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CLIENT",
+      "dependsOn": [
+        "create-r-client"
+      ],
+      "request": {
+        "text": "Two clients receive equivalent ordered events without sharing object references.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CLIENT#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-CLIENT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "f95b66bb0bc2f3a5fdde948bb35ea7c32908e3c42b090a66ec043ba447b4e17a",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-33a2-7123-a680-d09f8947c85d",
+      "updatedAt": "2026-09-01T05:07:09Z"
+    },
+    {
+      "opId": "acceptance-r-client-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-CLIENT",
+      "dependsOn": [
+        "create-r-client"
+      ],
+      "request": {
+        "text": "A malformed or unauthorized event does not mutate ReplicaWorld or the chat window.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-CLIENT#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-CLIENT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "22f3762482359b5ddaf2804e4c284ea5a121299e1ee350049695793690bfa99b",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-33ed-787c-88cd-80f4097dd1ef",
+      "updatedAt": "2026-09-01T05:07:09Z"
+    },
+    {
+      "opId": "acceptance-r-reconnect-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-RECONNECT",
+      "dependsOn": [
+        "create-r-reconnect"
+      ],
+      "request": {
+        "text": "Input from the disconnected connection is rejected while other Room clients and entities continue.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-RECONNECT#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-RECONNECT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "dac9aeb71bdb11ebfe39e6a0a8337c1839085a03f8f8d1d48b3cf1a7ab268e36",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-33fd-7c53-921a-5e535a52ad28",
+      "updatedAt": "2026-09-01T05:07:09Z"
+    },
+    {
+      "opId": "acceptance-r-reconnect-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-RECONNECT",
+      "dependsOn": [
+        "create-r-reconnect"
+      ],
+      "request": {
+        "text": "Reconnect within five minutes reuses A and produces a clean client ReplicaWorld.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-RECONNECT#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-RECONNECT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "0da2775cc4c2545e00d33dc71617a82ed6c5607e84970673e97ca15116cc8abc",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-3412-7944-9ac5-22ad3a17a4e5",
+      "updatedAt": "2026-09-01T05:07:09Z"
+    },
+    {
+      "opId": "acceptance-r-reconnect-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-RECONNECT",
+      "dependsOn": [
+        "create-r-reconnect"
+      ],
+      "request": {
+        "text": "Expiry produces a tombstone; a later login creates B and stale A references never alias B.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-RECONNECT#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-RECONNECT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "4786c87aad149cdf859fcc1de331834dd9505e4de4d441d0e0e30b0f95b30588",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-36a8-7e8b-87a1-d2629a241b9e",
+      "updatedAt": "2026-09-01T05:07:10Z"
+    },
+    {
+      "opId": "acceptance-r-reconnect-4",
+      "kind": "createAcceptanceItem",
+      "localId": "R-RECONNECT",
+      "dependsOn": [
+        "create-r-reconnect"
+      ],
+      "request": {
+        "text": "Process restart requires a new login and does not claim to preserve the old connection window.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-RECONNECT#acceptance-4",
+        "sortOrder": 4,
+        "reason": "Blueprint acceptance item from R-RECONNECT."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "b262534c86db2f458de1b77351f40465a497d6ff1eaefd54d7fc56b72e3b9eaa",
+      "status": "verified",
+      "acceptanceIndex": 3,
+      "remoteId": "01a05b5d-36f5-7ed9-bbfe-9dfbeb029863",
+      "updatedAt": "2026-09-01T05:07:10Z"
+    },
+    {
+      "opId": "acceptance-r-persistence-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-PERSISTENCE",
+      "dependsOn": [
+        "create-r-persistence"
+      ],
+      "request": {
+        "text": "A snapshot contains the last-message fields for eligible Entities.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-PERSISTENCE#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-PERSISTENCE."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "23c6d4e884191a44fea3d8682f9c07ca7b436109388d95a972d8a29628871d13",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-371a-7e38-8d57-6d8413f647fc",
+      "updatedAt": "2026-09-01T05:07:10Z"
+    },
+    {
+      "opId": "acceptance-r-persistence-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-PERSISTENCE",
+      "dependsOn": [
+        "create-r-persistence"
+      ],
+      "request": {
+        "text": "Restore reproduces those fields and no Chat event history.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-PERSISTENCE#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-PERSISTENCE."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "4ac1f1a74c5c2ed6ab5cd8c28d5c4f11623ba37c5d2b5c09c3a109af0348ff18",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-3722-786e-b13e-b107efbd2dd1",
+      "updatedAt": "2026-09-01T05:07:10Z"
+    },
+    {
+      "opId": "acceptance-r-persistence-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-PERSISTENCE",
+      "dependsOn": [
+        "create-r-persistence"
+      ],
+      "request": {
+        "text": "A process restart restores Room state through the existing recovery path; old connection bindings still require new login.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-PERSISTENCE#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-PERSISTENCE."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "878d59edba2a4023dc36d09e28c0e29af6f7fe41f02f8b2f88fa09a2dfee2be5",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-39c2-7137-aeb7-6ee17801f0cd",
+      "updatedAt": "2026-09-01T05:07:11Z"
+    },
+    {
+      "opId": "acceptance-r-timer-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-TIMER",
+      "dependsOn": [
+        "create-r-timer"
+      ],
+      "request": {
+        "text": "One-shot, repeating, cancel and stale-handle cases have deterministic fixtures.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-TIMER#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-TIMER."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "61a83589202560e93a7159cb536abeda57fb76b695163b98993bfca376e5f141",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "error": "Error: POST /requirements/01a05b5d-1d0f-73ec-be64-fae3392ca684/acceptance-items -> 429 traceId=53ade7c5-54d7-4c19-8006-3f78aaa3bce2: {\"type\":\"urn:gameflow:problem:too-many-requests\",\"title\":\"请求过于频繁\",\"status\":429,\"detail\":\"该 API Token 请求过于频繁，请等待 1 秒后再试\",\"traceId\":\"53ade7c5-54d7-4c19-8006-3f78aaa3bce2\"}",
+      "remoteId": "01a05b5e-2b27-7e09-b057-be695eeae0fd",
+      "updatedAt": "2026-09-01T05:08:13Z"
+    },
+    {
+      "opId": "acceptance-r-timer-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-TIMER",
+      "dependsOn": [
+        "create-r-timer"
+      ],
+      "request": {
+        "text": "CallbackSlot lifecycle and failure boundaries are observable and safe.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-TIMER#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-TIMER."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "d21ba504f2ba6461b6e433990fbf33d1486c519be17b2827a453a9d60fc538e9",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-3fa8-7384-ba96-8b0b0d4b68c3",
+      "updatedAt": "2026-09-01T05:07:12Z"
+    },
+    {
+      "opId": "acceptance-r-timer-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-TIMER",
+      "dependsOn": [
+        "create-r-timer"
+      ],
+      "request": {
+        "text": "Server reconnect deadline is demonstrably separate from gameplay Tick/Frame TimerManager scheduling.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-TIMER#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-TIMER."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "993dc94ec552042f5d88a19765503cac92d822219ce9eda7eb87582c581999a9",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-4550-767a-9d9f-c8c75aff9ddb",
+      "updatedAt": "2026-09-01T05:07:14Z"
+    },
+    {
+      "opId": "acceptance-r-e2e-1",
+      "kind": "createAcceptanceItem",
+      "localId": "R-E2E",
+      "dependsOn": [
+        "create-r-e2e"
+      ],
+      "request": {
+        "text": "All 11 scenarios in the requirements source have executable evidence or an explicit blocked prerequisite.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-E2E#acceptance-1",
+        "sortOrder": 1,
+        "reason": "Blueprint acceptance item from R-E2E."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "fd78e44c3927af6c28ad72b96c31ea8e37e77877101c0ef49ca093c5d6b76d38",
+      "status": "verified",
+      "acceptanceIndex": 0,
+      "remoteId": "01a05b5d-47cb-7d23-b105-dcdd4ebcf03e",
+      "updatedAt": "2026-09-01T05:07:15Z"
+    },
+    {
+      "opId": "acceptance-r-e2e-2",
+      "kind": "createAcceptanceItem",
+      "localId": "R-E2E",
+      "dependsOn": [
+        "create-r-e2e"
+      ],
+      "request": {
+        "text": "No client or server crosses Room boundaries, resurrects tombstoned IDs or bypasses Account Server.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-E2E#acceptance-2",
+        "sortOrder": 2,
+        "reason": "Blueprint acceptance item from R-E2E."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "89f3345d4ba1aa1b4949b834771dddb0ca70b14d1ad29b98d5807d665346dc5d",
+      "status": "verified",
+      "acceptanceIndex": 1,
+      "remoteId": "01a05b5d-4dd1-78b1-867d-a4db7561a48a",
+      "updatedAt": "2026-09-01T05:07:16Z"
+    },
+    {
+      "opId": "acceptance-r-e2e-3",
+      "kind": "createAcceptanceItem",
+      "localId": "R-E2E",
+      "dependsOn": [
+        "create-r-e2e"
+      ],
+      "request": {
+        "text": "Evidence includes command lines, key output, lifecycle traces and failure cases; no claim is based on plan text alone.",
+        "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+        "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+        "sourceKind": "ai",
+        "sourceRef": "workflow-plan: ecs-entity-chat-20260901/r1/R-E2E#acceptance-3",
+        "sortOrder": 3,
+        "reason": "Blueprint acceptance item from R-E2E."
+      },
+      "remote": {
+        "method": "POST",
+        "path": "/requirements/__REQUIREMENT_ID__/acceptance-items"
+      },
+      "requestDigest": "9575283d82061f0acee3ced324696635e494aa289d7350fb79bd31990a59c4c8",
+      "status": "verified",
+      "acceptanceIndex": 2,
+      "remoteId": "01a05b5d-55e3-7bc1-b397-ad8dafa565f7",
+      "updatedAt": "2026-09-01T05:07:18Z"
+    },
+    {
+      "opId": "edge-source-account",
+      "kind": "bindRequirementReference",
+      "localId": "source-account",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-account"
+      ],
+      "edge": {
+        "edgeId": "source-account",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-ACCOUNT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "b357bbc0ddcd4f17642b63052a6e5ab52747769130138686caecf37096ac55e6",
+      "status": "failed",
+      "error": "Error: PUT /requirements/01a05b5a-75ad-7062-bfb9-b9df66ea7ca2/references/01a05b5a-75a6-77f1-a568-7b044e1a0053 -> 500 traceId=ed48c86f-1659-4fc2-b58b-9bc520fd84d6: {\"type\":\"urn:gameflow:problem:internal-error\",\"title\":\"服务内部错误\",\"status\":500,\"detail\":\"需求引用操作失败\",\"traceId\":\"ed48c86f-1659-4fc2-b58b-9bc520fd84d6\"}"
+    },
+    {
+      "opId": "edge-source-admission",
+      "kind": "bindRequirementReference",
+      "localId": "source-admission",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-admission"
+      ],
+      "edge": {
+        "edgeId": "source-admission",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-ADMISSION",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "02fed0df4f705eb130de5b193f22ab7988abe13c5fa8319695d86c9e13f7c20f",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-source-identity",
+      "kind": "bindRequirementReference",
+      "localId": "source-identity",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-identity"
+      ],
+      "edge": {
+        "edgeId": "source-identity",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-IDENTITY",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "f1031973ac8d7602581caa3114eddbfc8b948757256853676de452159c856cfe",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-source-chat-component",
+      "kind": "bindRequirementReference",
+      "localId": "source-chat-component",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-chat-component"
+      ],
+      "edge": {
+        "edgeId": "source-chat-component",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-CHAT-COMPONENT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "098f92b0d85f1b091d4b6f9a0a40c6325c1dd7124919e9b3bf3d5a136a8ad10f",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-source-chat-replication",
+      "kind": "bindRequirementReference",
+      "localId": "source-chat-replication",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-chat-replication"
+      ],
+      "edge": {
+        "edgeId": "source-chat-replication",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-CHAT-REPLICATION",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "a99223c300d6686475a9687e88ad9b9cb8bdcc06c70255e6a76ba0deab91578f",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-source-client",
+      "kind": "bindRequirementReference",
+      "localId": "source-client",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-client"
+      ],
+      "edge": {
+        "edgeId": "source-client",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-CLIENT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "19e32e473750398c291c9198089fe80abdffb890e0251924201f5b0389888d42",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-source-reconnect",
+      "kind": "bindRequirementReference",
+      "localId": "source-reconnect",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-reconnect"
+      ],
+      "edge": {
+        "edgeId": "source-reconnect",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-RECONNECT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "04bf127b773ccd550718404e26fa50bb7d6ffc74590fc8a78dbdb3abc3e8c744",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-source-persistence",
+      "kind": "bindRequirementReference",
+      "localId": "source-persistence",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-persistence"
+      ],
+      "edge": {
+        "edgeId": "source-persistence",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-PERSISTENCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "fd8b366bd91d2c3efcd81be9d738591a006b6343d1e556d7e5d0963301ad3196",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-source-timer",
+      "kind": "bindRequirementReference",
+      "localId": "source-timer",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-timer"
+      ],
+      "edge": {
+        "edgeId": "source-timer",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-TIMER",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "3e184c20926c5f430248cda8896a3a5050dea0c11c04a2dfe89f6bb6ec96e76b",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-source-e2e",
+      "kind": "bindRequirementReference",
+      "localId": "source-e2e",
+      "dependsOn": [
+        "create-r-source",
+        "create-r-e2e"
+      ],
+      "edge": {
+        "edgeId": "source-e2e",
+        "upstream": {
+          "localId": "R-SOURCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-E2E",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "e4d837cd1daa2e75c1168142e01ea07b0efeb0674aff8157e25f33aacf33b701",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-account-admission",
+      "kind": "bindRequirementReference",
+      "localId": "account-admission",
+      "dependsOn": [
+        "create-r-account",
+        "create-r-admission"
+      ],
+      "edge": {
+        "edgeId": "account-admission",
+        "upstream": {
+          "localId": "R-ACCOUNT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-ADMISSION",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "b328ac33205465b9334101694d1e041a4cee2975b80adcdbae59803da9a0602b",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-identity-admission",
+      "kind": "bindRequirementReference",
+      "localId": "identity-admission",
+      "dependsOn": [
+        "create-r-identity",
+        "create-r-admission"
+      ],
+      "edge": {
+        "edgeId": "identity-admission",
+        "upstream": {
+          "localId": "R-IDENTITY",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-ADMISSION",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "dcc713ab4fe9879a6f31cfb5faf39e81088400ee2cc5cf29900c5d7b3396af98",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-component-replication",
+      "kind": "bindRequirementReference",
+      "localId": "component-replication",
+      "dependsOn": [
+        "create-r-chat-component",
+        "create-r-chat-replication"
+      ],
+      "edge": {
+        "edgeId": "component-replication",
+        "upstream": {
+          "localId": "R-CHAT-COMPONENT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-CHAT-REPLICATION",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "9ddcd93da58930aaff3ee9495eff105c56570fa0931f85d4f0333b0504beb5c0",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-identity-client",
+      "kind": "bindRequirementReference",
+      "localId": "identity-client",
+      "dependsOn": [
+        "create-r-identity",
+        "create-r-client"
+      ],
+      "edge": {
+        "edgeId": "identity-client",
+        "upstream": {
+          "localId": "R-IDENTITY",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-CLIENT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "5b8882ae40ac8d24071ed9f83fb01bfd36f0da140b28a6f3c0a44fe2e5ffe84f",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-replication-client",
+      "kind": "bindRequirementReference",
+      "localId": "replication-client",
+      "dependsOn": [
+        "create-r-chat-replication",
+        "create-r-client"
+      ],
+      "edge": {
+        "edgeId": "replication-client",
+        "upstream": {
+          "localId": "R-CHAT-REPLICATION",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-CLIENT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "1d7c4220c944c50739e76287e97ddd5ee0f9e900c7e4cbe4b27d633c754e1b9b",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-admission-reconnect",
+      "kind": "bindRequirementReference",
+      "localId": "admission-reconnect",
+      "dependsOn": [
+        "create-r-admission",
+        "create-r-reconnect"
+      ],
+      "edge": {
+        "edgeId": "admission-reconnect",
+        "upstream": {
+          "localId": "R-ADMISSION",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-RECONNECT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "49a8e4f185398b4e611420f8895cc077ca93a9d5262f3e56a8c5084605e2b8b8",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-client-reconnect",
+      "kind": "bindRequirementReference",
+      "localId": "client-reconnect",
+      "dependsOn": [
+        "create-r-client",
+        "create-r-reconnect"
+      ],
+      "edge": {
+        "edgeId": "client-reconnect",
+        "upstream": {
+          "localId": "R-CLIENT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-RECONNECT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "271c7e8860b9b4920c8ee03c2627fe2b4a3284c08a595993f6b8481921bfb68c",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-persistence-reconnect",
+      "kind": "bindRequirementReference",
+      "localId": "persistence-reconnect",
+      "dependsOn": [
+        "create-r-persistence",
+        "create-r-reconnect"
+      ],
+      "edge": {
+        "edgeId": "persistence-reconnect",
+        "upstream": {
+          "localId": "R-PERSISTENCE",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-RECONNECT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "b8ba1b6ddd0473539d387884d03f1b1592cd56d18467cf91fbf38928d5fdd83d",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-timer-reconnect",
+      "kind": "bindRequirementReference",
+      "localId": "timer-reconnect",
+      "dependsOn": [
+        "create-r-timer",
+        "create-r-reconnect"
+      ],
+      "edge": {
+        "edgeId": "timer-reconnect",
+        "upstream": {
+          "localId": "R-TIMER",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-RECONNECT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "interface",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": null,
+        "unblockCondition": null
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "de18103135700a6a9bfffbca30054e89e0355268b671abd41d7bd2de7c2c570e",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-admission-e2e",
+      "kind": "bindRequirementReference",
+      "localId": "admission-e2e",
+      "dependsOn": [
+        "create-r-admission",
+        "create-r-e2e"
+      ],
+      "edge": {
+        "edgeId": "admission-e2e",
+        "upstream": {
+          "localId": "R-ADMISSION",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-E2E",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "implementation",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": "E2E cannot observe 100 BotEntity + 1 PlayerEntity before Room admission exists.",
+        "unblockCondition": "Admission card implemented and evidence available"
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "8e74d3fc81322f782db398279a6df51ee828d3ae5f2c730442f7c717d71aa396",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-identity-e2e",
+      "kind": "bindRequirementReference",
+      "localId": "identity-e2e",
+      "dependsOn": [
+        "create-r-identity",
+        "create-r-e2e"
+      ],
+      "edge": {
+        "edgeId": "identity-e2e",
+        "upstream": {
+          "localId": "R-IDENTITY",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-E2E",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "implementation",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": "E2E requires self/entity resolution evidence.",
+        "unblockCondition": "Binding and query evidence available"
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "e9de198eb719b4cee5d77d8b15a708761cef532bf720cae34f650bf2808b4f7e",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-chat-e2e",
+      "kind": "bindRequirementReference",
+      "localId": "chat-e2e",
+      "dependsOn": [
+        "create-r-chat-replication",
+        "create-r-e2e"
+      ],
+      "edge": {
+        "edgeId": "chat-e2e",
+        "upstream": {
+          "localId": "R-CHAT-REPLICATION",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-E2E",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "implementation",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": "E2E requires the formal Chat event path.",
+        "unblockCondition": "Typed mapping and event consumer evidence available"
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "6048b3ae2f0414dce9c53890c1b35b7b30f164e8facc89ba6b5a252d0ee78b75",
+      "status": "pending"
+    },
+    {
+      "opId": "edge-reconnect-e2e",
+      "kind": "bindRequirementReference",
+      "localId": "reconnect-e2e",
+      "dependsOn": [
+        "create-r-reconnect",
+        "create-r-e2e"
+      ],
+      "edge": {
+        "edgeId": "reconnect-e2e",
+        "upstream": {
+          "localId": "R-RECONNECT",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "downstream": {
+          "localId": "R-E2E",
+          "objectType": "requirement",
+          "remoteId": null
+        },
+        "relation": "prerequisite",
+        "basis": "implementation",
+        "classification": "direct",
+        "source": "explicit",
+        "confidence": 1,
+        "reason": "E2E includes five-minute reconnect and expiry behavior.",
+        "unblockCondition": "Lifecycle evidence available"
+      },
+      "request": {},
+      "remote": {
+        "method": "PUT",
+        "path": "/requirements/__UPSTREAM_ID__/references/__DOWNSTREAM_ID__"
+      },
+      "requestDigest": "c4703043e29726d9c08ffe1a48833e1790247eb271006a60f1ffb32051c02c43",
+      "status": "pending"
+    }
+  ],
+  "edges": [
+    {
+      "edgeId": "source-account",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-ACCOUNT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "source-admission",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-ADMISSION",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "source-identity",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-IDENTITY",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "source-chat-component",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-CHAT-COMPONENT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "source-chat-replication",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-CHAT-REPLICATION",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "source-client",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-CLIENT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "source-reconnect",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-RECONNECT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "source-persistence",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-PERSISTENCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "source-timer",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-TIMER",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "source-e2e",
+      "upstream": {
+        "localId": "R-SOURCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-E2E",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "account-admission",
+      "upstream": {
+        "localId": "R-ACCOUNT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-ADMISSION",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "identity-admission",
+      "upstream": {
+        "localId": "R-IDENTITY",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-ADMISSION",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "component-replication",
+      "upstream": {
+        "localId": "R-CHAT-COMPONENT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-CHAT-REPLICATION",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "identity-client",
+      "upstream": {
+        "localId": "R-IDENTITY",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-CLIENT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "replication-client",
+      "upstream": {
+        "localId": "R-CHAT-REPLICATION",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-CLIENT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "admission-reconnect",
+      "upstream": {
+        "localId": "R-ADMISSION",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-RECONNECT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "client-reconnect",
+      "upstream": {
+        "localId": "R-CLIENT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-RECONNECT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "persistence-reconnect",
+      "upstream": {
+        "localId": "R-PERSISTENCE",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-RECONNECT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "timer-reconnect",
+      "upstream": {
+        "localId": "R-TIMER",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-RECONNECT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "interface",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": null,
+      "unblockCondition": null
+    },
+    {
+      "edgeId": "admission-e2e",
+      "upstream": {
+        "localId": "R-ADMISSION",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-E2E",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "implementation",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": "E2E cannot observe 100 BotEntity + 1 PlayerEntity before Room admission exists.",
+      "unblockCondition": "Admission card implemented and evidence available"
+    },
+    {
+      "edgeId": "identity-e2e",
+      "upstream": {
+        "localId": "R-IDENTITY",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-E2E",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "implementation",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": "E2E requires self/entity resolution evidence.",
+      "unblockCondition": "Binding and query evidence available"
+    },
+    {
+      "edgeId": "chat-e2e",
+      "upstream": {
+        "localId": "R-CHAT-REPLICATION",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-E2E",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "implementation",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": "E2E requires the formal Chat event path.",
+      "unblockCondition": "Typed mapping and event consumer evidence available"
+    },
+    {
+      "edgeId": "reconnect-e2e",
+      "upstream": {
+        "localId": "R-RECONNECT",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "downstream": {
+        "localId": "R-E2E",
+        "objectType": "requirement",
+        "remoteId": null
+      },
+      "relation": "prerequisite",
+      "basis": "implementation",
+      "classification": "direct",
+      "source": "explicit",
+      "confidence": 1,
+      "reason": "E2E includes five-minute reconnect and expiry behavior.",
+      "unblockCondition": "Lifecycle evidence available"
+    }
+  ],
+  "externalPrerequisites": [
+    {
+      "displayKey": "R-00149",
+      "reason": "ECS World and LocalEntityId/Generation"
+    },
+    {
+      "displayKey": "R-00150",
+      "reason": "ECS query/read-write/snapshot views"
+    },
+    {
+      "displayKey": "R-00152",
+      "reason": "Owner thread and fail-stop"
+    },
+    {
+      "displayKey": "R-00172",
+      "reason": "Replication mapping and Net/Local identity context"
+    },
+    {
+      "displayKey": "R-00178",
+      "reason": "SimulationSession and authoritative Tick"
+    },
+    {
+      "displayKey": "R-00189",
+      "reason": "Bounded ingress and completion barrier"
+    },
+    {
+      "displayKey": "R-00212",
+      "reason": "Server monotonic clock and expiry command"
+    },
+    {
+      "displayKey": "R-00218",
+      "reason": "Server auth behavior and verifier Port"
+    },
+    {
+      "displayKey": "R-00231",
+      "reason": "Server persistence restore/checkpoint adapter"
+    },
+    {
+      "displayKey": "R-00240",
+      "reason": "Reconnect window and Timer stale completion"
+    },
+    {
+      "displayKey": "R-00247",
+      "reason": "E2E Reference Host shell and fixture wiring"
+    },
+    {
+      "displayKey": "R-00272",
+      "reason": "Existing host-runtime monotonic clock and Timer surface"
+    },
+    {
+      "displayKey": "R-00279",
+      "reason": "Session/admission/reconnect orchestration"
+    },
+    {
+      "displayKey": "R-00295",
+      "reason": "Replication send scheduling"
+    }
+  ],
+  "dedupe": {
+    "phase": "verified",
+    "queries": [
+      "ECS Formal Entity and Chat Vertical Slice",
+      "Account Server login-or-register",
+      "Common connection binding and NetEntityId Attribute Query",
+      "ChatComponent SetMessage",
+      "100 Bot plus Browser 101 Entity acceptance",
+      "ReplicaWorld reconnect",
+      "Fixed Tick Frame Timer Manager"
+    ],
+    "matches": [],
+    "notes": "Global search returned no existing Room or Requirement with these titles/concepts. Existing related module cards remain prerequisites in their original rooms.",
+    "lastRunAt": "2026-09-01T05:10:37.452Z",
+    "searchResults": [
+      {
+        "query": "ECS Formal Entity and Chat Vertical Slice",
+        "count": 2,
+        "knownCount": 2
+      },
+      {
+        "query": "Account Server login-or-register",
+        "count": 1,
+        "knownCount": 1
+      },
+      {
+        "query": "Common connection binding and NetEntityId Attribute Query",
+        "count": 1,
+        "knownCount": 1
+      },
+      {
+        "query": "ChatComponent SetMessage",
+        "count": 1,
+        "knownCount": 1
+      },
+      {
+        "query": "100 Bot plus Browser 101 Entity acceptance",
+        "count": 1,
+        "knownCount": 1
+      },
+      {
+        "query": "ReplicaWorld reconnect",
+        "count": 0,
+        "knownCount": 0
+      },
+      {
+        "query": "Fixed Tick Frame Timer Manager",
+        "count": 1,
+        "knownCount": 1
+      }
+    ],
+    "listCounts": {
+      "rooms": 11,
+      "requirements": 354
+    }
+  },
+  "remoteMap": {
+    "room": {
+      "id": "01a05b5a-6fd3-797f-8608-580c55491802",
+      "displayKey": "RM-00011",
+      "title": "ECS Formal Entity and Chat Vertical Slice"
+    },
+    "R-SOURCE": {
+      "id": "01a05b5a-75ad-7062-bfb9-b9df66ea7ca2",
+      "displayKey": "R-00345",
+      "title": "[Original Requirement] Formal ECS Entity and Chat Vertical Slice"
+    },
+    "R-ACCOUNT": {
+      "id": "01a05b5a-75a6-77f1-a568-7b044e1a0053",
+      "displayKey": "R-00344",
+      "title": "[Account] Account Server login-or-register and AccountEntity"
+    },
+    "R-ADMISSION": {
+      "id": "01a05b5a-783a-797a-9726-10e26f9e5c76",
+      "displayKey": "R-00346",
+      "title": "[Game Server] Room admission and Player/Bot Entity lifecycle"
+    },
+    "R-IDENTITY": {
+      "id": "01a05b5a-78c3-747f-8235-fe05e55bc4b1",
+      "displayKey": "R-00347",
+      "title": "[Runtime] Common connection binding and NetEntityId Attribute Query"
+    },
+    "R-CLIENT": {
+      "id": "01a05b5d-19c6-7365-859a-810b1810638a",
+      "displayKey": "R-00349",
+      "title": "[Client] ReplicaWorld entity mapping and chat presentation"
+    },
+    "R-CHAT-COMPONENT": {
+      "id": "01a05b5d-1812-7f95-889c-b191e395dc01",
+      "displayKey": "R-00348",
+      "title": "[ECS] ChatComponent field declarations and SetMessage"
+    },
+    "R-RECONNECT": {
+      "id": "01a05b5d-19e0-79fc-af62-2007435d1348",
+      "displayKey": "R-00350",
+      "title": "[Server] Five-minute reconnect and expiry lifecycle"
+    },
+    "R-CHAT-REPLICATION": {
+      "id": "01a05b5d-1ad1-7d07-83e8-0aecc3f6c31b",
+      "displayKey": "R-00351",
+      "title": "[Replication] ChatInput and ChatMessageEvent typed mapping"
+    },
+    "R-PERSISTENCE": {
+      "id": "01a05b5d-1d12-7762-a802-f08e6639f27b",
+      "displayKey": "R-00353",
+      "title": "[Runtime] ECS Snapshot/Restore for ChatComponent state"
+    },
+    "R-E2E": {
+      "id": "01a05b5d-1d29-77e0-8220-a50e39aafc06",
+      "displayKey": "R-00354",
+      "title": "[Integration] 100 Bot plus Browser 101 Entity acceptance"
+    },
+    "R-TIMER": {
+      "id": "01a05b5d-1d0f-73ec-be64-fae3392ca684",
+      "displayKey": "R-00352",
+      "title": "[NativeCore] Fixed Tick/Frame Timer Manager"
+    }
+  },
+  "checkpoint": {
+    "phase": "partial",
+    "completedOpIds": [
+      "create-room",
+      "create-r-source",
+      "create-r-account",
+      "create-r-admission",
+      "create-r-identity",
+      "create-r-client",
+      "create-r-chat-component",
+      "create-r-reconnect",
+      "create-r-chat-replication",
+      "create-r-persistence",
+      "create-r-e2e",
+      "create-r-timer",
+      "acceptance-r-source-3",
+      "acceptance-r-account-1",
+      "acceptance-r-source-2",
+      "acceptance-r-source-1",
+      "acceptance-r-account-3",
+      "acceptance-r-account-2",
+      "acceptance-r-account-4",
+      "acceptance-r-account-5",
+      "acceptance-r-admission-2",
+      "acceptance-r-admission-1",
+      "acceptance-r-admission-3",
+      "acceptance-r-admission-4",
+      "acceptance-r-identity-1",
+      "acceptance-r-identity-2",
+      "acceptance-r-identity-3",
+      "acceptance-r-identity-4",
+      "acceptance-r-chat-component-1",
+      "acceptance-r-chat-component-2",
+      "acceptance-r-chat-component-3",
+      "acceptance-r-chat-component-4",
+      "acceptance-r-chat-replication-1",
+      "acceptance-r-chat-replication-2",
+      "acceptance-r-chat-replication-3",
+      "acceptance-r-client-1",
+      "acceptance-r-client-2",
+      "acceptance-r-client-3",
+      "acceptance-r-reconnect-2",
+      "acceptance-r-reconnect-1",
+      "acceptance-r-reconnect-3",
+      "acceptance-r-reconnect-4",
+      "acceptance-r-persistence-1",
+      "acceptance-r-persistence-2",
+      "acceptance-r-persistence-3",
+      "acceptance-r-timer-2",
+      "acceptance-r-e2e-1",
+      "acceptance-r-timer-3",
+      "acceptance-r-e2e-2",
+      "acceptance-r-e2e-3",
+      "acceptance-r-timer-1"
+    ],
+    "lastError": "Error: PUT /requirements/01a05b5a-75ad-7062-bfb9-b9df66ea7ca2/references/01a05b5a-75a6-77f1-a568-7b044e1a0053 -> 500 traceId=ed48c86f-1659-4fc2-b58b-9bc520fd84d6: {\"type\":\"urn:gameflow:problem:internal-error\",\"title\":\"服务内部错误\",\"status\":500,\"detail\":\"需求引用操作失败\",\"traceId\":\"ed48c86f-1659-4fc2-b58b-9bc520fd84d6\"}",
+    "summary": {
+      "room": { "displayKey": "RM-00011", "id": "01a05b5a-6fd3-797f-8608-580c55491802" },
+      "requirements": 11,
+      "acceptanceItems": 39,
+      "directEdges": { "planned": 23, "verified": 0, "failed": 1, "pending": 22 }
+    }
+  },
+  "audit": {
+    "projectUser": "usr_e6bba0e394d26a5caca97c3cd4cf7ee3",
+    "projectId": "proj_b6979c277715a6c6c490a541ac69709b"
+  },
+  "acceptanceConfig": {
+    "acceptanceTypeId": "atype_2c92d7e5acc361f7ad82b1733ab4c223",
+    "acceptanceTypeName": "需求验收",
+    "statusId": "astat_20e2c7f5c6d891ad0966208b55da0372",
+    "statusName": "未提交",
+    "observedAt": "2026-09-01T05:10:37.847Z"
+  }
+}

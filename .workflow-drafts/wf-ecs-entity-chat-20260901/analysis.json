@@ -1,0 +1,64 @@
+{
+  "audit": {
+    "status": "conditional",
+    "checks": [
+      { "name": "project_binding", "result": "passed", "projectId": "proj_b6979c277715a6c6c490a541ac69709b" },
+      { "name": "global_dedupe", "result": "passed", "matches": 0 },
+      { "name": "room_scope", "result": "passed", "roomsToCreate": 1, "milestonesToCreate": 0, "oldRoomsChanged": 0 },
+      { "name": "requirements", "result": "passed", "newRequirements": 11, "ready": 1, "conditional": 10, "blocked": 0 },
+      { "name": "entity_count", "result": "passed", "mainScenario": "100 BotEntity + 1 PlayerEntity = 101 Game ECS Entities" },
+      { "name": "public_contracts", "result": "conditional", "reason": "Chat mapping, Entity Query API, Account Port and Native Timer ABI still require contract freeze" },
+      { "name": "room_write", "result": "passed", "remoteRoom": "RM-00011", "newRequirements": 11, "acceptanceItems": 39 },
+      { "name": "relation_write", "result": "partial", "directEdges": 23, "verified": 0, "failed": 1, "pending": 22, "reason": "Requirement reference endpoint returned HTTP 500; contract endpoint retained for recovery.", "traceId": "ed48c86f-1659-4fc2-b58b-9bc520fd84d6" }
+    ],
+    "longestChainCards": 6,
+    "parallelWidth": 5,
+    "longestChainPath": ["R-SOURCE", "R-ACCOUNT/R-IDENTITY/R-CHAT-COMPONENT/R-TIMER", "R-ADMISSION/R-CHAT-REPLICATION", "R-CLIENT/R-PERSISTENCE", "R-RECONNECT", "R-E2E"]
+  },
+  "onlineWrite": {
+    "phase": "partial",
+    "room": { "displayKey": "RM-00011", "id": "01a05b5a-6fd3-797f-8608-580c55491802" },
+    "requirements": 11,
+    "acceptanceItems": 39,
+    "directEdges": { "planned": 23, "verified": 0, "failed": 1, "pending": 22 },
+    "lastError": "HTTP 500 from bindRequirementReference; traceId=ed48c86f-1659-4fc2-b58b-9bc520fd84d6"
+  },
+  "readiness": {
+    "ready": ["R-SOURCE"],
+    "conditional": ["R-ACCOUNT", "R-ADMISSION", "R-IDENTITY", "R-CHAT-COMPONENT", "R-CHAT-REPLICATION", "R-CLIENT", "R-RECONNECT", "R-PERSISTENCE", "R-TIMER", "R-E2E"],
+    "blocked": [],
+    "notes": "Conditional means the requirement is a valid planning card but must not be dispatched until its public contract prerequisite is frozen."
+  },
+  "externalPrerequisites": [
+    { "displayKey": "R-00149", "statusObserved": "backlog", "usedFor": "ECS identity/storage contract" },
+    { "displayKey": "R-00150", "statusObserved": "backlog", "usedFor": "ECS query/snapshot views" },
+    { "displayKey": "R-00152", "statusObserved": "backlog", "usedFor": "owner-thread fail-stop" },
+    { "displayKey": "R-00172", "statusObserved": "backlog", "usedFor": "mapping and Net/Local identity context" },
+    { "displayKey": "R-00178", "statusObserved": "backlog", "usedFor": "authoritative Tick" },
+    { "displayKey": "R-00189", "statusObserved": "backlog", "usedFor": "bounded ingress and barrier" },
+    { "displayKey": "R-00212", "statusObserved": "backlog", "usedFor": "monotonic expiry" },
+    { "displayKey": "R-00218", "statusObserved": "backlog", "usedFor": "auth behavior and verifier Port" },
+    { "displayKey": "R-00231", "statusObserved": "backlog", "usedFor": "persistence recovery adapter" },
+    { "displayKey": "R-00240", "statusObserved": "backlog", "usedFor": "reconnect window and stale completion" },
+    { "displayKey": "R-00247", "statusObserved": "backlog", "usedFor": "E2E shell and fixture wiring" },
+    { "displayKey": "R-00272", "statusObserved": "done", "usedFor": "existing host-runtime timer primitives" },
+    { "displayKey": "R-00279", "statusObserved": "backlog", "usedFor": "session/admission/reconnect orchestration" },
+    { "displayKey": "R-00295", "statusObserved": "backlog", "usedFor": "replication send scheduling" }
+  ],
+  "decisions": {
+    "confirmed": [
+      "central Account Server with login-or-register",
+      "Bot01-Bot100 generated at request time with default test password 123456",
+      "Bot plus decimal digits username classification creates BotEntity and the namespace is restricted to Bot-tool context",
+      "Browser creates PlayerEntity; main scenario total is 101 Game Entities",
+      "NetEntityId is the game-layer reference; AccountId is persistent business identity",
+      "server continues Room simulation during client reconnect",
+      "Chat history is not persisted; ChatComponent last state uses ECS field persistence"
+    ],
+    "open": [
+      "exact generated Account Auth/Profile, Entity Query and Chat mapping schemas",
+      "Native Timer ABI and CallbackSlot semantics",
+      "Room snapshot key and recovery details"
+    ]
+  }
+}
