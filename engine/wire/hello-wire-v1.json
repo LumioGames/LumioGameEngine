@@ -1,0 +1,215 @@
+{
+  "contractId": "lumio.hello-wire.v1",
+  "version": 1,
+  "purpose": "MS-00002 Hello World 端到端里程碑的唯一最小公共契约：WebSocket 消息形状、字段语义、进程边界与审计事件词表。Server（Rust）、Runtime（C#）、Browser（JS）、Bot（C#）与集成验收全部以本文件为字段真值，不得另写一份协议真值。",
+  "transport": {
+    "kind": "websocket",
+    "subprotocol": "lumio-hello-v1",
+    "encoding": "utf8-json-text-frame",
+    "direction": "client-to-server and server-to-client",
+    "maxFrameBytes": 65536
+  },
+  "roles": ["browser", "bot"],
+  "fieldSemantics": {
+    "messageType": "消息判别字段；接收方遇到未知 messageType 必须以 unknown_mapping 拒绝，不得静默丢弃。",
+    "sender": "命令与增量归属的客户端角色枚举（browser|bot）；Delta 的 sender 是产生该状态变更的原始命令角色。",
+    "sequence": "每个 sender 独立单调递增，从 1 开始；server/runtime 拒绝 sequence <= 已提交最大值（duplicate_sequence）。",
+    "revision": "权威状态修订号，从 0（空基线）开始，每次提交 Hello 变更加 1；Delta 携带提交后的修订号，FullSnapshot 携带当前修订号。",
+    "tickId": "权威 tick 计数，从 0 开始；仅在消费了至少一条命令的非空 tick 上递增，因此对相同命令序列是确定性的。",
+    "kind": "命令种类；Hello World 里程碑只有 hello。",
+    "payload": "UTF-8 文本；Hello World 场景固定为 \"Hello World\"。",
+    "payloadSha256": "payload 字段原始 UTF-8 字节的 SHA-256，小写 hex（64 字符）；发送方计算并携带，接收方独立重算，不一致以 bad_payload_hash 拒绝。",
+    "sentAtMs": "命令发送方 UTC epoch 毫秒；用于端到端延迟核算。",
+    "originSentAtMs": "Delta 携带的原始命令 sentAtMs；接收端端到端延迟 = receivedAtMs - originSentAtMs，两个方向都必须 < 1000ms。",
+    "committedAtMs": "server 在权威 tick 提交时刻的 UTC epoch 毫秒。",
+    "receivedAtMs": "接收端收到消息时刻的 UTC epoch 毫秒，只进本端 trace，不进 wire 消息。"
+  },
+  "hash": {
+    "algorithm": "sha256",
+    "encoding": "lowercase-hex",
+    "input": "payload 字段原始 UTF-8 字节",
+    "example": {
+      "payload": "Hello World",
+      "payloadSha256": "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e"
+    }
+  },
+  "messages": {
+    "Handshake": {
+      "dir": "c2s",
+      "required": {
+        "messageType": "const:Handshake",
+        "role": "enum:roles",
+        "clientName": "string",
+        "contractId": "const:lumio.hello-wire.v1"
+      },
+      "optional": {},
+      "notes": "每个 role 只允许一个会话；超出第二个会话或重复 role 以 role_taken / session_limit 拒绝。"
+    },
+    "HandshakeAck": {
+      "dir": "s2c",
+      "required": {
+        "messageType": "const:HandshakeAck",
+        "sessionId": "string",
+        "role": "enum:roles",
+        "accepted": "bool",
+        "contractId": "const:lumio.hello-wire.v1"
+      },
+      "optional": {
+        "reason": "string"
+      },
+      "notes": "accepted=false 时必须携带 reason 与一个拒绝错误码。"
+    },
+    "FullSnapshot": {
+      "dir": "s2c",
+      "required": {
+        "messageType": "const:FullSnapshot",
+        "sessionId": "string",
+        "tickId": "u64",
+        "revision": "u64",
+        "helloLog": "array:HelloRecord"
+      },
+      "optional": {},
+      "notes": "会话准入后立即下发当前权威状态作为基线。"
+    },
+    "BaselineAck": {
+      "dir": "c2s",
+      "required": {
+        "messageType": "const:BaselineAck",
+        "revision": "u64"
+      },
+      "optional": {},
+      "notes": "客户端确认基线修订号；server 记录后该会话进入可输入状态。"
+    },
+    "InputCommand": {
+      "dir": "c2s",
+      "required": {
+        "messageType": "const:InputCommand",
+        "sender": "enum:roles",
+        "sequence": "u64",
+        "kind": "const:hello",
+        "payload": "string",
+        "payloadSha256": "sha256-hex",
+        "sentAtMs": "epoch-ms"
+      },
+      "optional": {},
+      "notes": "sender 必须等于该会话握手声明的 role，否则以 unknown_role 拒绝；完整场景中每个客户端恰好发送一次。"
+    },
+    "Delta": {
+      "dir": "s2c",
+      "required": {
+        "messageType": "const:Delta",
+        "tickId": "u64",
+        "revision": "u64",
+        "sender": "enum:roles",
+        "sequence": "u64",
+        "kind": "const:hello",
+        "payload": "string",
+        "payloadSha256": "sha256-hex",
+        "originSentAtMs": "epoch-ms",
+        "committedAtMs": "epoch-ms",
+        "commandSequence": "u64"
+      },
+      "optional": {},
+      "notes": "Delta 只路由给 sender 之外的其他会话；commandSequence 等于触发本次提交的 InputCommand.sequence；revision 严格等于提交后修订号；不是网络层 Echo——每个 Delta 都必须由权威 tick 产生并可在 audit 中回溯 ingress→tick→egress 链。"
+    },
+    "Error": {
+      "dir": "s2c",
+      "required": {
+        "messageType": "const:Error",
+        "code": "enum:errorCodes",
+        "detail": "string"
+      },
+      "optional": {
+        "sender": "enum:roles",
+        "sequence": "u64"
+      },
+      "notes": "失败路径统一回执；不关闭连接的拒绝（如 duplicate_sequence）与关闭连接的拒绝（如 bad_envelope）都以本消息回执后再决定是否关闭。"
+    },
+    "Shutdown": {
+      "dir": "c2s",
+      "required": {
+        "messageType": "const:Shutdown",
+        "reason": "string"
+      },
+      "optional": {},
+      "notes": "仅集成启动器持有的管理通道（server stdin 的 shutdown 行）触发等价语义；WebSocket 侧保留该消息形状供进程内测试复用词表，真实 server 不接受客户端 Shutdown。"
+    }
+  },
+  "sharedTypes": {
+    "HelloRecord": {
+      "required": {
+        "sender": "enum:roles",
+        "sequence": "u64",
+        "kind": "const:hello",
+        "payload": "string",
+        "payloadSha256": "sha256-hex",
+        "tickId": "u64",
+        "revision": "u64",
+        "originSentAtMs": "epoch-ms",
+        "committedAtMs": "epoch-ms"
+      },
+      "optional": {}
+    }
+  },
+  "errorCodes": [
+    "bad_envelope",
+    "bad_payload_hash",
+    "duplicate_sequence",
+    "stale_revision",
+    "unknown_role",
+    "role_taken",
+    "session_limit",
+    "queue_full",
+    "runtime_failure",
+    "unknown_mapping",
+    "unsupported_contract",
+    "session_closed"
+  ],
+  "limits": {
+    "maxPayloadBytes": 4096,
+    "maxSessions": 2,
+    "ingressQueuePerSession": 64,
+    "helloLogCapacity": 32,
+    "handshakeTimeoutMs": 5000,
+    "baselineTimeoutMs": 5000,
+    "scenarioTimeoutMs": 30000
+  },
+  "process": {
+    "server": {
+      "listen": "127.0.0.1 动态分配端口（:0），禁止硬编码端口",
+      "readiness": "stdout 单行前缀 SERVER_READY 后接 JSON {\"port\":N,\"pid\":P,\"contractId\":\"lumio.hello-wire.v1\"}；如有 --ready-file 参数则同时写该文件",
+      "shutdown": "stdin 收到 shutdown 行（或 CtrlC）后：关闭全部会话（完成 WebSocket close 握手）、销毁 Runtime/CLR/SDK 资源、flush audit、退出码 0",
+      "exitCodes": { "0": "正常关闭", "1": "初始化失败", "2": "运行期致命错误", "3": "参数错误" }
+    },
+    "auditEventKinds": {
+      "server_listening": { "required": ["port", "pid", "contractId"] },
+      "session_open": { "required": ["sessionId", "remote"] },
+      "handshake_accepted": { "required": ["sessionId", "role", "clientName"] },
+      "handshake_rejected": { "required": ["sessionId", "code", "detail"] },
+      "baseline_sent": { "required": ["sessionId", "revision", "tickId"] },
+      "baseline_acked": { "required": ["sessionId", "revision"] },
+      "ingress_received": { "required": ["sessionId", "sender", "sequence", "payloadSha256"] },
+      "ingress_rejected": { "required": ["sessionId", "sender", "sequence", "code"] },
+      "tick_committed": { "required": ["tickId", "revision", "deltaCount", "senders"] },
+      "delta_routed": { "required": ["sessionId", "sender", "sequence", "tickId", "revision", "payloadSha256"] },
+      "session_closed": { "required": ["sessionId", "code"] },
+      "server_shutdown": { "required": ["reason", "sessions"] }
+    },
+    "botTraceEventKinds": {
+      "bot_started": { "required": ["pid", "role", "serverUrl"] },
+      "connected": { "required": ["sessionId"] },
+      "handshake_ack": { "required": ["role", "accepted"] },
+      "baseline_received": { "required": ["revision", "tickId", "helloLogCount"] },
+      "baseline_ack_sent": { "required": ["revision"] },
+      "command_sent": { "required": ["sender", "sequence", "payloadSha256", "sentAtMs"] },
+      "delta_received": { "required": ["sender", "sequence", "tickId", "revision", "payloadSha256", "latencyMs"] },
+      "command_result": { "required": ["ok", "detail"] },
+      "error_received": { "required": ["code", "detail"] },
+      "bot_finished": { "required": ["exitOk", "receivedBySender"] }
+    },
+    "evidence": {
+      "browserResult": "window.__lumioResult：{status, role, sessionId, baselineRevision, sent:{sequence,payloadSha256,sentAtMs}, received:[{sender,sequence,tickId,revision,payloadSha256,latencyMs}], errors:[]}，Playwright 以此断言",
+      "roundsComparison": "两轮比较字段：方向（sender）、revision、payloadSha256 必须一致；tickId 因空 tick 不递增策略亦应一致；latencyMs 只需均 < 1000"
+    }
+  }
+}

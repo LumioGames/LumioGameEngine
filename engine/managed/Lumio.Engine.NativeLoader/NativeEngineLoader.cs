@@ -128,8 +128,13 @@ public static class NativeEngineLoader
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int GetApiDelegate(uint requestedVersion, out nint api);
 
+    /// <summary>
+    /// 根 API 表的托管镜像（engine/abi/native-abi.json 的 root.fields 是唯一真值）。
+    /// 只追加不插入；struct_size 按「≥ 托管布局」协商，字段偏移由
+    /// RootApiLayoutTests 按名字锁定。
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    private struct RootApi
+    internal struct RootApi
     {
         public uint AbiVersion;
         public uint StructSize;
@@ -138,6 +143,9 @@ public static class NativeEngineLoader
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
         public byte[]? BuildId;
         public nint Ping;
+        public nint CreateClrHost;
+        public nint ClrHostCall;
+        public nint DestroyClrHost;
     }
 
     public static NativeEngineLease Load(string nativePath, string expectedBuildId, string expectedAbiHash)
@@ -176,11 +184,16 @@ public static class NativeEngineLoader
             }
 
             var api = Marshal.PtrToStructure<RootApi>(apiAddress);
-            if (api.AbiVersion != AbiVersion || api.StructSize < Marshal.SizeOf<RootApi>() || api.Ping == 0)
+            if (api.AbiVersion != AbiVersion
+                || api.StructSize < Marshal.SizeOf<RootApi>()
+                || api.Ping == 0
+                || api.CreateClrHost == 0
+                || api.ClrHostCall == 0
+                || api.DestroyClrHost == 0)
             {
                 throw new NativeEngineLoadException(
                     NativeEngineLoadFailure.InvalidNativeImage,
-                    "Native engine API table has an invalid version, size, or ping slot.");
+                    "Native engine API table has an invalid version, size, ping, or CLR host slot.");
             }
 
             var abiHash = Convert.ToHexString(api.AbiHash ?? Array.Empty<byte>()).ToLowerInvariant();

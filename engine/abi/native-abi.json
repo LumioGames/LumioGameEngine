@@ -4,17 +4,50 @@
   "callingConvention": "C",
   "root": {
     "fields": [
-      { "name": "abi_version", "type": "u32" },
-      { "name": "struct_size", "type": "u32" },
-      { "name": "abi_hash", "type": "bytes32" },
-      { "name": "build_id", "type": "bytes16" },
-      { "name": "ping", "type": "fn(pointer) -> status" }
+      {
+        "name": "abi_version",
+        "type": "u32"
+      },
+      {
+        "name": "struct_size",
+        "type": "u32"
+      },
+      {
+        "name": "abi_hash",
+        "type": "bytes32"
+      },
+      {
+        "name": "build_id",
+        "type": "bytes16"
+      },
+      {
+        "name": "ping",
+        "type": "fn(pointer) -> status"
+      },
+      {
+        "name": "create_clr_host",
+        "type": "fn(cstring, cstring, cstring, cstring, pointer) -> status",
+        "doc": "创建 CoreCLR host 并在创建期解析托管入口（fail-fast，不返回半初始化句柄）。四个 cstring 均为 UTF-8 NUL 结尾：hostfxr_path＝宿主机 hostfxr 库完整路径；runtime_config_path＝托管组件 runtimeconfig.json 完整路径；assembly_path＝托管程序集 DLL 完整路径；entry_type_name＝入口描述，格式为 '<程序集限定类型名>;<托管方法名>'（按最后一个 ';' 拆分，两段都不得为空白；方法须标注 UnmanagedCallersOnly，原生签名固定为 int32_t(*)(const uint8_t* input, int32_t input_length, uint8_t* output, int32_t output_capacity, int32_t* bytes_written)）。**第二段必须是托管方法名，不是 UnmanagedCallersOnly 的 EntryPoint 别名**——hostfxr 的 load_assembly_and_get_function_pointer 按托管方法名解析，传别名返回 0x80131513（MissingMethod）→ ClrInitFailed。进程级约束：CoreCLR 每进程只能成功初始化一次（hostfxr_close 不卸载已启动的运行时，二次 create 的 initialize 返回 0x80008081）；宿主应在进程生命周期内至多调用一次 create_clr_host。第五参数为出参 opaque handle 指针，成功时写入句柄，失败时写 null；句柄只能经 destroy_clr_host 释放。任何一步失败（hostfxr 装载失败、runtime config 初始化失败、delegate 或入口解析失败）即完整回滚（hostfxr_close + FreeLibrary）并返回 ClrInitFailed；参数为 null 或 entry_type_name 不合法返回 InvalidArgument。"
+      },
+      {
+        "name": "clr_host_call",
+        "type": "fn(pointer, pointer, u32, pointer, u32, pointer) -> status",
+        "doc": "把一次字节协议调用转发进 create_clr_host 解析出的托管入口。参数依次为：host（create_clr_host 出参句柄）、input 与 input_len（输入字节缓冲及长度，len 为 0 时 input 可为 null）、output 与 output_capacity（输出缓冲及容量，做容量探测时可传 null + 0）、bytes_written（出参 u32 指针：Success 时写实际写入字节数，BufferTooSmall 时写所需字节数，ClrEntryFailed 时写 0）。托管入口返回 0 映射 Success、2 映射 BufferTooSmall、其他值映射 ClrEntryFailed。host、bytes_written 为 null，或 input_len/input_capacity 非零而对应指针为 null，或长度超出 int32 正范围时返回 InvalidArgument。"
+      },
+      {
+        "name": "destroy_clr_host",
+        "type": "fn(pointer) -> status",
+        "doc": "销毁 create_clr_host 创建的 host：关闭 hostfxr 上下文并卸载 hostfxr 库（经 Drop 顺序执行）。host 为 null 返回 InvalidArgument；成功返回 Success。销毁后句柄立即失效，调用方须保证销毁时没有并发进行中的 clr_host_call。"
+      }
     ]
   },
   "status": {
     "Success": 0,
     "InvalidArgument": 1,
-    "UnsupportedVersion": 2
+    "UnsupportedVersion": 2,
+    "ClrInitFailed": 3,
+    "ClrEntryFailed": 4,
+    "BufferTooSmall": 5
   },
   "generator": "lumio-engine-abi-generator@dev"
 }

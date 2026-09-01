@@ -2,4 +2,4 @@
 
 pub const ABI_VERSION: u32 = 1;
 pub const ENTRY_SYMBOL: &str = "lumio_engine_get_api_v1";
-pub const DEFINITION_SHA256: &str = "9542e15a2ee2e93a4db3656f119e39a109ca0e6a6d7df2653d09561200748d4d";
+pub const DEFINITION_SHA256: &str = "1dfc86dad1ebbd8d6196d16946a9eb8542e951c83fa5e6163f696abee831fb8e";

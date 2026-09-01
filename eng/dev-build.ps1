@@ -77,7 +77,12 @@ $info = [ordered]@{
     nativePath = $stagedPath
     configuration = $Configuration
 }
-$info | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runRoot 'build-info.json') -Encoding utf8
+# BOM-less UTF-8: Set-Content -Encoding utf8 on Windows PowerShell 5.1 emits a BOM,
+# which strict JSON parsers (Node, serde_json) reject per RFC 8259. Keep this file
+# ASCII-only: PS 5.1 reads BOM-less UTF-8 scripts as ANSI and non-ASCII comments
+# can silently corrupt adjacent statements.
+$infoJson = $info | ConvertTo-Json
+[System.IO.File]::WriteAllText((Join-Path $runRoot 'build-info.json'), $infoJson, [System.Text.UTF8Encoding]::new($false))
 
 Write-Output "BUILD_ID=$buildId"
 Write-Output "ABI_HASH=$abiSha256"
