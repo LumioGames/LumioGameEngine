@@ -13,10 +13,10 @@ RM-00011（ECS Formal Entity and Chat Vertical Slice）的三张实现卡——R
 
 1. **契约真值载体**：`engine/wire/entity-binding-and-query-v1.json`（contractId `lumio.entity-binding-query.v1`，version 1）是绑定与属性查询语义的唯一真值；下游实现不得另写一份语义真值。契约措辞宿主无关：当前 C# MVP 宿主实现，后续切片级最小 Rust 宿主复跑同一语义（Room Review Rulings 宿主轨道）。
 2. **绑定五元组与不变量**：每条已准入连接的绑定记录是 `AccountId + RoomId + NetEntityId + EntityType + ConnectionGeneration` 五元组，且仅此五字段。一个账号同一时刻至多在一个 Room 活跃；重连重绑与顶号重绑（顶号语义冻结于 R-00357 / `lumio.account-port.v1`）继承同一实体：NetEntityId 不变、connectionGeneration 严格递增；AccountEntity 对象引用任何方向不跨入 Game World，只允许 AccountId 值。
-3. **受控 Attribute Query 面**：查询按已声明 `AttributeId`（文法 `<ComponentType>.<attributeName>`）寻址单实体的单属性；成功结果携带类型化值与 `observedRevision` / `observedTick`（stale 读检测的事实来源）。调用域二分：`server-authoritative`（限定 Room 范围、Simulation Owner Thread 语义角色、按服务端策略可读任何已声明属性）与 `client-replica`（限定本端 ReplicaWorld，只能读已复制且可见且已实际送达的属性）。不存在按任意属性名查找、SQL 表达式、存储寻址或跨 Room 的通路——这些形式一律显式拒绝。
+3. **受控 Attribute Query 面**：查询按已声明 `AttributeId`（文法 `<ComponentType>.<attributeName>`）寻址单实体的单属性；成功结果携带类型化值与 `observedRevision` / `observedTick`（stale 读检测的事实来源）。调用域二分：`server-authoritative`（限定 Room 范围、Simulation Owner Thread 语义角色、按服务端策略可读任何已声明属性）与 `client-replica`（限定本端 ReplicaWorld，只能读已复制且可见且已实际送达的属性）。不存在按任意属性名查找、SQL 表达式、存储寻址或跨 Room 的通路——这些形式一律显式拒绝，**拒绝分类顺序固定**：①存储寻址识别器（特征下限：括号行/槽寻址、`Storage.` 前缀、存储路径分隔符）→ `storage_access_forbidden`；②文法 → `invalid_attribute_id`（SQL 表达式与自由格式名显式归此码）；③已声明判定 → `undeclared_attribute`。识别器特征是下限：实现可对未列用例更严格，不得更宽，且不得改判 `invalidCases` 已钉死的 `expectedRejection`。
 4. **五结局失败矩阵全部显式**：`non_existent` / `stale_generation` / `invisible` / `unauthorized` / `tombstoned`。destroyed 或 tombstoned 引用永不解析到替代实体（`resolvesToReplacement` 恒为 false）；未知、已销毁、墓碑实体永不复活。invisible（不可见）与 unauthorized（无权限）严格分层：先判实体/属性可见性，再判可见性主体资格。
 5. **每属性三维独立声明**：`persistence`（ephemeral|persistent）、`replication`（not-replicated|replicated）、`visibility`（server-only|room-public|aoi-scoped|claim-scoped）。客户端可读 ⇔ replicated 且可见性允许且已实际复制进其 ReplicaWorld；persist-only 与 server-only 字段对客户端以 `invisible` 结局不可达。属性声明表随各组件公共契约冻结（首个租户 ChatComponent 声明在 R-00355 / `lumio.gameplay-envelope.v1`），本契约只定义声明结构与判定规则。
-6. **宿主无关措辞审计**：契约全文只使用领域语义角色（Simulation Owner Thread、ReplicaWorld、权威存储）与宿主无关数据形状；无任何宿主类型名、线程 API、委托或指针语义进入公共面。审计结论记录于契约 `wordingAudit` 节。
+6. **宿主无关措辞审计**：契约全文只使用领域语义角色（Simulation Owner Thread、ReplicaWorld、权威存储）与宿主无关数据形状；无任何宿主类型名、线程 API、委托或指针语义进入公共面。整数以 `u64` 位宽记法表示（沿 hello-wire-v1 先例，指无符号 64 位位宽，不绑定任何宿主类型系统）——此为唯一记法豁免。审计结论记录于契约 `wordingAudit` 节。
 
 ## 替代方案
 
@@ -27,18 +27,21 @@ RM-00011（ECS Formal Entity and Chat Vertical Slice）的三张实现卡——R
 
 ## 接口
 
-- 契约文件：`engine/wire/entity-binding-and-query-v1.json`（sections：identityModel / binding（record+invariants+operations：selfLookup、resolveByConnection、resolveByNetEntityId）/ attributeQuery（addressing、callerScope、request、success、failure）/ attributeDeclarations（structure、dimensions、readRules）/ outcomes / errorCodes / fieldSemantics / limits / wordingAudit / testCases（10 例，五结局各≥1）/ invalidCases（8 例）/ boundary）。
+- 契约文件：`engine/wire/entity-binding-and-query-v1.json`（sections：identityModel / binding（record+invariants+operations：selfLookup、resolveByConnection、resolveByNetEntityId）/ attributeQuery（addressing、callerScope、request、success、failure 双变体）/ attributeDeclarations（structure、dimensions、readRules）/ outcomes / errorCodes（含 classification 顺序、存储寻址识别器特征、多违例单码裁决）/ fieldSemantics / limits / wordingAudit / testCases（10 例，五结局各≥1）/ invalidCases（10 例，含路径分隔符存储寻址与多违例裁决）/ boundary）。
 - 关键词表：结局码 `non_existent` `stale_generation` `invisible` `unauthorized` `tombstoned`；请求错码 `invalid_attribute_id` `undeclared_attribute` `cross_room_reference` `storage_access_forbidden` `binding_not_found` `invalid_binding_shape` `scope_violation`。
 - 上游依赖：无（本契约不依赖其他 RM-00011 契约的先期冻结；对 `lumio.account-port.v1` 与 `lumio.gameplay-envelope.v1` 只作引用占位，方向为「消费其结果」，无字段级耦合）。
 - 下游消费者：R-00347（实现）、R-00349（客户端范围）、R-00350（重连/过期语义）；`AccountId`/`NetEntityId` 语义同时被 R-00346、R-00348 间接消费。
 
 ## 失败语义
 
-- 实体解析与属性查询的一切失败都以五结局矩阵之一显式返回，绝不静默、绝不返回替代实体。
+- 实体解析与属性查询的语义失败都以五结局矩阵之一显式返回，绝不静默、绝不返回替代实体；请求形错误走 `requestError` 变体，不占用五结局码。
 - `stale_generation`：携带过期 connectionGeneration（或等价纪元）的引用在新纪元生效后必得此结局；消费方义务是重新 selfLookup，而非重试旧引用。
 - `invisible` 与 `unauthorized` 的判定顺序固定：先可见性后权限，二者不混用；`invisible` 不泄露「实体存在」之外的事实。
 - `tombstoned`：墓碑保留期内恒为此结局；过期遗忘后为 `non_existent`；墓碑永不复活。
-- 请求形错误（文法、未声明、跨 Room、存储寻址、绑定形状、作用域违规）以 `requestErrorCodes` 拒绝，与五结局（结果语义失败）分层。
+- 失败结果是**双变体单码模型**：结局类失败 `{outcome: 五结局码}`（outcome 即分类，不携带 code）；请求形错误 `{outcome: request_error, code: requestErrorCodes 之一, detail}`（文法、未声明、跨 Room、存储寻址、绑定形状、作用域违规）。两码表不相交，`expectedRejection` 单码即完整可判定。
+- `cross_room_reference` 的判定依据是实体归属表（服务端权威归属或客户端 ReplicaWorld 映射），**不解析 netEntityId 字符串本身**（该字符串不编码 Room）。
+- attributeId 三步分类（存储寻址→文法→已声明）与实体归属/请求形状判定互不抢占：实现必须全部检查，命中项写入 `detail`，对外只返回最高优先级单码。多违例单码裁决顺序（左高右低）：`invalid_binding_shape` > `scope_violation` > `cross_room_reference` > `binding_not_found` > attributeId 分类链。请求形错误优先于结局类失败。
+- 存储寻址识别器特征是下限；`invalidCases` 已钉死 `expectedRejection` 的输入不得改判（SQL 表达式归 `invalid_attribute_id`）。
 - 契约内嵌 `testCases`（含五结局逐例）与 `invalidCases`（逐例声明 `violates` 与 `expectedRejection`）是失败语义的可执行口径；统一校验器（`eng/verify-wire.mjs`，随 R-00355 落地）执行全部用例。
 
 ## 兼容影响
