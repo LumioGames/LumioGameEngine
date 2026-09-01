@@ -262,7 +262,8 @@ flowchart LR
 
 ## 5. TODO（按这个顺序开卡）
 
-> 交付按 **Living Architecture**：接口真值是 `engine/abi/native-abi.json`（ABI）+ `engine/wire/*.json`（wire 契约），开发态不跑 Baseline / Fixture 门 / 七仓镜像。ADR 编号落笔时现查最高号（编号无机器占号，会被并发抢）。
+> 交付按 **Living Architecture**（口径见 `.spec/knowledge/standards/repository-architecture.md`「变更顺序」）：
+> 托管↔Native 二进制边界改 `engine/abi/native-abi.json`；**其余公共语义（玩法、绑定、账号、定时）各落一份独立的 `engine/wire/<name>-v1.json`——不得扩展 `hello-wire-v1.json`**，由 `node eng/verify-wire.mjs` 跑契约内嵌的正反例。开发态不跑 Baseline / Fixture 门 / 七仓镜像。ADR 编号落笔时现查最高号（编号无机器占号，会被并发抢）。
 
 **阶段 0：先立规矩**
 
@@ -270,7 +271,7 @@ flowchart LR
 |---|---|---|
 | 0-1 | 会话与准入契约：五步准入、未验证限额语义、**握手携带不透明凭据 + 反重放窗口**、连接代次、关闭原因码词表增列五项 | M1 |
 | 0-2 | Account 认证/资料端口契约：登录即注册的失败语义、Bot 工具注册声明与失败码、凭据签发/过期/撤销边界 | M2 |
-| 0-3 | 通用玩法命令信封：上行命令 + 下行状态载荷；冻结前用「挖方块」纸面套验通用性（不能只为聊天量身定做） | M3 / M6 |
+| ~~0-3~~ | ~~通用玩法命令信封~~ —— **已落地（2026-09-01）**：ADR-049 转 Accepted，契约真值在 `engine/wire/gameplay-command-envelope-v1.json`，校验入口 `node eng/verify-wire.mjs` | M3 / M6 |
 | 0-4 | **每帧字节配额接缝契约**：单位、本帧配额语义、读取相位与消费相位 | M4 |
 | 0-5 | 空间粗筛内核 ABI：在 root ABI 增槽（照 CLR host 三槽先例 create/call/destroy），清单形状与确定性判据 | M5 |
 | 0-6 | 发送调度契约：优先级形状、硬饥饿上限、突发上限显式、三处回流队列纪律、**阶梯切换信号 = revision 落后深度** | M7 |

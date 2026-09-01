@@ -34,6 +34,7 @@
 | S-1 | 存档垂直切片的范围 | **本轮收窄到组件级**：只验证单个组件最后状态字段的存档/恢复往返；整房间进程重启恢复留给持久化主线 | RM-00011 Owner 裁决（本室非目标） | 存档设计概要 §5 阶段 1 第 4 项 |
 | R-1 | 五份文档改名与全仓链接策略 | 设计概要类**去日期前缀**（活文档）：`lumio-{ecs,ds,gas,save,config}-design-overview.md`，全部 `git mv` 保历史；历史类**保留日期前缀**（某天的记录）。全仓 `.md`/`.json` 内的旧文件名链接一律改写为新名；**`.sdd/*.diff` 四个文件刻意不改**——路径是 diff 语法的一部分，改了会破坏那份历史 diff 的可用性 | 设计概要会一直改，带日期会让人误以为是某天的快照；而流水/审计确实是某天的记录，该带日期 | 五份文件已改名；18 个文件的链接已更新；全仓旧名零残留 |
 | R-2 | 「原文照搬」附录里的链接怎么办 | 附录内文的**文档链接同步更新为新文件名**，其余原文不改；并在附录里显式写明这一点 | 不更新就是一堆死链；更新了却仍宣称「原文照搬」就是撒谎——所以写明 | GAS / 存档两份流水的附录 C 开头 |
+| R-3 | 本轮与 2026-09-01 PR #52（C-1 玩法命令信封）的 blast radius | 四份设计概要的「交付按 Living Architecture」前言全部改写为 `repository-architecture.md`「变更顺序」的精确口径：**其余公共语义各落一份独立的 `engine/wire/<name>-v1.json`，不得扩展 `hello-wire-v1.json`**，校验走 `node eng/verify-wire.mjs`；DS 阶段 0 卡 0-3 标记为已落地 | 本分支 rebase 到 `935a8a9` 后重算——`main` 推进极快，rebase 后不重算 blast radius 就会发布一份当天就过期的规范 | 四份设计概要 §5 前言；DS 卡 0-3；本表 D-009 行与 W-1 行 |
 
 ## RM-00011 并入清单（2026-09-01 Owner 裁决 → 写进新正文的新现状）
 
@@ -41,7 +42,7 @@
 |---|---|---|
 | 重连 | DS 裁决 11：断线 = 登出 + 重登；会话保留窗口**降为预留位** | **5 分钟保留窗口是正式功能**：服务器实体保留、房间照常模拟、显式 disconnected 状态；重连做全新握手 + rebind **同一 NetEntityId**，只重建客户端 ReplicaWorld；窗口用进程内单调钟、不跨重启；超时销毁，再登录建新实体 |
 | 重复登入 | 无 | **接管（takeover）**：同账号新的已认证准入踢掉旧连接（带显式终止通知），走 rebind 路径接同一实体 |
-| D-009 | DS 裁决 19：继续封锁、图上留洞 | **已解冻**。ADR-049 定稿为通用玩法命令信封（上行 InputCommand / 下行状态载荷），ChatInput 是第一个租户；冻结前用「挖方块」纸面套验通用性 |
+| D-009 | DS 裁决 19：继续封锁、图上留洞 | **已解冻并已落地**（2026-09-01 PR #52）：ADR-049 转 Accepted，通用玩法命令信封的契约真值在 `engine/wire/gameplay-command-envelope-v1.json`，校验入口 `node eng/verify-wire.mjs`；ChatInput 是第一个租户，已按「挖方块」纸面套验过通用性 |
 | 宿主 | DS 裁决 7：Rust = 连接与字节，C# = 语义与真值 | **C# 宿主先行**保 MS-00001 日期，切片级最小 Rust 宿主并行起建；C# 切片验收通过后 Rust 宿主重跑同一验收套，通过则冻结 C# 宿主退为参考。**公共契约与宿主无关** |
 | 拓扑 | DS 分层总图：DS 核心 + 语义层 + 体素 | **多一个 Account Server**：LumioServer 仓下 `account-server/` 独立 C# 进程，自带低频 ECS World，AccountEntity 是 ECS 实体；凭据材料不进普通组件 |
 | 多 World | ECS §2：V1 大世界单地图 = 单权威 World；U-1 副本/多地图**未决** | **Room = 多个互相隔离的 GameWorld 实例**，U-1 就此关闭。一个连接同时只在一个 Room |
@@ -51,5 +52,5 @@
 
 | # | 问题 | 证据 | 建议处置 |
 |---|---|---|---|
-| W-1 | RM-00011 Wave 0 四张契约卡的交付口径写的是「ADR→Schema/ID→Fixture→Baseline→七仓镜像」，而这条链上的 Schema / Fixture / ID registry 已于同日 09:39 删除 | `docs/reviews/2026-09-01-rm-00011-room-review.md:45,83`；`59866ec` | 按裁决 0a 改为 Living Architecture 口径：ADR → `engine/wire` / `engine/abi` 契约 → 契约自带校验（`eng/verify-hello-wire.mjs` 同型）→ 直接消费者重编。**卡面修订权归 TD** |
+| ~~W-1~~ | ~~RM-00011 Wave 0 契约卡的交付口径与已删除的 Baseline 链冲突~~ | — | **已自行闭合**（2026-09-01 PR #52）：C-1 实际按 living-architecture 口径交付（ADR-049 明写「Delivered as a pre-launch living-architecture wire contract, not a baseline event」），且 `repository-architecture.md`「变更顺序」已重写为 ABI / `engine/wire/<name>-v1.json` + `verify-wire.mjs` 三步。**余下三张 Wave 0 卡的卡面文字若仍写旧链，修订权归 TD** |
 | W-2 | ADR-027 的 Contract 段引用 `tick-phase-contract.schema.json`（已删）；13 相矩阵的权威摘要现只存于 `LumioGameEngine_Architecture_v1.4.md` §4.5 | ADR-027「Contract」段；v1.4 §4.5 表 | Accepted ADR 正文不可改写；需新增一张 ADR 记录「相位矩阵的现行落点」，或在 Living Architecture 下把该表迁入 `engine/` 契约。本轮先在 ECS 设计概要里把可写域约束写死，作为唯一在用出处 |

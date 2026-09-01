@@ -219,7 +219,8 @@ sequenceDiagram
 
 ## 5. TODO（按这个顺序开卡）
 
-> 交付按 **Living Architecture**：接口真值是 `engine/abi` + `engine/wire` 契约，开发态不跑 Baseline / Fixture 门 / 七仓镜像。ADR 编号落笔时现查最高号。
+> 交付按 **Living Architecture**（口径见 `.spec/knowledge/standards/repository-architecture.md`「变更顺序」）：
+> 托管↔Native 二进制边界改 `engine/abi/native-abi.json`；**其余公共语义（玩法、绑定、账号、定时）各落一份独立的 `engine/wire/<name>-v1.json`——不得扩展 `hello-wire-v1.json`**，由 `node eng/verify-wire.mjs` 跑契约内嵌的正反例。开发态不跑 Baseline / Fixture 门 / 七仓镜像。ADR 编号落笔时现查最高号（编号无机器占号，会被并发抢）。
 
 **阶段 0：先立规矩**
 
