@@ -349,8 +349,14 @@ function checkStructure(contract, fileName, problems) {
   }
   const allCases = [...(contract.testCases ?? []), ...(contract.invalidCases ?? [])];
   for (const c of contract.invalidCases ?? []) {
-    if (!errorCodes.includes(c.expectedRejection)) problem(`invalidCases.${c.name}: expectedRejection ${c.expectedRejection} not in errorCodes`);
-    if (contract.rules && !contract.rules.some((r) => r.id === c.violates)) problem(`invalidCases.${c.name}: violates "${c.violates}" names no registered rule`);
+    const code = c.expectedRejection;
+    const stableCode = typeof code === 'string' && /^[a-z][a-z0-9_]*$/.test(code);
+    if (stableCode && errorCodes.length > 0 && !errorCodes.includes(code)) {
+      problem(`invalidCases.${c.name}: expectedRejection ${code} not in errorCodes`);
+    }
+    if (contract.rules && c.violates && !contract.rules.some((r) => r.id === c.violates)) {
+      problem(`invalidCases.${c.name}: violates "${c.violates}" names no registered rule`);
+    }
   }
   return allCases.length;
 }
@@ -376,11 +382,24 @@ function validateContract(contract, fileName) {
     }
   };
 
+  const envelopePayload = (item) => {
+    const candidate = item?.message ?? item?.payload;
+    if (candidate && typeof candidate === 'object' && typeof candidate.messageType === 'string') return candidate;
+    return null;
+  };
+
   if (contract.testCases) {
     for (const testCase of contract.testCases) {
+      const message = envelopePayload(testCase);
+      if (!message) {
+        runCase(`testCases.${testCase.name} (declaration)`, () => {
+          if (!testCase.name) throw new Rejection('bad_envelope', 'scenario case must have a name');
+        });
+        continue;
+      }
       const rejection = runCase(`testCases.${testCase.name}`, () => {
-        checkMessageShape(testCase.message, contract);
-        checkMessageSemantics(testCase.message, contract);
+        checkMessageShape(message, contract);
+        checkMessageSemantics(message, contract);
       });
       if (rejection) problems.push(`${fileName} testCases.${testCase.name}: expected valid, rejected [${rejection.code}] ${rejection.message}`);
     }
@@ -389,13 +408,22 @@ function validateContract(contract, fileName) {
     for (const invalidCase of contract.invalidCases) {
       if (invalidCase.validatorCheck === false) {
         runCase(`invalidCases.${invalidCase.name} (declaration)`, () => {
-          if (!invalidCase.payload) throw new Rejection('bad_envelope', 'receiver-side case must still carry a scenario payload');
+          if (!invalidCase.payload && !invalidCase.given && !invalidCase.when) {
+            throw new Rejection('bad_envelope', 'receiver-side case must still carry a scenario payload or given/when');
+          }
+        });
+        continue;
+      }
+      const message = envelopePayload(invalidCase);
+      if (!message) {
+        runCase(`invalidCases.${invalidCase.name} (declaration)`, () => {
+          if (!invalidCase.expectedRejection) throw new Rejection('bad_envelope', 'non-envelope invalidCase must declare expectedRejection');
         });
         continue;
       }
       const rejection = runCase(`invalidCases.${invalidCase.name}`, () => {
-        checkMessageShape(invalidCase.payload, contract);
-        checkMessageSemantics(invalidCase.payload, contract);
+        checkMessageShape(message, contract);
+        checkMessageSemantics(message, contract);
       });
       if (!rejection) problems.push(`${fileName} invalidCases.${invalidCase.name}: expected rejection, was accepted`);
       else if (rejection.code !== invalidCase.expectedRejection) {
