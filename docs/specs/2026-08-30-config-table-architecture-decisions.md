@@ -1,7 +1,7 @@
 # 配表管线架构定稿会 · 会中裁决流水（2026-08-30）
 
 > 实时落盘，防对话中断。格式：模块 · 裁决 · 理由 · 落点 · 保留意见。
-> 最终定稿见 [`2026-08-30-lumioconfig-design-overview.md`](2026-08-30-lumioconfig-design-overview.md)（文档名「LumioConfig 设计概要」，Owner 退回首版后改为执行导向六段式：TLDR→概要→设计图→功能模块→TODO→明确不做；审计与过账记录全部迁入本文件附录，见末尾）。
+> 最终定稿见 [`lumio-config-design-overview.md`](lumio-config-design-overview.md)（文档名「LumioConfig 设计概要」，Owner 退回首版后改为执行导向六段式：TLDR→概要→设计图→功能模块→TODO→明确不做；审计与过账记录全部迁入本文件附录，见末尾）。
 > 会议原则（沿用 GAS 会 Owner 三条）：①第一性原理，不加需求；②奥卡姆剃刀，如无必要勿增实体；③每条需求配游戏示例+大白话。
 
 ## 裁决流水
@@ -60,7 +60,7 @@
 - [x] 阶段 D：运行时加载与热更（生产改判滚动更新）
 - [x] 阶段 E：工具链与 AI 接口（含 E.4 双件套、E.5 LumioConfig 仓）
 - [x] 接缝对账（GAS/ECS/DS/ADR-010/ADR-034）
-- [x] 收尾三问 + 散会定稿整理：[`2026-08-30-lumioconfig-design-overview.md`](2026-08-30-lumioconfig-design-overview.md)
+- [x] 收尾三问 + 散会定稿整理：[`lumio-config-design-overview.md`](lumio-config-design-overview.md)
 - [x] 板 Z.4（Owner 退回首版定稿文档）：结构改为执行导向六段式、文档名改「LumioConfig 设计概要」、语言再压大白话；审计过账迁入下方附录
 
 ---

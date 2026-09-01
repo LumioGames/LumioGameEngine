@@ -10,7 +10,7 @@
 > **验收配置读回**：本轮使用 Requirement active type=`atype_2c92d7e5acc361f7ad82b1733ab4c223`（`需求验收`）和 `not_started` status=`astat_20e2c7f5c6d891ad0966208b55da0372`（`未提交`），16 个新 item 的类型、状态、正文和顺序均读回一致；Quality active type/status 只保留为历史配置证据。
 > **架构锚点**：快照证据对应本地审计 checkout `e282eb9`，较 `origin/main` `d59afa9` 超前 4 个提交；当前本地 `HEAD` 为 `6e3d80b`，包含已审查的 LF 字节规范修复以及其后的未提交审计/计划差异。本文件的未提交修改不计入实现完成证据。
 > **架构基线**：`LGE-V1.4-2026-08-27`，本轮零 BaselineId 变更。
-> **关联文档**：[`2026-08-29-ds-server-architecture.md`](../specs/2026-08-29-ds-server-architecture.md)、[`mvp-browser-voxel-multiplayer.md`](../plans/mvp-browser-voxel-multiplayer.md)、[`2026-08-29-seven-repo-progress-assessment.md`](2026-08-29-seven-repo-progress-assessment.md)、[`DECISIONS_PENDING.md`](../architecture/DECISIONS_PENDING.md)。
+> **关联文档**：[`lumio-ds-design-overview.md`](../specs/lumio-ds-design-overview.md)、[`mvp-browser-voxel-multiplayer.md`](../plans/mvp-browser-voxel-multiplayer.md)、[`2026-08-29-seven-repo-progress-assessment.md`](2026-08-29-seven-repo-progress-assessment.md)、[`DECISIONS_PENDING.md`](../architecture/DECISIONS_PENDING.md)。
 
 ## 1. 执行摘要
 

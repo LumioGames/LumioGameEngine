@@ -2,7 +2,7 @@
 
 > **用法**：在本仓开会话，把「提示词正文」整段贴进去（会话需能读仓内文件）。
 > 与「裁决会（对抗式主持）」提示词不同：这一份**不设主持人**——AI 直接下场扮演**引擎架构总监**，与用户（项目 Owner，最终拍板人）一对一 battle。
-> 输入是 [`docs/research/2026-08-29-ecs-framework/`](../research/2026-08-29-ecs-framework/) 调研包 + 本仓既有 ADR；输出是 `docs/specs/2026-08-29-ecs-architecture-framework.md`（框架图定稿）。
+> 输入是 [`docs/research/2026-08-29-ecs-framework/`](../research/2026-08-29-ecs-framework/) 调研包 + 本仓既有 ADR；输出是 `docs/specs/lumio-ecs-design-overview.md`（框架图定稿）。
 > 前一版提示词存档见 [`2026-08-29-ecs-design-discussion-prompt.md`](2026-08-29-ecs-design-discussion-prompt.md)。
 
 ---
@@ -87,7 +87,7 @@
 
 ### 7. 产出（散会即落盘，不留在聊天记录里）
 
-落盘 `docs/specs/2026-08-29-ecs-architecture-framework.md`，包含：
+落盘 `docs/specs/lumio-ecs-design-overview.md`，包含：
 
 1. **框架图定稿**：分层总图 + 生命周期状态机图 + 复制事务时序图（mermaid），配模块职责与契约表。
 2. **冻结语义清单**：本次定下的每条语义，注明落点（进哪个 ADR 候选 / 哪个 Schema / 哪份 spec）。

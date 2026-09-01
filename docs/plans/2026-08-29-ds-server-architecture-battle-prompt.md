@@ -2,7 +2,7 @@
 
 > **用法**：在架构仓 `LumioGameEngineArchitecture` 开一个新会话（会话需能读仓内文件），把「提示词正文」整段贴进去。
 > 与调研提示词不同：这一份**不设主持人**——AI 直接下场扮演**服务器引擎总监**，与用户（项目 Owner，最终拍板人）一对一对撞。
-> 输入 = 两波 DS 调研包 + 本仓既有 ADR / D 表 + 刚定稿的 ECS 架构；输出 = `docs/specs/2026-08-29-ds-server-architecture.md`（框架图定稿）。
+> 输入 = 两波 DS 调研包 + 本仓既有 ADR / D 表 + 刚定稿的 ECS 架构；输出 = `docs/specs/lumio-ds-design-overview.md`（框架图定稿）。
 > 姊妹篇：[`2026-08-29-ecs-architecture-battle-prompt.md`](2026-08-29-ecs-architecture-battle-prompt.md)（ECS 定稿会，已跑完并出图）。**本次是它的下游**：ECS 定的是「状态怎么长」，今天定的是「状态怎么被权威地跑起来、发出去、恢复回来」。
 
 ---
@@ -30,7 +30,7 @@
 **B. 我们自己的既有约束（对账义务，不是参考）**
 
 - `docs/plans/2026-08-29-ue-dedicated-server-research-prompt.md` 第 3 节 —— 目标环境画像 + 十条「已知待解的硬问题」。**今天就是来回答那十条的。**
-- `docs/specs/2026-08-29-ecs-architecture-framework.md` —— **刚定稿的 ECS 架构**。DS 图必须和它严丝合缝，接缝清单见第 8 节。
+- `docs/specs/lumio-ecs-design-overview.md` —— **刚定稿的 ECS 架构**。DS 图必须和它严丝合缝，接缝清单见第 8 节。
 - `.spec/decisions/README.md`（ADR 索引）+ `docs/architecture/DECISIONS_PENDING.md`（D-001…）—— **框架图不得无声推翻任何 Accepted ADR**；冲突必须显式指出并给「新 ADR 取代」路径。
 - `docs/architecture/LumioGameEngine_Architecture_v1.4.md` + `TRANSPORT-WEBSOCKET-PROFILE-REGISTRATION.md` —— 当前基线与已注册的 WebSocket 传输 profile。
 
@@ -146,7 +146,7 @@ ECS 昨天刚定稿。DS 图不是另起炉灶，是接上去。**逐条确认�
 
 **会中流水**：每拍一个板，立刻追加写进 `docs/specs/2026-08-29-ds-server-architecture-decisions.md`（一条一行：模块 · 裁决 · 理由 · 落点 · 保留意见）。这是防对话中断的保险，不是最终产物。
 
-**散会定稿**：整理成 `docs/specs/2026-08-29-ds-server-architecture.md`，包含：
+**散会定稿**：整理成 `docs/specs/lumio-ds-design-overview.md`，包含：
 
 1. **框架图定稿**：分层总图 + 一次连接建立的时序图 + 一次发送循环的流程图（mermaid），配模块职责与对外契约表。
 2. **冻结语义清单**：本次定下的每条语义，注明落点（进哪个 ADR 候选 / 哪个 Schema / 哪份 spec / 暂不冻结）。

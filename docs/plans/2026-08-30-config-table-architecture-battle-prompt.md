@@ -44,9 +44,9 @@
 
 | 来源 | 已经预支了什么 |
 |---|---|
-| `docs/specs/2026-08-30-gas-architecture.md` + `...-decisions.md` | 决议 `0.1`/`14`：Excel 配表**直接继承**，注明「配表管线专项对齐」；技能/效果/属性/Tag 词汇表用**永久编号**（配表，走 ADR-007 registry）；**公式声明**（常量/曲线/属性捕获）挂在配表；`fx_key`（表现效果索引）、**覆盖优先级**列、**发布档位**（权威/表现先行/逻辑预测）按技能声明、**打断策略**（作废/挂起）按配表选、**存档档位**（下线即清/暂停/离线倒计时）按 buff 类型配档、**执行时限**配表默认值超时框架强制清场；决议 `3c` 明确「时长/周期一律 tick 帧计数，策划配秒、管线换帧」——**这是配表编译期单位转换的具体案例，今天要不要把「编译期单位转换」定成 Schema 的通用能力** |
-| `docs/specs/2026-08-29-ecs-architecture-framework.md` | §12 ADR 候选 9「EntityType 声明契约」（组件集、依赖/互斥、CS/Local 模式）——这是 ECS 自己的候选 ADR，不是今天的任务，但今天要给一句边界判断：EntityType 声明算不算「配表」（按 F.7 判据它更像编译期类型声明而非「每 Revision 生成、运行时只读」的数据），走不走今天定的 Schema/IR 机制 |
-| `docs/specs/2026-08-29-ds-server-architecture.md` | Voxel BlockType 的碰撞/材质/光照常量属于报告 F.7 判定的「配表」；但 `D-013`/`D-014`（体素数值画像：chunk/page 尺寸、压缩后端）已确认 **adapter-internal，不进公共契约**——今天要划一条线：BlockType 配表本身（碰撞体/材质引用/光照常量）算今天定的公共契约，具体打包进 Voxel 的物理布局细节仍然是 adapter-internal，不重开 D-013/014 |
+| `docs/specs/lumio-gas-design-overview.md` + `...-decisions.md` | 决议 `0.1`/`14`：Excel 配表**直接继承**，注明「配表管线专项对齐」；技能/效果/属性/Tag 词汇表用**永久编号**（配表，走 ADR-007 registry）；**公式声明**（常量/曲线/属性捕获）挂在配表；`fx_key`（表现效果索引）、**覆盖优先级**列、**发布档位**（权威/表现先行/逻辑预测）按技能声明、**打断策略**（作废/挂起）按配表选、**存档档位**（下线即清/暂停/离线倒计时）按 buff 类型配档、**执行时限**配表默认值超时框架强制清场；决议 `3c` 明确「时长/周期一律 tick 帧计数，策划配秒、管线换帧」——**这是配表编译期单位转换的具体案例，今天要不要把「编译期单位转换」定成 Schema 的通用能力** |
+| `docs/specs/lumio-ecs-design-overview.md` | §12 ADR 候选 9「EntityType 声明契约」（组件集、依赖/互斥、CS/Local 模式）——这是 ECS 自己的候选 ADR，不是今天的任务，但今天要给一句边界判断：EntityType 声明算不算「配表」（按 F.7 判据它更像编译期类型声明而非「每 Revision 生成、运行时只读」的数据），走不走今天定的 Schema/IR 机制 |
+| `docs/specs/lumio-ds-design-overview.md` | Voxel BlockType 的碰撞/材质/光照常量属于报告 F.7 判定的「配表」；但 `D-013`/`D-014`（体素数值画像：chunk/page 尺寸、压缩后端）已确认 **adapter-internal，不进公共契约**——今天要划一条线：BlockType 配表本身（碰撞体/材质引用/光照常量）算今天定的公共契约，具体打包进 Voxel 的物理布局细节仍然是 adapter-internal，不重开 D-013/014 |
 
 **D. Owner 自己的实战经验（口述，没有像 GAS 2.0 那样的成文材料）**
 

@@ -2,8 +2,8 @@
 
 > **用法**：在架构仓 `LumioGameEngineArchitecture` 开一个新会话（会话需能读仓内文件），把「提示词正文」整段贴进去。
 > 与调研提示词不同：这一份**不设主持人**——AI 直接下场扮演**Gameplay 架构总监**，与用户（项目 Owner，最终拍板人）一对一对撞。
-> 输入三层：① 一波体素存档外部调研（文档级，非源码级，`docs/research/2026-08-29-map-save-load/`，只覆盖「场景/体素存档」一个类别）+ 一波配表管线调研（`docs/research/2026-08-29-config-table-pipeline/`，用来划边界，不是拿结论抄）；② 已 Accepted 的 ADR-010/032/033（通用持久化与 Config 骨架）+ ADR-024/035/036（体素快照/耐久骨架）+ ADR-004（实体身份骨架）；③ 刚定稿的 ECS / DS / GAS 三份架构 spec——**GAS 那份已经在存档口诀里预支了一套机制（存源头不存推导、装备不落盘、buff 三档、墙钟只在世界外边界），今天是去把 GAS 打的白条兑现成真实机制，不是从零发明**。输出 = `docs/specs/2026-08-30-save-load-architecture.md`（框架图定稿）。
-> 姊妹篇：[`2026-08-29-ecs-architecture-battle-prompt.md`](2026-08-29-ecs-architecture-battle-prompt.md)、[`2026-08-29-ds-server-architecture-battle-prompt.md`](2026-08-29-ds-server-architecture-battle-prompt.md)、[`2026-08-30-gas-architecture-battle-prompt.md`](2026-08-30-gas-architecture-battle-prompt.md)（均已跑完出图，产出分别是 `docs/specs/2026-08-29-ecs-architecture-framework.md`、`docs/specs/2026-08-29-ds-server-architecture.md`、`docs/specs/2026-08-30-gas-architecture.md`+`...-decisions.md`）。**今天是这条线的第四块拼图，但和前三块性质不同**：前三块画的是「状态怎么长、怎么权威地跑、怎么长出 Gameplay 语义」；今天画的是「这些状态怎么在断电、重启、发新版本、玩家关电脑之后还在」——而且前三块，尤其是 GAS，已经**假设了今天的答案存在**并在自己的图里用了它。
+> 输入三层：① 一波体素存档外部调研（文档级，非源码级，`docs/research/2026-08-29-map-save-load/`，只覆盖「场景/体素存档」一个类别）+ 一波配表管线调研（`docs/research/2026-08-29-config-table-pipeline/`，用来划边界，不是拿结论抄）；② 已 Accepted 的 ADR-010/032/033（通用持久化与 Config 骨架）+ ADR-024/035/036（体素快照/耐久骨架）+ ADR-004（实体身份骨架）；③ 刚定稿的 ECS / DS / GAS 三份架构 spec——**GAS 那份已经在存档口诀里预支了一套机制（存源头不存推导、装备不落盘、buff 三档、墙钟只在世界外边界），今天是去把 GAS 打的白条兑现成真实机制，不是从零发明**。输出 = `docs/specs/lumio-save-design-overview.md`（框架图定稿）。
+> 姊妹篇：[`2026-08-29-ecs-architecture-battle-prompt.md`](2026-08-29-ecs-architecture-battle-prompt.md)、[`2026-08-29-ds-server-architecture-battle-prompt.md`](2026-08-29-ds-server-architecture-battle-prompt.md)、[`2026-08-30-gas-architecture-battle-prompt.md`](2026-08-30-gas-architecture-battle-prompt.md)（均已跑完出图，产出分别是 `docs/specs/lumio-ecs-design-overview.md`、`docs/specs/lumio-ds-design-overview.md`、`docs/specs/lumio-gas-design-overview.md`+`...-decisions.md`）。**今天是这条线的第四块拼图，但和前三块性质不同**：前三块画的是「状态怎么长、怎么权威地跑、怎么长出 Gameplay 语义」；今天画的是「这些状态怎么在断电、重启、发新版本、玩家关电脑之后还在」——而且前三块，尤其是 GAS，已经**假设了今天的答案存在**并在自己的图里用了它。
 
 ---
 
@@ -49,9 +49,9 @@
 | [`ADR-035`](../../.spec/decisions/ADR-035-voxel-snapshot-payload.md) | Accepted | 体素快照/差分 payload：cut 归属、payload≠envelope、规范字节（同 cut 逐字节相同）、Partial 缺席=未覆盖不是删除、Diff 引用 base 严格递增、捕获生命周期 `Requested→...→Ready→Released` |
 | [`ADR-036`](../../.spec/decisions/ADR-036-voxel-streaming-durability-ack.md) | Accepted | `DurabilityAck` 记录、脏 chunk 无确认不许驱逐、驱逐栅栏记录、三种驻留模式（`AllResident`/`DurableEviction`/`VolatileAllowed`）、专用服务器默认 `DurableEviction` |
 | [`ADR-024`](../../.spec/decisions/ADR-024-voxel-p0-contract-set.md)、[`ADR-004`](../../.spec/decisions/ADR-004-entity-identity.md) | Accepted | 体素 P0 契约（chunk/page 信封、修订号）；实体身份/墓碑/所有权修订——存档恢复时引用重建要照这条 |
-| `docs/specs/2026-08-29-ecs-architecture-framework.md` | 定稿 | §5.3 八回调契约（`OnHydrate` = 快照恢复重建缓存，**必须可重跑、纯，禁一切副作用**）；§6.1 字段存档标记（同步×存档×可预测三维正交，四种组合合法，「存档」维度已经在框架层存在）；§7.1 引用三件套（网络 ID/欠条表/墓碑）；§12 ADR 候选 9「EntityType 声明契约」**目前不含迁移**——对应下面 gap-register 的缺口 |
-| `docs/specs/2026-08-29-ds-server-architecture.md` | 定稿 | 唯一结构提交点 `GasAndEventFinalize` 是 E/K/J/H 四模块共同的取样点；ADR 候选 4「耐久档位 profile（D-005 域确认件）：完整/异步/仅快照三档 + 丢失边界声明」——**今天可以把这条实锤下来** |
-| `docs/specs/2026-08-30-gas-architecture.md` + `...-decisions.md` | 定稿 | **今天最重要的既有约束**：决议 `10d`「存源头不存推导，存凭证不存面板」（Base 落盘，Current 永不落盘上线重算；装备效果条目不落盘、存穿戴栏上线重应用；限时 Buff 三档：下线即清/下线暂停存剩余帧数/离线倒计时——墙钟只在世界外边界，不进模拟）；决议 `11a`「排期本=派生缓存不进快照，恢复后扫条目重建（`OnHydrate` 义务）」；决议 `10b` 哈希双域（表现缓冲不进哈希不存档）；正文明确写「存档归 ECS/Runtime，GAS 字段只打标记」——**这句话就是今天类别②的任务书** |
+| `docs/specs/lumio-ecs-design-overview.md` | 定稿 | §5.3 八回调契约（`OnHydrate` = 快照恢复重建缓存，**必须可重跑、纯，禁一切副作用**）；§6.1 字段存档标记（同步×存档×可预测三维正交，四种组合合法，「存档」维度已经在框架层存在）；§7.1 引用三件套（网络 ID/欠条表/墓碑）；§12 ADR 候选 9「EntityType 声明契约」**目前不含迁移**——对应下面 gap-register 的缺口 |
+| `docs/specs/lumio-ds-design-overview.md` | 定稿 | 唯一结构提交点 `GasAndEventFinalize` 是 E/K/J/H 四模块共同的取样点；ADR 候选 4「耐久档位 profile（D-005 域确认件）：完整/异步/仅快照三档 + 丢失边界声明」——**今天可以把这条实锤下来** |
+| `docs/specs/lumio-gas-design-overview.md` + `...-decisions.md` | 定稿 | **今天最重要的既有约束**：决议 `10d`「存源头不存推导，存凭证不存面板」（Base 落盘，Current 永不落盘上线重算；装备效果条目不落盘、存穿戴栏上线重应用；限时 Buff 三档：下线即清/下线暂停存剩余帧数/离线倒计时——墙钟只在世界外边界，不进模拟）；决议 `11a`「排期本=派生缓存不进快照，恢复后扫条目重建（`OnHydrate` 义务）」；决议 `10b` 哈希双域（表现缓冲不进哈希不存档）；正文明确写「存档归 ECS/Runtime，GAS 字段只打标记」——**这句话就是今天类别②的任务书** |
 | `docs/architecture/DECISIONS_PENDING.md` | 待定 | `D-005`（耐久档位，今天要给 Confirmation 建议）、`D-007`（**无 N/N-1 兼容窗口，精确 Release 匹配+强制更新**——直接约束存档要不要支持读旧版本）、`D-012`（V1 不提供重连令牌，新连接重走握手——和「断线后存档状态怎么恢复」是两件事，不要混）、`D-013`/`D-014`（体素数值画像：chunk/page 尺寸、压缩后端**已确认 adapter-internal，非公共契约**，今天不重开） |
 | ECS 调研 `gap-register.csv` | 外部调研遗留 | 第 12 行：「EntityType 版本与迁移」标记**必须现在补**，理由「老存档无法升级、动态组件集合错位」——今天类别②要给这条一个答案 |
 
@@ -178,7 +178,7 @@
 
 **会中流水**：每拍一个板，立刻追加写进 `docs/specs/2026-08-30-save-load-architecture-decisions.md`（一条一行：类别·模块·裁决·理由·落点·保留意见）。
 
-**散会定稿**：整理成 `docs/specs/2026-08-30-save-load-architecture.md`，包含：
+**散会定稿**：整理成 `docs/specs/lumio-save-design-overview.md`，包含：
 
 1. 框架图定稿：三个类别各自的模块图 + 一次「玩家挖了一个方块」到「断电后还在」的时序图 + 一次「Buff 挂起→玩家下线→重新登录」的时序图（对齐 GAS 的 Buff 三档）+ 模块职责与对外契约表。
 2. 冻结语义清单：每条语义标注落点（哪个 ADR 候选/哪个 Schema/哪份 spec/暂不冻结）。

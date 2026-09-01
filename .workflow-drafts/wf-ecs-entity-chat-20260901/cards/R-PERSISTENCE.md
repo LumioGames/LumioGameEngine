@@ -23,7 +23,7 @@ Persist and restore only each Entity's declared last-message text and logical Ti
 
 - ECS field persistence and Snapshot View: `R-00150`.
 - Existing persistence adapter and recovery contract: `R-00231`.
-- Canonical Snapshot/WAL architecture: `ADR-010`, `docs/specs/2026-08-30-save-load-architecture.md`.
+- Canonical Snapshot/WAL architecture: `ADR-010`, `docs/specs/lumio-save-design-overview.md`.
 - ChatComponent declarations: `R-CHAT-COMPONENT`.
 
 ## Requirements

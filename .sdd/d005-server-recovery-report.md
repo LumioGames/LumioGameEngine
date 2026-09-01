@@ -34,7 +34,7 @@ source, Workflow object, or architecture source was changed.
   `f71cac137733b7f1609ae8235676d44c9f324858`.
 - Raw Git blobs at both authority commits were hashed without checking out or
   modifying architecture files:
-  - `docs/specs/2026-08-30-save-load-architecture.md`:
+  - `docs/specs/lumio-save-design-overview.md`:
     `d69c69374ef960b1968f0e8b2fdd4195d1abd52ed5ab34fd00b406fa85f141f1`
     (23,805 bytes).
   - `docs/specs/2026-08-30-save-load-architecture-decisions.md`:

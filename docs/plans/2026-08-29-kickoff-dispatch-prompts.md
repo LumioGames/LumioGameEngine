@@ -146,7 +146,7 @@ W4 A2/A3: browser host/WebGL, >=5 browsers, Snapshot/WAL/Replay/faults
 **A1-alpha 卡串**：`R-00277`（当前 in_progress） -> `R-00278` + `R-00279` -> `R-00280` -> `R-00281`；`R-00282` 可并行补证据。`R-00260`/`R-00276` 当前 acceptance，先由总调度验收读回。
 
 ```text
-你负责 LumioServer 的 A1-alpha，但开工第一步是读取 W0.5 profile 决策。先读 R-00277..R-00282、docs/specs/2026-08-28-mvp-csharp-host-design.md、docs/specs/2026-08-29-ds-server-architecture.md 和架构生成物 pin；若没有明确选择 bootstrap 或 DS V1，立即 BLOCKED，不实现、不流转状态。
+你负责 LumioServer 的 A1-alpha，但开工第一步是读取 W0.5 profile 决策。先读 R-00277..R-00282、docs/specs/2026-08-28-mvp-csharp-host-design.md、docs/specs/lumio-ds-design-overview.md 和架构生成物 pin；若没有明确选择 bootstrap 或 DS V1，立即 BLOCKED，不实现、不流转状态。
 若选择 bootstrap profile：本次只实现/验证 C# 语义验收 harness，并在交付物和测试名称中明确“非 DS V1”；不得把它写成 Rust DS 核心完成。
 若选择 DS V1 profile：按定稿 §4 将 Rust 连接/准入/会话/预算/WorldSlot 作为生产边界，并先补 Rust↔C# 接缝；现有 C# harness 只能作为对照，不得替代 Rust 验收。
 若选择 bootstrap profile，执行以下 C# harness 步骤：

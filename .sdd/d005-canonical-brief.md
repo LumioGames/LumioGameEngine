@@ -6,7 +6,7 @@ Read this first: `C:\Users\g923\AppData\Local\Temp\d005-cards\R-00141.md`. It is
 
 Architecture authority is the original bytes from architecture commit `c14df420ac05b0d23f1fb674977b9a4c957edac5` (also present in `f71cac137733b7f1609ae8235676d44c9f324858`):
 
-- `docs/specs/2026-08-30-save-load-architecture.md`, SHA-256 `d69c69374ef960b1968f0e8b2fdd4195d1abd52ed5ab34fd00b406fa85f141f1`.
+- `docs/specs/lumio-save-design-overview.md`, SHA-256 `d69c69374ef960b1968f0e8b2fdd4195d1abd52ed5ab34fd00b406fa85f141f1`.
 - `docs/specs/2026-08-30-save-load-architecture-decisions.md`, SHA-256 `82ed79a72ced56913c79ffa0bfb6d3763221ff2312c13c4a4d34f56e89b56f7c`.
 - Baseline `LGE-V1.4-2026-08-27`.
 
