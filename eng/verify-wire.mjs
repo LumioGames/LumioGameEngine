@@ -731,9 +731,104 @@ function checkEntityBindingContract(contract, fileName, problems) {
 
 // ---------- Contract validation ----------
 
+const ENVELOPE_CONTRACT_ID = 'lumio.gameplay-envelope.v1';
+const N04_DECLARATIONS_SHA256 = 'a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0';
+
+function serializeAttributeDeclarations(declarations) {
+  return `${JSON.stringify(declarations, null, 2)}\n`;
+}
+
+function attributeDeclarationsSha256(declarations) {
+  return createHash('sha256').update(serializeAttributeDeclarations(declarations)).digest('hex');
+}
+
+function checkGameplayEnvelopeContract(contract, fileName, problems) {
+  if (contract.contractId !== ENVELOPE_CONTRACT_ID) return;
+  const problem = (msg) => problems.push(`${fileName}: ${msg}`);
+
+  const snapshotNotes = contract.messages?.FullSnapshot?.notes ?? '';
+  if (!/Room/.test(snapshotNotes) || !/唯一快照载体/.test(snapshotNotes)) {
+    problem('messages.FullSnapshot.notes must declare stateBlocks as the Room-path-only snapshot carrier');
+  }
+  if (!/ADR-045/.test(snapshotNotes)) {
+    problem('messages.FullSnapshot.notes must reject the ADR-045 five-field body as this contract\'s FullSnapshot');
+  }
+  if (!/活体实体/.test(snapshotNotes)) {
+    problem('messages.FullSnapshot.notes must require stateBlocks to include replicated state of every live Room entity');
+  }
+
+  const superseded = contract.messages?.ConnectionSuperseded;
+  if (!superseded) {
+    problem('messages.ConnectionSuperseded missing');
+  } else {
+    if (superseded.dir !== 's2c') problem('messages.ConnectionSuperseded.dir must be s2c');
+    const required = superseded.required ?? {};
+    if (required.messageType !== 'const:ConnectionSuperseded') {
+      problem('ConnectionSuperseded.required.messageType must be const:ConnectionSuperseded');
+    }
+    if (required.reasonCode !== 'const:connection_superseded') {
+      problem('ConnectionSuperseded.required.reasonCode must be const:connection_superseded');
+    }
+    if (required.netEntityId !== 'u64') problem('ConnectionSuperseded.required.netEntityId must be u64');
+    if (required.newConnectionGeneration !== 'u64') {
+      problem('ConnectionSuperseded.required.newConnectionGeneration must be u64');
+    }
+    if (!/再关闭/.test(superseded.notes ?? '')) {
+      problem('ConnectionSuperseded.notes must require the old connection to receive the notice before the server closes it');
+    }
+  }
+
+  const generated = contract.generatedAttributeDeclarations;
+  if (!generated || generated.source !== 'generated-from-field-annotations') {
+    problem('generatedAttributeDeclarations.source must be generated-from-field-annotations');
+  } else if (!Array.isArray(generated.declarations)) {
+    problem('generatedAttributeDeclarations.declarations missing (N-04 copy)');
+  } else {
+    const digest = attributeDeclarationsSha256(generated.declarations);
+    if (generated.sha256 !== N04_DECLARATIONS_SHA256) {
+      problem(`generatedAttributeDeclarations.sha256 ${generated.sha256} != N-04 ${N04_DECLARATIONS_SHA256}`);
+    }
+    if (digest !== N04_DECLARATIONS_SHA256) {
+      problem(`generatedAttributeDeclarations.declarations sha256 ${digest} != N-04 ${N04_DECLARATIONS_SHA256}`);
+    }
+  }
+
+  for (const [id, mapping] of Object.entries(contract.mappings ?? {})) {
+    const dim = mapping.dimensions;
+    if (!dim || typeof dim !== 'object') continue;
+    if (dim.source !== 'generated-from-field-annotations') {
+      problem(`mappings.${id}.dimensions.source must be generated-from-field-annotations`);
+    }
+    if (dim.sha256 !== N04_DECLARATIONS_SHA256) {
+      problem(`mappings.${id}.dimensions.sha256 ${dim.sha256} != N-04 ${N04_DECLARATIONS_SHA256}`);
+    }
+  }
+
+  const chatDim = contract.mappings?.['chat.component']?.dimensions;
+  const chatRows = (generated?.declarations ?? []).filter((row) => String(row.attributeId).startsWith('ChatComponent.'));
+  if (chatRows.length > 0 && chatDim) {
+    for (const row of chatRows) {
+      if (row.persistence !== chatDim.persistence || row.replication !== chatDim.replication || row.visibility !== chatDim.visibility) {
+        problem(`chat.component dimensions ${chatDim.persistence}/${chatDim.replication}/${chatDim.visibility} != ChatComponent annotation ${row.attributeId} ${row.persistence}/${row.replication}/${row.visibility}`);
+      }
+    }
+  }
+
+  const eventNotes = contract.mappings?.['chat.event']?.notes ?? '';
+  if (!/Delta\.changedBlocks/.test(eventNotes) || !/eventOrder/.test(eventNotes) || !/appliedTicks/.test(eventNotes) || !/restoredWindow/.test(eventNotes)) {
+    problem('mappings.chat.event.notes must pin acceptance on client-received Delta.changedBlocks and forbid harness-synthesized eventOrder/appliedTicks/restoredWindow');
+  }
+
+  const names = new Set((contract.invalidCases ?? []).map((item) => item.name));
+  for (const requiredName of ['full_snapshot_without_state_blocks', 'full_snapshot_adr045_shape', 'runtime/connection-superseded-close-before-send']) {
+    if (!names.has(requiredName)) problem(`invalidCases missing ${requiredName}`);
+  }
+}
+
 function validateContract(contract, fileName, abiDefinition) {
   const problems = [];
   const caseCount = checkStructure(contract, fileName, problems);
+  checkGameplayEnvelopeContract(contract, fileName, problems);
   checkNativeTimerContract(contract, fileName, problems);
   checkEntityBindingContract(contract, fileName, problems);
   if (abiDefinition) checkTimerAbiAlignment(contract, abiDefinition, problems, fileName);
@@ -812,6 +907,9 @@ export {
   wireDir,
   checkNativeTimerContract,
   checkTimerAbiAlignment,
+  checkGameplayEnvelopeContract,
+  attributeDeclarationsSha256,
+  N04_DECLARATIONS_SHA256,
   TIMER_ABI_REQUIRED_FUNCTIONS,
   checkEntityBindingContract,
   admitBindingRecord,
@@ -841,6 +939,11 @@ async function main() {
     );
     console.log(summary);
     for (const problem of problems) console.log(`  - ${problem}`);
+    if (contract.contractId === ENVELOPE_CONTRACT_ID) {
+      const generated = contract.generatedAttributeDeclarations;
+      const digest = Array.isArray(generated?.declarations) ? attributeDeclarationsSha256(generated.declarations) : '(missing)';
+      console.log(`  dimensions sha256=${digest} (pinned ${generated?.sha256 ?? '(missing)'}; N-04 ${N04_DECLARATIONS_SHA256})`);
+    }
     if (problems.length > 0) failed = true;
   }
   if (failed) {
@@ -896,6 +999,125 @@ test('wrong-kind InputCommand is unknown_command_type via shipped invalidCase', 
   ic.expectedRejection = 'state_block_kind_mismatch';
   const flipped = validateContract(contract, 'gameplay-command-envelope-v1.json');
   assert.ok(flipped.problems.some((p) => p.includes('unknown_command_type') && p.includes('input/registered-wrong-kind')));
+});
+
+async function loadEnvelopeContract() {
+  return JSON.parse(await readFile(resolve(wireDir, 'gameplay-command-envelope-v1.json'), 'utf8'));
+}
+
+test('C-1 FullSnapshot without stateBlocks is bad_envelope via full_snapshot_without_state_blocks', async () => {
+  const contract = await loadEnvelopeContract();
+  const ic = (contract.invalidCases ?? []).find((c) => c.name === 'full_snapshot_without_state_blocks');
+  assert.ok(ic, 'missing shipped invalidCase full_snapshot_without_state_blocks');
+  assert.equal(ic.expectedRejection, 'bad_envelope');
+  assert.equal(ic.validatorCheck, true);
+  assert.equal('stateBlocks' in ic.payload, false);
+  assert.throws(
+    () => admitMessage(contract, ic.payload),
+    (error) => error instanceof Rejection && error.code === 'bad_envelope' && /stateBlocks/.test(error.message),
+  );
+});
+
+test('C-1 FullSnapshot ADR-045 five-field body is bad_envelope via full_snapshot_adr045_shape', async () => {
+  const contract = await loadEnvelopeContract();
+  const ic = (contract.invalidCases ?? []).find((c) => c.name === 'full_snapshot_adr045_shape');
+  assert.ok(ic, 'missing shipped invalidCase full_snapshot_adr045_shape');
+  assert.equal(ic.expectedRejection, 'bad_envelope');
+  assert.equal(ic.validatorCheck, true);
+  const body = ic.payload;
+  assert.equal(body.messageType, 'FullSnapshot');
+  for (const key of ['snapshotId', 'tickId', 'sessionRevisionVector', 'schemaEpoch', 'mappingSetHash']) {
+    assert.ok(key in body, `ADR-045 shape missing ${key}`);
+  }
+  assert.equal('stateBlocks' in body, false);
+  assert.throws(
+    () => admitMessage(contract, body),
+    (error) => error instanceof Rejection && error.code === 'bad_envelope',
+  );
+  const notes = contract.messages?.FullSnapshot?.notes ?? '';
+  assert.match(notes, /Room/);
+  assert.match(notes, /唯一快照载体/);
+  assert.match(notes, /ADR-045/);
+  assert.match(notes, /活体实体/);
+});
+
+test('C-1 ConnectionSuperseded is a required s2c notice accepted by admitMessage', async () => {
+  const contract = await loadEnvelopeContract();
+  const spec = contract.messages?.ConnectionSuperseded;
+  assert.ok(spec, 'messages.ConnectionSuperseded missing');
+  assert.equal(spec.dir, 's2c');
+  assert.equal(spec.required?.messageType, 'const:ConnectionSuperseded');
+  assert.equal(spec.required?.reasonCode, 'const:connection_superseded');
+  assert.equal(spec.required?.netEntityId, 'u64');
+  assert.equal(spec.required?.newConnectionGeneration, 'u64');
+  assert.match(spec.notes ?? '', /再关闭/);
+  const valid = (contract.testCases ?? []).find((c) => c.name === 's2c/connection-superseded');
+  assert.ok(valid?.message, 'embedded valid ConnectionSuperseded case must exist');
+  assert.doesNotThrow(() => admitMessage(contract, valid.message));
+});
+
+test('C-1 close-before-send ConnectionSuperseded is a receiver invalidCase', async () => {
+  const contract = await loadEnvelopeContract();
+  const ic = (contract.invalidCases ?? []).find((c) => c.name === 'runtime/connection-superseded-close-before-send');
+  assert.ok(ic, 'missing shipped invalidCase runtime/connection-superseded-close-before-send');
+  assert.equal(ic.validatorCheck, false);
+  assert.equal(ic.expectedRejection, 'session_closed');
+  assert.match(JSON.stringify(ic.payload ?? {}), /close|先关|关闭/);
+  const { problems } = validateContract(contract, 'gameplay-command-envelope-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('C-1 mapping dimensions are generated-from-field-annotations and sha256-match N-04', async () => {
+  const contract = await loadEnvelopeContract();
+  assert.equal(contract.contractId, ENVELOPE_CONTRACT_ID);
+  const generated = contract.generatedAttributeDeclarations;
+  assert.equal(generated?.source, 'generated-from-field-annotations');
+  assert.equal(generated?.sha256, N04_DECLARATIONS_SHA256);
+  assert.ok(Array.isArray(generated?.declarations), 'N-04 copy must be embedded as generatedAttributeDeclarations.declarations');
+  const digest = attributeDeclarationsSha256(generated.declarations);
+  assert.equal(digest, N04_DECLARATIONS_SHA256);
+  console.log(`C-1 dimensions sha256=${digest} (N-04 pinned ${N04_DECLARATIONS_SHA256})`);
+  for (const [id, mapping] of Object.entries(contract.mappings ?? {})) {
+    assert.equal(mapping.dimensions?.source, 'generated-from-field-annotations', `${id}.dimensions.source`);
+    assert.equal(mapping.dimensions?.sha256, N04_DECLARATIONS_SHA256, `${id}.dimensions.sha256`);
+  }
+  const fromEnv = process.env.LUMIO_ATTRIBUTE_DECLARATIONS;
+  if (fromEnv) {
+    const external = JSON.parse(await readFile(fromEnv, 'utf8'));
+    const externalDigest = attributeDeclarationsSha256(external);
+    assert.equal(externalDigest, digest);
+    assert.deepEqual(external, generated.declarations);
+    console.log(`C-1 dimensions sha256 matches LUMIO_ATTRIBUTE_DECLARATIONS (${externalDigest})`);
+  }
+});
+
+test('C-1 chat.component dimensions match ChatComponent field annotations', async () => {
+  const contract = await loadEnvelopeContract();
+  const dim = contract.mappings?.['chat.component']?.dimensions;
+  assert.ok(dim, 'chat.component.dimensions missing');
+  const rows = (contract.generatedAttributeDeclarations?.declarations ?? []).filter((row) =>
+    String(row.attributeId).startsWith('ChatComponent.'),
+  );
+  assert.ok(rows.length >= 2, 'N-04 copy must include ChatComponent rows');
+  const persistence = new Set(rows.map((row) => row.persistence));
+  const replication = new Set(rows.map((row) => row.replication));
+  const visibility = new Set(rows.map((row) => row.visibility));
+  assert.deepEqual([...persistence], ['persistent']);
+  assert.deepEqual([...replication], ['not-replicated']);
+  assert.deepEqual([...visibility], ['server-only']);
+  assert.equal(dim.persistence, 'persistent');
+  assert.equal(dim.replication, 'not-replicated');
+  assert.equal(dim.visibility, 'server-only');
+});
+
+test('C-1 chat.event notes require client-observed Delta.changedBlocks and forbid harness synthesis', async () => {
+  const contract = await loadEnvelopeContract();
+  const notes = contract.mappings?.['chat.event']?.notes ?? '';
+  assert.match(notes, /Delta\.changedBlocks/);
+  assert.match(notes, /eventOrder/);
+  assert.match(notes, /appliedTicks/);
+  assert.match(notes, /restoredWindow/);
+  assert.match(notes, /不得/);
 });
 
 const TIMER_ERROR_CODES = [

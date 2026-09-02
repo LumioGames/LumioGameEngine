@@ -1,7 +1,7 @@
 {
   "contractId": "lumio.gameplay-envelope.v1",
   "version": 1,
-  "purpose": "RM-00011 ECS 正式实体/聊天纵切的通用玩法命令信封唯一真值：上行 InputCommand 通用承载（多租户 command 映射，chat.input 第一个租户）、下行 FullSnapshot.stateBlocks / Delta.changedBlocks 状态块、Chat 映射三件（chat.input / chat.event / chat.component）与有界输入约束。Server、Runtime（C# MVP 宿主）、Client、Game 与最小 Rust 宿主复跑全部以本文件为字段真值，不得另写一份协议真值；措辞宿主无关。hello-wire-v1（MS-00002）不扩展、不复用其消息集。",
+  "purpose": "RM-00011 ECS 正式实体/聊天纵切的通用玩法命令信封唯一真值：上行 InputCommand 通用承载（多租户 command 映射，chat.input 第一个租户）、下行 FullSnapshot.stateBlocks（Room 路径唯一快照载体）/ Delta.changedBlocks 状态块、顶号 s2c ConnectionSuperseded、Chat 映射三件（chat.input / chat.event / chat.component）与有界输入约束。Server、Runtime（C# MVP 宿主）、Client、Game 与最小 Rust 宿主复跑全部以本文件为字段真值，不得另写一份协议真值；措辞宿主无关。hello-wire-v1（MS-00002）不扩展、不复用其消息集。",
   "decisionRecord": "ADR-049 (Accepted 2026-09-01, Room Review Rulings D-009 解冻)；typed-body 纪律承 ADR-028/ADR-045，字节编码承 ADR-047 LumioBinV1，摘要构造承 ADR-041。",
   "transport": {
     "kind": "websocket",
@@ -22,7 +22,10 @@
     "revision": "权威状态修订号（u64），每次权威提交递增；FullSnapshot 携带当前值，Delta 携带提交后值。",
     "messageId": "chat.event 的服务端消息号，Room 内单调递增，永不回退、永不复用。",
     "roomSequence": "Room 聊天严格递增序号（u64），每事件 +1；接收方检测到回退或重复以 bad_envelope 拒绝。",
-    "appliedTick": "ChatComponent.SetMessage 提交的权威 tick（u64），服务端盖章；客户端不提供。"
+    "appliedTick": "ChatComponent.SetMessage 提交的权威 tick（u64），服务端盖章；客户端不提供。",
+    "reasonCode": "ConnectionSuperseded 的终止原因；本契约本消息恒为 connection_superseded。",
+    "netEntityId": "被顶号连接所绑定的运行时实体（u64）；顶号后新连接继承同一实体。",
+    "newConnectionGeneration": "顶号重绑后的新绑定纪元（u64），严格大于旧连接的 connectionGeneration。"
   },
   "mappings": {
     "chat.input": {
@@ -32,7 +35,13 @@
       "fields": {
         "text": { "type": "utf8-string", "maxUtf8Bytes": 512, "violationCode": "chat_text_too_long" }
       },
-      "dimensions": { "persistence": "none", "replication": "none", "visibility": "sender-only" },
+      "dimensions": {
+        "source": "generated-from-field-annotations",
+        "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
+        "persistence": "none",
+        "replication": "none",
+        "visibility": "sender-only"
+      },
       "notes": "ChatInput 只携带文本。文本 UTF-8 字节数超上限以 chat_text_too_long 拒绝（单一行为：reject，无静默丢弃）。每发送者每权威 tick 至多提交 1 条 chat.input，超出以 chat_rate_exceeded 拒绝。"
     },
     "chat.event": {
@@ -47,8 +56,14 @@
         "text": { "type": "utf8-string", "maxUtf8Bytes": 512, "violationCode": "chat_text_too_long" },
         "appliedTick": { "type": "u64" }
       },
-      "dimensions": { "persistence": "excluded", "replication": "live-delta", "visibility": "room" },
-      "notes": "活跃通知：仅经 Delta.changedBlocks 可靠有序广播到本 Room；永不进入 FullSnapshot.stateBlocks（重连不回放聊天事件，客户端聊天窗清空重建）。服务端不持久化聊天历史。"
+      "dimensions": {
+        "source": "generated-from-field-annotations",
+        "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
+        "persistence": "excluded",
+        "replication": "live-delta",
+        "visibility": "room"
+      },
+      "notes": "活跃通知：仅经 Delta.changedBlocks 可靠有序广播到本 Room；永不进入 FullSnapshot.stateBlocks（重连不回放聊天事件，客户端聊天窗清空重建）。服务端不持久化聊天历史。验收以客户端（含 Chromium 页面）实际收到的 Delta.changedBlocks 为准；harness 不得由发送计数合成 eventOrder / appliedTicks / restoredWindow；宿主进程内替客户端维护的窗口不算收到。"
     },
     "chat.component": {
       "kind": "componentState",
@@ -58,9 +73,65 @@
         "lastMessageText": { "type": "utf8-string", "maxUtf8Bytes": 512 },
         "lastMessageTick": { "type": "u64" }
       },
-      "dimensions": { "persistence": "persist-only", "replication": "none", "visibility": "server-only" },
-      "notes": "ChatComponent 映射声明：参与既有 ECS 字段属性持久化流（快照/恢复往返归持久化平面），persist-only、不进客户端属性同步流、不上行下行 wire。本映射不出现在任何 wire 消息的块数组中。"
+      "dimensions": {
+        "source": "generated-from-field-annotations",
+        "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
+        "persistence": "persistent",
+        "replication": "not-replicated",
+        "visibility": "server-only"
+      },
+      "notes": "ChatComponent 映射声明：三维与字段标注生成物一致（persistent / not-replicated / server-only）。参与既有 ECS 字段属性持久化流（快照/恢复往返归持久化平面），不进客户端属性同步流、不上行下行 wire。本映射不出现在任何 wire 消息的块数组中。"
     }
+  },
+  "generatedAttributeDeclarations": {
+    "source": "generated-from-field-annotations",
+    "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
+    "artifact": "modules/ecs/generated/attribute-declarations.json",
+    "notes": "N-04 生成声明表的契约内嵌拷贝；mappings.*.dimensions.source/sha256 钉住本表。不得在本仓另提交一份独立声明表。",
+    "declarations": [
+      {
+        "attributeId": "ChatComponent.lastMessagePersistOnly",
+        "persistence": "persistent",
+        "replication": "not-replicated",
+        "valueType": "utf8-string",
+        "visibility": "server-only"
+      },
+      {
+        "attributeId": "ChatComponent.lastMessageText",
+        "persistence": "persistent",
+        "replication": "not-replicated",
+        "valueType": "utf8-string",
+        "visibility": "server-only"
+      },
+      {
+        "attributeId": "ChatComponent.lastMessageTick",
+        "persistence": "persistent",
+        "replication": "not-replicated",
+        "valueType": "u64",
+        "visibility": "server-only"
+      },
+      {
+        "attributeId": "EntityIdentity.claimedMark",
+        "persistence": "ephemeral",
+        "replication": "replicated",
+        "valueType": "utf8-string",
+        "visibility": "claim-scoped"
+      },
+      {
+        "attributeId": "EntityIdentity.entityType",
+        "persistence": "ephemeral",
+        "replication": "replicated",
+        "valueType": "enum:entityType",
+        "visibility": "room-public"
+      },
+      {
+        "attributeId": "EntityIdentity.unmappedMark",
+        "persistence": "ephemeral",
+        "replication": "replicated",
+        "valueType": "utf8-string",
+        "visibility": "room-public"
+      }
+    ]
   },
   "messages": {
     "InputCommand": {
@@ -81,7 +152,7 @@
         "stateBlocks": "array:StateBlock"
       },
       "optional": {},
-      "notes": "重连/首入时从完整复制快照重建 ReplicaWorld 的载体。stateBlocks 必填、可为空数组（空数组是『无任何可复制状态』的唯一定义编码，无哨兵值）；chat.event 是 delta-live-only，出现在此处即非法。"
+      "notes": "Room 路径唯一快照载体：重连/首入时客户端只凭本消息的 stateBlocks 重建 ReplicaWorld。ADR-045 五字段体（snapshotId / tickId / sessionRevisionVector / schemaEpoch / mappingSetHash）不是本契约的 FullSnapshot，出现即 bad_envelope。stateBlocks 必填，必须含该 Room 内每个活体实体的已复制（replication=replicated）状态块；省略该成员以 full_snapshot_without_state_blocks 拒绝。空数组是『本 Room 无任何可复制状态』的唯一定义编码，无哨兵值。chat.event 是 delta-live-only，出现在此处即非法。"
     },
     "Delta": {
       "dir": "s2c",
@@ -105,6 +176,17 @@
         "mappingId": "enum:mappings"
       },
       "notes": "失败路径统一回执；有界输入拒绝（chat_text_too_long / chat_rate_exceeded）携带 mappingId 指明被拒的命令映射。"
+    },
+    "ConnectionSuperseded": {
+      "dir": "s2c",
+      "required": {
+        "messageType": "const:ConnectionSuperseded",
+        "reasonCode": "const:connection_superseded",
+        "netEntityId": "u64",
+        "newConnectionGeneration": "u64"
+      },
+      "optional": {},
+      "notes": "顶号时发给旧连接的下行通知。旧连接必须先收到本消息，服务器随后再关闭该连接；先关后发以 session_closed 拒绝。reasonCode 恒为 connection_superseded。netEntityId 为被继承实体，newConnectionGeneration 为顶号后的新纪元。"
     }
   },
   "sharedTypes": {
@@ -190,7 +272,12 @@
     { "id": "chat-text-cap", "statement": "chat.input/chat.event 的 text UTF-8 字节数 ≤ 512。", "enforcedBy": "validator", "onViolation": "chat_text_too_long" },
     { "id": "chat-rate-per-tick", "statement": "每发送者每权威 tick 至多 1 条 chat.input 提交；超出拒绝。", "enforcedBy": "receiver", "onViolation": "chat_rate_exceeded" },
     { "id": "chat-room-sequence", "statement": "chat.event.roomSequence 在 Room 内严格递增；回退或重复拒绝。", "enforcedBy": "receiver", "onViolation": "bad_envelope" },
-    { "id": "chat-delta-only", "statement": "chat.event 只经 Delta.changedBlocks 下发，永不进 FullSnapshot.stateBlocks，服务端不持久化聊天历史。", "enforcedBy": "validator", "onViolation": "state_block_kind_mismatch" }
+    { "id": "chat-delta-only", "statement": "chat.event 只经 Delta.changedBlocks 下发，永不进 FullSnapshot.stateBlocks，服务端不持久化聊天历史。", "enforcedBy": "validator", "onViolation": "state_block_kind_mismatch" },
+    { "id": "full-snapshot-requires-state-blocks", "statement": "Room 路径 FullSnapshot 必须携带 stateBlocks；省略该成员非法。空数组仅表示本 Room 无可复制状态。", "enforcedBy": "validator", "onViolation": "bad_envelope" },
+    { "id": "full-snapshot-rejects-adr045-shape", "statement": "ADR-045 五字段体（snapshotId / tickId / sessionRevisionVector / schemaEpoch / mappingSetHash）不是本契约的 FullSnapshot。", "enforcedBy": "validator", "onViolation": "bad_envelope" },
+    { "id": "full-snapshot-live-entity-state-blocks", "statement": "stateBlocks 必须含该 Room 每个活体实体的已复制状态块。", "enforcedBy": "receiver", "onViolation": "bad_envelope" },
+    { "id": "connection-superseded-before-close", "statement": "顶号时旧连接必须先收到 ConnectionSuperseded，服务器随后再关闭该连接；先关后发非法。", "enforcedBy": "receiver", "onViolation": "session_closed" },
+    { "id": "chat-event-client-observed-delta", "statement": "chat.event 验收以客户端实际收到的 Delta.changedBlocks 为准；harness 不得由发送计数合成 eventOrder / appliedTicks / restoredWindow。", "enforcedBy": "receiver", "onViolation": "bad_envelope" }
   ],
   "testCases": [
     {
@@ -227,6 +314,12 @@
       "name": "error/rate-exceeded",
       "description": "有界输入拒绝回执携带 mappingId。",
       "message": { "messageType": "Error", "code": "chat_rate_exceeded", "detail": "second chat.input within tick 7", "mappingId": "chat.input" },
+      "expect": "valid"
+    },
+    {
+      "name": "s2c/connection-superseded",
+      "description": "顶号时旧连接先收到 ConnectionSuperseded，服务器再关闭。",
+      "message": { "messageType": "ConnectionSuperseded", "reasonCode": "connection_superseded", "netEntityId": 101, "newConnectionGeneration": 2 },
       "expect": "valid"
     }
   ],
@@ -359,6 +452,45 @@
         "earlier": { "messageType": "Delta", "tickId": 9, "revision": 3, "changedBlocks": [{ "mappingId": "chat.event", "payload": "0100000000000000010000000000000065000000000000000200000067670700000000000000", "payloadSha256": "9fafc556e56dc024a90caf7c102dfccfed4189c708e0a51b0139aab28277670c" }] }
       },
       "notes": "接收方语义探针：严格递增回退即拒绝；validator 只验证声明完备。"
+    },
+    {
+      "name": "full_snapshot_without_state_blocks",
+      "violates": "full-snapshot-requires-state-blocks",
+      "validatorCheck": true,
+      "expectedRejection": "bad_envelope",
+      "payload": {
+        "messageType": "FullSnapshot",
+        "tickId": 0,
+        "revision": 0
+      },
+      "notes": "省略 stateBlocks 成员：空数组才是『无可复制状态』的编码，缺成员非法。"
+    },
+    {
+      "name": "full_snapshot_adr045_shape",
+      "violates": "full-snapshot-rejects-adr045-shape",
+      "validatorCheck": true,
+      "expectedRejection": "bad_envelope",
+      "payload": {
+        "messageType": "FullSnapshot",
+        "snapshotId": "snap-0",
+        "tickId": 0,
+        "sessionRevisionVector": [],
+        "schemaEpoch": 1,
+        "mappingSetHash": "a805f7c841f708981cc82a93047d7b0c8e6bf923f3dba18e179036741a6d2ea7"
+      },
+      "notes": "ADR-045 五字段闭合体不是本契约 Room 路径 FullSnapshot。"
+    },
+    {
+      "name": "runtime/connection-superseded-close-before-send",
+      "violates": "connection-superseded-before-close",
+      "validatorCheck": false,
+      "expectedRejection": "session_closed",
+      "payload": {
+        "scenario": "顶号时服务器先关闭旧连接再发送 ConnectionSuperseded（先关后发）",
+        "order": ["close", "ConnectionSuperseded"],
+        "notice": { "messageType": "ConnectionSuperseded", "reasonCode": "connection_superseded", "netEntityId": 101, "newConnectionGeneration": 2 }
+      },
+      "notes": "接收方语义探针：旧连接必须先收到通知再被关闭；validator 只验证声明完备。"
     }
   ],
   "downstreamConsumption": {

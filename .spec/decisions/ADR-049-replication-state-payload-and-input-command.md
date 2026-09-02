@@ -104,3 +104,13 @@ Embedded in the contract and executed by the gate (`node eng/verify-wire.mjs`):
 - Receiver-side probes (declaration-checked, runtime-enforced): `runtime/chat-rate-second-per-tick`, `runtime/chat-room-sequence-regression`.
 
 Acceptance bar (对照组探针纪律, carried from the Draft): a deliberately broken probe contract placed in `engine/wire/` must turn the gate red with clean rejections, and its removal must restore green — only a probe that goes red and then green proves the guard works. The executing session's evidence: probe run rejected with exit 1 (duplicate error codes, malformed contractId, bad dir, unresolvable case codes), removal restored `verify-wire: all contracts green` with `hello-wire-v1.json` passing unchanged and `eng/verify-hello-wire.mjs` 9/9. `node eng/generate-abi.mjs` zero-diff; `node .spec/tools/spec-lint.mjs` OK.
+
+## 修订记录（2026-09-02，ADR-056 §5–§6）
+
+本段为 Accepted 正文的附录，不改写上方决策原文。ADR-056 §5–§6 将 Room 路径快照、事件广播验收与顶号通知修订如下，契约真值仍是 `engine/wire/gameplay-command-envelope-v1.json`（C-1′）：
+
+- `FullSnapshot.stateBlocks` 是 Room 路径唯一快照载体。ADR-045 五字段闭合体（`snapshotId` / `tickId` / `sessionRevisionVector` / `schemaEpoch` / `mappingSetHash`）不是本契约的 FullSnapshot；缺 `stateBlocks` 或呈 ADR-045 形状以 `bad_envelope` 拒绝。`stateBlocks` 必须含该 Room 每个活体实体的已复制状态块；空数组仍只表示「本 Room 无可复制状态」。
+- 新增 s2c `ConnectionSuperseded`：`messageType=ConnectionSuperseded`、`reasonCode=connection_superseded`、`netEntityId:u64`、`newConnectionGeneration:u64`。语义：旧连接必须先收到本消息，服务器随后再关闭；先关后发以 `session_closed` 拒绝。错误码词表不因此扩展。
+- `mappings.*.dimensions` 改为生成物：`source: "generated-from-field-annotations"`，钉 N-04 声明表拷贝与 sha256 `a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0`。`chat.component` 三维必须与 `ChatComponent` 字段标注生成结果一致（`persistent` / `not-replicated` / `server-only`）。
+- `chat.event` 验收以客户端实际收到的 `Delta.changedBlocks` 为准；harness 不得由发送计数合成 `eventOrder` / `appliedTicks` / `restoredWindow`。
+
