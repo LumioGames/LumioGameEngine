@@ -13,7 +13,7 @@
 //      - payload is lowercase hex; payloadSha256 recomputes from the decoded bytes
 //        (checked BEFORE any interpretation, mirroring the wire admission rule);
 //      - payload decodes as LumioBinV1 per the mapping's fieldOrder and re-encodes
-//        to identical bytes;
+//        to identical bytes; collection=array is a u32 element count then records;
 //      - per-field constraints (maxUtf8Bytes → violationCode);
 //      - block kind rules per message type (commands:kind=command; stateBlocks:kind=state;
 //        changedBlocks:kind in {event,state});
@@ -111,14 +111,80 @@ function encodeField(type, value) {
   throw new Error(`unsupported LumioBinV1 field type: ${type}`);
 }
 
-function decodeMappingPayload(mapping, bytes) {
-  const reader = new BinReader(bytes);
-  const body = {};
+function encodeU32(value) {
+  const b = Buffer.alloc(4);
+  b.writeUInt32LE(value);
+  return b;
+}
+
+function readField(reader, field, fieldName) {
+  if (field.type === 'u64') return reader.u64();
+  if (field.type === 'utf8-string') return reader.string();
+  throw new Rejection('undecodable_payload', `mapping field ${fieldName} has unsupported wire type ${field.type}`);
+}
+
+function encodeRecord(mapping, record) {
+  let re = Buffer.alloc(0);
+  for (const fieldName of mapping.fieldOrder) {
+    re = Buffer.concat([re, encodeField(mapping.fields[fieldName].type, record[fieldName])]);
+  }
+  return re;
+}
+
+function applyFieldConstraints(mapping, record) {
   for (const fieldName of mapping.fieldOrder) {
     const field = mapping.fields[fieldName];
-    if (field.type === 'u64') body[fieldName] = reader.u64();
-    else if (field.type === 'utf8-string') body[fieldName] = reader.string();
-    else throw new Rejection('undecodable_payload', `mapping field ${fieldName} has unsupported wire type ${field.type}`);
+    if (field.type === 'utf8-string' && typeof field.maxUtf8Bytes === 'number') {
+      if (Buffer.byteLength(record[fieldName], 'utf8') > field.maxUtf8Bytes) {
+        throw new Rejection(field.violationCode ?? 'bad_envelope', `${fieldName} exceeds maxUtf8Bytes=${field.maxUtf8Bytes}`);
+      }
+    }
+    if (Array.isArray(field.allowedValues) && !field.allowedValues.includes(record[fieldName])) {
+      throw new Rejection(
+        field.violationCode ?? 'undecodable_payload',
+        `${fieldName} value ${JSON.stringify(record[fieldName])} is not in allowedValues`,
+      );
+    }
+  }
+}
+
+function checkRecordOrder(mapping, records) {
+  const orderBy = mapping.orderBy;
+  if (typeof orderBy !== 'string' || orderBy.length === 0) return;
+  const code = mapping.orderViolationCode ?? 'block_order_violation';
+  for (let i = 1; i < records.length; i++) {
+    if (!(records[i - 1][orderBy] < records[i][orderBy])) {
+      throw new Rejection(code, `records not strictly ascending by ${orderBy} at index ${i}`);
+    }
+  }
+}
+
+function decodeMappingPayload(mapping, bytes) {
+  const reader = new BinReader(bytes);
+  if (mapping.collection === 'array') {
+    // ADR-047: u32 element count, then records in document order; records are
+    // concatenated fieldOrder structs with no padding.
+    const count = reader.u32();
+    const records = [];
+    for (let i = 0; i < count; i++) {
+      const record = {};
+      for (const fieldName of mapping.fieldOrder) {
+        record[fieldName] = readField(reader, mapping.fields[fieldName], fieldName);
+      }
+      records.push(record);
+    }
+    reader.done();
+    let re = encodeU32(count);
+    for (const record of records) re = Buffer.concat([re, encodeRecord(mapping, record)]);
+    if (!re.equals(bytes)) throw new Rejection('undecodable_payload', 'decode/re-encode mismatch: payload is not canonical LumioBinV1');
+    for (const record of records) applyFieldConstraints(mapping, record);
+    checkRecordOrder(mapping, records);
+    return records;
+  }
+
+  const body = {};
+  for (const fieldName of mapping.fieldOrder) {
+    body[fieldName] = readField(reader, mapping.fields[fieldName], fieldName);
   }
   reader.done();
   // Canonical re-encode must reproduce the exact bytes (two conforming encoders
@@ -128,15 +194,7 @@ function decodeMappingPayload(mapping, bytes) {
     re = Buffer.concat([re, encodeField(mapping.fields[fieldName].type, body[fieldName])]);
   }
   if (!re.equals(bytes)) throw new Rejection('undecodable_payload', 'decode/re-encode mismatch: payload is not canonical LumioBinV1');
-  // Per-field constraints.
-  for (const fieldName of mapping.fieldOrder) {
-    const field = mapping.fields[fieldName];
-    if (field.type === 'utf8-string' && typeof field.maxUtf8Bytes === 'number') {
-      if (Buffer.byteLength(body[fieldName], 'utf8') > field.maxUtf8Bytes) {
-        throw new Rejection(field.violationCode ?? 'bad_envelope', `${fieldName} exceeds maxUtf8Bytes=${field.maxUtf8Bytes}`);
-      }
-    }
-  }
+  applyFieldConstraints(mapping, body);
   return body;
 }
 
@@ -326,6 +384,9 @@ function checkStructure(contract, fileName, problems) {
       for (const f of m.fieldOrder) if (!m.fields?.[f]) problem(`mappings.${id}.fields.${f} declared in fieldOrder but not in fields`);
       if (!m.dimensions) problem(`mappings.${id}.dimensions missing (persistence/replication/visibility declaration)`);
       if (!['command', 'event', 'componentState', 'state'].includes(m.kind)) problem(`mappings.${id}.kind "${m.kind}" not in the kind vocabulary`);
+      if (m.collection !== undefined && m.collection !== 'array') {
+        problem(`mappings.${id}.collection "${m.collection}" must be array when present`);
+      }
     }
   }
   // Reference integrity for embedded cases and rules.
@@ -349,6 +410,14 @@ function checkStructure(contract, fileName, problems) {
     const digest = createHash('sha256').update(Buffer.from(example.payload, 'hex')).digest('hex');
     if (digest !== example.payloadSha256) {
       problem(`hash.examples ${example.mappingId ?? '?'}: payloadSha256 does not recompute (got ${digest})`);
+    }
+    const mapping = contract.mappings?.[example.mappingId];
+    if (mapping && contract.encoding?.profile?.startsWith('LumioBinV1')) {
+      try {
+        decodeMappingPayload(mapping, Buffer.from(example.payload, 'hex'));
+      } catch (error) {
+        problem(`hash.examples ${example.mappingId ?? '?'}: payload does not decode (${error.code ?? error.message}: ${error.message})`);
+      }
     }
   }
   const allCases = [...(contract.testCases ?? []), ...(contract.invalidCases ?? [])];
@@ -756,6 +825,9 @@ function checkGameplayEnvelopeContract(contract, fileName, problems) {
   if (!/活体实体/.test(snapshotNotes)) {
     problem('messages.FullSnapshot.notes must require stateBlocks to include replicated state of every live Room entity');
   }
+  if (!/entity\.identity/.test(snapshotNotes)) {
+    problem('messages.FullSnapshot.notes must name entity.identity as the live-entity census mapping');
+  }
 
   const superseded = contract.messages?.ConnectionSuperseded;
   if (!superseded) {
@@ -819,8 +891,70 @@ function checkGameplayEnvelopeContract(contract, fileName, problems) {
     problem('mappings.chat.event.notes must pin acceptance on client-received Delta.changedBlocks and forbid harness-synthesized eventOrder/appliedTicks/restoredWindow');
   }
 
+  const identity = contract.mappings?.['entity.identity'];
+  if (!identity) {
+    problem('mappings.entity.identity missing (Room-path live-entity identity census)');
+  } else {
+    if (identity.kind !== 'state') problem('mappings.entity.identity.kind must be state');
+    if (identity.direction !== 's2c') problem('mappings.entity.identity.direction must be s2c');
+    if (identity.collection !== 'array') problem('mappings.entity.identity.collection must be array');
+    if (identity.orderBy !== 'netEntityId') problem('mappings.entity.identity.orderBy must be netEntityId');
+    const order = identity.fieldOrder ?? [];
+    if (order.length !== 3 || order[0] !== 'netEntityId' || order[1] !== 'entityType' || order[2] !== 'unmappedMark') {
+      problem('mappings.entity.identity.fieldOrder must be netEntityId, entityType, unmappedMark');
+    }
+    if (identity.fields?.netEntityId?.type !== 'u64') problem('mappings.entity.identity.netEntityId must be u64');
+    if (identity.fields?.entityType?.type !== 'utf8-string') {
+      problem('mappings.entity.identity.entityType must be utf8-string (no new binary type)');
+    }
+    const allowed = identity.fields?.entityType?.allowedValues;
+    if (!Array.isArray(allowed) || allowed.length !== 2 || allowed[0] !== 'player' || allowed[1] !== 'bot') {
+      problem('mappings.entity.identity.entityType.allowedValues must be player, bot');
+    }
+    if (identity.fields?.unmappedMark?.type !== 'utf8-string') {
+      problem('mappings.entity.identity.unmappedMark must be utf8-string');
+    }
+    if (identity.fields?.claimedMark || order.includes('claimedMark')) {
+      problem('mappings.entity.identity must not carry EntityIdentity.claimedMark');
+    }
+    if (!/claimedMark/.test(identity.notes ?? '')) {
+      problem('mappings.entity.identity.notes must say claimedMark is omitted from this census block');
+    }
+  }
+  const stateIds = Object.entries(contract.mappings ?? {})
+    .filter(([, spec]) => spec.kind === 'state')
+    .map(([id]) => id);
+  if (stateIds.length !== 1 || stateIds[0] !== 'entity.identity') {
+    problem(`kind=state mappings must be exactly entity.identity, got ${stateIds.join(',') || '(none)'}`);
+  }
+
+  const identityDim = contract.mappings?.['entity.identity']?.dimensions;
+  const identityRows = (generated?.declarations ?? []).filter(
+    (row) => row.attributeId === 'EntityIdentity.entityType' || row.attributeId === 'EntityIdentity.unmappedMark',
+  );
+  if (identityRows.length > 0 && identityDim) {
+    for (const row of identityRows) {
+      if (row.persistence !== identityDim.persistence || row.replication !== identityDim.replication || row.visibility !== identityDim.visibility) {
+        problem(
+          `entity.identity dimensions ${identityDim.persistence}/${identityDim.replication}/${identityDim.visibility} != ${row.attributeId} ${row.persistence}/${row.replication}/${row.visibility}`,
+        );
+      }
+    }
+  }
+
+  const testNames = new Set((contract.testCases ?? []).map((item) => item.name));
+  if (!testNames.has('snapshot/two-live-entities')) problem('testCases missing snapshot/two-live-entities');
+
   const names = new Set((contract.invalidCases ?? []).map((item) => item.name));
-  for (const requiredName of ['full_snapshot_without_state_blocks', 'full_snapshot_adr045_shape', 'runtime/connection-superseded-close-before-send']) {
+  for (const requiredName of [
+    'full_snapshot_without_state_blocks',
+    'full_snapshot_adr045_shape',
+    'runtime/connection-superseded-close-before-send',
+    'snapshot/unregistered-binding-mapping-id',
+    'snapshot/entity-identity-unsorted-records',
+    'snapshot/entity-identity-illegal-entity-type',
+    'snapshot/event-replay',
+  ]) {
     if (!names.has(requiredName)) problem(`invalidCases missing ${requiredName}`);
   }
 }
@@ -1118,6 +1252,110 @@ test('C-1 chat.event notes require client-observed Delta.changedBlocks and forbi
   assert.match(notes, /appliedTicks/);
   assert.match(notes, /restoredWindow/);
   assert.match(notes, /不得/);
+});
+
+const ENTITY_IDENTITY_TWO_LIVE_PAYLOAD =
+  '02000000650000000000000006000000706c617965720100000061660000000000000003000000626f740100000062';
+const ENTITY_IDENTITY_TWO_LIVE_SHA256 = '4ae28198083875a42260bcd2c9493077c1726f351eace497c21c51f136d247b1';
+const ENTITY_IDENTITY_UNSORTED_PAYLOAD =
+  '02000000660000000000000003000000626f740100000062650000000000000006000000706c617965720100000061';
+const ENTITY_IDENTITY_UNSORTED_SHA256 = '77ec132763f1b98a81795499e84e99bbd23ecad9c14e89af4e951078030dfabe';
+const ENTITY_IDENTITY_ILLEGAL_TYPE_PAYLOAD = '010000006500000000000000030000006e70630100000061';
+const ENTITY_IDENTITY_ILLEGAL_TYPE_SHA256 = 'cff67ab1300f6f4487eb136eef0741c0489ee06ebeacd0892a2ac1fbea903da0';
+
+test('C-1 two-live-entity FullSnapshot is a valid entity.identity census', async () => {
+  const contract = await loadEnvelopeContract();
+  const valid = (contract.testCases ?? []).find((c) => c.name === 'snapshot/two-live-entities');
+  assert.ok(valid?.message, 'embedded two-live-entity snapshot case must exist');
+  assert.equal(valid.message.stateBlocks.length, 1);
+  assert.equal(valid.message.stateBlocks[0].mappingId, 'entity.identity');
+  assert.equal(valid.message.stateBlocks[0].payload, ENTITY_IDENTITY_TWO_LIVE_PAYLOAD);
+  assert.equal(valid.message.stateBlocks[0].payloadSha256, ENTITY_IDENTITY_TWO_LIVE_SHA256);
+  assert.doesNotThrow(() => admitMessage(contract, valid.message));
+});
+
+test('C-1 entity.identity is the sole kind=state census mapping and omits claimedMark', async () => {
+  const contract = await loadEnvelopeContract();
+  const mapping = contract.mappings?.['entity.identity'];
+  assert.ok(mapping, 'mappings.entity.identity missing');
+  assert.equal(mapping.kind, 'state');
+  assert.equal(mapping.direction, 's2c');
+  assert.equal(mapping.collection, 'array');
+  assert.deepEqual(mapping.fieldOrder, ['netEntityId', 'entityType', 'unmappedMark']);
+  assert.equal(mapping.fields?.netEntityId?.type, 'u64');
+  assert.equal(mapping.fields?.entityType?.type, 'utf8-string');
+  assert.deepEqual(mapping.fields?.entityType?.allowedValues, ['player', 'bot']);
+  assert.equal(mapping.fields?.unmappedMark?.type, 'utf8-string');
+  assert.equal(mapping.dimensions?.persistence, 'ephemeral');
+  assert.equal(mapping.dimensions?.replication, 'replicated');
+  assert.equal(mapping.dimensions?.visibility, 'room-public');
+  assert.equal(Object.prototype.hasOwnProperty.call(mapping.fields ?? {}, 'claimedMark'), false);
+  assert.equal((mapping.fieldOrder ?? []).includes('claimedMark'), false);
+  const stateIds = Object.entries(contract.mappings ?? {})
+    .filter(([, spec]) => spec.kind === 'state')
+    .map(([id]) => id);
+  assert.deepEqual(stateIds, ['entity.identity']);
+  const example = (contract.hash?.examples ?? []).find((item) => item.mappingId === 'entity.identity');
+  assert.ok(example, 'hash.examples must include a two-record entity.identity payload');
+  assert.equal(example.payload, ENTITY_IDENTITY_TWO_LIVE_PAYLOAD);
+  assert.equal(example.payloadSha256, ENTITY_IDENTITY_TWO_LIVE_SHA256);
+});
+
+test('C-1 unregistered Binding mappingId in stateBlocks is state_block_kind_mismatch', async () => {
+  const contract = await loadEnvelopeContract();
+  const ic = (contract.invalidCases ?? []).find((c) => c.name === 'snapshot/unregistered-binding-mapping-id');
+  assert.ok(ic, 'missing shipped invalidCase snapshot/unregistered-binding-mapping-id');
+  assert.equal(ic.expectedRejection, 'state_block_kind_mismatch');
+  assert.equal(ic.validatorCheck, true);
+  const ids = (ic.payload?.stateBlocks ?? []).map((block) => block.mappingId);
+  assert.ok(ids.includes('mapping-entity-identity-entity-type'));
+  assert.ok(ids.includes('claimed-mark'));
+  assert.throws(
+    () => admitMessage(contract, ic.payload),
+    (error) => error instanceof Rejection && error.code === 'state_block_kind_mismatch',
+  );
+});
+
+test('C-1 entity.identity unsorted records are block_order_violation', async () => {
+  const contract = await loadEnvelopeContract();
+  const ic = (contract.invalidCases ?? []).find((c) => c.name === 'snapshot/entity-identity-unsorted-records');
+  assert.ok(ic, 'missing shipped invalidCase snapshot/entity-identity-unsorted-records');
+  assert.equal(ic.expectedRejection, 'block_order_violation');
+  assert.equal(ic.validatorCheck, true);
+  assert.equal(ic.payload.stateBlocks[0].payload, ENTITY_IDENTITY_UNSORTED_PAYLOAD);
+  assert.equal(ic.payload.stateBlocks[0].payloadSha256, ENTITY_IDENTITY_UNSORTED_SHA256);
+  assert.throws(
+    () => admitMessage(contract, ic.payload),
+    (error) => error instanceof Rejection && error.code === 'block_order_violation',
+  );
+});
+
+test('C-1 entity.identity illegal entityType is undecodable_payload', async () => {
+  const contract = await loadEnvelopeContract();
+  const ic = (contract.invalidCases ?? []).find((c) => c.name === 'snapshot/entity-identity-illegal-entity-type');
+  assert.ok(ic, 'missing shipped invalidCase snapshot/entity-identity-illegal-entity-type');
+  assert.equal(ic.expectedRejection, 'undecodable_payload');
+  assert.equal(ic.validatorCheck, true);
+  assert.equal(ic.payload.stateBlocks[0].payload, ENTITY_IDENTITY_ILLEGAL_TYPE_PAYLOAD);
+  assert.equal(ic.payload.stateBlocks[0].payloadSha256, ENTITY_IDENTITY_ILLEGAL_TYPE_SHA256);
+  assert.throws(
+    () => admitMessage(contract, ic.payload),
+    (error) => error instanceof Rejection && error.code === 'undecodable_payload',
+  );
+});
+
+test('C-1 chat.event still cannot enter FullSnapshot.stateBlocks', async () => {
+  const contract = await loadEnvelopeContract();
+  const ic = (contract.invalidCases ?? []).find((c) => c.name === 'snapshot/event-replay');
+  assert.ok(ic, 'missing shipped invalidCase snapshot/event-replay');
+  assert.equal(ic.expectedRejection, 'state_block_kind_mismatch');
+  assert.throws(
+    () => admitMessage(contract, ic.payload),
+    (error) => error instanceof Rejection && error.code === 'state_block_kind_mismatch',
+  );
+  const empty = (contract.testCases ?? []).find((c) => c.name === 'snapshot/empty-state-blocks');
+  assert.ok(empty?.message, 'empty stateBlocks case must remain valid');
+  assert.doesNotThrow(() => admitMessage(contract, empty.message));
 });
 
 const TIMER_ERROR_CODES = [

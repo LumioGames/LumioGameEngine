@@ -114,3 +114,7 @@ Acceptance bar (对照组探针纪律, carried from the Draft): a deliberately b
 - `mappings.*.dimensions` 改为生成物：`source: "generated-from-field-annotations"`，钉 N-04 声明表拷贝与 sha256 `a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0`。`chat.component` 三维必须与 `ChatComponent` 字段标注生成结果一致（`persistent` / `not-replicated` / `server-only`）。
 - `chat.event` 验收以客户端实际收到的 `Delta.changedBlocks` 为准；harness 不得由发送计数合成 `eventOrder` / `appliedTicks` / `restoredWindow`。
 
+## 修订记录（2026-09-02，R-00368 r2 / C-1′ entity.identity）
+
+本段为 Accepted 正文的附录，不改写上方决策原文与前一条修订记录。Room 路径 FullSnapshot 的活体身份普查租户是 `entity.identity`（kind=`state`，direction=`s2c`）：payload 为 LumioBinV1 数组（`u32` 元素个数 + 文档序记录），记录字段 `netEntityId` / `entityType`（仅 `player`|`bot`）/ `unmappedMark`，按 `netEntityId` 严格升序；`EntityIdentity.claimedMark` 不上本块。空 `stateBlocks: []` 仍只表示本 Room 无房间可见可复制状态；有活体时必须出现本块，零活体时省略。不新增错误码、不增加第二条 kind=state 映射。
+
