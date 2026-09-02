@@ -13,5 +13,7 @@ lumio-voxel-world = { path = "../../../../../LumioVoxelEngine/crates/lumio-voxel
 # CoreCLR 装载链（MS-00002 Wave 2）：根表三槽直接转发到该 crate 的 ABI 实现，
 # 全链只有这一套 CLR Loader/ABI。
 lumio-clr-host = { path = "../clr-host" }
+# C-4 timer_* 根表槽：转发到 NativeCore 唯一内核，不另建一套定时器。
+lumio-timer = { path = "../../../../../LumioNativeCore/crates/lumio-timer" }
 
 [dev-dependencies]

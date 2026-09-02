@@ -266,6 +266,7 @@ version = "0.1.0"
 dependencies = [
  "lumio-clr-host",
  "lumio-kernel",
+ "lumio-timer",
  "lumio-voxel-world",
 ]
 
@@ -279,6 +280,10 @@ dependencies = [
 
 [[package]]
 name = "lumio-platform"
+version = "0.0.0"
+
+[[package]]
+name = "lumio-timer"
 version = "0.0.0"
 
 [[package]]
