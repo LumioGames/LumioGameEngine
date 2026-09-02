@@ -3,10 +3,12 @@ name: 2026-09-02-rm-00011-phase2-complete
 description: RM-00011 Phase 2 C# 101-entity harness and Rust host replay on origin/main; slice orchestration closed
 metadata:
   type: doc
-  status: 已交付
+  status: 历史归档
 ---
 
 # RM-00011 Phase 2 complete — C# 101-entity + Rust replay
+
+> **Superseded** for live origin/main SHAs by [`.spec/reviews/2026-09-02-rm-00011-phase2-mvp-host-rust-oracle.md`](./2026-09-02-rm-00011-phase2-mvp-host-rust-oracle.md) (Game PR #7 mvp-host 101 + Server PR #21 rust oracle). Keep this file as the 2026-09-02 closeout that used Game `9e185d7` / Server `e358a07`.
 
 Date: 2026-09-02  
 Dispatcher: architecture-repo main session; isolated git worktrees only.  
