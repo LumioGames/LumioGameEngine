@@ -565,12 +565,177 @@ function checkTimerAbiAlignment(contract, abiDefinition, problems, fileName = 'n
   }
 }
 
+// ---------- Entity binding / query (C-2′ Runtime-issued NetEntityId + generated table) ----------
+
+const BINDING_CONTRACT_ID = 'lumio.entity-binding-query.v1';
+const BINDING_RECORD_FIELDS = ['accountId', 'roomId', 'netEntityId', 'entityType', 'connectionGeneration'];
+const BINDING_RECORD_FIELD_SET = new Set(BINDING_RECORD_FIELDS);
+const DECLARATION_ROW_KEYS = ['attributeId', 'persistence', 'replication', 'valueType', 'visibility'];
+const N04_ATTRIBUTE_DECLARATIONS_SHA256 = 'a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0';
+
+function canonicalizeDeclarationTable(table) {
+  if (!Array.isArray(table)) throw new Error('declaration table must be an array');
+  const rows = [...table].sort((left, right) => {
+    const a = String(left?.attributeId ?? '');
+    const b = String(right?.attributeId ?? '');
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+  });
+  let out = '[\n';
+  rows.forEach((row, index) => {
+    out += '  {\n';
+    DECLARATION_ROW_KEYS.forEach((key, keyIndex) => {
+      out += `    ${JSON.stringify(key)}: ${JSON.stringify(row?.[key] ?? '')}`;
+      if (keyIndex !== DECLARATION_ROW_KEYS.length - 1) out += ',';
+      out += '\n';
+    });
+    out += '  }';
+    if (index !== rows.length - 1) out += ',';
+    out += '\n';
+  });
+  out += ']\n';
+  return out;
+}
+
+function hashDeclarationTable(table) {
+  return createHash('sha256').update(canonicalizeDeclarationTable(table), 'utf8').digest('hex');
+}
+
+function admitBindingRecord(record) {
+  if (typeof record !== 'object' || record === null || Array.isArray(record)) {
+    throw new Rejection('invalid_binding_shape', 'binding record must be a JSON object');
+  }
+  for (const key of Object.keys(record)) {
+    if (!BINDING_RECORD_FIELD_SET.has(key)) {
+      throw new Rejection('invalid_binding_shape', `binding record carries forbidden field ${key}`);
+    }
+  }
+  for (const key of BINDING_RECORD_FIELDS) {
+    if (!(key in record)) {
+      throw new Rejection('invalid_binding_shape', `binding record missing ${key}`);
+    }
+  }
+}
+
+function checkEntityBindingContract(contract, fileName, problems) {
+  if (contract.contractId !== BINDING_CONTRACT_ID) return;
+  const problem = (msg) => problems.push(`${fileName}: ${msg}`);
+
+  const netEntityId = contract.identityModel?.netEntityId ?? '';
+  if (!netEntityId.includes('Runtime 身份表发号')) {
+    problem('identityModel.netEntityId must say Runtime 身份表发号');
+  }
+  if (!netEntityId.includes('宿主准入时调用 Runtime 取号')) {
+    problem('identityModel.netEntityId must say 宿主准入时调用 Runtime 取号');
+  }
+  if (!netEntityId.includes('宿主不得自铸')) {
+    problem('identityModel.netEntityId must say 宿主不得自铸');
+  }
+
+  const record = contract.binding?.record;
+  const requiredKeys = Object.keys(record?.required ?? {});
+  if (requiredKeys.length !== BINDING_RECORD_FIELDS.length || BINDING_RECORD_FIELDS.some((key) => !requiredKeys.includes(key))) {
+    problem(`binding.record.required must be exactly the five-tuple ${BINDING_RECORD_FIELDS.join(' / ')}`);
+  }
+  if (Object.keys(record?.optional ?? {}).length !== 0) {
+    problem('binding.record.optional must be empty; binding records are five-tuple only');
+  }
+  const notes = record?.notes ?? '';
+  if (!notes.includes('会话号') || !notes.includes('宿主内部句柄') || !notes.includes('不得出现在绑定记录')) {
+    problem('binding.record.notes must forbid 会话号 and 宿主内部句柄 on the binding record');
+  }
+
+  const decls = contract.attributeDeclarations;
+  if (!decls || typeof decls !== 'object' || Array.isArray(decls)) {
+    problem('attributeDeclarations missing');
+    return;
+  }
+  if (decls.source !== 'generated-from-field-annotations') {
+    problem('attributeDeclarations.source must be generated-from-field-annotations');
+  }
+  if (Object.prototype.hasOwnProperty.call(decls, 'example')) {
+    problem('attributeDeclarations.example is a handwritten second table; delete it');
+  }
+  if (!Array.isArray(decls.table) || decls.table.length === 0) {
+    problem('attributeDeclarations.table must be the generated declaration array');
+    return;
+  }
+  const ids = new Set();
+  for (const [index, row] of decls.table.entries()) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      problem(`attributeDeclarations.table[${index}] must be an object`);
+      continue;
+    }
+    const keys = Object.keys(row);
+    if (keys.length !== DECLARATION_ROW_KEYS.length || DECLARATION_ROW_KEYS.some((key) => !keys.includes(key))) {
+      problem(`attributeDeclarations.table[${index}] must have exactly ${DECLARATION_ROW_KEYS.join(', ')}`);
+    }
+    if (row.attributeId === 'EntityIdentity.accountId') {
+      problem('EntityIdentity.accountId must not appear in the generated declaration table');
+    }
+    if (ids.has(row.attributeId)) problem(`attributeDeclarations.table duplicate ${row.attributeId}`);
+    ids.add(row.attributeId);
+  }
+  let digest;
+  try {
+    digest = hashDeclarationTable(decls.table);
+  } catch (error) {
+    problem(`attributeDeclarations.table is not canonicalizable: ${error.message}`);
+    return;
+  }
+  if (decls.sha256 !== digest) {
+    problem(`attributeDeclarations.sha256 ${JSON.stringify(decls.sha256)} does not recompute from table (${digest})`);
+  }
+  if (fileName === 'entity-binding-and-query-v1.json' && decls.sha256 !== N04_ATTRIBUTE_DECLARATIONS_SHA256) {
+    problem(`attributeDeclarations.sha256 must be the N-04 digest ${N04_ATTRIBUTE_DECLARATIONS_SHA256}`);
+  }
+
+  const readRules = decls.readRules;
+  const accountRule = Array.isArray(readRules)
+    ? readRules.find((rule) => typeof rule === 'string' && rule.includes('EntityIdentity.accountId'))
+    : null;
+  if (!accountRule || !accountRule.includes('undeclared_attribute')) {
+    problem('readRules must say EntityIdentity.accountId is undeclared_attribute');
+  }
+
+  const invalidCases = contract.invalidCases ?? [];
+  const byName = new Map(invalidCases.map((item) => [item.name, item]));
+  for (const name of ['host_minted_net_entity_id', 'binding_record_carries_session_id']) {
+    const item = byName.get(name);
+    if (!item) {
+      problem(`invalidCases missing ${name}`);
+      continue;
+    }
+    if (item.expectedRejection !== 'invalid_binding_shape') {
+      problem(`invalidCases.${name}.expectedRejection must be invalid_binding_shape`);
+    }
+    try {
+      admitBindingRecord(item.payload);
+      problem(`invalidCases.${name}: expected rejection, was accepted`);
+    } catch (error) {
+      if (!(error instanceof Rejection) || error.code !== 'invalid_binding_shape') {
+        problem(`invalidCases.${name}: rejected with [${error.code ?? error.message}] but expected [invalid_binding_shape]`);
+      }
+    }
+  }
+  const accountCase = invalidCases.find((item) => item.payload?.attributeId === 'EntityIdentity.accountId');
+  if (!accountCase) {
+    problem('invalidCases must include a query of EntityIdentity.accountId');
+  } else if (accountCase.expectedRejection !== 'undeclared_attribute') {
+    problem(`${accountCase.name}: expectedRejection must be undeclared_attribute`);
+  } else if (ids.has('EntityIdentity.accountId')) {
+    problem('EntityIdentity.accountId query case is undeclared_attribute but the id is in the table');
+  }
+}
+
 // ---------- Contract validation ----------
 
 function validateContract(contract, fileName, abiDefinition) {
   const problems = [];
   const caseCount = checkStructure(contract, fileName, problems);
   checkNativeTimerContract(contract, fileName, problems);
+  checkEntityBindingContract(contract, fileName, problems);
   if (abiDefinition) checkTimerAbiAlignment(contract, abiDefinition, problems, fileName);
 
   let pass = 0;
@@ -648,6 +813,11 @@ export {
   checkNativeTimerContract,
   checkTimerAbiAlignment,
   TIMER_ABI_REQUIRED_FUNCTIONS,
+  checkEntityBindingContract,
+  admitBindingRecord,
+  hashDeclarationTable,
+  canonicalizeDeclarationTable,
+  N04_ATTRIBUTE_DECLARATIONS_SHA256,
 };
 
 async function main() {
@@ -924,4 +1094,191 @@ test('validator rejects FiringRecord.slotDispatchId string vs drainRecord u32', 
   contract.sharedTypes.FiringRecord.required.slotDispatchId = 'string';
   const { problems } = validateContract(contract, 'native-timer-abi-v1.json', stubTimerAbi(contract));
   assert.ok(problems.some((item) => item.includes('slotDispatchId')));
+});
+
+function fiveTuplePayload(extra = {}) {
+  return {
+    accountId: 'acct-07',
+    roomId: 'room-01',
+    netEntityId: 'N1',
+    entityType: 'player',
+    connectionGeneration: 1,
+    ...extra,
+  };
+}
+
+function minimalBindingContract() {
+  const table = [
+    {
+      attributeId: 'EntityIdentity.entityType',
+      persistence: 'ephemeral',
+      replication: 'replicated',
+      valueType: 'enum:entityType',
+      visibility: 'room-public',
+    },
+  ];
+  return {
+    contractId: BINDING_CONTRACT_ID,
+    version: 1,
+    purpose: 'binding query contract used by validator negative cases',
+    identityModel: {
+      netEntityId: '由 Runtime 身份表发号；宿主准入时调用 Runtime 取号；宿主不得自铸。',
+    },
+    binding: {
+      record: {
+        required: {
+          accountId: 'string',
+          roomId: 'string',
+          netEntityId: 'string',
+          entityType: 'enum:entityType',
+          connectionGeneration: 'u64',
+        },
+        optional: {},
+        notes: '五元组即绑定记录全部字段；会话号与宿主内部句柄不得出现在绑定记录。',
+      },
+    },
+    attributeDeclarations: {
+      source: 'generated-from-field-annotations',
+      sha256: hashDeclarationTable(table),
+      table,
+      readRules: ['EntityIdentity.accountId 不声明为可查属性；查询返回 undeclared_attribute。'],
+    },
+    errorCodes: {
+      outcomeCodes: ['non_existent', 'stale_generation', 'invisible', 'unauthorized', 'tombstoned'],
+      requestErrorCodes: [
+        'invalid_attribute_id',
+        'undeclared_attribute',
+        'cross_room_reference',
+        'storage_access_forbidden',
+        'binding_not_found',
+        'invalid_binding_shape',
+        'scope_violation',
+      ],
+    },
+    invalidCases: [
+      {
+        name: 'host_minted_net_entity_id',
+        expectedRejection: 'invalid_binding_shape',
+        payload: fiveTuplePayload({ mintedBy: 'host' }),
+      },
+      {
+        name: 'binding_record_carries_session_id',
+        expectedRejection: 'invalid_binding_shape',
+        payload: fiveTuplePayload({ session_id: 'sess-9' }),
+      },
+      {
+        name: 'query_undeclared_account_id',
+        expectedRejection: 'undeclared_attribute',
+        payload: {
+          callerScope: 'server-authoritative',
+          roomId: 'room-01',
+          netEntityId: 'N1',
+          attributeId: 'EntityIdentity.accountId',
+        },
+      },
+    ],
+  };
+}
+
+async function loadBindingContract() {
+  return JSON.parse(await readFile(resolve(wireDir, 'entity-binding-and-query-v1.json'), 'utf8'));
+}
+
+test('C-2 NetEntityId is issued by the Runtime identity table; host minting is invalid_binding_shape', async () => {
+  const contract = await loadBindingContract();
+  assert.match(contract.identityModel.netEntityId, /Runtime 身份表发号/);
+  assert.match(contract.identityModel.netEntityId, /宿主准入时调用 Runtime 取号/);
+  assert.match(contract.identityModel.netEntityId, /宿主不得自铸/);
+  const minted = (contract.invalidCases ?? []).find((item) => item.name === 'host_minted_net_entity_id');
+  assert.ok(minted, 'missing invalidCase host_minted_net_entity_id');
+  assert.equal(minted.expectedRejection, 'invalid_binding_shape');
+  assert.throws(
+    () => admitBindingRecord(minted.payload),
+    (error) => error instanceof Rejection && error.code === 'invalid_binding_shape',
+  );
+  const { problems } = validateContract(contract, 'entity-binding-and-query-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('C-2 binding record is five-tuple only; session_id is invalid_binding_shape', async () => {
+  const contract = await loadBindingContract();
+  assert.deepEqual(Object.keys(contract.binding.record.required), BINDING_RECORD_FIELDS);
+  assert.deepEqual(contract.binding.record.optional, {});
+  assert.match(contract.binding.record.notes, /会话号/);
+  assert.match(contract.binding.record.notes, /宿主内部句柄/);
+  const session = (contract.invalidCases ?? []).find((item) => item.name === 'binding_record_carries_session_id');
+  assert.ok(session, 'missing invalidCase binding_record_carries_session_id');
+  assert.equal(session.expectedRejection, 'invalid_binding_shape');
+  assert.ok(Object.prototype.hasOwnProperty.call(session.payload, 'session_id'));
+  assert.throws(
+    () => admitBindingRecord(session.payload),
+    (error) => error instanceof Rejection && error.code === 'invalid_binding_shape',
+  );
+  const { problems } = validateContract(contract, 'entity-binding-and-query-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('C-2 attributeDeclarations is generated-from-field-annotations and matches N-04 sha256', async () => {
+  const contract = await loadBindingContract();
+  const decls = contract.attributeDeclarations;
+  assert.equal(decls.source, 'generated-from-field-annotations');
+  assert.equal(Object.prototype.hasOwnProperty.call(decls, 'example'), false);
+  assert.ok(Array.isArray(decls.table), 'embedded generated table missing');
+  const digest = hashDeclarationTable(decls.table);
+  assert.equal(decls.sha256, N04_ATTRIBUTE_DECLARATIONS_SHA256);
+  assert.equal(digest, N04_ATTRIBUTE_DECLARATIONS_SHA256);
+  const ids = decls.table.map((row) => row.attributeId);
+  assert.equal(ids.includes('EntityIdentity.accountId'), false);
+  assert.ok(ids.includes('ChatComponent.lastMessageText'));
+  assert.ok(ids.includes('EntityIdentity.entityType'));
+  const { problems } = validateContract(contract, 'entity-binding-and-query-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('C-2 readRules return undeclared_attribute for EntityIdentity.accountId', async () => {
+  const contract = await loadBindingContract();
+  const rules = contract.attributeDeclarations.readRules ?? [];
+  assert.ok(rules.some((rule) => rule.includes('EntityIdentity.accountId') && rule.includes('undeclared_attribute')));
+  const account = (contract.invalidCases ?? []).find((item) => item.payload?.attributeId === 'EntityIdentity.accountId');
+  assert.ok(account, 'missing invalidCase that queries EntityIdentity.accountId');
+  assert.equal(account.expectedRejection, 'undeclared_attribute');
+  const { problems } = validateContract(contract, 'entity-binding-and-query-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('validator accepts a generated-declaration binding fixture and rejects a handwritten example', () => {
+  const contract = minimalBindingContract();
+  assert.deepEqual(validateContract(contract, 'binding-fixture.json').problems, []);
+  const bad = JSON.parse(JSON.stringify(contract));
+  bad.attributeDeclarations.example = {
+    attributeId: 'EntityIdentity.entityType',
+    valueType: 'enum:entityType',
+    persistence: 'ephemeral',
+    replication: 'replicated',
+    visibility: 'room-public',
+  };
+  const { problems } = validateContract(bad, 'binding-fixture.json');
+  assert.ok(problems.some((item) => item.includes('example') && item.includes('handwritten')));
+});
+
+test('validator rejects binding records that carry session_id', () => {
+  assert.throws(
+    () => admitBindingRecord(fiveTuplePayload({ session_id: 'sess-9' })),
+    (error) => error instanceof Rejection && error.code === 'invalid_binding_shape',
+  );
+  assert.doesNotThrow(() => admitBindingRecord(fiveTuplePayload()));
+});
+
+test('validator rejects host-minted NetEntityId as invalid_binding_shape', () => {
+  assert.throws(
+    () => admitBindingRecord(fiveTuplePayload({ mintedBy: 'host' })),
+    (error) => error instanceof Rejection && error.code === 'invalid_binding_shape',
+  );
+});
+
+test('validator rejects attributeDeclarations sha256 that does not recompute from table', () => {
+  const contract = minimalBindingContract();
+  contract.attributeDeclarations.sha256 = '0'.repeat(64);
+  const { problems } = validateContract(contract, 'binding-fixture.json');
+  assert.ok(problems.some((item) => item.includes('sha256') && item.includes('does not recompute')));
 });

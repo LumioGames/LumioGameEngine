@@ -60,3 +60,13 @@ RM-00011（ECS Formal Entity and Chat Vertical Slice）的三张实现卡——R
 - `node eng/generate-abi.mjs` 零差异（ABI 面不受影响）。
 - `node .spec/tools/spec-lint.mjs`：本 ADR 的 README 索引登记由主 loop 串行合并时统一完成（四张 Wave 0 契约卡并行，README 属共享文件）；草稿分支上第 3 项（decisions 登记覆盖）预期失败，登记后复跑通过——已知且已上报。
 - 统一校验：`eng/verify-wire.mjs`（R-00355 交付）合入后对本 JSON 执行全部内嵌正反用例；主 loop 合并时验证。
+
+## 修订记录（2026-09-02，ADR-056）
+
+本段为 Accepted 正文的附录，不改写上方决策原文。ADR-056 §2–§4 将本 ADR 决策第 2、5 条修订如下，契约真值以 C-2′ `engine/wire/entity-binding-and-query-v1.json` 为准：
+
+- `NetEntityId` 由 Runtime 身份表发号；宿主准入时向 Runtime 取号，不得自铸。`invalidCases.host_minted_net_entity_id` → `invalid_binding_shape`。
+- 绑定记录只保留五元组；会话号与宿主内部句柄不得混入。`invalidCases.binding_record_carries_session_id` → `invalid_binding_shape`。
+- 属性三维声明表是字段标注生成物（`attributeDeclarations.source` = `generated-from-field-annotations`），内嵌 N-04 产物 `modules/ecs/generated/attribute-declarations.json` 并记录 sha256 `a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0`；手写 `example` 删除。
+- `EntityIdentity.accountId` 不声明为可查属性；查询返回 `undeclared_attribute`，不得映射为 `unauthorized`。
+- 标注类型命名以 N-04 交付为准：`PersistenceKind` / `ReplicationKind` / `VisibilityKind` 与 `[Persist]` / `[Replicate]` / `[Visibility]` / `[EcsComponent]` / `[AttributeValueType]`。
