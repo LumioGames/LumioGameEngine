@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-017-root-abi-generatable-contract.md

@@ -20,7 +20,8 @@
  *     对应的 .agent.md 文件(幽灵行)。
  *  8. 软链接存活:.claude/agents、.claude/skills、.agents/skills 必须存在且解析进 .spec/。
  * 8b. 无并行文档根:docs/ / .sdd/ / .workflow-drafts/ 不得存在于仓内任何层级(历史病灶
- *     包括嵌套的 engine/native/docs/);仓根之外不得有第二个 .spec/(防止第二套
+ *     包括嵌套的 engine/native/docs/);唯一例外是仓根 docs/adr/ 作为 .spec/decisions
+ *     的 git mode 120000 镜像。仓根之外不得有第二个 .spec/(防止第二套
  *     LumioAgent 框架随 subtree 合并混入)。扫描有界:跳过 .git 与构建产物目录,深度 ≤7。
  * 8c. ADR 状态枚举:decisions/ 下每条 ADR 前 12 行内必须有状态行,取值只能是
  *     Historical / Draft / Accepted / Reserved / Superseded / 生效 / 废止
@@ -242,11 +243,17 @@ for (const rel of ['.claude/agents', '.claude/skills', '.agents/skills']) {
 // 2026-09-01 治理收敛前,仓里同时存在 docs/ / .sdd/ / .workflow-drafts/ 与
 // engine/native/.spec/ 四个并行文档根,其中三个不受任何机器校验,于是两套互相
 // 矛盾的制度的文档平铺在一起、外观完全一样。这条断言防止它再长回来。
+function isDocsAdrCompatibilityTree(docsDir) {
+  let entries
+  try { entries = readdirSync(docsDir, { withFileTypes: true }) } catch { return false }
+  return entries.length > 0 && entries.every((e) => e.name === 'adr' && e.isDirectory())
+}
+
 for (const forbidden of ['docs', '.sdd', '.workflow-drafts']) {
   const dir = join(ROOT, forbidden)
-  if (existsSync(dir)) {
-    err(dir, `并行文档根:全仓文档只有 .spec/ 一个根,${forbidden}/ 不得重新出现(设计→knowledge/features、计划→plans、审查→reviews、决策→decisions、任务→tasks)`)
-  }
+  if (!existsSync(dir)) continue
+  if (forbidden === 'docs' && isDocsAdrCompatibilityTree(dir)) continue
+  err(dir, `并行文档根:全仓文档只有 .spec/ 一个根,${forbidden}/ 不得重新出现(设计→knowledge/features、计划→plans、审查→reviews、决策→decisions、任务→tasks;docs/adr 除外)`)
 }
 // 有界扫描:跳过 .git 与构建产物,并容忍悬空软链(它们由第 8 项单独报)。
 // 嵌套的 docs/ 同样在禁名单里——2026-09 收敛前的重复副本恰恰长在 engine/native/docs/。
@@ -262,6 +269,10 @@ function findForbiddenDirs(dir, depth = 0, out = []) {
     try { if (lstatSync(child).isSymbolicLink()) continue } catch { continue }
     if (e.name === '.spec' && child !== SPEC) { out.push({ path: child, kind: 'spec' }); continue }
     if (FORBIDDEN_DOC_DIRS.has(e.name)) {
+      if (e.name === 'docs' && depth === 0 && normalizeContainmentPath(dir) === normalizeContainmentPath(ROOT)
+        && isDocsAdrCompatibilityTree(child)) {
+        continue
+      }
       if (depth > 0) out.push({ path: child, kind: 'docroot' }) // 根层命中由上面的 existsSync 检查报错
       continue
     }
@@ -273,6 +284,35 @@ for (const { path, kind } of findForbiddenDirs(ROOT)) {
   err(path, kind === 'spec'
     ? '第二套 LumioAgent 框架:全仓只允许仓根一个 .spec/(subtree 合并会把下游仓的框架副本一起带进来)'
     : `并行文档根:${basename(path)}/ 不得在仓内任何层级出现(文档一律进 .spec/,历史病灶正是嵌套的 engine/native/docs/)`)
+}
+
+// Compatibility ADR entries must be Git mode 120000 symbolic links to the
+// authoritative .spec/decisions files. Minimal lint fixtures may omit docs/adr
+// when they have no root ADR-NNN files.
+const compatibilityAdrDir = join(ROOT, 'docs', 'adr')
+const rootAdrFiles = existsSync(decisionsDir)
+  ? readdirSync(decisionsDir).filter((name) => /^ADR-\d{3}-.+\.md$/.test(name))
+  : []
+if (rootAdrFiles.length > 0) {
+  for (const name of rootAdrFiles) {
+    const expectedTarget = `../../.spec/decisions/${name}`
+    const link = join(compatibilityAdrDir, name)
+    try {
+      const stat = lstatSync(link)
+      if (!stat.isSymbolicLink()) {
+        err(link, 'compatibility ADR must be a Git mode 120000 symbolic link (Windows materialization is environmental only)')
+        continue
+      }
+      const target = readlinkSync(link)
+      const resolvedTarget = resolve(dirname(link), target)
+      const expectedResolved = resolve(dirname(link), expectedTarget)
+      if (normalizeContainmentPath(resolvedTarget) !== normalizeContainmentPath(expectedResolved)) {
+        err(link, `compatibility ADR target must resolve to ${expectedResolved}`)
+      }
+    } catch {
+      err(link, 'compatibility ADR link is missing or unresolved')
+    }
+  }
 }
 
 // ── 8c. ADR 状态枚举 ──────────────────────────────────────────────────────

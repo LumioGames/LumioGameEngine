@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-029-entity-namespace-required.md

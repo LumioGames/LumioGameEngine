@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-039-contract-runtime-artifact.md

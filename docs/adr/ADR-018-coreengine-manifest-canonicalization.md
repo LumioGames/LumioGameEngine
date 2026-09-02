@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-018-coreengine-manifest-canonicalization.md
