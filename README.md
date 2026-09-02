@@ -6,6 +6,26 @@
 
 ---
 
+<!-- lumio-community:start -->
+<div align="center">
+<table>
+<tr>
+<td align="center" width="50%" valign="top">
+<a href="https://qm.qq.com/q/PGkXh4tCyQ"><img src="https://raw.githubusercontent.com/LumioGames/.github/main/profile/assets/qr-qq.svg" width="170" alt="QQ 交流群 972220164"></a><br>
+<a href="https://qm.qq.com/q/PGkXh4tCyQ"><img src="https://img.shields.io/badge/QQ%20%E4%BA%A4%E6%B5%81%E7%BE%A4-972220164-6171F0?style=for-the-badge&logo=tencentqq&logoColor=white" alt="QQ 交流群 972220164"></a><br>
+<sub>什么都能聊</sub>
+</td>
+<td align="center" width="50%" valign="top">
+<a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=fffn1ae7-fd83-4315-96ac-6fa3aba3968e"><img src="https://raw.githubusercontent.com/LumioGames/.github/main/profile/assets/qr-engine.svg" width="170" alt="LumioEngine 开发者社区"></a><br>
+<a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=fffn1ae7-fd83-4315-96ac-6fa3aba3968e"><img src="https://img.shields.io/badge/%E9%A3%9E%E4%B9%A6%E7%BE%A4-LumioEngine%20%E5%BC%80%E5%8F%91%E8%80%85%E7%A4%BE%E5%8C%BA-5DE2C6?style=for-the-badge&logoColor=1E2A3A" alt="LumioEngine 开发者社区"></a><br>
+<sub>飞书话题群 · Rust / C# 引擎层</sub>
+</td>
+</tr>
+</table>
+<sub>先进群再看代码。其它群和整体介绍见 <a href="https://github.com/LumioGames">LumioGames 主页</a>。</sub>
+</div>
+<!-- lumio-community:end -->
+
 `LumioCoreEngine` 独立仓库已标记为 **Deprecated**，仅保留历史审计与回滚用途；新开发不得继续向该仓库添加功能或依赖，其实现已迁入本仓 `engine/native/`。
 
 ## 这是什么

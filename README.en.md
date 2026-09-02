@@ -6,6 +6,26 @@
 
 ---
 
+<!-- lumio-community:start -->
+<div align="center">
+<table>
+<tr>
+<td align="center" width="50%" valign="top">
+<a href="https://qm.qq.com/q/PGkXh4tCyQ"><img src="https://raw.githubusercontent.com/LumioGames/.github/main/profile/assets/qr-qq.svg" width="170" alt="QQ group 972220164"></a><br>
+<a href="https://qm.qq.com/q/PGkXh4tCyQ"><img src="https://img.shields.io/badge/QQ%20group-972220164-6171F0?style=for-the-badge&logo=tencentqq&logoColor=white" alt="QQ group 972220164"></a><br>
+<sub>QQ group · anything goes</sub>
+</td>
+<td align="center" width="50%" valign="top">
+<a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=fffn1ae7-fd83-4315-96ac-6fa3aba3968e"><img src="https://raw.githubusercontent.com/LumioGames/.github/main/profile/assets/qr-engine.svg" width="170" alt="LumioEngine community"></a><br>
+<a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=fffn1ae7-fd83-4315-96ac-6fa3aba3968e"><img src="https://img.shields.io/badge/Feishu-LumioEngine%20community-5DE2C6?style=for-the-badge&logoColor=1E2A3A" alt="LumioEngine community"></a><br>
+<sub>Feishu topic group · Rust / C# engine layer</sub>
+</td>
+</tr>
+</table>
+<sub>Join the chat before you read the code. Other groups and the big picture are on the <a href="https://github.com/LumioGames">LumioGames profile</a>.</sub>
+</div>
+<!-- lumio-community:end -->
+
 `LumioCoreEngine` has been marked **Deprecated** as a standalone repository and is kept only for historical audit and rollback purposes; no new feature or dependency should be added there. Its implementation now lives under `engine/native/` in this repository.
 
 ## What this is
