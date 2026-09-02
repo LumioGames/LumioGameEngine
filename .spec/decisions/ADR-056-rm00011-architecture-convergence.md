@@ -39,7 +39,12 @@ RM-00011（ECS 正式实体与聊天纵切）已在 Workflow 全部标记 done�
 
 ## 接口 / Schema
 
-- `engine/wire/native-timer-abi-v1.json`（C-4）与 ADR-055：修订为「单内核双模式」，并把定时内核的托管可达面纳入 `engine/abi/native-abi.json`（ABI 变更须经 `eng/generate-abi.mjs` 重生成，`DEFINITION_SHA256` 随之变化）。
+- **C-4′ 单内核双模式与托管 ABI（R-00365 / N-03 填实；状态保持 Draft）：**
+  - 契约：`engine/wire/native-timer-abi-v1.json`。`layers.kernel.modes` 仅 `wallClock`（单调毫秒、`timer_pump`）与 `tickFrame`（确定性 Tick/Frame、`timer_advance`）；二者共用 TimerHandle / CallbackSlot / `errorCodes`。`consumers.reconnectDeadline.layer` = `kernel:wallClock`。Game / Server / Client / Worker Timer Manager 只是适配层。
+  - 托管可达面：契约 `abiSurface`；根表槽位于 `engine/abi/native-abi.json` 的 `timer_*` 字段——`timer_create_manager` / `timer_destroy_manager` / `timer_register_dispatch` / `timer_register_scope` / `timer_teardown_scope` / `timer_create_slot` / `timer_bind_slot` / `timer_close_slot` / `timer_schedule_one_shot` / `timer_schedule_repeating` / `timer_cancel` / `timer_advance` / `timer_pump` / `timer_drain`。参数类型闭合为 `pointer` / `u32` / `u64`；禁止函数指针。C-4 稳定错误码映射为 status 6–17（`TimerStaleHandle` … `TimerManagerShutdown`）；ABI 级 `InvalidArgument`/`BufferTooSmall` 仍用 1/5。`timer_destroy_manager` 把句柄变成 shutdown-tombstone：后续 timer_* 观测 `manager_shutdown`（17），不是 CLR 式释放。`FiringRecord.slotDispatchId` 与 `drainRecord.slotDispatchId` 同为 `u32`。线程约束：同一 manager 串行、owner 线程、Native 不回调托管。
+  - 生成：`node eng/generate-abi.mjs` 更新 `engine/native/modules/sdk-native/src/abi_generated.rs` 与 `engine/managed/Lumio.Engine.NativeLoader/AbiConstants.g.cs`；`DEFINITION_SHA256` 随定义字节变化。
+  - NativeCore（N-08 / R-00372）与两个宿主只凭 C-4′ + `native-abi.json` 实现；NativeCore 仓 ADR 0007「不进 C ABI」由该卡取代。本卡不写内核实现、不新增第五个契约文件。
+  - ADR-055 Accepted 正文不改写；修订见该 ADR「修订记录（2026-09-02，ADR-056 §7）」段。
 - `engine/wire/entity-binding-and-query-v1.json`（C-2）：`attributeDeclarations` 改为「由字段标注生成」的生成物，不再手写示例表；增加 `NetEntityId` 由 Runtime 发号的措辞。
 - `engine/wire/gameplay-command-envelope-v1.json`（C-1）：`mappings.*.dimensions` 改为生成物；`FullSnapshot.stateBlocks` 为 Room 路径唯一快照载体的措辞加固。
 - 顶号通知：在 C-3 或 C-1 增加 `connection_superseded` 下行通知消息形状（待定稿时选定落点，原则是不新增第四份契约）。

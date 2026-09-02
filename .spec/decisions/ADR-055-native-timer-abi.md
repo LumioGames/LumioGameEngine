@@ -50,3 +50,17 @@ Owner：`LumioGameEngineArchitecture`（契约真值）、`LumioNativeCore`（Ti
 - 契约内嵌用例：`testCases` 4 例（one-shot 恰一次、repeating 按周期、cancel 阻断投递、投递全序可回放）与 `invalidCases` 18 例（含 `slot_queue_full` 非 fatal、`scope_invalid`、`scope_generation_mismatch`、`slot_dispatch_mismatch`、`manager_shutdown`、调度期 `slot_unbound`/`slot_closed` 互斥、schedule 面 `invalid_due_tick`、`advance` 回退、`maxSchedulesPerTick`），覆盖卡 R-00358 验收要求的六类生命周期/失败路径（one-shot、repeating、cancel、stale handle、late completion、slot failure），逐例确定性断言。`errorTriggers` 覆盖全部 12 个稳定错误码。
 - 本卡自检：JSON 结构自检（必含键、12 码各有 trigger、六类用例各 ≥1、无尾逗号）、`node .spec/tools/spec-lint.mjs`、`node eng/generate-abi.mjs` 零差异；统一校验器（`eng/verify-wire.mjs`）由并行卡 R-00355/C-1 建立，随本契约合并后纳入统一校验。
 - 消费方验收：R-00352 以本契约为实现真值（Bot 每 N Tick 发言 + 服务器周期任务），R-00350 以本 ADR 分层记录为重连窗口归属依据。
+
+## 修订记录（2026-09-02，ADR-056 §7）
+
+本段为 Accepted 正文的附录，不改写上方决策原文。ADR-056 §7 将本 ADR 决策第 4–5 条「双层各自独立基础设施、P0 两层一等公民」修订为「单内核双模式」：
+
+- 定时内核只有一个，位于 NativeCore（Rust），经 `engine/abi/native-abi.json` 的 `timer_*` 根表槽暴露给托管侧。
+- 两种模式共用 TimerHandle / CallbackSlot / 错误码：`wallClock`（单调毫秒、非确定性，驱动函数 `timer_pump`，承载重连保留窗与宿主周期任务）与 `tickFrame`（确定性、固定 Tick/Frame，驱动函数 `timer_advance`）。
+- `consumers.reconnectDeadline.layer` = `kernel:wallClock`。Game / Server / Client / Worker Timer Manager 只是适配层，不得自建定时器。
+- 托管可达面以 C-4′ `abiSurface` 为最小函数集（创建/销毁 manager、register_scope/teardown_scope、register_dispatch、create/bind/close slot、scheduleOneShot/scheduleRepeating/cancel、advance/pump、drain）。参数只允许不透明句柄与整数，禁止函数指针（ADR-006）。
+- 上方 Accepted 正文中「本契约不进 native-abi.json」「两层互为一等公民」「墙钟 deadline 不进 Manager」「没有第五个 shutdown() ABI」等句以本修订与 ADR-056 为准：`timer_destroy_manager` 是实例拆除的 ABI 投影。
+- NativeCore 仓 ADR 0007「定时不进 C ABI」由 N-08 / R-00372 取代；本仓只冻结契约与 ABI 定义，不写内核实现。
+- 停机观测：`timer_destroy_manager` 与 `destroy_clr_host` 不同，Success 后句柄为 shutdown-tombstone，后续 timer_* 返回 `manager_shutdown`（status 17）。`slotDispatchId` 在语义记录与 drain 布局上均为 `u32`。
+
+契约真值：`engine/wire/native-timer-abi-v1.json`（C-4′）+ `engine/abi/native-abi.json`（`timer_*` 槽与 Timer* 状态码）。

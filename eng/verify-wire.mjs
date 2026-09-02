@@ -154,6 +154,10 @@ function checkPrimitive(value, expr, contract) {
     return set.includes(value) ? null : `${JSON.stringify(value)} not in ${ref}`;
   }
   switch (expr) {
+    case 'u32':
+      return Number.isInteger(value) && value >= 0 && value <= 0xffffffff
+        ? null
+        : `expected u32 integer in [0, 2^32-1], got ${JSON.stringify(value)}`;
     case 'u64':
     case 'epoch-ms':
       return Number.isInteger(value) && value >= 0 && value <= U64_MAX ? null : `expected u64 integer in [0, 2^53-1], got ${JSON.stringify(value)}`;
@@ -184,7 +188,7 @@ function checkFieldShape(value, expr, contract, errors, path) {
 }
 
 function checkValueShape(value, expr, contract, errors, path) {
-  if (expr.startsWith('const:') || expr.startsWith('enum:') || ['u64', 'epoch-ms', 'string', 'bool', 'hex', 'sha256-hex'].includes(expr)) {
+  if (expr.startsWith('const:') || expr.startsWith('enum:') || ['u32', 'u64', 'epoch-ms', 'string', 'bool', 'hex', 'sha256-hex'].includes(expr)) {
     const err = checkPrimitive(value, expr, contract);
     if (err) errors.push(new Rejection('bad_envelope', `${path}: ${err}`));
     return;
@@ -361,11 +365,213 @@ function checkStructure(contract, fileName, problems) {
   return allCases.length;
 }
 
+// ---------- Native timer ABI (C-4′ single-kernel dual-mode) ----------
+
+const TIMER_CONTRACT_ID = 'lumio.native-timer-abi.v1';
+const TIMER_ABI_PARAM_TYPES = new Set(['pointer', 'u32', 'u64']);
+const TIMER_KERNEL_LAYERS = new Set(['kernel:wallClock', 'kernel:tickFrame']);
+const TIMER_ABI_REQUIRED_FUNCTIONS = [
+  'timer_create_manager',
+  'timer_destroy_manager',
+  'timer_register_dispatch',
+  'timer_register_scope',
+  'timer_teardown_scope',
+  'timer_create_slot',
+  'timer_bind_slot',
+  'timer_close_slot',
+  'timer_schedule_one_shot',
+  'timer_schedule_repeating',
+  'timer_cancel',
+  'timer_advance',
+  'timer_pump',
+  'timer_drain',
+];
+
+function parseStatusFnParams(type) {
+  const match = String(type ?? '').match(/^fn\((.*)\)\s*->\s*status$/);
+  if (!match) return null;
+  const inner = match[1].trim();
+  return inner.length === 0 ? [] : inner.split(',').map((item) => item.trim());
+}
+
+function isForbiddenFnPointerType(type) {
+  const text = String(type ?? '');
+  if (text.includes('fn(') || text.includes('*fn') || text.includes('fn *')) return true;
+  return /function\s*pointer|callback|delegate/i.test(text);
+}
+
+function checkNativeTimerContract(contract, fileName, problems) {
+  if (contract.contractId !== TIMER_CONTRACT_ID) return;
+  const problem = (msg) => problems.push(`${fileName}: ${msg}`);
+
+  if (contract.layers?.hostTimerService) {
+    problem('layers.hostTimerService retains a second timer infrastructure; only layers.kernel dual-mode is allowed');
+  }
+  if (contract.layers?.nativeTickFrameTimerManager) {
+    problem('layers.nativeTickFrameTimerManager retains a second timer infrastructure; only layers.kernel dual-mode is allowed');
+  }
+
+  const modes = contract.layers?.kernel?.modes;
+  if (!modes || typeof modes !== 'object' || Array.isArray(modes)) {
+    problem('layers.kernel.modes missing (single-kernel dual-mode requires wallClock and tickFrame)');
+  } else {
+    for (const mode of ['wallClock', 'tickFrame']) {
+      const spec = modes[mode];
+      if (!spec || typeof spec !== 'object') {
+        problem(`layers.kernel.modes.${mode} missing`);
+        continue;
+      }
+      if (typeof spec.owns !== 'string' || spec.owns.length < 10) {
+        problem(`layers.kernel.modes.${mode}.owns must be a meaningful string`);
+      }
+    }
+    const shared = contract.layers.kernel.shared;
+    const sharedSet = new Set(Array.isArray(shared) ? shared : []);
+    for (const item of ['TimerHandle', 'CallbackSlot', 'errorCodes']) {
+      if (!sharedSet.has(item)) problem(`layers.kernel.shared must include ${item}`);
+    }
+  }
+
+  if (contract.consumers?.reconnectDeadline?.layer !== 'kernel:wallClock') {
+    problem('consumers.reconnectDeadline.layer must be kernel:wallClock');
+  }
+
+  const surface = contract.abiSurface;
+  if (!surface || typeof surface !== 'object' || Array.isArray(surface)) {
+    problem('abiSurface missing (hosted reachable timer function set)');
+    return;
+  }
+
+  const functions = surface.functions;
+  if (!Array.isArray(functions) || functions.length === 0) {
+    problem('abiSurface.functions must be a non-empty array');
+    return;
+  }
+
+  const names = functions.map((fn) => fn?.name);
+  for (const required of TIMER_ABI_REQUIRED_FUNCTIONS) {
+    if (!names.includes(required)) problem(`abiSurface.functions missing ${required}`);
+  }
+  if (new Set(names.filter((name) => typeof name === 'string')).size !== names.length) {
+    problem('abiSurface.functions contains duplicate or unnamed entries');
+  }
+
+  if (surface.managerHandleAfterDestroy !== 'shutdown-tombstone') {
+    problem('abiSurface.managerHandleAfterDestroy must be shutdown-tombstone (destroy leaves a resolvable handle that returns manager_shutdown)');
+  }
+  if (surface.afterDestroyStatus !== 'manager_shutdown') {
+    problem('abiSurface.afterDestroyStatus must be manager_shutdown');
+  }
+  const lifecycle = contract.fieldSemantics?.managerLifecycle ?? '';
+  if (lifecycle.includes('立即失效')) {
+    problem('fieldSemantics.managerLifecycle must not say 立即失效; destroy leaves a shutdown tombstone');
+  }
+  const firingDispatch = contract.sharedTypes?.FiringRecord?.required?.slotDispatchId;
+  const drainDispatch = surface.drainRecord?.fields?.find((field) => field.name === 'slotDispatchId')?.type;
+  if (firingDispatch !== 'u32' || drainDispatch !== 'u32' || firingDispatch !== drainDispatch) {
+    problem(`FiringRecord.slotDispatchId (${JSON.stringify(firingDispatch)}) must equal drainRecord.slotDispatchId (u32), not a second type`);
+  }
+
+  const mapping = surface.errorCodeMapping;
+  if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
+    problem('abiSurface.errorCodeMapping missing');
+  } else {
+    const used = new Set();
+    for (const code of collectErrorCodes(contract)) {
+      const numeric = mapping[code];
+      if (!Number.isInteger(numeric) || numeric < 6) {
+        problem(`abiSurface.errorCodeMapping.${code} must be an integer >= 6 (0-5 are ABI/CLR status)`);
+        continue;
+      }
+      if (used.has(numeric)) problem(`abiSurface.errorCodeMapping reuses status ${numeric}`);
+      used.add(numeric);
+    }
+  }
+
+  for (const fn of functions) {
+    const name = fn?.name ?? '<unnamed>';
+    if (typeof fn?.type !== 'string' || parseStatusFnParams(fn.type) === null) {
+      problem(`abiSurface.${name}.type must be fn(...) -> status`);
+    }
+    if (!Array.isArray(fn?.params)) {
+      problem(`abiSurface.${name}.params must be an array`);
+      continue;
+    }
+    const declared = parseStatusFnParams(fn.type) ?? [];
+    if (declared.length !== fn.params.length) {
+      problem(`abiSurface.${name}.type param count ${declared.length} != params.length ${fn.params.length}`);
+    }
+    fn.params.forEach((param, index) => {
+      const type = param?.type;
+      if (isForbiddenFnPointerType(type) || (typeof type === 'string' && type.includes('fn('))) {
+        problem(`abiSurface.${name} param ${param?.name ?? index} forbids function-pointer type ${JSON.stringify(type)}`);
+        return;
+      }
+      if (!TIMER_ABI_PARAM_TYPES.has(type)) {
+        problem(`abiSurface.${name} param ${param?.name ?? index} type ${JSON.stringify(type)} is not an opaque handle or integer`);
+      }
+      if (declared[index] && declared[index] !== type) {
+        problem(`abiSurface.${name} param ${param?.name ?? index} type ${type} != type-string slot ${declared[index]}`);
+      }
+    });
+  }
+
+  for (const testCase of [...(contract.testCases ?? []), ...(contract.invalidCases ?? [])]) {
+    if (testCase.layer && !TIMER_KERNEL_LAYERS.has(testCase.layer)) {
+      problem(`${testCase.name}: layer ${JSON.stringify(testCase.layer)} must be kernel:wallClock or kernel:tickFrame`);
+    }
+  }
+}
+
+function checkTimerAbiAlignment(contract, abiDefinition, problems, fileName = 'native-timer-abi-v1.json') {
+  if (contract.contractId !== TIMER_CONTRACT_ID) return;
+  const problem = (msg) => problems.push(`${fileName}: ${msg}`);
+  const fields = abiDefinition?.root?.fields;
+  if (!Array.isArray(fields)) {
+    problem('native-abi.json root.fields missing while aligning abiSurface');
+    return;
+  }
+  const byName = new Map(fields.map((field) => [field.name, field]));
+  for (const fn of contract.abiSurface?.functions ?? []) {
+    const field = byName.get(fn.name);
+    if (!field) {
+      problem(`native-abi.json root.fields missing ${fn.name}`);
+      continue;
+    }
+    if (field.type !== fn.type) {
+      problem(`native-abi.json ${fn.name}.type ${JSON.stringify(field.type)} != abiSurface ${JSON.stringify(fn.type)}`);
+    }
+    const params = parseStatusFnParams(field.type) ?? [];
+    for (const paramType of params) {
+      if (isForbiddenFnPointerType(paramType) || !TIMER_ABI_PARAM_TYPES.has(paramType)) {
+        problem(`native-abi.json ${fn.name} param type ${paramType} is not an opaque handle or integer`);
+      }
+    }
+  }
+  const mapping = contract.abiSurface?.errorCodeMapping ?? {};
+  const status = abiDefinition.status ?? {};
+  for (const [code, numeric] of Object.entries(mapping)) {
+    const statusName = `Timer${code.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('')}`;
+    if (status[statusName] !== numeric) {
+      problem(`native-abi.json status.${statusName} must equal errorCodeMapping.${code} (${numeric})`);
+    }
+  }
+  const destroyDoc = String(byName.get('timer_destroy_manager')?.doc ?? '');
+  if (destroyDoc.includes('立即失效')) {
+    problem('native-abi.json timer_destroy_manager doc must not use CLR immediate-invalidate (立即失效); handle stays a shutdown tombstone');
+  }
+  if (destroyDoc.length > 0 && (!destroyDoc.includes('TimerManagerShutdown') || !/tombstone|墓碑/.test(destroyDoc))) {
+    problem('native-abi.json timer_destroy_manager doc must describe a shutdown tombstone that later calls observe as TimerManagerShutdown');
+  }
+}
+
 // ---------- Contract validation ----------
 
-function validateContract(contract, fileName) {
+function validateContract(contract, fileName, abiDefinition) {
   const problems = [];
   const caseCount = checkStructure(contract, fileName, problems);
+  checkNativeTimerContract(contract, fileName, problems);
+  if (abiDefinition) checkTimerAbiAlignment(contract, abiDefinition, problems, fileName);
 
   let pass = 0;
   let executed = 0;
@@ -436,10 +642,17 @@ function validateContract(contract, fileName) {
   return { summary, problems };
 }
 
-export { validateContract, wireDir };
+export {
+  validateContract,
+  wireDir,
+  checkNativeTimerContract,
+  checkTimerAbiAlignment,
+  TIMER_ABI_REQUIRED_FUNCTIONS,
+};
 
 async function main() {
   const files = (await readdir(wireDir)).filter((f) => f.endsWith('.json')).sort();
+  const abiDefinition = JSON.parse(await readFile(resolve(root, 'engine/abi/native-abi.json'), 'utf8'));
   let failed = false;
   console.log(`verify-wire: ${files.length} contract(s) in engine/wire/`);
   for (const fileName of files) {
@@ -451,7 +664,11 @@ async function main() {
       failed = true;
       continue;
     }
-    const { summary, problems } = validateContract(contract, fileName);
+    const { summary, problems } = validateContract(
+      contract,
+      fileName,
+      contract.contractId === TIMER_CONTRACT_ID ? abiDefinition : undefined,
+    );
     console.log(summary);
     for (const problem of problems) console.log(`  - ${problem}`);
     if (problems.length > 0) failed = true;
@@ -509,4 +726,202 @@ test('wrong-kind InputCommand is unknown_command_type via shipped invalidCase', 
   ic.expectedRejection = 'state_block_kind_mismatch';
   const flipped = validateContract(contract, 'gameplay-command-envelope-v1.json');
   assert.ok(flipped.problems.some((p) => p.includes('unknown_command_type') && p.includes('input/registered-wrong-kind')));
+});
+
+const TIMER_ERROR_CODES = [
+  'stale_handle',
+  'scope_invalid',
+  'scope_generation_mismatch',
+  'invalid_due_tick',
+  'invalid_interval',
+  'schedule_budget_exceeded',
+  'slot_closed',
+  'slot_unbound',
+  'slot_dispatch_mismatch',
+  'slot_queue_full',
+  'late_completion',
+  'manager_shutdown',
+];
+
+function timerStatusName(code) {
+  return `Timer${code.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('')}`;
+}
+
+function minimalTimerContract() {
+  const errorCodeMapping = Object.fromEntries(TIMER_ERROR_CODES.map((code, index) => [code, 6 + index]));
+  const functions = TIMER_ABI_REQUIRED_FUNCTIONS.map((name) => ({
+    name,
+    type: 'fn(pointer) -> status',
+    params: [{ name: 'manager', type: 'pointer' }],
+  }));
+  return {
+    contractId: TIMER_CONTRACT_ID,
+    version: 1,
+    purpose: 'single-kernel dual-mode timer ABI used by validator negative cases',
+    layers: {
+      kernel: {
+        modes: {
+          wallClock: { owns: 'monotonic wall-clock deadlines in milliseconds' },
+          tickFrame: { owns: 'deterministic tick and frame gameplay schedules' },
+        },
+        shared: ['TimerHandle', 'CallbackSlot', 'errorCodes'],
+      },
+    },
+    consumers: { reconnectDeadline: { layer: 'kernel:wallClock' } },
+    errorCodes: TIMER_ERROR_CODES,
+    sharedTypes: {
+      FiringRecord: {
+        required: { slotDispatchId: 'u32' },
+      },
+    },
+    abiSurface: {
+      functions,
+      errorCodeMapping,
+      managerHandleAfterDestroy: 'shutdown-tombstone',
+      afterDestroyStatus: 'manager_shutdown',
+      drainRecord: {
+        bytes: 40,
+        fields: [{ name: 'slotDispatchId', type: 'u32' }],
+      },
+    },
+  };
+}
+
+function stubTimerAbi(contract) {
+  const status = {
+    Success: 0,
+    InvalidArgument: 1,
+    UnsupportedVersion: 2,
+    ClrInitFailed: 3,
+    ClrEntryFailed: 4,
+    BufferTooSmall: 5,
+  };
+  for (const [code, numeric] of Object.entries(contract.abiSurface.errorCodeMapping)) {
+    status[timerStatusName(code)] = numeric;
+  }
+  return {
+    root: {
+      fields: contract.abiSurface.functions.map((fn) => ({ name: fn.name, type: fn.type })),
+    },
+    status,
+  };
+}
+
+async function loadTimerAndAbi() {
+  const contract = JSON.parse(await readFile(resolve(wireDir, 'native-timer-abi-v1.json'), 'utf8'));
+  const abiDefinition = JSON.parse(await readFile(resolve(root, 'engine/abi/native-abi.json'), 'utf8'));
+  return { contract, abiDefinition };
+}
+
+test('C-4 layers is single-kernel dual-mode and reconnect window is kernel:wallClock', async () => {
+  const { contract, abiDefinition } = await loadTimerAndAbi();
+  assert.equal(contract.contractId, 'lumio.native-timer-abi.v1');
+  assert.equal(contract.layers?.hostTimerService, undefined);
+  assert.equal(contract.layers?.nativeTickFrameTimerManager, undefined);
+  assert.ok(contract.layers?.kernel?.modes?.wallClock);
+  assert.ok(contract.layers?.kernel?.modes?.tickFrame);
+  assert.deepEqual(new Set(contract.layers.kernel.shared), new Set(['TimerHandle', 'CallbackSlot', 'errorCodes']));
+  assert.equal(contract.consumers?.reconnectDeadline?.layer, 'kernel:wallClock');
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', abiDefinition);
+  assert.deepEqual(problems, []);
+});
+
+test('C-4 abiSurface is the hosted timer set with no function-pointer parameters', async () => {
+  const { contract, abiDefinition } = await loadTimerAndAbi();
+  const names = (contract.abiSurface?.functions ?? []).map((fn) => fn.name);
+  for (const required of TIMER_ABI_REQUIRED_FUNCTIONS) {
+    assert.ok(names.includes(required), `abiSurface missing ${required}`);
+  }
+  for (const fn of contract.abiSurface.functions) {
+    for (const param of fn.params) {
+      assert.equal(typeof param.type, 'string');
+      assert.equal(param.type.includes('fn('), false, `${fn.name} param ${param.name} is a function pointer`);
+      assert.ok(['pointer', 'u32', 'u64'].includes(param.type), `${fn.name} param ${param.name} type ${param.type}`);
+    }
+  }
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', abiDefinition);
+  assert.deepEqual(problems, []);
+});
+
+test('native-abi.json root fields include every C-4 abiSurface timer function', async () => {
+  const { contract, abiDefinition } = await loadTimerAndAbi();
+  assert.ok(Array.isArray(contract.abiSurface?.functions), 'C-4 abiSurface.functions must exist');
+  const fields = new Map(abiDefinition.root.fields.map((field) => [field.name, field]));
+  for (const fn of contract.abiSurface.functions) {
+    assert.ok(fields.has(fn.name), `native-abi.json missing ${fn.name}`);
+    assert.equal(fields.get(fn.name).type, fn.type);
+  }
+  const alignment = [];
+  checkTimerAbiAlignment(contract, abiDefinition, alignment);
+  assert.deepEqual(alignment, []);
+});
+
+test('validator accepts a dual-mode abiSurface fixture and rejects a second kernel', () => {
+  const contract = minimalTimerContract();
+  const abiDefinition = stubTimerAbi(contract);
+  assert.deepEqual(validateContract(contract, 'native-timer-abi-v1.json', abiDefinition).problems, []);
+  const bad = JSON.parse(JSON.stringify(contract));
+  bad.layers.hostTimerService = { owns: 'second wall-clock kernel' };
+  const { problems } = validateContract(bad, 'native-timer-abi-v1.json', abiDefinition);
+  assert.ok(problems.some((item) => item.includes('hostTimerService') && item.includes('second timer infrastructure')));
+});
+
+test('validator rejects abiSurface function-pointer parameters', () => {
+  const contract = minimalTimerContract();
+  const target = contract.abiSurface.functions.find((fn) => fn.name === 'timer_register_dispatch');
+  target.params.push({ name: 'callback', type: 'fn(pointer) -> status' });
+  target.type = 'fn(pointer, fn(pointer) -> status) -> status';
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', stubTimerAbi(contract));
+  assert.ok(problems.some((item) => item.includes('function-pointer')));
+});
+
+test('validator rejects reconnectDeadline leaving the wallClock kernel', () => {
+  const contract = minimalTimerContract();
+  contract.consumers.reconnectDeadline.layer = 'hostTimerService';
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', stubTimerAbi(contract));
+  assert.ok(problems.some((item) => item.includes('reconnectDeadline.layer') && item.includes('kernel:wallClock')));
+});
+
+test('timer_destroy_manager leaves a shutdown tombstone so manager_shutdown is observable', async () => {
+  const { contract, abiDefinition } = await loadTimerAndAbi();
+  assert.equal(contract.abiSurface.managerHandleAfterDestroy, 'shutdown-tombstone');
+  assert.equal(contract.abiSurface.afterDestroyStatus, 'manager_shutdown');
+  const destroy = abiDefinition.root.fields.find((field) => field.name === 'timer_destroy_manager');
+  assert.ok(destroy?.doc, 'native-abi.json timer_destroy_manager must have a doc');
+  assert.equal(/立即失效/.test(destroy.doc), false, 'destroy must not immediately invalidate like CLR host');
+  assert.match(destroy.doc, /TimerManagerShutdown/);
+  assert.match(destroy.doc, /tombstone|墓碑/);
+  assert.equal(/立即失效/.test(contract.fieldSemantics.managerLifecycle), false);
+  const shutdownCase = (contract.invalidCases ?? []).find((item) => item.name === 'manager_shutdown_rejects_all_operations');
+  assert.equal(shutdownCase.expectedRejection, 'manager_shutdown');
+  assert.match(shutdownCase.when, /pump/);
+  assert.match(shutdownCase.when, /drain/);
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', abiDefinition);
+  assert.deepEqual(problems, []);
+});
+
+test('FiringRecord.slotDispatchId is the same u32 as drainRecord', async () => {
+  const { contract, abiDefinition } = await loadTimerAndAbi();
+  const firing = contract.sharedTypes.FiringRecord.required.slotDispatchId;
+  const drain = contract.abiSurface.drainRecord.fields.find((field) => field.name === 'slotDispatchId');
+  assert.equal(firing, 'u32');
+  assert.ok(drain, 'drainRecord.slotDispatchId missing');
+  assert.equal(drain.type, 'u32');
+  assert.equal(firing, drain.type);
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', abiDefinition);
+  assert.deepEqual(problems, []);
+});
+
+test('validator rejects destroy immediate-invalidate paired with manager_shutdown', () => {
+  const contract = minimalTimerContract();
+  contract.abiSurface.managerHandleAfterDestroy = 'immediate-invalidate';
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', stubTimerAbi(contract));
+  assert.ok(problems.some((item) => item.includes('shutdown-tombstone')));
+});
+
+test('validator rejects FiringRecord.slotDispatchId string vs drainRecord u32', () => {
+  const contract = minimalTimerContract();
+  contract.sharedTypes.FiringRecord.required.slotDispatchId = 'string';
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', stubTimerAbi(contract));
+  assert.ok(problems.some((item) => item.includes('slotDispatchId')));
 });
