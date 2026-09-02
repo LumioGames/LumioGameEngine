@@ -154,6 +154,10 @@ function checkPrimitive(value, expr, contract) {
     return set.includes(value) ? null : `${JSON.stringify(value)} not in ${ref}`;
   }
   switch (expr) {
+    case 'u32':
+      return Number.isInteger(value) && value >= 0 && value <= 0xffffffff
+        ? null
+        : `expected u32 integer in [0, 2^32-1], got ${JSON.stringify(value)}`;
     case 'u64':
     case 'epoch-ms':
       return Number.isInteger(value) && value >= 0 && value <= U64_MAX ? null : `expected u64 integer in [0, 2^53-1], got ${JSON.stringify(value)}`;
@@ -184,7 +188,7 @@ function checkFieldShape(value, expr, contract, errors, path) {
 }
 
 function checkValueShape(value, expr, contract, errors, path) {
-  if (expr.startsWith('const:') || expr.startsWith('enum:') || ['u64', 'epoch-ms', 'string', 'bool', 'hex', 'sha256-hex'].includes(expr)) {
+  if (expr.startsWith('const:') || expr.startsWith('enum:') || ['u32', 'u64', 'epoch-ms', 'string', 'bool', 'hex', 'sha256-hex'].includes(expr)) {
     const err = checkPrimitive(value, expr, contract);
     if (err) errors.push(new Rejection('bad_envelope', `${path}: ${err}`));
     return;
@@ -364,7 +368,7 @@ function checkStructure(contract, fileName, problems) {
 // ---------- Native timer ABI (C-4′ single-kernel dual-mode) ----------
 
 const TIMER_CONTRACT_ID = 'lumio.native-timer-abi.v1';
-const TIMER_ABI_PARAM_TYPES = new Set(['pointer', 'u32', 'u64', 'i32']);
+const TIMER_ABI_PARAM_TYPES = new Set(['pointer', 'u32', 'u64']);
 const TIMER_KERNEL_LAYERS = new Set(['kernel:wallClock', 'kernel:tickFrame']);
 const TIMER_ABI_REQUIRED_FUNCTIONS = [
   'timer_create_manager',
@@ -452,6 +456,22 @@ function checkNativeTimerContract(contract, fileName, problems) {
     problem('abiSurface.functions contains duplicate or unnamed entries');
   }
 
+  if (surface.managerHandleAfterDestroy !== 'shutdown-tombstone') {
+    problem('abiSurface.managerHandleAfterDestroy must be shutdown-tombstone (destroy leaves a resolvable handle that returns manager_shutdown)');
+  }
+  if (surface.afterDestroyStatus !== 'manager_shutdown') {
+    problem('abiSurface.afterDestroyStatus must be manager_shutdown');
+  }
+  const lifecycle = contract.fieldSemantics?.managerLifecycle ?? '';
+  if (lifecycle.includes('立即失效')) {
+    problem('fieldSemantics.managerLifecycle must not say 立即失效; destroy leaves a shutdown tombstone');
+  }
+  const firingDispatch = contract.sharedTypes?.FiringRecord?.required?.slotDispatchId;
+  const drainDispatch = surface.drainRecord?.fields?.find((field) => field.name === 'slotDispatchId')?.type;
+  if (firingDispatch !== 'u32' || drainDispatch !== 'u32' || firingDispatch !== drainDispatch) {
+    problem(`FiringRecord.slotDispatchId (${JSON.stringify(firingDispatch)}) must equal drainRecord.slotDispatchId (u32), not a second type`);
+  }
+
   const mapping = surface.errorCodeMapping;
   if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
     problem('abiSurface.errorCodeMapping missing');
@@ -535,6 +555,13 @@ function checkTimerAbiAlignment(contract, abiDefinition, problems, fileName = 'n
     if (status[statusName] !== numeric) {
       problem(`native-abi.json status.${statusName} must equal errorCodeMapping.${code} (${numeric})`);
     }
+  }
+  const destroyDoc = String(byName.get('timer_destroy_manager')?.doc ?? '');
+  if (destroyDoc.includes('立即失效')) {
+    problem('native-abi.json timer_destroy_manager doc must not use CLR immediate-invalidate (立即失效); handle stays a shutdown tombstone');
+  }
+  if (destroyDoc.length > 0 && (!destroyDoc.includes('TimerManagerShutdown') || !/tombstone|墓碑/.test(destroyDoc))) {
+    problem('native-abi.json timer_destroy_manager doc must describe a shutdown tombstone that later calls observe as TimerManagerShutdown');
   }
 }
 
@@ -742,7 +769,21 @@ function minimalTimerContract() {
     },
     consumers: { reconnectDeadline: { layer: 'kernel:wallClock' } },
     errorCodes: TIMER_ERROR_CODES,
-    abiSurface: { functions, errorCodeMapping },
+    sharedTypes: {
+      FiringRecord: {
+        required: { slotDispatchId: 'u32' },
+      },
+    },
+    abiSurface: {
+      functions,
+      errorCodeMapping,
+      managerHandleAfterDestroy: 'shutdown-tombstone',
+      afterDestroyStatus: 'manager_shutdown',
+      drainRecord: {
+        bytes: 40,
+        fields: [{ name: 'slotDispatchId', type: 'u32' }],
+      },
+    },
   };
 }
 
@@ -795,7 +836,7 @@ test('C-4 abiSurface is the hosted timer set with no function-pointer parameters
     for (const param of fn.params) {
       assert.equal(typeof param.type, 'string');
       assert.equal(param.type.includes('fn('), false, `${fn.name} param ${param.name} is a function pointer`);
-      assert.ok(['pointer', 'u32', 'u64', 'i32'].includes(param.type), `${fn.name} param ${param.name} type ${param.type}`);
+      assert.ok(['pointer', 'u32', 'u64'].includes(param.type), `${fn.name} param ${param.name} type ${param.type}`);
     }
   }
   const { problems } = validateContract(contract, 'native-timer-abi-v1.json', abiDefinition);
@@ -839,4 +880,48 @@ test('validator rejects reconnectDeadline leaving the wallClock kernel', () => {
   contract.consumers.reconnectDeadline.layer = 'hostTimerService';
   const { problems } = validateContract(contract, 'native-timer-abi-v1.json', stubTimerAbi(contract));
   assert.ok(problems.some((item) => item.includes('reconnectDeadline.layer') && item.includes('kernel:wallClock')));
+});
+
+test('timer_destroy_manager leaves a shutdown tombstone so manager_shutdown is observable', async () => {
+  const { contract, abiDefinition } = await loadTimerAndAbi();
+  assert.equal(contract.abiSurface.managerHandleAfterDestroy, 'shutdown-tombstone');
+  assert.equal(contract.abiSurface.afterDestroyStatus, 'manager_shutdown');
+  const destroy = abiDefinition.root.fields.find((field) => field.name === 'timer_destroy_manager');
+  assert.ok(destroy?.doc, 'native-abi.json timer_destroy_manager must have a doc');
+  assert.equal(/立即失效/.test(destroy.doc), false, 'destroy must not immediately invalidate like CLR host');
+  assert.match(destroy.doc, /TimerManagerShutdown/);
+  assert.match(destroy.doc, /tombstone|墓碑/);
+  assert.equal(/立即失效/.test(contract.fieldSemantics.managerLifecycle), false);
+  const shutdownCase = (contract.invalidCases ?? []).find((item) => item.name === 'manager_shutdown_rejects_all_operations');
+  assert.equal(shutdownCase.expectedRejection, 'manager_shutdown');
+  assert.match(shutdownCase.when, /pump/);
+  assert.match(shutdownCase.when, /drain/);
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', abiDefinition);
+  assert.deepEqual(problems, []);
+});
+
+test('FiringRecord.slotDispatchId is the same u32 as drainRecord', async () => {
+  const { contract, abiDefinition } = await loadTimerAndAbi();
+  const firing = contract.sharedTypes.FiringRecord.required.slotDispatchId;
+  const drain = contract.abiSurface.drainRecord.fields.find((field) => field.name === 'slotDispatchId');
+  assert.equal(firing, 'u32');
+  assert.ok(drain, 'drainRecord.slotDispatchId missing');
+  assert.equal(drain.type, 'u32');
+  assert.equal(firing, drain.type);
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', abiDefinition);
+  assert.deepEqual(problems, []);
+});
+
+test('validator rejects destroy immediate-invalidate paired with manager_shutdown', () => {
+  const contract = minimalTimerContract();
+  contract.abiSurface.managerHandleAfterDestroy = 'immediate-invalidate';
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', stubTimerAbi(contract));
+  assert.ok(problems.some((item) => item.includes('shutdown-tombstone')));
+});
+
+test('validator rejects FiringRecord.slotDispatchId string vs drainRecord u32', () => {
+  const contract = minimalTimerContract();
+  contract.sharedTypes.FiringRecord.required.slotDispatchId = 'string';
+  const { problems } = validateContract(contract, 'native-timer-abi-v1.json', stubTimerAbi(contract));
+  assert.ok(problems.some((item) => item.includes('slotDispatchId')));
 });

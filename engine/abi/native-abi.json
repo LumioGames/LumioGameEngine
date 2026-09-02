@@ -47,7 +47,7 @@
       {
         "name": "timer_destroy_manager",
         "type": "fn(pointer) -> status",
-        "doc": "销毁 manager：进入 shutdown 并释放。参数：manager（create 出参句柄）。错误码：InvalidArgument（null）；Success 后该句柄立即失效。未 drain 的 FiringRecord 按 late_completion 丢弃。调用方须保证销毁时没有并发 timer_*。对应 C-4 managerLifecycle 的 shutdown 进入路径。"
+        "doc": "把 running manager 推进 shutdown：与 destroy_clr_host 不同，Success 后该句柄保持 shutdown tombstone（墓碑；同一 opaque 值仍可解析）。参数：manager（create 出参句柄）。错误码：InvalidArgument（仅 null）；对 running manager 首次调用返回 Success。未 drain 的 FiringRecord 按 late_completion 丢弃。此后对该 tombstone 的任意 timer_*（含再次 timer_destroy_manager、schedule/cancel/advance/pump/drain、scope/slot）返回 TimerManagerShutdown（status 17）。内核可释放 timer/slot/scope 表，但必须保留 tombstone 直到进程退出。调用方须保证销毁时没有并发 timer_*。对应 C-4 managerLifecycle 与 abiSurface.managerHandleAfterDestroy=shutdown-tombstone。"
       },
       {
         "name": "timer_register_dispatch",

@@ -61,5 +61,6 @@ Owner：`LumioGameEngineArchitecture`（契约真值）、`LumioNativeCore`（Ti
 - 托管可达面以 C-4′ `abiSurface` 为最小函数集（创建/销毁 manager、register_scope/teardown_scope、register_dispatch、create/bind/close slot、scheduleOneShot/scheduleRepeating/cancel、advance/pump、drain）。参数只允许不透明句柄与整数，禁止函数指针（ADR-006）。
 - 上方 Accepted 正文中「本契约不进 native-abi.json」「两层互为一等公民」「墙钟 deadline 不进 Manager」「没有第五个 shutdown() ABI」等句以本修订与 ADR-056 为准：`timer_destroy_manager` 是实例拆除的 ABI 投影。
 - NativeCore 仓 ADR 0007「定时不进 C ABI」由 N-08 / R-00372 取代；本仓只冻结契约与 ABI 定义，不写内核实现。
+- 停机观测：`timer_destroy_manager` 与 `destroy_clr_host` 不同，Success 后句柄为 shutdown-tombstone，后续 timer_* 返回 `manager_shutdown`（status 17）。`slotDispatchId` 在语义记录与 drain 布局上均为 `u32`。
 
 契约真值：`engine/wire/native-timer-abi-v1.json`（C-4′）+ `engine/abi/native-abi.json`（`timer_*` 槽与 Timer* 状态码）。

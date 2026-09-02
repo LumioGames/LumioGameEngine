@@ -48,7 +48,9 @@
     "callingConvention": "C",
     "abiDefinition": "engine/abi/native-abi.json",
     "threadConstraint": "同一 manager 句柄的全部 timer_* 调用必须串行，禁止跨线程并发。创建该 manager 的线程是其 owner 线程；tickFrame 建议在模拟主线程调用 advance，wallClock 建议在宿主周期线程调用 pump。Native 从不调用托管/gameplay 回调（ADR-006）：触发只入队，由适配层 drain 后在分发点排空。",
-    "parameterRule": "参数只允许不透明句柄（pointer）与整数（u32/u64/i32）。禁止函数指针、C# delegate、语言原生回调类型。",
+    "parameterRule": "参数只允许不透明句柄（pointer）与整数（u32/u64）。禁止函数指针、C# delegate、语言原生回调类型。",
+    "managerHandleAfterDestroy": "shutdown-tombstone",
+    "afterDestroyStatus": "manager_shutdown",
     "modes": { "wallClock": 0, "tickFrame": 1 },
     "scopeKinds": { "world": 0, "session": 1, "adapter": 2 },
     "handleLayout": {
@@ -93,7 +95,9 @@
     "notes": [
       "timer_register_scope / timer_teardown_scope / timer_close_slot 是既有 TimerScope 与 CallbackSlot 生命周期的 ABI 投影，不是新产品能力：没有它们，scope_invalid / scope_generation_mismatch / slot_closed 无法经 C ABI 驱动。",
       "advance/pump 在 C ABI 上只推进并入队；FiringRecord 经 timer_drain 写入调用方缓冲（对应语义层 operations.advance / operations.pump 的返回集）。",
-      "mode 失配（tickFrame 上 pump，或 wallClock 上 advance）返回 ABI InvalidArgument（1），不是 C-4 稳定错误码。"
+      "mode 失配（tickFrame 上 pump，或 wallClock 上 advance）返回 ABI InvalidArgument（1），不是 C-4 稳定错误码。",
+      "timer_destroy_manager 与 destroy_clr_host 不同：Success 后 manager 句柄保持 shutdown-tombstone（同一 index+generation 仍可解析），后续任意 timer_*（含再次 destroy）返回 manager_shutdown（status 17）。仅 manager 指针为 null 时返回 InvalidArgument。未 drain 的记录按 late_completion 丢弃。内核可释放 timer/slot/scope 表，但必须保留 tombstone 直到进程退出。",
+      "status 14–16（TimerSlotDispatchMismatch / TimerSlotQueueFull / TimerLateCompletion）是逐条拒绝语义，不是 timer_* 函数返回值。Native 的 timer_advance / timer_pump / timer_drain 整次成功仍返回 Success；被拒绝的触发不进入 drain 缓冲。slot_dispatch_mismatch 由适配层在自己的 u32 分发表上观测；slot_queue_full 与 late_completion 由内核记诊断事件。N-08 不得为此再扩 drainRecord。"
     ],
     "functions": [
       {
@@ -238,7 +242,7 @@
     "advanceToTick": "advance(toTick) 只允许 toTick ≥ 当前已提交刻度，且仅 tickFrame 模式。toTick < 当前刻度（回退）返回 invalid_due_tick，刻度不变、无 FiringRecord。toTick == 当前刻度为合法空推进（空触发集）。与 schedule 的 dueTick 校验共用 invalid_due_tick，判别见 errorTriggers。wallClock manager 上调用 advance 返回 ABI InvalidArgument。C ABI 上 advance 只入队，记录经 drain 取出。",
     "pumpToNowMs": "pump(nowMs) 只允许 nowMs ≥ 当前已提交单调毫秒，且仅 wallClock 模式。nowMs < 当前（回退）返回 invalid_due_tick，时间不变、无 FiringRecord。nowMs == 当前为合法空推进。开火窗口左开右闭 (committedMs, nowMs]：dueMs == nowMs 必须开火。repeating 在同一次 pump 内每次开火后 due += intervalMs 并继续收取仍落在该窗口内的后续时刻。tickFrame manager 上调用 pump 返回 ABI InvalidArgument。wallClock 非确定性，不要求跨进程回放。C ABI 上 pump 只入队，记录经 drain 取出。",
     "maxSchedulesPerTick": "tickFrame 单刻内 scheduleOneShot + scheduleRepeating 成功次数上限（limits.maxSchedulesPerTick）。wallClock 对应 limits.maxSchedulesPerPump（每次 pump 周期）。超出返回 schedule_budget_exceeded，无部分调度。被拒绝的调用不计入次数。与 maxActiveTimersPerScope 共用该码，判别见 errorTriggers。",
-    "managerLifecycle": "Manager 两态 running / shutdown。C-4′ 起进入 shutdown 的 ABI 是 timer_destroy_manager（进程退出、适配层卸载、显式销毁都走它）；这是实例拆除的 ABI 投影，不是 schedule/cancel/advance/pump 之外的第五个语义操作。shutdown 不可逆。进入后 scheduleOneShot / scheduleRepeating / cancel / advance / pump / drain 一律返回 manager_shutdown：无新 handle、无刻度推进、无新 FiringRecord。已入队尚未 drain 的 FiringRecord 按 late_completion 丢弃。句柄已不可解析时返回 ABI InvalidArgument。manager_shutdown 是稳定拒绝，不是进程 fatal。"
+    "managerLifecycle": "Manager 两态 running / shutdown。C-4′ 起进入 shutdown 的 ABI 是 timer_destroy_manager（进程退出、适配层卸载、显式销毁都走它）；这是实例拆除的 ABI 投影，不是 schedule/cancel/advance/pump 之外的第五个语义操作。shutdown 不可逆。首次 destroy 对仍 running 的句柄返回 Success，并把该句柄变成 shutdown-tombstone（同一 index+generation 仍可解析）。此后对该 tombstone 的任意 timer_*（含再次 destroy、schedule/cancel/advance/pump/drain、scope/slot 管理）一律返回 manager_shutdown：无新 handle、无刻度推进、无新 FiringRecord。已入队尚未 drain 的 FiringRecord 按 late_completion 丢弃。仅 manager 指针为 null 返回 ABI InvalidArgument。manager_shutdown 是稳定拒绝，不是进程 fatal。"
   },
   "types": {
     "TimerHandle": {
@@ -262,7 +266,7 @@
       "lifecycle": ["running", "shutdown"],
       "states": {
         "running": "默认态；接受 schedule/cancel/advance/pump/drain 与 scope/slot 管理 ABI",
-        "shutdown": "不可逆终态。由 timer_destroy_manager 进入。此后 schedule/cancel/advance/pump/drain 一律返回 manager_shutdown"
+        "shutdown": "不可逆终态。由 timer_destroy_manager 进入；句柄保持 shutdown-tombstone。此后任意 timer_* 一律返回 manager_shutdown"
       }
     },
     "CallbackSlot": {
@@ -318,10 +322,10 @@
         "handle": "TimerHandle",
         "dueTick": "u64",
         "scheduleSequence": "u64",
-        "slotDispatchId": "string"
+        "slotDispatchId": "u32"
       },
       "optional": {},
-      "notes": "单次触发的确定性记录；被取消/失效终态丢弃的触发不产生 FiringRecord，只产生拒绝语义。slotDispatchId 是 schedule 时绑定的注册分发 id，adapter 排空时按此解析。"
+      "notes": "单次触发的确定性记录；被取消/失效终态丢弃的触发不产生 FiringRecord，只产生拒绝语义。slotDispatchId 与 abiSurface.drainRecord.slotDispatchId 同为 u32，等于 timer_register_dispatch / timer_bind_slot 的 dispatch_id；adapter 用该整数在自身分发表解析。禁止再解释成字符串键。"
     }
   },
   "errorCodes": [
@@ -387,7 +391,7 @@
     "invalid_interval": {
       "kind": "operation-err",
       "operations": ["scheduleRepeating"],
-      "trigger": "scheduleRepeating 的 intervalTicks = 0 或 intervalTicks < minIntervalTicks。one-shot 不使用本码。",
+      "trigger": "scheduleRepeating 的 interval = 0，或 tickFrame 下 intervalTicks < minIntervalTicks，或 wallClock 下 intervalMs < minIntervalMs。one-shot 不使用本码。",
       "blastRadius": "stable-reject; 无 handle 产生",
       "distinctFrom": {
         "invalid_due_tick": "firstDueTick 非法走 invalid_due_tick，即使 interval 也非法时优先 interval 还是 dueTick：interval 校验先于 dueTick（interval 是 repeating 专属前置）",
@@ -397,7 +401,7 @@
     "schedule_budget_exceeded": {
       "kind": "operation-err",
       "operations": ["scheduleOneShot", "scheduleRepeating"],
-      "trigger": "两种互斥面，共用本码：(a) 该 scope 名下活跃定时数已达 maxActiveTimersPerScope；(b) 当前已提交刻度内 scheduleOneShot+scheduleRepeating 成功次数已达 maxSchedulesPerTick。先检查 (a) 再检查 (b)。被拒绝的调用不计入 (b)。无部分调度。",
+      "trigger": "两种互斥面，共用本码：(a) 该 scope 名下活跃定时数已达 maxActiveTimersPerScope；(b) tickFrame 当前已提交刻度内 scheduleOneShot+scheduleRepeating 成功次数已达 maxSchedulesPerTick，或 wallClock 当前 pump 周期内成功次数已达 maxSchedulesPerPump。先检查 (a) 再检查 (b)。被拒绝的调用不计入 (b)。无部分调度。",
       "blastRadius": "stable-reject; 既有定时器集合不变",
       "distinctFrom": {
         "slot_queue_full": "发生在触发入队/投递时，不是 schedule 时；且是逐条拒绝不是整次 schedule 失败",
@@ -407,8 +411,8 @@
     },
     "slot_closed": {
       "kind": "both",
-      "operations": ["scheduleOneShot", "scheduleRepeating", "advance"],
-      "trigger": "CallbackSlot 处于 closed 终态（曾经 armed 之后被 close）。unbound 初始态不是本码。schedule* 对 closed slot 整次返回本码、无 handle。已调度定时器在 dueTick 时若 slot 已 close，该触发逐条拒绝为本码、定时器终态、advance 整体仍成功（本条不进入 FiringRecord 返回集）。",
+      "operations": ["scheduleOneShot", "scheduleRepeating", "advance", "pump"],
+      "trigger": "CallbackSlot 处于 closed 终态（曾经 armed 之后被 close）。unbound 初始态不是本码。schedule* 对 closed slot 整次返回本码、无 handle。已调度定时器在 due 到达时若 slot 已 close，该触发逐条拒绝为本码、定时器终态、advance/pump 整体仍成功（本条不进入 FiringRecord 返回集）。",
       "blastRadius": "stable-reject; 该定时器终态; Manager 继续; 进程不退出",
       "distinctFrom": {
         "slot_unbound": "slot 从未绑定注册分发目的地（不是 closed-after-bind）",
@@ -430,8 +434,8 @@
     },
     "slot_dispatch_mismatch": {
       "kind": "per-firing-reject",
-      "operations": ["advance"],
-      "trigger": "adapter 排空某条 FiringRecord 时，其 slotDispatchId 在 adapter 分发表中解析失败，或解析到的目的地不是该记录对应 slot 在 schedule 时绑定的注册目的地。发生在 drain 期，不发生在 schedule 期。典型原因：分发表条目在 schedule 之后、drain 之前被移除或替换（契约禁止运行期改绑 slot 本身，但 adapter 表仍可能被拆除）。",
+      "operations": ["advance", "pump"],
+      "trigger": "adapter 排空某条 FiringRecord 时，其 slotDispatchId（u32）在 adapter 分发表中解析失败，或解析到的目的地不是该记录对应 slot 在 schedule 时绑定的注册目的地。发生在适配层 drain 期，不是 Native timer_* 的返回值。典型原因：分发表条目在 schedule 之后、drain 之前被移除或替换（契约禁止运行期改绑 slot 本身，但 adapter 表仍可能被拆除）。",
       "blastRadius": "stable-reject; 该条不分发、定时器终态; Manager 与其它 slot 继续; 进程不退出",
       "distinctFrom": {
         "slot_unbound": "调度期从未绑定；本码要求当时已经 schedule 成功并产生了带 slotDispatchId 的 FiringRecord",
@@ -442,8 +446,8 @@
     },
     "slot_queue_full": {
       "kind": "per-firing-reject",
-      "operations": ["advance"],
-      "trigger": "advance 将一次触发入该 slot 投递队列时，队列深度已达 deliveryQueueDepthPerSlot。该触发以本码终态拒绝：不重试、不重排队、不分发；该定时器随之终态（one-shot 句柄失效；repeating 停止后续周期）。Manager 继续运行并记诊断事件。",
+      "operations": ["advance", "pump"],
+      "trigger": "advance 或 pump 将一次触发入该 slot 投递队列时，队列深度已达 deliveryQueueDepthPerSlot。该触发以本码终态拒绝：不重试、不重排队、不分发、不进入 drain 缓冲；该定时器随之终态（one-shot 句柄失效；repeating 停止后续周期）。Manager 继续运行并记诊断事件。本码不是 timer_* 函数返回值。",
       "blastRadius": "stable-reject; timer-terminal; manager-continues; process-lives。不是 fail-stop，不是 ProcessFault。",
       "distinctFrom": {
         "schedule_budget_exceeded": "schedule 期的次数/活跃数上限，不是投递队列深度",
@@ -454,8 +458,8 @@
     },
     "late_completion": {
       "kind": "per-firing-reject",
-      "operations": ["advance"],
-      "trigger": "一次触发已经进入 advance 的返回集或已经入投递队列之后，在 adapter 排空到该条之前，对应定时器/scope/slot 变为终态（cancel、scope teardown、slot close、manager shutdown）。该条丢弃：不写状态、不调用回调、不重排队。",
+      "operations": ["advance", "pump"],
+      "trigger": "一次触发已经进入 advance/pump 的返回集或已经入投递队列之后，在 adapter 排空到该条之前，对应定时器/scope/slot 变为终态（cancel、scope teardown、slot close、manager shutdown）。该条丢弃：不写状态、不调用回调、不重排队、不进入 drain 缓冲。本码不是 timer_* 函数返回值。",
       "blastRadius": "stable-reject; 零状态写入; Manager 与其余定时器不受影响; 进程不退出",
       "distinctFrom": {
         "slot_closed": "dueTick 到达时 slot 已 close、本条尚未进入返回集 → slot_closed；已进入返回集再 close → 本码",
@@ -467,7 +471,7 @@
     "manager_shutdown": {
       "kind": "operation-err",
       "operations": ["scheduleOneShot", "scheduleRepeating", "cancel", "advance", "pump", "drain"],
-      "trigger": "Manager 已进入 shutdown。进入路径：timer_destroy_manager（进程退出、适配层卸载、显式销毁都走该 ABI）。shutdown 不可逆。进入后 schedule/cancel/advance/pump/drain 一律返回本码：无新 handle、无刻度推进、无新 FiringRecord。优先级最高：即使句柄 stale、scope 非法、刻度回退，只要 Manager 已 shutdown 就返回本码而不是兄弟码。句柄已不可解析时返回 ABI InvalidArgument。已入队未 drain 的 FiringRecord 按 late_completion 丢弃。",
+      "trigger": "Manager 已进入 shutdown。进入路径：首次成功的 timer_destroy_manager（进程退出、适配层卸载、显式销毁都走该 ABI）把句柄变成 shutdown-tombstone。shutdown 不可逆。此后对该 tombstone 的任意 timer_*（含再次 destroy、schedule/cancel/advance/pump/drain）一律返回本码：无新 handle、无刻度推进、无新 FiringRecord。优先级最高：即使 TimerHandle stale、scope 非法、刻度回退，只要 Manager 已 shutdown 就返回本码而不是兄弟码。仅 manager 指针为 null 返回 ABI InvalidArgument——tombstone 不是「不可解析」。已入队未 drain 的 FiringRecord 按 late_completion 丢弃。",
       "blastRadius": "stable-reject; Manager 停用; 进程不因本码退出（进程是否退出由宿主拆除路径决定，不由本码升级为 ProcessFault）",
       "distinctFrom": {
         "stale_handle": "Manager 仍 running 时的句柄失效",
@@ -639,11 +643,11 @@
     {
       "name": "manager_shutdown_rejects_all_operations",
       "class": "shutdown",
-      "violates": "Manager shutdown 后四操作稳定拒绝",
-      "given": "Manager 已进入 shutdown（宿主/adapter 拆除实例；非四操作触发）；此前可能仍持有 handle H 与 armed slot A",
-      "when": "scheduleOneShot / scheduleRepeating / cancel / advance 任一",
+      "violates": "Manager shutdown 后全部 timer_* 稳定拒绝",
+      "given": "已对 running manager 调用 timer_destroy_manager → Success；调用方仍持该 shutdown-tombstone 与 handle H、armed slot A",
+      "when": "scheduleOneShot / scheduleRepeating / cancel / advance / pump / drain / 再次 timer_destroy_manager 任一",
       "expectedRejection": "manager_shutdown",
-      "then": "四操作均稳定拒绝；无新 handle、无刻度推进、无新 FiringRecord；即使 H 已 stale 或 toTick 回退也返回本码而不是兄弟码；进程不因本码退出"
+      "then": "tombstone 上全部 timer_* 均稳定拒绝（status 17）；无新 handle、无刻度推进、无新 FiringRecord；即使 H 已 stale 或 toTick 回退也返回本码而不是兄弟码或 InvalidArgument；进程不因本码退出"
     },
     {
       "name": "double_cancel_stable_error",
