@@ -5,5 +5,5 @@ internal static class AbiConstants
 {
     public const uint AbiVersion = 1;
     public const string EntrySymbol = "lumio_engine_get_api_v1";
-    public const string DefinitionSha256 = "1dfc86dad1ebbd8d6196d16946a9eb8542e951c83fa5e6163f696abee831fb8e";
+    public const string DefinitionSha256 = "cdcc0a8e1ae1b8626894877920ddcccc50ed6e21d7cf35dbc542da108c38f4da";
 }

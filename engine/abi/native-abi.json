@@ -38,6 +38,76 @@
         "name": "destroy_clr_host",
         "type": "fn(pointer) -> status",
         "doc": "销毁 create_clr_host 创建的 host：关闭 hostfxr 上下文并卸载 hostfxr 库（经 Drop 顺序执行）。host 为 null 返回 InvalidArgument；成功返回 Success。销毁后句柄立即失效，调用方须保证销毁时没有并发进行中的 clr_host_call。"
+      },
+      {
+        "name": "timer_create_manager",
+        "type": "fn(u32, pointer) -> status",
+        "doc": "创建单一定时内核的一个 manager 句柄。参数：mode（u32：0=wallClock 单调毫秒非确定性，1=tickFrame 确定性 Tick/Frame；其它值 InvalidArgument）；out_manager（pointer，指向 opaque handle 的出参，成功写入句柄，失败写 null）。错误码：InvalidArgument（null 出参或非法 mode）。线程约束：创建线程成为该 manager 的 owner 线程；此后同一 manager 的全部 timer_* 必须在该线程串行调用，禁止跨线程并发。Native 不回调托管（ADR-006）。wallClock 与 tickFrame 共用 TimerHandle / CallbackSlot / 错误码词表，见 engine/wire/native-timer-abi-v1.json。"
+      },
+      {
+        "name": "timer_destroy_manager",
+        "type": "fn(pointer) -> status",
+        "doc": "销毁 manager：进入 shutdown 并释放。参数：manager（create 出参句柄）。错误码：InvalidArgument（null）；Success 后该句柄立即失效。未 drain 的 FiringRecord 按 late_completion 丢弃。调用方须保证销毁时没有并发 timer_*。对应 C-4 managerLifecycle 的 shutdown 进入路径。"
+      },
+      {
+        "name": "timer_register_dispatch",
+        "type": "fn(pointer, u32) -> status",
+        "doc": "在 manager 内注册一个分发 id（整数）。参数：manager；dispatch_id（u32，0 保留为无效）。不接受函数指针、delegate 或任何回调类型——适配层自持 dispatch_id→回调表，drain 只回传 id。错误码：InvalidArgument（null manager、dispatch_id=0 或重复 id）；TimerManagerShutdown。线程约束同 create。"
+      },
+      {
+        "name": "timer_register_scope",
+        "type": "fn(pointer, u64, u32, pointer) -> status",
+        "doc": "注册 TimerScope（既有 C-4 语义的 ABI 投影）。参数：manager；scope_id（u64）；scope_kind（u32：0=world，1=session，2=adapter；其它值 TimerScopeInvalid）；out_generation（pointer，指向 u32，成功写入活 generation，从 1 起）。错误码：InvalidArgument（null 指针）；TimerScopeInvalid（kind 非法）；TimerManagerShutdown。同一 scope_id 仍活时再注册返回 InvalidArgument。generation 溢出是进程级 fatal，不是本表状态码。"
+      },
+      {
+        "name": "timer_teardown_scope",
+        "type": "fn(pointer, u64) -> status",
+        "doc": "拆除 scope：活 generation+1，名下全部 TimerHandle 一次性失效。参数：manager；scope_id。错误码：InvalidArgument（null manager）；TimerScopeInvalid（未注册或已彻底销毁）；TimerManagerShutdown。旧 handle 上的后续操作返回 TimerStaleHandle。排空中的触发按 TimerLateCompletion 丢弃。"
+      },
+      {
+        "name": "timer_create_slot",
+        "type": "fn(pointer, pointer) -> status",
+        "doc": "分配 CallbackSlot，初始态 unbound。参数：manager；out_slot（pointer，opaque slot 句柄出参，失败写 null）。错误码：InvalidArgument（null）；TimerManagerShutdown。unbound slot 上 schedule 返回 TimerSlotUnbound。"
+      },
+      {
+        "name": "timer_bind_slot",
+        "type": "fn(pointer, pointer, u32) -> status",
+        "doc": "将 unbound slot 绑定到已注册的 dispatch_id，进入 armed；只允许绑定一次。参数：manager；slot；dispatch_id。错误码：InvalidArgument（null、未知 dispatch_id、或 slot 已 bind）；TimerSlotUnbound 不适用（这是 bind 本身）；TimerSlotClosed（已 close）；TimerManagerShutdown。禁止运行期改绑。"
+      },
+      {
+        "name": "timer_close_slot",
+        "type": "fn(pointer, pointer) -> status",
+        "doc": "将 slot 置为 closed 终态。参数：manager；slot。armed（或 delivering 结束）可 close。已 closed 返回 TimerSlotClosed；仍 unbound 返回 TimerSlotUnbound。错误码另有 InvalidArgument（null）、TimerManagerShutdown。closed 后 schedule 返回 TimerSlotClosed。"
+      },
+      {
+        "name": "timer_schedule_one_shot",
+        "type": "fn(pointer, u64, u32, u32, u64, pointer, pointer) -> status",
+        "doc": "调度一次性定时器。参数：manager；scope_id；scope_kind；scope_generation；due（tickFrame=dueTick，wallClock=dueMs）；slot；out_handle（pointer，指向 16 字节 TimerHandle：u32 index、u32 generation、u64 context，失败不写）。错误码：TimerManagerShutdown、TimerScopeInvalid、TimerScopeGenerationMismatch、TimerInvalidDueTick（due ≤ 已提交刻度/毫秒）、TimerSlotUnbound、TimerSlotClosed、TimerScheduleBudgetExceeded；InvalidArgument（null）。成功返回 Success 并写出 handle。one-shot 交付或终态拒绝后 handle 失效。"
+      },
+      {
+        "name": "timer_schedule_repeating",
+        "type": "fn(pointer, u64, u32, u32, u64, u64, pointer, pointer) -> status",
+        "doc": "调度重复定时器。参数同 one-shot，另加 interval（tickFrame=intervalTicks，wallClock=intervalMs）于 first_due 之后。错误码同 one-shot，另有 TimerInvalidInterval（interval=0 或低于 minIntervalTicks/minIntervalMs）；interval 校验先于 due。repeating 在同一次 advance/pump 内 due += interval 并继续收取窗口内后续触发。"
+      },
+      {
+        "name": "timer_cancel",
+        "type": "fn(pointer, pointer) -> status",
+        "doc": "取消定时器。参数：manager；handle（pointer，指向 16 字节 TimerHandle）。错误码：TimerManagerShutdown（优先于 stale）；TimerStaleHandle（已取消/已交付/世代失配）；InvalidArgument（null）。成功后该 handle 不可再解析；再次 cancel 返回 TimerStaleHandle（非幂等成功）。已入队触发按 TimerLateCompletion 丢弃。"
+      },
+      {
+        "name": "timer_advance",
+        "type": "fn(pointer, u64) -> status",
+        "doc": "推进 tickFrame manager 到 to_tick（u64）。仅 mode=tickFrame；wallClock manager 返回 InvalidArgument。开火窗口 (committedTick, toTick]；结果入队，经 timer_drain 写出。错误码：TimerManagerShutdown；TimerInvalidDueTick（to_tick 回退）；InvalidArgument（null 或模式失配）。to_tick == 当前刻度是合法空推进。单条 slot 失败不使本次 advance 整体失败。"
+      },
+      {
+        "name": "timer_pump",
+        "type": "fn(pointer, u64) -> status",
+        "doc": "用单调毫秒 now_ms 泵 wallClock manager。仅 mode=wallClock；tickFrame manager 返回 InvalidArgument。开火窗口 (committedMs, nowMs]；结果入队，经 timer_drain 写出。错误码：TimerManagerShutdown；TimerInvalidDueTick（now_ms 回退）；InvalidArgument（null 或模式失配）。now_ms == 当前是合法空推进。非确定性，不要求跨进程回放。承载重连保留窗与宿主周期任务。"
+      },
+      {
+        "name": "timer_drain",
+        "type": "fn(pointer, pointer, u32, pointer) -> status",
+        "doc": "把最近一次 advance/pump 入队、尚未排空的 FiringRecord 写入调用方缓冲。参数：manager；out_records（pointer，40 字节记录数组：u32 handleIndex、u32 handleGeneration、u64 handleContext、u64 due、u64 scheduleSequence、u32 slotDispatchId、u32 pad）；capacity（u32，记录条数）；out_count（pointer，指向 u32：Success 写实际条数，BufferTooSmall 写所需条数）。错误码：BufferTooSmall（不部分写入）；TimerManagerShutdown；InvalidArgument（capacity>0 且 out_records 为 null，或 out_count 为 null，或 manager 为 null）。Native 不调用托管回调；适配层按 slotDispatchId 在自身表分发。线程约束同 create。"
       }
     ]
   },
@@ -47,7 +117,19 @@
     "UnsupportedVersion": 2,
     "ClrInitFailed": 3,
     "ClrEntryFailed": 4,
-    "BufferTooSmall": 5
+    "BufferTooSmall": 5,
+    "TimerStaleHandle": 6,
+    "TimerScopeInvalid": 7,
+    "TimerScopeGenerationMismatch": 8,
+    "TimerInvalidDueTick": 9,
+    "TimerInvalidInterval": 10,
+    "TimerScheduleBudgetExceeded": 11,
+    "TimerSlotClosed": 12,
+    "TimerSlotUnbound": 13,
+    "TimerSlotDispatchMismatch": 14,
+    "TimerSlotQueueFull": 15,
+    "TimerLateCompletion": 16,
+    "TimerManagerShutdown": 17
   },
   "generator": "lumio-engine-abi-generator@dev"
 }
