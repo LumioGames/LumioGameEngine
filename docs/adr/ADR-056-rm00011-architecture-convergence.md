@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-056-rm00011-architecture-convergence.md
