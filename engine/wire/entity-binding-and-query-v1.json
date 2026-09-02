@@ -20,9 +20,9 @@
     ]
   },
   "identityModel": {
-    "accountId": "持久业务身份，不透明字符串；由账号服 login-or-register 分配，登录/登出不改变。可作为身份属性值随实体携带，但不自动对其他客户端公开（见 attributeDeclarations 可见性）。",
+    "accountId": "持久业务身份，不透明字符串；由账号服 login-or-register 分配，登录/登出不改变。可作为身份属性值随实体携带，但不声明为可查属性（见 readRules）；只在登录回应中给出，不自动对其他客户端公开。",
     "roomId": "隔离 Room World 的不透明标识。绑定、解析与查询一律在单一 Room 范围内成立。",
-    "netEntityId": "运行时网络身份，不透明字符串，销毁后永不复用。它是客户端与服务端寻址实体的唯一游戏层引用：不是数组下标、不是数据库主键 API、也不是客户端自造的临时标识。同一账号的运行时实体 A 过期后重登生成 B 时，NetEntityId 变化而 AccountId 不变。",
+    "netEntityId": "运行时网络身份，不透明字符串，销毁后永不复用。由 Runtime 身份表发号；宿主准入时调用 Runtime 取号；宿主不得自铸。它是客户端与服务端寻址实体的唯一游戏层引用：不是数组下标、不是数据库主键 API、也不是客户端或宿主自造的临时标识。同一账号的运行时实体 A 过期后重登生成 B 时，NetEntityId 变化而 AccountId 不变。",
     "entityType": "实体类别枚举 player | bot。由服务端按已认证登录名规则分类创建（PlayerEntity / BotEntity），客户端不得提交任意 EntityType 字段。",
     "connectionGeneration": "绑定纪元号，u64。首次准入为 1；同账号经重连重绑或顶号重绑继承同一实体（NetEntityId 不变）时严格递增。旧纪元的查询/引用在新纪元生效后以 stale_generation 结局返回。"
   },
@@ -36,11 +36,13 @@
         "connectionGeneration": "u64"
       },
       "optional": {},
-      "notes": "五元组即绑定记录全部字段；不得携带 AccountEntity 对象引用、存储句柄或宿主指针。"
+      "notes": "五元组即绑定记录全部字段；会话号与宿主内部句柄不得出现在绑定记录。不得携带 AccountEntity 对象引用、存储句柄、宿主指针、会话号或任何第六字段。"
     },
     "invariants": [
       "一个账号同一时刻至多在一个 Room 内活跃（一个活跃绑定）。",
-      "每条已准入连接恰有一条活跃绑定记录；绑定由服务端维护，客户端不得自行声明他人绑定。",
+      "NetEntityId 只由 Runtime 身份表发号并登记墓碑；宿主准入只调用 Runtime 取号，不得自铸。",
+      "绑定记录只保留五元组；会话号归连接层会话表，宿主内部句柄归宿主私有映射，二者不得混入绑定记录。",
+      "每条已准入连接恰有一条活跃绑定记录；绑定由 Runtime 维护，宿主只转发，客户端不得自行声明他人绑定。",
       "重连窗口内重绑与顶号重绑都继承同一实体：NetEntityId 不变，connectionGeneration 严格递增；旧连接按其终止语义处理（R-00357 / R-00350）。",
       "断线保留期内实体保持 Room 可见（显式断线状态）；过期销毁后绑定记录进入 tombstone 语义，永不复活、永不改指替代实体。",
       "AccountId 只是身份属性值；AccountEntity 对象引用在任何方向上都不进入 Game World。"
@@ -69,7 +71,7 @@
   "attributeQuery": {
     "addressing": {
       "attributeId": "字符串，文法 ^[A-Z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$，形如 <ComponentType>.<attributeName>。它必须命中组件 schema 已声明的属性。拒绝分类顺序固定为 errorCodes.classification：①存储寻址识别器（storage_access_forbidden）→ ②文法（invalid_attribute_id；SQL 表达式与自由格式名显式归此码）→ ③已声明判定（undeclared_attribute）。不存在「按任意属性名查找」的通路。",
-      "declarationSource": "属性声明随各组件的公共契约冻结（首个租户 ChatComponent 的声明在 R-00355 / lumio.gameplay-envelope.v1）；本契约只定义声明结构与查询语义。"
+      "declarationSource": "属性声明由组件字段标注生成（Runtime Lumio.GameRuntime.Ecs.Annotations + tools/gen-declarations）；本契约 attributeDeclarations.table 内嵌该生成物并记录 sha256。本契约定义声明结构与查询语义。"
     },
     "callerScope": {
       "server-authoritative": "服务端权威读：限定请求 Room/World 范围、在 Simulation Owner Thread 语义角色上执行（不得从网络线程触达 ECS 存储），可按服务端策略读取任何已声明属性。",
@@ -117,6 +119,52 @@
     }
   },
   "attributeDeclarations": {
+    "source": "generated-from-field-annotations",
+    "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
+    "table": [
+      {
+        "attributeId": "ChatComponent.lastMessagePersistOnly",
+        "persistence": "persistent",
+        "replication": "not-replicated",
+        "valueType": "utf8-string",
+        "visibility": "server-only"
+      },
+      {
+        "attributeId": "ChatComponent.lastMessageText",
+        "persistence": "persistent",
+        "replication": "not-replicated",
+        "valueType": "utf8-string",
+        "visibility": "server-only"
+      },
+      {
+        "attributeId": "ChatComponent.lastMessageTick",
+        "persistence": "persistent",
+        "replication": "not-replicated",
+        "valueType": "u64",
+        "visibility": "server-only"
+      },
+      {
+        "attributeId": "EntityIdentity.claimedMark",
+        "persistence": "ephemeral",
+        "replication": "replicated",
+        "valueType": "utf8-string",
+        "visibility": "claim-scoped"
+      },
+      {
+        "attributeId": "EntityIdentity.entityType",
+        "persistence": "ephemeral",
+        "replication": "replicated",
+        "valueType": "enum:entityType",
+        "visibility": "room-public"
+      },
+      {
+        "attributeId": "EntityIdentity.unmappedMark",
+        "persistence": "ephemeral",
+        "replication": "replicated",
+        "valueType": "utf8-string",
+        "visibility": "room-public"
+      }
+    ],
     "structure": {
       "required": {
         "attributeId": "attribute-id",
@@ -126,7 +174,7 @@
         "visibility": "enum:visibility"
       },
       "optional": {},
-      "notes": "每个属性声明独立给出三维；维度组合的读写范围由本节规则决定，而非各仓自行解释。"
+      "notes": "每个属性声明独立给出三维；维度组合的读写范围由本节规则决定，而非各仓自行解释。表本体是生成物，禁止手写第二份。"
     },
     "dimensions": {
       "persistence": { "ephemeral": "不进入 ECS 持久化", "persistent": "进入既有 ECS Snapshot/Restore 流（ADR-010 路径），语义为服务器权威持久化" },
@@ -137,16 +185,9 @@
       "server-authoritative 作用域：按服务端策略可读任何已声明属性（三维不限制服务端权威读的范围，但 persist-only 的读取语义仍以权威存储为准）。",
       "client-replica 作用域：仅当 replication=replicated 且 visibility 允许（room-public；aoi-scoped 需在 AOI 内；claim-scoped 需持 claim）且属性已实际复制进该 ReplicaWorld 时可读。",
       "visibility=server-only 或 replication=not-replicated 的属性对 client-replica 作用域以 invisible 结局返回；实体本身不可见时同样 invisible。",
-      "实体可见但属性可见性类别与调用方不符（如 claim-scoped 未持 claim）以 unauthorized 结局返回。"
-    ],
-    "example": {
-      "attributeId": "EntityIdentity.entityType",
-      "valueType": "enum:entityType",
-      "persistence": "ephemeral",
-      "replication": "replicated",
-      "visibility": "room-public",
-      "notes": "示例声明（非冻结清单），选用低敏属性。裁决明确 AccountId 不自动公开为客户端属性——其最终可见性声明需显式决策，本示例不预设立场；真实声明表随各组件契约冻结。"
-    }
+      "实体可见但属性可见性类别与调用方不符（如 claim-scoped 未持 claim）以 unauthorized 结局返回。",
+      "EntityIdentity.accountId 不声明为可查属性；查询返回 undeclared_attribute，不得映射为 unauthorized。该字段未打字段标注，不进入生成声明表；只在登录回应中给出。"
+    ]
   },
   "outcomes": {
     "non_existent": {
@@ -197,7 +238,7 @@
       "cross_room_reference": "请求试图解析/查询请求 Room 之外的实体或 Room。判定依据是实体归属表（服务端权威归属或客户端 ReplicaWorld 映射）：目标实体已知属于另一 Room；不解析 netEntityId 字符串本身（该字符串不编码 Room）。",
       "storage_access_forbidden": "请求试图以任何存储寻址形式（表名、列名、存储路径、主键 API）触达存储；查询面没有任何存储直连通路。",
       "binding_not_found": "selfLookup/resolveByConnection 找不到活跃绑定（未准入、已终止或不在本 Room）。",
-      "invalid_binding_shape": "绑定记录/请求形状非法（含携带 AccountEntity 对象引用、存储句柄、宿主指针等违禁字段）。",
+      "invalid_binding_shape": "绑定记录/请求形状非法（含携带 AccountEntity 对象引用、存储句柄、宿主指针、会话号、宿主自铸 NetEntityId 等违禁字段）。",
       "scope_violation": "调用方作用域与操作不符（如客户端调用 server-authoritative 专属操作）。"
     },
     "classification": {
@@ -240,7 +281,7 @@
   "wordingAudit": {
     "conclusion": "通过（含一处记法豁免）：契约全文仅使用领域语义角色（Simulation Owner Thread、ReplicaWorld、权威存储）与宿主无关数据形状；整数以 u64 位宽记法表示——沿 hello-wire-v1 先例，u64 指无符号 64 位位宽，不绑定任何宿主类型系统；除此之外无宿主类型名、线程 API、委托、任务或指针语义进入公共面。opaque-connection-ref 显式声明为宿主进程内不透明值，不跨进程。",
     "exemption": "u64 记法豁免：位宽描述词，非宿主类型引用。",
-    "checkedAt": "2026-09-01"
+    "checkedAt": "2026-09-02"
   },
   "testCases": [
     {
@@ -251,6 +292,13 @@
       "then": "返回完整五元组，netEntityId=N1、connectionGeneration=1。"
     },
     {
+      "name": "runtime_issues_net_entity_id_on_admission",
+      "given": "宿主准入时向 Runtime 身份表取号，请求不携带自铸 netEntityId",
+      "when": "Runtime Admit(accountId=acct-07, roomId=room-01, entityType=player)",
+      "expect": "ok",
+      "then": "Runtime 返回新发号的不透明 NetEntityId 并写入五元组绑定；宿主不得在请求中自铸该字段。"
+    },
+    {
       "name": "server_resolves_admitted_connection",
       "given": "连接 C1 已准入 room-01 且绑定到 N1",
       "when": "服务端在 room-01 执行 resolveByConnection(C1)",
@@ -259,7 +307,7 @@
     },
     {
       "name": "server_authoritative_attribute_read",
-      "given": "N1 存在，属性声明表含已声明属性（示例 EntityIdentity.entityType，replicated/room-public）",
+      "given": "N1 存在，生成声明表含已声明属性 EntityIdentity.entityType（replicated/room-public）",
       "when": "server-authoritative 作用域按 netEntityId=N1 查询该属性",
       "expect": "ok",
       "then": "返回类型化 value 与 observedRevision/observedTick。"
@@ -350,7 +398,7 @@
     {
       "name": "client_reads_persist_only_attribute",
       "violates": "persist-only / not-replicated 属性对 client-replica 作用域不可达",
-      "given": "该属性已在声明表声明为 persistence=persistent、replication=not-replicated、visibility=server-only（假设性声明示例，实际命名与声明随 R-00355 冻结）；调用方为 client-replica。",
+      "given": "该属性已在生成声明表声明为 persistence=persistent、replication=not-replicated、visibility=server-only；调用方为 client-replica。",
       "payload": { "callerScope": "client-replica", "roomId": "room-01", "netEntityId": "N1", "attributeId": "ChatComponent.lastMessagePersistOnly" },
       "expectedRejection": "invisible"
     },
@@ -359,6 +407,26 @@
       "violates": "AccountEntity 对象引用不得跨入 Game World；绑定记录只允许五元组",
       "payload": { "accountId": "acct-07", "roomId": "room-01", "netEntityId": "N1", "entityType": "player", "connectionGeneration": 1, "accountEntityRef": "<live object handle>" },
       "expectedRejection": "invalid_binding_shape"
+    },
+    {
+      "name": "host_minted_net_entity_id",
+      "violates": "NetEntityId 由 Runtime 身份表发号；宿主准入时调用 Runtime 取号；宿主不得自铸",
+      "given": "宿主在准入请求中自铸 netEntityId 并试图写入绑定记录。",
+      "payload": { "accountId": "acct-07", "roomId": "room-01", "netEntityId": "host-minted-N1", "entityType": "player", "connectionGeneration": 1, "mintedBy": "host" },
+      "expectedRejection": "invalid_binding_shape"
+    },
+    {
+      "name": "binding_record_carries_session_id",
+      "violates": "会话号与宿主内部句柄不得出现在绑定记录；绑定记录只允许五元组",
+      "payload": { "accountId": "acct-07", "roomId": "room-01", "netEntityId": "N1", "entityType": "player", "connectionGeneration": 1, "session_id": "sess-9" },
+      "expectedRejection": "invalid_binding_shape"
+    },
+    {
+      "name": "query_undeclared_account_id",
+      "violates": "EntityIdentity.accountId 不声明为可查属性；查询返回 undeclared_attribute",
+      "given": "生成声明表不含 EntityIdentity.accountId（该字段未打标）。请求其余部分合法。",
+      "payload": { "callerScope": "server-authoritative", "roomId": "room-01", "netEntityId": "N1", "attributeId": "EntityIdentity.accountId" },
+      "expectedRejection": "undeclared_attribute"
     },
     {
       "name": "client_invokes_server_authoritative_scope",
@@ -385,6 +453,8 @@
     "noPropertyNameLookup": "只接受已声明 AttributeId；无按名自由检索通路。",
     "noDirectStorageAccess": "无任何存储寻址形式；storage_access_forbidden 一律拒绝。",
     "noCrossRoom": "绑定、解析、查询全部限定单一 Room。",
-    "noAccountEntityObjectCarriage": "任何方向不得携带 AccountEntity 对象引用，只允许 AccountId 值。"
+    "noAccountEntityObjectCarriage": "任何方向不得携带 AccountEntity 对象引用，只允许 AccountId 值。",
+    "noHostMintedNetEntityId": "NetEntityId 由 Runtime 身份表发号；宿主不得自铸。",
+    "noSessionIdOnBindingRecord": "会话号与宿主内部句柄不得出现在绑定记录；绑定记录只允许五元组。"
   }
 }

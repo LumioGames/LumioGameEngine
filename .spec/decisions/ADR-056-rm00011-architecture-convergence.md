@@ -45,10 +45,19 @@ RM-00011（ECS 正式实体与聊天纵切）已在 Workflow 全部标记 done�
   - 生成：`node eng/generate-abi.mjs` 更新 `engine/native/modules/sdk-native/src/abi_generated.rs` 与 `engine/managed/Lumio.Engine.NativeLoader/AbiConstants.g.cs`；`DEFINITION_SHA256` 随定义字节变化。
   - NativeCore（N-08 / R-00372）与两个宿主只凭 C-4′ + `native-abi.json` 实现；NativeCore 仓 ADR 0007「不进 C ABI」由该卡取代。本卡不写内核实现、不新增第五个契约文件。
   - ADR-055 Accepted 正文不改写；修订见该 ADR「修订记录（2026-09-02，ADR-056 §7）」段。
-- `engine/wire/entity-binding-and-query-v1.json`（C-2）：`attributeDeclarations` 改为「由字段标注生成」的生成物，不再手写示例表；增加 `NetEntityId` 由 Runtime 发号的措辞。
-- `engine/wire/gameplay-command-envelope-v1.json`（C-1）：`mappings.*.dimensions` 改为生成物；`FullSnapshot.stateBlocks` 为 Room 路径唯一快照载体的措辞加固。
-- 顶号通知：在 C-3 或 C-1 增加 `connection_superseded` 下行通知消息形状（待定稿时选定落点，原则是不新增第四份契约）。
-- 组件字段标注：在 Runtime 定义标注类型（命名待定稿），生成器扫描标注产出声明表；`ChatComponent` 作为第一个打标组件。
+- **C-2′ 绑定/查询与生成声明表（R-00367 / N-01 填实；状态保持 Draft）：**
+  - 契约：`engine/wire/entity-binding-and-query-v1.json`。`identityModel.netEntityId` 由 Runtime 身份表发号；宿主准入时调用 Runtime 取号；宿主不得自铸。`invalidCases.host_minted_net_entity_id` → `invalid_binding_shape`。
+  - 绑定记录只保留五元组（AccountId / RoomId / NetEntityId / EntityType / ConnectionGeneration）。会话号归连接层会话表，宿主内部句柄归宿主私有映射，不得混入绑定记录。`invalidCases.binding_record_carries_session_id` → `invalid_binding_shape`。
+  - `attributeDeclarations.source` = `generated-from-field-annotations`。内嵌表为 N-04 产物 `modules/ecs/generated/attribute-declarations.json`（Runtime `28073fe9a1ff369978ef0215f8012284af57686e`）的逐字节拷贝，`sha256` = `a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0`（UTF-8、LF、1153 字节）；删除手写 `example`。
+  - `readRules`：`EntityIdentity.accountId` 不声明为可查属性；查询返回 `undeclared_attribute`，不得映射为 `unauthorized`。该字段未打标，不进生成表；只在登录回应中给出。
+  - ADR-053 Accepted 正文不改写；修订见该 ADR「修订记录（2026-09-02，ADR-056）」段。N-05 / N-10 只凭 C-2′ 实现。
+- **字段标注类型（N-04 / R-00366 已交付，Runtime `Lumio.GameRuntime.Ecs.Annotations`）：**
+  - 枚举：`PersistenceKind`（`Ephemeral` | `Persistent`）、`ReplicationKind`（`NotReplicated` | `Replicated`）、`VisibilityKind`（`ServerOnly` | `RoomPublic` | `AoiScoped` | `ClaimScoped`）。缺省 = ephemeral / not-replicated / server-only。
+  - 标注：`[EcsComponent]`、`[Persist]` / `[Persist(PersistenceKind)]`、`[Replicate]` / `[Replicate(ReplicationKind)]`、`[Visibility(VisibilityKind)]`、`[AttributeValueType]`。
+  - 生成器：`tools/gen-declarations/`；产物路径 `modules/ecs/generated/attribute-declarations.json`。非法组合（`replicated`+`server-only`；`aoi-scoped`/`claim-scoped`/`room-public`+`not-replicated`）非零退出。
+  - `ChatComponent`：`LastMessageText` / `LastMessageTick` / `LastMessagePersistOnly` → persistent / not-replicated / server-only。`EntityIdentity.EntityType` → ephemeral / replicated / room-public；`AccountId` 未打标。
+- **C-1′（N-02 / R-00368，本基线未合入，落点保留）：** `engine/wire/gameplay-command-envelope-v1.json` 的 `mappings.*.dimensions` 改为生成物；`FullSnapshot.stateBlocks` 为 Room 路径唯一快照载体。本卡不改 C-1。
+- **顶号通知（N-02 选定落点，本基线未合入）：** 在 C-1 或 C-3 增加 `connection_superseded` 下行通知消息形状；原则是不新增第五份契约。本卡不改 C-1 / C-3。
 
 ## 失败语义
 
