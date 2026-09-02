@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-048-generated-consumable-surface.md

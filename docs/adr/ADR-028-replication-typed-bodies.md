@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-028-replication-typed-bodies.md

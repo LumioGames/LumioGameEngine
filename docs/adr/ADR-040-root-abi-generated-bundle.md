@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-040-root-abi-generated-bundle.md

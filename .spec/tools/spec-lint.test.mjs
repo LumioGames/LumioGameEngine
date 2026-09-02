@@ -66,7 +66,14 @@ function decisionsFixture(adrs = { 'ADR-050-x.md': '# ADR-050\n\n- **Status**: D
   mkdirSync(decisions, { recursive: true })
   const index = Object.keys(adrs).map((n) => `[${n}](${n})`).join('\n')
   writeFileSync(join(decisions, 'README.md'), `# Decisions\n\n${index}\n`)
-  for (const [name, body] of Object.entries(adrs)) writeFileSync(join(decisions, name), body)
+  const compatibility = join(root, 'docs', 'adr')
+  mkdirSync(compatibility, { recursive: true })
+  for (const [name, body] of Object.entries(adrs)) {
+    writeFileSync(join(decisions, name), body)
+    if (/^ADR-\d{3}-.+\.md$/.test(name)) {
+      createFixtureLink(`../../.spec/decisions/${name}`, join(compatibility, name), 'file')
+    }
+  }
   return root
 }
 
@@ -301,4 +308,46 @@ test('reviews\/ 合法文档全绿,不需登记进 knowledge 导航', () => {
   )
   const { code, output } = lint(root)
   assert.equal(code, 0, output)
+})
+
+test('docs/adr-only 120000 mirrors are allowed (8b exception)', () => {
+  const { code, output } = lint(decisionsFixture())
+  assert.equal(code, 0, output)
+  assert.match(output, /spec-lint: OK/)
+})
+
+test('root ADR without docs/adr symlink is caught', () => {
+  const root = fixture()
+  const decisions = join(root, '.spec', 'decisions')
+  mkdirSync(decisions, { recursive: true })
+  writeFileSync(join(decisions, 'README.md'), '# Decisions\n\n[ADR-053](ADR-053-entity-binding-and-attribute-query.md)\n')
+  writeFileSync(
+    join(decisions, 'ADR-053-entity-binding-and-attribute-query.md'),
+    '# ADR-053\n\n- **Status**: Accepted\n',
+  )
+  const { code, output } = lint(root)
+  assert.equal(code, 1)
+  assert.match(output, /compatibility ADR/)
+})
+
+test('docs/specs still forbidden when docs/adr exists', () => {
+  const root = decisionsFixture()
+  mkdirSync(join(root, 'docs', 'specs'), { recursive: true })
+  writeFileSync(join(root, 'docs', 'specs', 'x.md'), '# x\n')
+  const { code, output } = lint(root)
+  assert.equal(code, 1)
+  assert.match(output, /并行文档根/)
+})
+
+test('compatibility ADR regular files are rejected', () => {
+  const root = fixture()
+  const decisions = join(root, '.spec', 'decisions')
+  mkdirSync(decisions, { recursive: true })
+  writeFileSync(join(decisions, 'README.md'), '# Decisions\n\n[ADR-050](ADR-050-gas-a1-contracts.md)\n')
+  writeFileSync(join(decisions, 'ADR-050-gas-a1-contracts.md'), '# ADR-050\n\n- **Status**: Accepted\n')
+  mkdirSync(join(root, 'docs', 'adr'), { recursive: true })
+  writeFileSync(join(root, 'docs', 'adr', 'ADR-050-gas-a1-contracts.md'), '../../.spec/decisions/ADR-050-gas-a1-contracts.md')
+  const { code, output } = lint(root)
+  assert.equal(code, 1)
+  assert.match(output, /compatibility ADR must be a Git mode 120000 symbolic link/)
 })

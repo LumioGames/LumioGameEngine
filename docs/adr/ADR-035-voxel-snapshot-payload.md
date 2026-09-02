@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-035-voxel-snapshot-payload.md

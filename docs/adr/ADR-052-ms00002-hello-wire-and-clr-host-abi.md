@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-052-ms00002-hello-wire-and-clr-host-abi.md
