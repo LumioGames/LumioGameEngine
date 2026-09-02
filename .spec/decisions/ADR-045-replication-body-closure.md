@@ -110,3 +110,7 @@ Additive and enforcing. No published positive fixture changes; no required membe
 ## Verification
 
 Fixtures `replication/body-extra-member`, `replication/mapping-set-hash-type`, `replication/length-exceeds-max`, `replication/ack-smuggled-command` — one negative per decision, each reproducing one of the five measured mutations. Goldens `replication-mapping-set-empty` and `replication-mapping-set-permutation` are re-derived from their inputs at every `validate`.
+
+## Room 路径不适用（2026-09-02，ADR-056）
+
+自 ADR-056 起不约束 Room 路径 FullSnapshot。Room 路径以 ADR-049 / C-1 `stateBlocks` 为唯一快照载体；本 ADR 的五字段闭合体仅约束 MS-00001 基线信封。
