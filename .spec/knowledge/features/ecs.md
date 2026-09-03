@@ -8,20 +8,20 @@ metadata:
 
 # Lumio ECS 设计概要
 
-> 怎么吵出来的、每一板的理由、和外部调研的对账，全在[审计过账附录](../../reviews/2026-08-29-ecs-architecture-audit.md)与[接缝裁决流水](../../reviews/2026-09-01-seam-closure-decisions.md)里，本文不背这些包袱——本文只回答五个问题：**这是什么、长什么样、每块干什么、按什么顺序做、什么不许做。**
+> 怎么吵出来的、每一板的理由、和外部调研的对账，全在[审计过账附录](../../reviews/2026-08-29-ecs-architecture-audit.md)与[接缝裁决流水](../../reviews/2026-09-01-seam-closure-decisions.md)里；World Manager、`Sync<T>` 字段与生成桥这一轮的结构定稿在 [ADR-058](../../decisions/ADR-058-ecs-world-manager-and-annotation-registry.md)。本文不背这些包袱——本文只回答五个问题：**这是什么、长什么样、每块干什么、按什么顺序做、什么不许做。** 代码怎么写看 §4.5 样板示例。
 > 学名：**Active-Component ECS Hybrid**——对象组合、组件可带逻辑，ECS 机制（身份、存储、查询、结构事务、同步）做底座。
 
 ---
 
 ## 1. TLDR
 
-**游戏世界里所有「东西」都是实体。服务器每个房间一份权威世界，客户端一份投影世界，同一套玩法代码两边都跑。程序员在组件字段上打个标记，这个字段就自动同步给该看见它的人——不写一行网络代码。改世界（生个怪、加个组件）不当场生效：一帧里所有改动先攒着，帧内固定一格统一结算，结算完新东西才「亮相」，别人才查得到它。**
+**游戏世界里所有「东西」都是实体。服务器进程一份权威世界，由 World Manager 创建并管理；客户端一份世界，跑同一套 ECS、同一份源码。程序员把字段声明成 `Sync<T>`，这个字段就自动同步给该看见它的人——不写一行网络代码。改世界（生个怪、加个组件）不当场生效：一帧里所有改动先攒着，帧内固定一格统一结算，结算完新东西才「亮相」，别人才查得到它。**
 
 四条底线，将来砍任何功能都不能碰：
 
 1. **一帧只有一个提交点**。复制取样、快照切点、确认边界、体素提交全锚在它后面。丢了它，复制/快照/回放/预测四件事要各造一台机器。
 2. **同样的输入必须算出同样的结果**。顺序排死、不许读墙上的钟、不许自己造随机数。丢了它，崩溃恢复后 AI 换个点数，线上 bug 永远复现不出来。
-3. **没打标记的字段绝不上网**。掉率、仇恨表、服务器内部缓存，默认一个字节都不发。
+3. **不是 `Sync<T>` 的字段绝不上网**。掉率、仇恨表、服务器内部缓存，默认一个字节都不发。
 4. **号码永不复用**。实体死了它的号就陪葬；再问这个号，答「他死了」，不答「查无此人」——对尸体可以放复活术，查无此人才是真错误。
 
 ---
@@ -40,9 +40,9 @@ metadata:
 
 | 义务 | 怎么做到 | 砍了会怎样 |
 |---|---|---|
-| **可被快照** | 字段上的存档维标记即答案 | 服务器一重启，全服存档没了 |
-| **顺序稳定** | 结算按（系统 ID + 相位 + 单号），遍历按创建序；**查询只有一种模式**（按创建序，天然稳定） | 同一场战斗算两遍结果不同，预测纠正永远对不上 |
-| **不抓墙钟不自建随机** | 时间用 Tick 号，随机从框架领；禁 `DateTime.Now`、禁自建 `Random` | 恢复后 AI 骰子换点数，线上 bug 无法复现 |
+| **可被快照** | 字段上的 `[Persist]` 即答案；恢复 = 从快照建新世界 | 服务器一重启，全服存档没了 |
+| **顺序稳定** | 结算按（系统 ID + 相位 + 单号），遍历按创建序；同 Tick 上行按发送者 NetEntityId 排序；**查询只有一种模式**（按创建序，天然稳定） | 同一场战斗算两遍结果不同，预测纠正永远对不上 |
+| **不抓墙钟不自建随机** | 时间用 Tick 号，随机从框架领，NetEntityId 用计数器不用 GUID；禁 `DateTime.Now`、禁自建 `Random` | 恢复后 AI 骰子换点数，线上 bug 无法复现 |
 
 ### 一帧怎么走
 
@@ -54,15 +54,15 @@ metadata:
 
 ### 世界怎么分
 
-- **服务器**：一个 **Room** 一份权威 `GameWorld`，房间之间完全隔离。一个连接同时只在一个 Room 里。
-- **客户端**：一份投影 `ReplicaWorld`，经网络身份跟服务器那份对应。
+- **服务器**：一个进程一个 **World Manager** 一份权威 `GameWorld`；世界内部没有 Room 概念。多房间 = 多个服务器进程，由匹配服 / 宿主路由把连接送到哪个进程（Unreal 专用服务器方案）；一个连接同时只绑定一个 Game 实例。
+- **客户端**：一份 `World`，由同一个 World Manager 类以客户端模式创建，经网络身份跟服务器那份对应。
 - **Account Server**：自己一份低频 ECS World，装 `AccountEntity`。凭据材料不进普通组件。
 - 服务器地图数据的加载是已冻结的 voxel chunk streaming，不存在「整图加载」。
 
 ### 谁拥有什么（三线分界）
 
-- **框架层**拥有机制契约（身份、生命周期、同步、视野、Transform 的语义）。
-- **内容层**拥有具体组件类型、Attribute 数值、表现资源。
+- **框架层**拥有机制契约（身份、生命周期、同步、视野、Transform 的语义）与 World Manager、WorldEntity、`Sync<T>`、生成器。
+- **内容层**拥有具体组件类型、EntityType 声明、Attribute 数值、表现资源；组件按 M4 的 partial 文件布局写在玩法程序集，一份源码编服务器 / 客户端两份程序集。
 - **实现仓**拥有布局与参数——双半径数值、脏位掩码位宽、池大小、量化精度**一律是实现仓自由度**，不进本文。
 
 依赖单向：内容层 → 框架层 → 实现仓。`Storage` 只对结构事务暴露，对外全走句柄。
@@ -71,24 +71,27 @@ metadata:
 
 ECS 的结构事务是宿主跨 World 事务的**参与者**，不是协调者：同一 tick 内固定次序 `VoxelCommit` → `EcsCommandBufferCommit`，框架不自设协调逻辑。13 相 Tick、fail-stop、快照/日志/恢复、canonical 编码全是宿主的地盘，ECS 引用不重做。
 
-### 全框架规范词只有 10 个
+### 全框架规范词只有 13 个
 
 新增词汇必须先回答「能不能不加」。
 
 | 词 | 一句话定义 |
 |---|---|
-| **World** | 实体的容器与边界。服务器每 Room 一个（权威），客户端一个（投影，叫 ReplicaWorld） |
+| **World** | 实体的容器与边界。服务器每进程一个（权威），客户端一个（同一套 ECS） |
+| **World Manager** | 世界的唯一持有者与消息入口：建世界（新建 / 从快照）、创建 WorldEntity、收消息在提交相生效、记线程归属。一进程一个 |
+| **WorldEntity** | 世界级单例实体：存档 / Dump / Tick 配置等世界级字段与命令的落点；World Manager 建世界时创建 |
 | **Entity** | 一个身份。网络身份不透明、永不复用；本地句柄只在本 World 有效 |
-| **EntityType** | 实体类型：创建时按类型一次绑定整组组件 |
-| **Component** | 能力单元，可带数据与逻辑 |
+| **EntityType** | 实体类型：声明式 static class，创建时按类型一次绑定整组组件 |
+| **Component** | 能力单元，可带数据与逻辑；同步字段用 `Sync<T>` 声明 |
 | **System** | 批处理与跨实体规则的容器 |
 | **Tick** | 固定步长逻辑帧，13 相推进，出错整帧作废 |
 | **结构事务** | 创建/销毁/增删组件：业务逻辑只「下单」，帧内固定位置统一「上菜」，之后新实体才「亮相」 |
-| **复制** | 服务器状态自动同步到客户端——声明即同步 |
+| **复制** | 服务器状态自动同步到客户端——`Sync<T>` 即同步 |
+| **RPC** | 跨端动作：`[ServerRpc]` 客户端→服务器意图；`[ClientRpc]` 服务器→客户端一次性通知（事件） |
 | **视野 (AOI)** | 服务器上「哪个玩家看得见哪个实体」的关系表；半径/遮挡/队伍是算出它的输入 |
 | **表现 (Presentation)** | 客户端的模型/特效/音频资源，不进模拟、不进哈希 |
 
-`Scene`、`Space`、「兴趣」不是规范词。术语采 **AOI**，不采 ROI。
+`Scene`、`Space`、`Room`、「兴趣」不是规范词。术语采 **AOI**，不采 ROI。
 
 ### 判断口诀
 
@@ -102,30 +105,31 @@ ECS 的结构事务是宿主跨 World 事务的**参与者**，不是协调者�
 
 ```mermaid
 flowchart TB
-  subgraph CONTENT["内容层：具体组件类型 · Attribute 数值 · 表现资源 · GAS 挂载"]
-    GAME["玩法代码——同一套代码双端跑"]
+  subgraph CONTENT["内容层：具体组件类型 · EntityType 声明 · Attribute 数值 · 表现资源 · GAS 挂载"]
+    GAME["玩法代码——同一份源码编两端程序集"]
   end
   subgraph ECS["ECS 框架层"]
-    M1["M1 World 与身份<br/>Room=一个权威 GameWorld · 客户端 ReplicaWorld<br/>NetEntityId 不透明永不复用 · 句柄=下标+世代号<br/>CS / Local 两模式"]
-    M2["M2 EntityType 与创建<br/>组件集+逻辑子实体+约束<br/>编译期校验 · 模板拷贝批量创建"]
-    M3["M3 结构事务与生命周期<br/>一帧四步 · 八回调 · 两道闸门<br/>亮相屏障 · 撞单裁决 · 墓碑"]
-    M4["M4 属性同步<br/>字段标记三维度 · 类型阶梯<br/>容器条目差量 · 拼好再生效"]
+    M1["M1 World 与身份<br/>一进程一个权威 GameWorld · 客户端 World<br/>NetEntityId=实例ID+计数器 永不复用 · 句柄=下标+世代号<br/>CS / Local 两模式"]
+    M1A["M1a World Manager 与 WorldEntity<br/>唯一持有者 · 收消息提交相生效<br/>Create / CreateFromSnapshot · 单例 WorldEntity"]
+    M2["M2 EntityType 与创建<br/>声明式组件集+子实体+约束<br/>生成期校验 · 生成三件 · 模板内联存储"]
+    M3["M3 结构事务与生命周期<br/>一帧四步 · 九回调 · 两道闸门<br/>亮相屏障 · 撞单裁决 · 墓碑"]
+    M4["M4 属性同步<br/>Sync&lt;T&gt; 字段 · Scope×Authority · 类型阶梯<br/>ServerRpc/ClientRpc · 容器条目差量 · 拼好再生效"]
     M5["M5 跨实体引用<br/>网络 ID · 欠条表 · 墓碑查询"]
     M6["M6 AOI 视野<br/>视野表真值 · 双半径 · 两种离开<br/>世代号 · 成套进视野 · 进视野排队"]
     M7["M7 Transform<br/>LogicTransform 权威 / ModelTransform 表现<br/>父子 · 单写者 · 换爹不跳位"]
-    M8["M8 Storage<br/>中立 API · 单模式查询 · 类型模板"]
-    M9["M9 实体绑定与属性查询面<br/>连接↔实体绑定 · 受控 AttributeId 查询<br/>四种明确结果"]
+    M8["M8 Storage<br/>Get&lt;T&gt;() / Get&lt;T&gt;(id) / Each&lt;T&gt;<br/>模板内联存储 · 单模式查询"]
+    M9["M9 实体绑定与属性查询面<br/>绑定=实体字段+派生索引 · AttributeId 薄适配层<br/>四种明确结果"]
     M10["M10 预测、投影与对账<br/>可预测字段 · 预表现 · 双轨状态哈希"]
   end
   subgraph HOST["宿主地盘（引用不重做）"]
     H1["13 相 Tick · 唯一提交点 GasAndEventFinalize<br/>快照/WAL/恢复 · 跨 World 事务 · canonical 编码<br/>宿主 Timer（单调钟）· Native Tick/Frame Timer"]
   end
   subgraph NET["网络与体素（各自自治，ECS 只出真值）"]
-    N1["DS：复制四步链 · 发送调度 · 会话与准入"]
+    N1["DS：复制四步链 · 发送调度 · 会话与准入 · 每连接有界队列"]
     N2["VoxelEngine：chunk 订阅/流送/三态状态机"]
   end
   CONTENT --> ECS
-  M1 --> M2 --> M3
+  M1 --> M1A --> M2 --> M3
   M3 --> M4 --> M6
   M5 --> M4
   M7 --> M6
@@ -134,23 +138,23 @@ flowchart TB
   M4 --> M10
   ECS -- "三义务：可被快照 · 顺序稳定 · 不抓墙钟/随机" --> HOST
   M6 -- "视野表 = 发不发数据的唯一真值" --> NET
-  M4 -- "变更集（全服算一次）" --> NET
+  M4 -- "变更集 + 每 Tick 事件 outbox（全服算一次）" --> NET
 ```
 
 ### 3.2 主线：老王挖一下方块，另一个玩家怎么看见
 
 ```mermaid
 sequenceDiagram
-  participant C as 老王的浏览器
-  participant S as 服务器 GameWorld
-  participant O as 另一个玩家
-  C->>S: InputCommand（挖 (x,y,z)）
-  Note over S: ApplyInputs / ProcessorPlan：业务逻辑只下单，世界不动
-  Note over S: EcsCommandBufferCommit：所有订单一口气生效<br/>新实体亮相 → 全体 Awake → 全体 Start
+  participant C as 老王的客户端 World
+  participant S as 服务器 GameWorld（World Manager）
+  participant O as 另一个玩家的客户端 World
+  C->>S: InputCommand（[ServerRpc] 挖 (x,y,z)）
+  Note over S: ApplyInputs：同 Tick 输入按发送者 NetEntityId 排序<br/>ServerRpc 方法体执行，业务逻辑只下单 / 写 Sync 字段记脏
+  Note over S: EcsCommandBufferCommit：所有订单一口气生效<br/>新实体亮相 → 全体 Awake → 全体 Start；ClientRpc 事件发出
   Note over S: GasAndEventFinalize（唯一提交点）：结果对外可见
-  Note over S: ReplicationProjection：收齐全服唯一变更集<br/>按每人视野表 × 游标裁剪
-  S->>O: Delta（只发变了的字段 × 只发他看得见的 × 同帧多次改只发末次）
-  Note over O: staging 拼整包 → 校验通过 → 一次性生效<br/>永不出现「血量 0 但人还活着」
+  Note over S: ReplicationProjection：收齐全服唯一变更集 + 本 Tick 事件<br/>按每人视野表 × Scope × 游标裁剪
+  S->>O: 同一 Tick 包（创建记录 / 字段变化 / 销毁 / ClientRpc 事件，同一条有序流）
+  Note over O: staging 拼整包 → 校验通过 → 客户端提交相一次性生效<br/>永不出现「血量 0 但人还活着」
   O->>O: 稳定序回调（原因：初次见面 / 普通变化 / 权威纠正）
   O-->>S: DeltaAck（游标前进）
 ```
@@ -162,12 +166,12 @@ sequenceDiagram
   participant K as 空间粗筛（Native）
   participant V as 视野表（服务器，唯一真值）
   participant S as 复制
-  participant C as 客户端 ReplicaWorld
+  participant C as 客户端 World
   K->>V: 本帧候选进/出对清单（有序，确定性）
   Note over V: 规则过滤（隐身/队伍/遮挡）→ 进出裁决<br/>双半径：出圈半径 > 进圈半径，防边界抖动
   V->>S: 进视野：世代号 +1，按重要度排队分帧发
-  S->>C: 全量条目集（不回放历史流水）
-  Note over C: 副本实体走同一套生命周期<br/>Awake → Start → OnEnterAOI(本地玩家)
+  S->>C: 创建记录（EntityType + NetEntityId + 全部可见字段当前值），不回放历史流水
+  Note over C: 按同一 EntityType 模板建实体<br/>Awake → PostAttribute（写入服务器字段值）→ Start → OnEnterAOI(本地玩家)
   Note over C: 模型可以晚于数据（怪先有血条后有模型）<br/>不能早于数据（有模型没数据 = 幽灵）
 ```
 
@@ -178,16 +182,59 @@ sequenceDiagram
 ### M1 World 与身份
 
 - **干什么**：装实体、划边界、发身份证。
-- **能干什么**：① 服务器每 Room 一份权威 `GameWorld`，房间互相隔离；客户端一份 `ReplicaWorld`；各存各的，两边靠网络身份对应。② **网络身份 `NetEntityId`**：128 位不透明值，永不复用，只有 CS 实体持有。③ **本地句柄 = 下标 + 世代号**：`World.Get(句柄)` 是数组直访不是查字典（全 World 只有一张字典：网络 ID → 本地句柄）；世代号防「旧引用指到坑位复用后的新实体」。④ 实体两模式 CS / Local。
-- **不干什么**：不跨 World 传裸对象引用（跨 World 只传网络 ID，经 World 解析）；Local 实体不占网络身份、不同步、不进视野表、不存档；一个连接同时只在一个 Room。
-- **做完的标准**：销毁再创建一万次，任何旧句柄都解析不到新实体；网络 ID 在全生命周期零复用（含跨 Room、跨重启）；拿 A Room 的句柄去 B Room 解析，返回明确失败而不是错误实体。
+- **能干什么**：① 服务器一个进程一份权威 `GameWorld`，由 World Manager 持有；客户端一份 `World`；各存各的，两边靠网络身份对应。② **网络身份 `NetEntityId`**：128 位 = 世界实例 ID（64 位，宿主建世界时给定）+ 世界内计数器（64 位）；由世界在提交相创建实体时发号；不随机、跨进程唯一、永不复用；实例 ID 与计数器随快照入档；只有 CS 实体持有。③ **本地句柄 = 下标 + 世代号**：`World.Get(句柄)` 是数组直访不是查字典（全 World 只有一张字典：网络 ID → 本地句柄）；世代号防「旧引用指到坑位复用后的新实体」。④ 实体两模式 CS / Local。
+- **不干什么**：不跨 World 传裸对象引用（跨 World 只传网络 ID，经 World 解析）；Local 实体不占网络身份、不同步、不进视野表、不存档；世界内不设 Room 字段，一个连接同时只绑定一个 Game 实例；不由绑定、宿主或任何世界之外的代码发号。
+- **做完的标准**：销毁再创建一万次，任何旧句柄都解析不到新实体；网络 ID 在全生命周期零复用（含跨进程——两个进程实例 ID 不同；含跨重启——计数器从快照继续）；拿别的进程的句柄来解析，返回明确失败而不是错误实体。
+
+### M1a World Manager 与 WorldEntity
+
+- **干什么**：当世界的唯一 owner——建它、管它、给它喂消息、替它守线程；把世界级的事放到一个单例实体上。
+- **能干什么**：
+
+  ① **唯一持有者**：一进程一个 World Manager 一个 `GameWorld`。准入、属性查询、聊天 ingress、存档、复制都是它下面的服务，构造时注入 Manager；宿主只持一个 Manager 门面。
+
+  ② **两个建世界入口同一条路**：`Create(注册表, 实例ID)` 新建；`CreateFromSnapshot(快照)` 恢复——装载生成注册表、创建 WorldEntity、装身份表与发号器，同一段代码只是来源不同。恢复只跑 `OnHydrate`；恢复出来的是新世界，旧世界销毁；未标 `[Persist]` 的字段取声明默认值。
+
+  ③ **单例 WorldEntity**：建世界时由 Manager 创建，普通 CS 实体（有 NetEntityId、字段按声明同步）；存档 / Dump / Tick 配置是它组件上的字段；世界级命令 = 对 WorldEntity 的 `[ServerRpc]`（如 `WorldSaveComponent.Save`），存档系统在提交相消费，写文件走 outbox。客户端 World 按 EntityType 取单例（`Single<T>()`），不用固定编号。世界存在 = WorldEntity 存在。
+
+  ④ **收消息 → 提交相生效**：双端 Manager 都是「收消息、在自己提交相生效」的入口。服务器收 InputCommand（上行字段变更 / ServerRpc）；客户端收「世界变化」——创建实体（EntityType + NetEntityId + 全部可见字段当前值）、字段变化、销毁实体三种记录，**同一条有序流，创建优先**，按 Tick 成包一次性生效。
+
+  ⑤ **线程归属**：Manager 在 Start 时记下 owner thread，所有入口统一校验；网络线程只能 `Enqueue` 到 Manager 的 inbox。
+
+  ⑥ **客户端模式**：同一个 Manager 类。不发号、不存世界档、字段上行只按 `Authority.Owner`。
+
+  ⑦ **开发期热重载**（仅开发构建，设计概要，不进 r4）：改方法体走 .NET Hot Reload；改字段 / `[Persist]` / Scope / EntityType 组件集 = 生成器重跑 → 快照 → 换程序集 → `CreateFromSnapshot`，进程不重启、连接不断；改 wire 契约 = 重新握手。
+
+  ⑧ **多房间**（后置，设计概要）：多个服务器进程各一个 Manager；匹配服 / 宿主路由决定连接进哪个进程；世界代码零改。
+
+- **不干什么**：任何模块不得自建第二个世界，不得用空世界当线程牌子；不做静态 `World.Current`；生产构建不开热重载；Manager 不持有实体数据（只有可从世界重建的派生索引）。
+- **做完的标准**：生产源只有一条 CreateWorld 路径（结构断言）；`chat.input` 提交后属性查询读到本 Tick 写入的真实文本；`CreateFromSnapshot` 后同一 NetEntityId 可达且不变、新实体不与档内重号；从网络线程调用任何入口直接失败；开发构建改一个字段不重启进程、连接不断（热重载落地时验）。
 
 ### M2 EntityType 与创建
 
 - **干什么**：声明「这类实体由哪些组件构成」，并按类型一次建好。
-- **能干什么**：① 声明组件集合、组件间依赖与互斥、**出生自带的逻辑子实体**（武器有耐久、宠物有 AI——创建时一单全建）、实体模式。② **编译期校验**：缺必需组件、依赖成环、类型阶梯外的同步字段——全部在创建或编译时报错，不留到运行时。③ **模板拷贝批量创建是一等公民 API**：类型模板 = 预填好默认值的内存块；建 1000 只怪 = 整块内存拷贝 + 发 1000 个号，拷完改个体差异，各跑自己的 Awake。这是海量创建的主干道。
-- **不干什么**：不支持运行时拼装任意组件组合；表现资源（刀光、模型、音效）不是实体，不进 EntityType。
-- **做完的标准**：挂了移动组件没挂 Transform 的类型声明编译不过；依赖成环编译不过；批量建 1000 实体的耗时随数量线性增长，且用采样确认走的是整块拷贝而不是逐个初始化。
+- **能干什么**：
+
+  ① **声明式 static class**，不可实例化，玩法代码不经它读数据：
+
+  ```csharp
+  [EntityType(Mode.CS)]
+  [Has(typeof(IdentityComponent))]
+  [Has(typeof(ChatComponent))]
+  [Child("Weapon", typeof(WeaponEntity))]   // 出生自带的逻辑子实体（武器有耐久、宠物有 AI）——创建时一单全建
+  public static class PlayerEntity { }
+  ```
+
+  声明组件集合、组件间依赖与互斥、出生自带的逻辑子实体、实体模式。
+
+  ② **生成期校验**：缺必需组件、依赖成环、`Sync` 字段与 `[ServerOnly]` / `[ClientOnly]` 同现、类型阶梯外的同步字段——全部在生成命令里报错，不留到运行时。
+
+  ③ **模板拷贝批量创建是一等公民 API**：生成器按每个 EntityType 产一个**内部模板类**——实体对象 + 它的组件对象一次性相邻分配、整块入池；`Get<T>()` 走生成的定位表直达、无字典（组件式写法 + 模板内联存储）。建 1000 只怪 = 整块内存拷贝 + 发 1000 个号，拷完改个体差异，各跑自己的 Awake。模板类是内部物，玩法代码不引用它。
+
+  ④ **一个生成命令产三件**：组件注册表 + 实体模板类（`.g.cs`）、同步表、C-2 契约声明表（json）。挂 MSBuild 目标每次 build 自动跑（秒级、增量）；生成物入库、测试断言零 diff；世界只收生成的注册表。
+
+- **不干什么**：不支持运行时拼装任意组件组合；表现资源（刀光、模型、音效）不是实体，不进 EntityType；不用 Roslyn 源生成器；不手写注册表、不反射破门注册。
+- **做完的标准**：挂了移动组件没挂 Transform 的类型声明生成不过；依赖成环生成不过；批量建 1000 实体的耗时随数量线性增长，且用采样确认走的是整块拷贝而不是逐个初始化；生成物零 diff，手写注册路径不存在。
 
 ### M3 结构事务与生命周期
 
@@ -198,25 +245,28 @@ sequenceDiagram
 
   | 四步 | 落在哪一相 | 为什么只能是这一相 |
   |---|---|---|
-  | 记单 | `ApplyInputs` / `ProcessorPlan` | 业务相只写自己的 CommandBuffer，不碰世界 |
+  | 记单 | `ApplyInputs` / `ProcessorPlan` | 业务相只写自己的 CommandBuffer 与 `Sync` 字段脏位，不碰世界结构 |
   | 结算 + 亮相 + 全体 Awake + 全体 Start | **`EcsCommandBufferCommit`** | 13 相里**只有这一相的可写域是 `GameWorld`**。Awake 要写 Attribute 初值 = 写 GameWorld，所以它跑不到别的相去 |
   | 发货（对外可见） | `GasAndEventFinalize`（唯一提交点） | 提交点之后的相才是 `AfterCommit` 可见性 |
-  | 取样打包 | `ReplicationProjection` | 提交点之后，可写域是 `ReplicationView` |
+  | 取样打包 | `ReplicationProjection` | 提交点之后，可写域是 `ReplicationView`；新实体打成「创建记录」，与字段变化、销毁、ClientRpc 事件同一条有序流 |
 
   ② **同帧撞单裁决表**（冻结）：同帧加又删同一组件 = 抵消（钩子不跑）；创建又销毁 = 从没亮相、不占网络身份；同帧两次换爹 = 后单赢 + 查环拒绝；先后顺序按（系统 ID + 相位 + 单号）。
 
   ③ **亮相屏障**：没亮相的实体，查询查不到、组件读不到。
 
-  ④ **八回调**（钩子长在 Component 上，两端跑同一套）：
+  ④ **九回调**（钩子长在 Component 上，两端跑同一套）：
 
   | 回调 | 时机 | 准做 | 禁做 |
   |---|---|---|---|
   | `Awake` | 亮相后、同批全体先跑完 | 初始化自己（Attribute 初值、内部缓存） | 创建/销毁实体、访问其他实体 |
-  | `Start` | 全体 Awake 后，按声明序 + 依赖序 | 连接他人、存引用、订阅 | 下结构单；指望别的实体 Start 已跑完 |
+  | `PostAttribute` | **客户端**：Awake 后、Start 前，框架把创建记录携带的服务器字段值写入之后 | 按服务器值重建派生缓存 | 任何副作用；服务器不触发 |
+  | `Start` | 全体 Awake（客户端含 PostAttribute）后，按声明序 + 依赖序 | 连接他人、存引用、订阅 | 下结构单；指望别的实体 Start 已跑完 |
   | `OnEnable` / `OnDisable` | Enable 轴切换 | 清 tick 订阅等 | 与视野/网络无关，互不牵扯 |
   | `OnDestroy` | 销毁结算后 | 清非状态资源；读只读终态 | 下结构单（掉落由击杀系统同帧下单，不写在尸体上） |
-  | `OnHydrate` | 快照恢复 | 重建缓存（可重跑、纯） | 任何副作用（发奖励、播表现） |
+  | `OnHydrate` | 快照恢复（`CreateFromSnapshot`） | 重建缓存（可重跑、纯） | 任何副作用（发奖励、播表现） |
   | `OnEnterAOI(viewer)` / `OnLeaveAOI(viewer, reason)` | 视野表变更；服务器 per-viewer，客户端 viewer = 本地玩家 | 按观察者做业务 | 当作全局状态用 |
+
+  客户端建实体 = 收到「创建记录」→ 按同一 EntityType 模板建 → Awake（同一套代码）→ PostAttribute → Start；Awake 完整结束后客户端字段已与服务器一致。
 
   ⑤ **两道闸门跨实体生效**：同一帧一起亮相的所有新实体，所有组件先全部 Awake，再开始 Start——骑手的 Start 找马时，马的所有组件至少 Awake 完了。跨实体只保证 Awake 闸门；要等对方 Start 完，放自己第一次 tick。
 
@@ -225,37 +275,42 @@ sequenceDiagram
   ⑦ **墓碑**：销毁后进墓碑，保留窗口后回收，号码永不复用。
 
 - **不干什么**：钩子里一律不许创建/销毁实体、增删组件（出生自带的写进 EntityType；运行中途出现的附属物在 tick 业务逻辑里下单，晚一帧出现可接受）；钩子里不许写 `GasEvents` 域（那是提交点的可写域，写了会跨相违约）；**钩子里不许做不可回滚的动作**——发网络消息、写文件、播表现一律记 outbox，帧成功收尾后统一执行（钩子抛异常要整帧作废，已经发出去的收不回来）；不做字段级 undo（沿用整帧快照 + 日志）。
-- **做完的标准**：同帧加又删同组件，钩子零次触发；同帧建又销毁，网络身份零消耗；用探针确认 Awake/Start 全部在 `EcsCommandBufferCommit` 相内完成，相外写 `GameWorld` 直接失败；钩子抛异常时整帧作废并从上一帧快照重建，且不留半生效状态；快照恢复只跑 `OnHydrate`，同一份快照恢复两遍字节一致。
+- **做完的标准**：同帧加又删同组件，钩子零次触发；同帧建又销毁，网络身份零消耗；用探针确认 Awake/Start 全部在 `EcsCommandBufferCommit` 相内完成，相外写 `GameWorld` 直接失败；客户端探针确认 Awake → PostAttribute → Start 顺序，Start 里读到的 `Sync` 字段已是服务器值；钩子抛异常时整帧作废并从上一帧快照重建，且不留半生效状态；快照恢复只跑 `OnHydrate`，同一份快照恢复两遍字节一致。
 
 ### M4 属性同步
 
 - **干什么**：让服务器状态自动流到客户端——声明即同步，玩法代码不写网络。
 - **能干什么**：
 
-  ① **字段标记，三个互不相干的维度**，各带默认值，90% 字段零声明：
+  ① **字段声明，四样东西，组件类是唯一真源**：
 
-  | 维度 | 取值 | 默认 |
+  | 声明 | 含义 | 默认 |
   |---|---|---|
-  | **同步** | Server 专属（不上网）/ 双端同步（可见范围：全体｜仅自己｜仅队友…）/ 客户端本地 | `[同步]` = 双端、看得见实体的人都收到；**未打标记绝不上网** |
-  | **存档** | 进快照存档 / 不存档（= 可重建，`OnHydrate` 义务，lint 可查） | 权威字段默认进 |
-  | **可预测** | 开 / 关 | 关；开了才有权威/预测双份值 |
+  | `Sync<T> X = new(Scope, Authority)` | 同步字段：两端都有。`Scope` = 谁能收到（Room / AOI / Owner / Claim…）；`Authority` = 谁能写（`Server` / `Owner`） | `Authority.Server` |
+  | `[Persist]` | 进快照。普通字段与 `Sync` 字段都可打；哪端编译哪端存 | 关 |
+  | `[ServerOnly]` / `[ClientOnly]` | 字段只在该端程序集存在；与 `Sync` 同现 = 生成失败 | — |
+  | 未标注的普通字段 | 本端本地值：不上网、不存档、恢复取声明默认值。服务器上即「私有字段」（同世界服务器代码可读、客户端读不到） | — |
 
-  四种同步×存档组合都合法：同步+存档（背包）、只存档（AI 仇恨表）、只同步（装备算出的移速终值，恢复时重算）、都不标（受击闪白）。敏感字段泄露面由 lint 扫敏感词兜底。
+  容器用框架容器 `SyncList<T>` / `SyncDict<K,V>`。`Sync<T>` 是 struct，写 `.Value`、读隐式转换；setter 当场记脏进 ChangeSet。忘打 `[Persist]` 丢数据是使用者 bug，引擎不兜底。四种同步×存档组合都合法：同步+存档（背包）、只存档（AI 仇恨表）、只同步（装备算出的移速终值，恢复时重算）、都不标（受击闪白）。
 
-  ② **类型阶梯**：标量（int/float/bool/枚举/向量）变了发新值；string 当标量整体重发，**长文本（聊天）不走属性同步走消息通道**；List/Dict 必须用框架容器 `SyncList<T>` / `SyncDict<K,V>`（**裸容器编译报错**），按条目差量；嵌套结构体整体当一个值，超两层编译警告；实体引用存网络 ID；**阶梯外类型编译报错**。
+  **一套源码编两份程序集**：一个组件类型按端拆 partial 文件、按组件聚合一个文件夹——`Components/<名>/X.cs`（共享：`Sync` 字段 + 共享逻辑）/ `X.Server.cs`（`[ServerOnly]` 字段、`[ServerRpc]` 处理体）/ `X.Client.cs`（`[ClientOnly]` 字段、表现钩子）/ `X.g.cs`（生成物，入库不手改）；`EntityTypes/` 一份声明。`*.Server.csproj` 排除 `**/*.Client.cs` 并定义 `LUMIO_SERVER`，Client 反之；逻辑块与敏感信息用 `#if LUMIO_SERVER` / `#if LUMIO_CLIENT` 物理剔除（防逆向）。lint：`[ServerOnly]` 只许在 `*.Server.cs`、`[ClientOnly]` 只许在 `*.Client.cs`；每文件首行注释列兄弟文件。
+
+  ② **类型阶梯**：标量（int/float/bool/枚举/向量）变了发新值；string 当标量整体重发，**长文本（聊天）不走 `Sync` 走 `[ClientRpc]`**；List/Dict 必须用 `SyncList<T>` / `SyncDict<K,V>`（**裸容器生成报错**），按条目差量；嵌套结构体整体当一个值，超两层生成警告；实体引用存网络 ID；**阶梯外类型生成报错**。
 
   ③ **容器条目差量六条**：写时记账同帧折叠（加了又删 = 抵消）；帧末只发变更条目（没动的 95 格一个字节不发）；与标量同一事务生效 + 条目级回调；**初次/重进视野/重连发当前全量条目集，不回放历史流水**；没人看不记账；每容器声明尺寸上限。
 
   ④ **发送是帧末统一打包**，三道闸控量：只发变化字段 × 只发视野内 × 同帧多次改只发末次。**diff 一次、分发多次**：变更集全服每帧只算一份，每连接只有一个游标（书签），绝不每连接存世界副本。
 
-  ⑤ **接收拼好再生效**：staging 拼整包 → 校验通过 → 一次性生效。`血量=0` 和 `状态=死亡` 同一权威帧产生，UI 回调绝不会看到「血量 0 但人还活着」。回调带原因三种：**初次见面 / 普通变化 / 权威纠正**——进视野收到全量不该播受伤动画。
+  ⑤ **接收拼好再生效**：staging 拼整包 → 校验通过 → 客户端提交相一次性生效。`血量=0` 和 `状态=死亡` 同一权威帧产生，UI 回调绝不会看到「血量 0 但人还活着」。回调带原因三种：**初次见面 / 普通变化 / 权威纠正**——进视野收到全量不该播受伤动画。
 
-  ⑥ **写权限**：只有服务器权威侧写才标脏；客户端应用服务器数据**不回声**；客户端预测写走可预测维的独立通道。
+  ⑥ **写权限（参照 Unity Netcode 的 NetworkVariable 模型）**：默认只有服务器写。`Authority.Owner` 的字段，绑定到该实体的连接改了 `.Value` 就自动上行——不写消息代码；写别人实体的字段一律拒。上行字段变更与 `[ServerRpc]` 调用都是 InputCommand 信封（ADR-049）的种类，进服务器同一条有序输入流，`ApplyInputs` 相按发送者 NetEntityId 排序后应用；组件可选 `OnClientWrite` 校验钩子，返回 false = 拒绝并把权威值推回（权威纠正）。没有通用 SetField RPC。客户端应用服务器下行数据走 `Sync` 内部接口，不记脏、不回声；客户端预测写走可预测维的独立通道。
 
-  ⑦ **Attribute**：同步权威结果（当前值 + 修订号），不同步计算过程；Modifier 内部表默认不同步（GAS 边界）；必须同帧到达的字段（血量 + 死亡态）声明成一致性组。
+  ⑦ **RPC 与事件**：`[ServerRpc]` = 客户端→服务器的意图，方法体在服务器 `ApplyInputs` 相执行；`[ClientRpc(Scope)]` = 服务器→客户端的一次性通知，就是**事件**——在提交相发出、与字段变化同一 Tick 包下发、投影后服务器即丢（每 Tick outbox）。服务器不保留事件历史；可靠有序由每连接有界传输队列 + 游标（宿主）保证；重连发全量快照不回放；聊天窗口之类是客户端 World 的 `[ClientOnly]` 状态。**字段 = 最后状态（可存可查可同步），事件 = 一次性通知（不存不查不回放）。**
 
-- **不干什么**：不做运行时反射式同步（编辑器反射除外）；不发明字节格式（信封与编码用已冻结的复制契约）；复制字段的值**不得依赖观察者**——因人而异的信息在登录准入时告知一次、存连接侧，「只给某些人看」用可见性声明控制发不发，绝不同一字段两副面孔。
-- **做完的标准**：未打标记的字段在抓包里零出现；改一个 100 格背包的第 5 格，线上字节只包含那一格；血量与死亡态在客户端同一次回调里到达，中间态零观测；同一实体同帧改三次，只发最后一次的值；客户端应用服务器数据后不产生任何上行。
+  ⑧ **Attribute**：同步权威结果（当前值 + 修订号），不同步计算过程；Modifier 内部表默认不同步（GAS 边界）；必须同帧到达的字段（血量 + 死亡态）声明成一致性组。
+
+- **不干什么**：不做运行时反射式同步（编辑器反射除外）；不在用户类型上生成成员（生成器只产表与内部模板类）；不发明字节格式（信封与编码用已冻结的复制契约）；复制字段的值**不得依赖观察者**——因人而异的信息在登录准入时告知一次、存连接侧，「只给某些人看」用 `Scope` 控制发不发，绝不同一字段两副面孔。
+- **做完的标准**：非 `Sync` 字段在抓包里零出现；改一个 100 格背包的第 5 格，线上字节只包含那一格；血量与死亡态在客户端同一次回调里到达，中间态零观测；同一实体同帧改三次，只发最后一次的值；客户端应用服务器数据后不产生任何上行；同 Tick 100 条上行按发送者 NetEntityId 排序，两轮逐位一致；连续 N Tick 事件后服务器常驻内存不随 Tick 增长。
 
 ### M5 跨实体引用
 
@@ -298,16 +353,16 @@ sequenceDiagram
 ### M8 Storage
 
 - **干什么**：把实体和组件真正存起来，同时不让布局泄漏到玩法代码里。
-- **能干什么**：① **API 手感不变、永不泄漏布局**：`entity.Get<Transform>().Position`；句柄 = 下标 + 世代号。② **参考布局**：实体表（创建序）+ 热数据 SoA 大数组（LogicTransform / Attribute）+ 带逻辑组件对象池 + EntityType 预编译模板。③ **查询只有一种模式**（按创建序，天然稳定）——顺序稳定义务的落点。④ **冻 API 不冻布局**：实现仓可换布局而不动内容层代码。
-- **不干什么**：不做第二种查询模式；不暴露 Storage 给结构事务以外的调用方；不承诺「任意组件对象图自动获得 DOD 性能」（性能承诺由 benchmark 关承载，不由名字承载）。
-- **做完的标准**：换一次内部布局，内容层代码零改动且测试全绿；同一份世界连续遍历两次，顺序完全一致；`Get` 走数组直访，用采样确认热路径无字典查找。
+- **能干什么**：① **API 只有一种写法、永不泄漏布局**：组件内 `Get<T>()` 读自己、`Get<T>(netId)` 读别人、`world.Each<T>()` 系统遍历——不用知道对方是什么实体类型；`Sync<T>` 读隐式转换、写 `.Value`；句柄 = 下标 + 世代号。② **参考布局**：实体表（创建序）+ 生成的实体模板内联存储（实体对象 + 其组件对象相邻分配、整块入池，`Get<T>()` 走生成定位表无字典）+ 热数据 SoA 大数组（LogicTransform / Attribute）+ `Sync<T>` 为 struct 不额外分配。③ **查询只有一种模式**（按创建序，天然稳定）——顺序稳定义务的落点。④ **冻 API 不冻布局**：实现仓可换布局而不动内容层代码。
+- **不干什么**：不做第二种查询模式；不提供第二种读法（不做「实体类持有组件成员」的公开门面）；不暴露 Storage 给结构事务以外的调用方；不承诺「任意组件对象图自动获得 DOD 性能」（性能承诺由 benchmark 关承载，不由名字承载）。
+- **做完的标准**：换一次内部布局，内容层代码零改动且测试全绿；同一份世界连续遍历两次，顺序完全一致；`Get<T>` 走生成定位表 + 数组直访，用采样确认热路径无字典查找。
 
 ### M9 实体绑定与属性查询面
 
-- **干什么**：把「这条连接是哪个实体」和「怎么读一个实体的属性」做成全框架共用的能力——不是聊天专用逻辑。
-- **能干什么**：① **连接↔实体绑定**：准入后服务器维护 `AccountId + RoomId + NetEntityId + EntityType + 连接代次`。客户端能解析自己绑定的 `NetEntityId`；服务器能从已准入连接或 `NetEntityId` 解析到本 Room 的权威实体。② **受控属性查询面**：按组件 schema 声明的稳定 `AttributeId` 查询——**不是 SQL、不是数据库 API、不允许直接访问 Storage、不支持任意属性名查找**。③ **两侧各有边界**：服务器查询是权威读，限定在请求的 Room/World 与服务器权限内，且只在模拟所有者线程上进行（**不许从网络线程伸手进 Storage**）；客户端查询限定在自己的 `ReplicaWorld`、已同步字段、视野与权限内。④ **结果带 revision/Tick**，消费方能识别读到的是不是过期数据。⑤ **`AccountId` 是持久业务身份，不自动作为公开客户端属性披露**。
-- **不干什么**：不把 `AccountEntity` 作为对象引用带进 Game World（只带 `AccountId` 值）；不做任意表达式查询；不让客户端查到 server-only 或 persist-only 字段。
-- **做完的标准**：查一个已销毁的 `NetEntityId`，返回明确的「不存在/墓碑/过期」而不是解析到替代实体；查一个不可见实体，返回明确的「不可见」而不是空数据（两者可区分）；从网络线程调用服务器查询直接失败；客户端查 server-only 字段返回权限拒绝。
+- **干什么**：把「这条连接是哪个实体」和「怎么读一个实体的属性」做成全框架共用的能力——不是聊天专用逻辑，也不是第二份表。
+- **能干什么**：① **连接↔实体绑定 = 实体字段 + 派生索引**：`IdentityComponent` 上 `[Persist] AccountId`、`Sync<EntityKind> Kind`、`Connected / ConnectionGeneration / DisconnectedAtTick`（服务器专属、不存档，重启即离线）；World Manager 维护可从世界重建的 `accountId → NetEntityId` 索引；宿主只持连接 → NetEntityId 的会话表。顶号 = 查实体 `Connected`；断线过期 = `DisconnectedAtTick` + 内核定时。C-2 五元组由实体字段 + 宿主会话表拼出，其中 `roomId` 是宿主路由键（哪个 Game 实例），Runtime 接口按实例隐含。② **受控属性查询面**：玩法只用类型化读；C-2 的 `AttributeId` 查询是生成的薄适配层——字符串名 → 同一世界同一 `Sync` 字段，无自有存储，供宿主探针 / 验收 / 工具——**不是 SQL、不是数据库 API、不允许直接访问 Storage、不支持任意属性名查找**。③ **两侧各有边界**：服务器权威读只在 World Manager 的 owner thread（**不许从网络线程伸手进 Storage**）；客户端读自己的 `World`，本地读不判权限——可见性在同步时按 `Scope` 裁，收不到的字段本地不存在。④ **结果带 revision/Tick**，四种结局（不存在 / 墓碑 / 未声明 / 不可见）由世界状态派生，消费方能识别读到的是不是过期数据。⑤ **`AccountId` 是持久业务身份，不自动作为公开客户端属性披露**。
+- **不干什么**：不设独立绑定表、不在查询面里存值；不把 `AccountEntity` 作为对象引用带进 Game World（只带 `AccountId` 值）；不做任意表达式查询；不让客户端查到 `[ServerOnly]` 或 persist-only 字段。
+- **做完的标准**：查一个已销毁的 `NetEntityId`，返回明确的「不存在/墓碑/过期」而不是解析到替代实体；查一个不可见实体，返回明确的「不可见」而不是空数据（两者可区分）；从网络线程调用服务器查询直接失败；客户端查 `[ServerOnly]` 字段返回未声明（该字段不在客户端程序集）；`chat.input` 提交后 `QueryAttribute(ChatComponent.lastMessageText)` 与类型化读同一个值。
 
 ### M10 预测、投影与对账
 
@@ -318,7 +373,7 @@ sequenceDiagram
 
   ② **预表现（最小化，不做改号）**：客户端预表现 = 创建 **Local 实体**做特效载体；服务器确认的正式实体走**正常进视野流程**到达（零特例）；把特效搬到正式实体、销毁本地实体——「对上号」由玩法按上下文自认（「我最近一次开枪」），框架不管。
 
-  ③ **重连与接管**：断线后服务器实体保留 **5 分钟**，房间照常模拟，实体带**显式 disconnected 状态**且仍对房间可见；只有该账号的输入被拒。重连做全新握手 + 全量快照，**rebind 同一 `NetEntityId`**，只重建客户端 `ReplicaWorld`，服务器不回滚不重建；客户端清空本地聊天窗口。窗口用宿主单调钟、**不跨进程重启**。超时销毁，再登录建新实体（账号身份不变，绑定从 A 换到 B）。同账号新的已认证准入 = **接管**：踢掉旧连接（带显式终止通知）并走同一条 rebind 路径。
+  ③ **重连与接管**：断线后服务器实体保留 **5 分钟**，房间照常模拟，实体带**显式 disconnected 状态**（`IdentityComponent.Connected = false`）且仍对房间可见；只有该账号的输入被拒。重连做全新握手 + 全量快照，**rebind 同一 `NetEntityId`**，只重建客户端 `World`，服务器不回滚不重建；客户端清空本地聊天窗口。窗口用宿主单调钟、**不跨进程重启**。超时销毁，再登录建新实体（账号身份不变，绑定从 A 换到 B）。同账号新的已认证准入 = **接管**：踢掉旧连接（带显式终止通知，客户端退到登录界面、不自动重连）并走同一条 rebind 路径。
 
   ④ **双轨状态哈希**：
   - **每帧轻量哈希**——只覆盖 `LogicTransform` + `Attribute` 当前值（SoA 连续内存，成本可控），在 `SnapshotHashMetrics` 相跑，作为双端漂移告警的信号源；
@@ -331,45 +386,164 @@ sequenceDiagram
 
 ---
 
+## 4.5 样板示例：用户名（以后所有 ECS 代码与讨论都以此为标准）
+
+一条最小、完整的链路：声明 → 建世界 → 创建 → 写 → 同步 → 读 → 存档 → 恢复。每段代码前一句「这段在干什么」，怎么读代码见末尾。
+
+**① 声明**——组件类是唯一真源；同步字段用 `Sync<T>`，服务器专属的放 `.Server.cs`。
+
+```csharp
+// Components/Identity/IdentityComponent.cs —— 共享文件，两端都编
+// 兄弟文件：IdentityComponent.Server.cs · IdentityComponent.Client.cs · IdentityComponent.g.cs
+[EcsComponent]
+public sealed partial class IdentityComponent : Component
+{
+    /// 用户名：房间内公开；owner 客户端可改（自动上行）；进快照
+    [Persist] public Sync<string> Name = new(Scope.Room, Authority.Owner);
+    public Sync<EntityKind> Kind = new(Scope.Room);            // player / bot
+}
+
+// Components/Identity/IdentityComponent.Server.cs —— 只进服务器程序集
+public sealed partial class IdentityComponent
+{
+    [Persist] public string AccountId = "";                    // 私有：客户端读不到
+    public bool Connected; public ulong ConnectionGeneration; public ulong DisconnectedAtTick;   // 不存档，重启即离线
+
+    /// 客户端改名上行到达（ApplyInputs 相，按发送者 NetEntityId 排序）：校验；返回 false = 拒绝并权威纠正
+    partial bool OnClientWrite(in SyncWrite w) => w.Is(Name) && w.Value<string>().Length is > 0 and <= 16;
+}
+
+// Components/Chat/ChatComponent.cs —— 共享
+[EcsComponent]
+public sealed partial class ChatComponent : Component
+{
+    [Persist] public string LastMessageText = "";              // 私有、存档、不同步（长文本不走 Sync）
+    [Persist] public ulong LastMessageTick;
+    [ServerRpc] public partial void SendMessage(string text);                 // 客户端 → 服务器意图
+    [ClientRpc(Scope.Room)] public partial void OnChatMessage(string text);   // 服务器 → 房间内客户端事件
+}
+
+// Components/Chat/ChatComponent.Server.cs
+public sealed partial class ChatComponent
+{
+    public partial void SendMessage(string text)               // ApplyInputs 相执行
+    {
+        if (text.Length is 0 or > 512) return;
+        LastMessageText = text; LastMessageTick = World.Tick;
+        OnChatMessage(text);                                   // 提交相发出；messageId / 序号 / sender / tick 由框架盖章
+    }
+}
+
+// Components/Chat/ChatComponent.Client.cs
+public sealed partial class ChatComponent
+{
+    public List<(NetEntityId Sender, string Text)> Window = new();   // 本地玩家的聊天窗口：未标注 = 本端本地值，服务器不留副本
+    public partial void OnChatMessage(string text) => World.Self.Get<ChatComponent>().Window.Add((Rpc.Sender, text));   // World.Self = 本连接绑定的实体
+}
+
+// EntityTypes/PlayerEntity.cs —— 组件集声明，一份
+[EntityType(Mode.CS)]
+[Has(typeof(IdentityComponent))]
+[Has(typeof(ChatComponent))]
+public static class PlayerEntity { }
+```
+
+生成命令（build 自动跑）从上面产出 `IdentityComponent.g.cs` / `ChatComponent.g.cs`（注册行）、`PlayerEntity` 模板类、同步表、`attribute-declarations.json`；生成物入库、零 diff。
+
+**② 建世界**——宿主进程启动时只做这一件事；WorldEntity 随世界诞生。
+
+```csharp
+var manager = WorldManager.Create(GeneratedRegistry.Instance, instanceId: hostGivenInstanceId);   // 一进程一个
+manager.Start(ownerThread: Thread.CurrentThread);       // 记线程归属；之后所有入口校验
+var world = manager.World;                              // 唯一的 GameWorld；world.Single<WorldSaveComponent>() 已存在
+```
+
+**③ 创建**——准入通过后下单建 PlayerEntity；提交相发号、亮相、Awake、Start；客户端收「创建记录」用同一模板建。
+
+```csharp
+// 服务器：准入服务（Manager 的服务之一）在 ApplyInputs 相下单
+var order = world.Commands.Create(PlayerEntity.Type);    // 模板拷贝；NetEntityId 在提交相由世界发（实例ID + 计数器）
+order.Get<IdentityComponent>().AccountId = accountId;    // 出生初值
+order.Get<IdentityComponent>().Connected = true;
+
+// 客户端：World Manager 收到同一 Tick 包里的创建记录 → 按 PlayerEntity 模板建 → Awake → PostAttribute（写入服务器字段值）→ Start
+// 玩法代码不写任何东西，这是框架行为
+```
+
+**④ 写**——两种上行都不写消息代码。
+
+```csharp
+// owner 客户端改名：字段自动上行 → 服务器 OnClientWrite 校验 → 写入 → 记脏
+Get<IdentityComponent>().Name.Value = "ABCD";
+// 客户端说话：ServerRpc
+Get<ChatComponent>().SendMessage("gg");
+// 服务器内部系统写字段：直接赋值即记脏
+Get<IdentityComponent>().Name.Value = "系统改名";
+```
+
+**⑤ 同步**——帧末 `ReplicationProjection` 从 ChangeSet 取脏字段 × `Scope.Room` × 视野表 → 与本 Tick 的 `OnChatMessage` 事件同一个包下发；客户端提交相一次性生效。玩法代码零行。
+
+**⑥ 读**——一种写法，不用知道对方是什么实体。
+
+```csharp
+string other = world.Get<IdentityComponent>(otherId).Name;   // 读别人（Sync 读隐式转换）
+string mine  = Get<IdentityComponent>().Name;                // 组件内读自己
+foreach (var chat in world.Each<ChatComponent>()) { /* 系统遍历 */ }
+```
+
+**⑦ 存档与恢复**——存档是对 WorldEntity 的 ServerRpc；恢复是从快照建新世界。
+
+```csharp
+world.Single<WorldSaveComponent>().Save("slot-1");      // 提交相由存档系统消费：[Persist] 字段 + 身份表 + 发号器 + WorldEntity + Tick → outbox 写文件
+var restored = WorldManager.CreateFromSnapshot(snapshotBytes);   // 新世界；只跑 OnHydrate；Name / AccountId / LastMessageText 回来，Connected 为默认 false
+```
+
+**怎么读这段代码**：看到 `Sync<T>` = 会上网，`Scope` 说给谁，`Authority` 说谁能写；看到 `[Persist]` = 进快照；文件名带 `.Server` / `.Client` = 只在那一端存在；`[ServerRpc]` = 客户端喊服务器做事，`[ClientRpc]` = 服务器通知客户端一次；`Get<T>()` 没参数是自己、有参数是别人；`World.Self` = 本连接绑定的实体；没有任何标注的普通字段 = 本端私有临时值。样例代码同步放在 LumioGameRuntime `modules/ecs/samples/username/`。
+
+---
+
 ## 5. TODO（按这个顺序开卡）
 
 > 交付按 **Living Architecture**（口径见 `.spec/knowledge/standards/repository-architecture.md`「变更顺序」）：
 > 托管↔Native 二进制边界改 `engine/abi/native-abi.json`；**其余公共语义（玩法、绑定、账号、定时）各落一份独立的 `engine/wire/<name>-v1.json`——不得扩展 `hello-wire-v1.json`**，由 `node eng/verify-wire.mjs` 跑契约内嵌的正反例。开发态不跑 Baseline / Fixture 门 / 七仓镜像。ADR 编号落笔时现查最高号（编号无机器占号，会被并发抢）。
+> M1a / M2 / M4 / M8 / M9 的结构已由 [ADR-058](../../decisions/ADR-058-ecs-world-manager-and-annotation-registry.md) 定稿，RM-00011 r4 的 R4-05 / R4-04 按其落地；阶段 0 各卡按 ADR-058 填实。
 
 **阶段 0：先立规矩**（架构仓落 ADR，与契约文件同批交付）
 
 | 卡 | 内容 | 对应模块 |
 |---|---|---|
-| 0-1 | 生命周期与结构事务契约：八回调语义、两道闸门、钩子禁令、撞单裁决表、**四步 → 13 相映射表**（含「只有 `EcsCommandBufferCommit` 可写 `GameWorld`」这条约束的现行落点） | M3 |
-| 0-2 | 字段标记规范：同步枚举全集 × 存档 × 可预测 × 类型阶梯 × 可见范围 × 一致性组 × 容器上限 | M4 |
-| 0-3 | 组件/字段 ID 命名空间：永久编号与退役封存规则 | M4 |
+| 0-1 | 生命周期与结构事务契约：九回调语义（含 PostAttribute）、两道闸门、钩子禁令、撞单裁决表、**四步 → 13 相映射表**（含「只有 `EcsCommandBufferCommit` 可写 `GameWorld`」这条约束的现行落点） | M3 |
+| 0-2 | 字段声明规范：`Sync<T>(Scope, Authority)` 全集 × `[Persist]` × `[ServerOnly]` / `[ClientOnly]` × 可预测 × 类型阶梯 × 一致性组 × 容器上限 × partial 文件布局与 lint | M4 |
+| 0-3 | 组件/字段 ID 命名空间：永久编号与退役封存规则；同步字段 id 由名字派生 | M4 |
 | 0-4 | 容器条目差量的线上编码：`SyncList`/`SyncDict` 差量在状态载荷内的布局 | M4 |
 | 0-5 | 视野关系契约：视野表键、世代号、双半径、安全/性能离开、成套进视野、排队接口、**粗筛清单形状与确定性判据** | M6 |
 | 0-6 | 引用与欠条契约：网络引用解析状态机、欠条表、墓碑查询语义 | M5 |
 | 0-7 | 双 Transform 契约：LogicTransform 网络表示、父子结构单、单写者 | M7 |
-| 0-8 | 实体绑定与属性查询面契约：绑定字段集、`AttributeId` 查询、四种结果（存在/可见/权限/过期）的失败语义 | M9 |
-| 0-9 | EntityType 声明契约：组件集、逻辑子实体、依赖/互斥校验、CS/Local 模式 | M2 |
-| 0-10 | Storage 中立 API 契约：句柄、单模式查询、模板拷贝批量创建（**布局不冻**） | M8 |
+| 0-8 | 实体绑定与属性查询面契约：绑定 = 实体字段 + 派生索引、`AttributeId` 薄适配层、四种结果（存在/可见/权限/过期）的失败语义、roomId = 宿主路由键 | M9 |
+| 0-9 | EntityType 声明契约：声明式 static class、`[Has]` / `[Child]`、依赖/互斥校验、CS/Local 模式、生成三件与零 diff | M2 |
+| 0-10 | Storage 中立 API 契约：`Get<T>()` / `Get<T>(id)` / `Each<T>`、句柄、单模式查询、模板内联存储与批量创建（**布局不冻**） | M8 |
+| 0-11 | World Manager 契约：`Create` / `CreateFromSnapshot` / inbox / OwnerThread / 客户端模式；WorldEntity 与 `WorldSaveComponent`；快照内容 | M1a |
 
 **阶段 1：垂直切片**（跑通 = 路线成立）
 
-1. M1 + M2 + M8 最小版：模板拷贝创建 1000 实体。
-2. M3：一帧四步跑在正确的相位上，八回调全通。
-3. M4：进视野收全量 → 属性增量 → 容器条目差量 → 血量+死亡同帧回调。
+1. M1 + M1a + M2 + M8 最小版：World Manager 建世界 + WorldEntity + 模板拷贝创建 1000 实体。
+2. M3：一帧四步跑在正确的相位上，九回调全通（客户端 Awake → PostAttribute → Start）。
+3. M4：创建记录 → 属性增量 → 容器条目差量 → 血量+死亡同帧回调；Owner 字段上行 + ServerRpc / ClientRpc。
 4. M6：视野边界反复抖动不炸（双半径）+ 进视野排队。
 5. M7：马驮人（父子 + 成套视野）。
-6. M9 + M10：连接绑定、断线 5 分钟重连 rebind、接管。
-7. 崩溃恢复（宿主配合）+ 双端同段逻辑同结果（轻量哈希对账）。
+6. M9 + M10：绑定即实体字段、断线 5 分钟重连 rebind、接管。
+7. 崩溃恢复（`CreateFromSnapshot`，宿主配合）+ 双端同段逻辑同结果（轻量哈希对账）。
 
 **阶段 2：规模与工具**
 
 8. 休眠/LOD 复制、全链路 trace 工具（规模测试前补）。
 9. 容器深层差量（条目级差量带宽实测超标才做）。
 10. 副本离开视野缓存（重进视野全量成本实测超标才做）。
+11. 开发期世界热重载、多进程多房间（设计概要已在 M1a）。
 
 **阶段 3：性能定型**
 
-11. 过 benchmark 关，拿数据回图**冻 Storage 布局**（该关挡布局冻结，不挡本设计）。
+12. 过 benchmark 关，拿数据回图**冻 Storage 布局**（该关挡布局冻结，不挡本设计）。
 
 **停下来回图重议的信号（kill criteria）**：
 
@@ -386,18 +560,27 @@ sequenceDiagram
 | 不做 | 级别 | 什么情况回头 |
 |---|---|---|
 | 运行时反射式同步 | **红线** | 永不——编辑器反射除外，运行时一律走生成代码 |
+| 第二个世界 / 空世界当线程牌子 | **红线** | 永不——一进程一个 World Manager 一个 GameWorld |
+| 手写组件注册表 / 反射破门注册 | **红线** | 永不——注册表只由生成命令产出 |
+| 组件之外存每实体状态 | **红线** | 永不——模块只留可从世界重建的派生缓存 |
+| 服务器保留事件历史 | **红线** | 永不——事件是每 Tick outbox，重连发全量快照 |
+| 通用 SetField RPC | **红线** | 永不——上行只有 Owner 字段自动上行与 `[ServerRpc]` |
 | 字段级 undo | **红线** | 永不——整帧快照 + 日志是唯一回滚手段 |
 | 跨 World 裸对象引用 | **红线** | 永不——跨 World 只传网络 ID |
 | 钩子里下结构单 | **红线** | 永不——出生自带写进 EntityType，中途出现的在业务逻辑里下单 |
-| 网络线程直接访问 Storage | **红线** | 永不——权威读只在模拟所有者线程 |
+| 网络线程直接访问 Storage | **红线** | 永不——权威读只在 World Manager owner thread |
 | 客户端 AOI 决定收哪些数据 | **红线** | 永不——那等于把透视挂做成功能 |
-| 长文本走属性同步 | **红线** | 永不——聊天走消息通道 |
+| 长文本走 `Sync` 字段 | **红线** | 永不——聊天走 `[ClientRpc]` |
+| 生产构建开启世界热重载 | **红线** | 永不——dev-only 开关不进生产 |
+| Roslyn 源生成器 | 不做 | 生成走 CLI + MSBuild 目标；IDE 每键触发与生成物不可见是否决理由 |
+| 第二种读法（实体类持有组件成员的公开门面） | 不做 | 一种写法优先；若将来要糖，作为生成的只读门面另议 |
 | 第二种查询模式（除创建序外） | 砍 | 单模式性能过不了 benchmark 关且证明是查询模式的锅 |
 | 联网的预测实体 + 临时号改号 | 推迟 | 战斗手感实测「粘滞」（协议已冻结，现成不返工） |
 | 出视野缓存副本不销毁 | 推迟 | 重进视野全量流量实测超标 |
 | 容器深层差量 | 推迟 | 条目级差量带宽实测超标 |
 | 休眠 / LOD 复制 | 推迟 | 规模测试前 |
 | 全链路 trace 工具 | 推迟 | 规模测试前 |
+| 同进程多房间 | 推迟 | 多房间 = 多进程；同进程多 Manager 只在实测多进程成本超标时重议 |
 | 组件目录治理（谁能加组件类型） | 不做 | 团队规模到了再说，属治理不属框架 |
 
 ---
@@ -417,13 +600,23 @@ sequenceDiagram
 | 双半径 | 进圈半径小、出圈半径大，防止站在边界上每帧进进出出 |
 | 世代号 | 同一个东西第几次重新进你的视野；防迟到的旧包污染新副本 |
 | 成套进视野 | 发骑手之前先保证马已经发过去了 |
-| 标脏 | 字段被改过的记号，帧末只发标了脏的 |
+| 标脏 | `Sync<T>` 的 setter 记的「改过」记号，帧末只发标了脏的 |
 | 游标 | 每个连接的书签：他收到哪儿了 |
 | 拼好再生效 | 一整包数据先在旁边拼完整、校验过，再一次性装进世界 |
 | 权威纠正 | 服务器说「你猜错了，实际是这个值」 |
 | 预表现 | 按下按键立刻放个纯本地特效，正式实体随后正常到达 |
-| ReplicaWorld | 客户端那份投影世界 |
-| Room | 一个互相隔离的房间，一个房间一份权威世界 |
+| World Manager | 世界的管家：一进程一个，建世界、喂消息、守线程，谁要世界都找它 |
+| WorldEntity | 世界自己那个实体：存档、Dump、Tick 配置都挂在它身上，给它发命令就是给世界发命令 |
+| 客户端 World | 客户端那份世界——同一套 ECS、同一份源码，收服务器的创建 / 变化 / 销毁记录 |
+| 创建记录 | 服务器告诉客户端「建一个这种实体，号码是这个，字段现在是这些」的那条消息 |
+| PostAttribute | 客户端建实体时，Awake 之后、Start 之前，框架把服务器的字段值一次性写进去的那一刻 |
+| Sync 字段 | `Sync<T>`：打了它就会上网；`Scope` 说给谁看，`Authority` 说谁能写 |
+| Owner 字段 | `Authority.Owner` 的 Sync 字段：自己的客户端改了自动上行，服务器可以驳回 |
+| ServerRpc / ClientRpc | 客户端喊服务器做一件事 / 服务器通知客户端一次（事件，不存不回放） |
+| 一套源码两份程序集 | 同一个组件类拆 `.cs` / `.Server.cs` / `.Client.cs` 三个文件，服务器和客户端各编自己那份 |
+| 生成三件 | 一句命令从组件源码产出：注册表 + 模板类、同步表、契约声明表 |
+| 世界热重载 | 开发期改了字段：快照 → 换程序集 → 从快照建新世界，进程不重启 |
+| 多房间 | 多个服务器进程，各一个世界；匹配服决定你进哪个进程。世界里没有 Room |
 | CS 实体 / Local 实体 | 双端都有、占号的 / 纯本端、不上网不存档的 |
-| 接管 | 同一个账号又登进来了：踢掉旧连接，新连接接上同一个实体 |
+| 接管 | 同一个账号又登进来了：踢掉旧连接（旧客户端退到登录界面），新连接接上同一个实体 |
 | 轻量哈希 / 全量哈希 | 每帧算一小撮字段看有没有歪 / 需要时算全部，用来定位歪在哪 |

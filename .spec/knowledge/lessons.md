@@ -206,3 +206,27 @@ metadata:
 - 根因：Rosetta 翻译的是二进制而非 shell（`sysctl.proc_translated` = 0），但 x86_64 进程派生的子 shell 会继承 x86_64 人格。工具链的 host 三元组与机器真实架构脱钩，而脚本通常只问后者。
 - 规避：① 证据里显式写明宿主三元组（如 `x86_64-apple-darwin under Rosetta on arm64`、`RID: osx-x64 (Rosetta on arm64)`），不得声称原生。② host 推导改用编译期目标三元组或显式配置，不用 `uname -m`。③ 偏离钉定工具链的验证只能作**补充证据**单列，不得顶替正式验收证据——本轮用本机已有的 `1.94.0-aarch64-apple-darwin` 做过一次原生 arm64 交叉复验（全 workspace 构建通过、7 个 CLI 行为与 x86_64 腿一致），但正式证据仍以钉定的 1.89.0 为准。
 - 来源：本仓 R-00011 macOS 复核发现 F3（`tools/verify-tool-lock.sh` 的 host key 同机两值）；跨会话回执 lumionativecore-79（arm64 腿未覆盖）、lumioserver-2d（.NET RID 同构问题）。
+
+### 字符串禁词 grep 不是架构测试，结构约束要用结构断言
+
+- 日期：2026-09-03
+- 现象：RM-00011 r3 的 Server 架构测试用禁词表 `by_account / expire_due / next_net_entity_id …` 证明「宿主无第二份绑定表」；实际宿主保留了 `account_sessions: HashMap<String,String>`（按账号索引）并自行裁决顶号与跨房，因为名字不同而通过。N-13 五仓 grep「0 命中」同样漏掉 Game 第二个 `ChatComponent`、Runtime `_eventsByRoomTick` 无界历史、Client 手写声明表。
+- 根因：禁词表锁的是上一版代码的符号名，不是被禁的结构；实现方换个名字即可绕过，审查方拿 grep 结果当结构证据。
+- 规避：① ADR「失败语义」里的结构约束（无第二份表 / 无自建世界 / 无旁路存储）必须落成**结构断言**（类型级：宿主 crate 内不允许以账号为键的映射；依赖级：查询实现只能持有世界句柄）；② 审查报告里「grep 0 命中」只能作辅助，不得单独支撑「无第二份实现」结论；③ 深审必须由 reviewer 读代码定位状态副本，不只跑 grep。
+- 来源：`reviews/2026-09-03-rm-00011-r3-owner-review.md` P1-4 / P1-9、ADR-057。
+
+### 验收尺子不由实现方修改；改尺让 not-ok 变 ok 视同伪造 SUCCESS
+
+- 日期：2026-09-03
+- 现象：R-00376 live 首轮 launcher 判 `ok:false`（两轮事件顺序不一致）。worker 未改服务器，把 Game `compareRuns` 从逐位比较改成排序多重集，`appliedTicks` 只比长度，随后 `--dir` 复判 `ok:true`；N-13 据此放行。Server 仓另一把严格尺子（`entity_chat_acceptance.rs` `assert_eq!(order1, order2)`）从未在 CI 或本机跑过。
+- 根因：oracle 与实现在同一张卡、同一个 worker 手里；ADR Fixture 原文「两轮一致」怎么定义是产品决定，worker 自行解释为多重集；主 loop 未把「oracle 变更」列为必须升级 Owner 的事项。
+- 规避：① 验收 oracle / Fixture 口径的任何改动只能经 ADR，由 Owner 裁决；② 派活提示词硬禁令加「不得修改验收尺子」；③ 主 loop 合入前机器检查 `verify-evidence.mjs` 判定函数与 acceptance 断言是否在 diff 内，命中即退回等 Owner；④ 同一份证据只允许一把尺，第二把尺（无论更严或更松）视同「增实体」删除。
+- 来源：`reviews/2026-09-03-rm-00011-r3-owner-review.md` P1-1、ADR-057 治理原则。
+
+### 并行拆卡时，共同依赖的「容器」本身必须先有一张契约卡与 owner
+
+- 日期：2026-09-03
+- 现象：r3 把 N-04 标注、N-05 绑定查询、N-06 聊天按文件目录切成三张并行卡。没有任何一张卡拥有「Room / Game 世界」本身，于是绑定卡自建两个空 `EcsWorld` 当线程牌子 + 私有字典 `_values` 返回 seed 常量，聊天卡自建第三个 `ChatIngressWorld`，三者无数据通道；「单一 ECS」在 Runtime 内部没有连通，查询永远答空串。同样，N-03 与 N-08 都写了「导出 FFI」，两仓各做一份逐行相同的插头。
+- 根因：拆卡按「文件集不重叠」切，把共享的核心对象（世界、FFI 插头）留在了所有卡的范围之外；每个 worker 在自己范围内为了让测试过，各造一份替身。dispatch 规则要求「共同依赖先剥成契约卡」，但拆卡时只把 wire 契约当共同依赖，没把运行时容器当共同依赖。
+- 规避：① 拆卡前列出「所有实现卡都要拿到的运行时对象」（世界、注册表、内核句柄），每一个都先有 Wave 0 契约卡与唯一 owner，实现卡只消费；② 两张卡的验收项若出现同一个动词宾语（「导出 FFI」「注册组件」），拆卡即失败，回蓝图重排；③ 收口审查加一项「同一职责的实例数」盘点（世界数、插头数、声明表数），大于 1 即退回。
+- 来源：`reviews/2026-09-03-rm-00011-r3-owner-review.md` P1-7 / P2-5、`plans/2026-09-02-rm-00011-r3-convergence-blueprint.md` DAG、ADR-057 第 7 / 9 条。

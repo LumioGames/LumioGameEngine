@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-058-ecs-world-manager-and-annotation-registry.md
