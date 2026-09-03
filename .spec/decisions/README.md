@@ -75,7 +75,7 @@
 | [ADR-053](ADR-053-entity-binding-and-attribute-query.md) | 连接绑定五元组与 NetEntityId Attribute Query（开发态 `engine/wire/entity-binding-and-query-v1.json`） | Accepted |
 | [ADR-054](ADR-054-account-server-topology-and-port.md) | Account Server 第三服务拓扑与账号/准入端口（开发态 `engine/wire/account-port-v1.json`） | Accepted |
 | [ADR-055](ADR-055-native-timer-abi.md) | Native Timer ABI 与双层定时（开发态 `engine/wire/native-timer-abi-v1.json`） | Accepted |
-| [ADR-056](ADR-056-rm00011-architecture-convergence.md) | RM-00011 架构收敛：单一 ECS / 单一绑定查询 / 字段标注声明 / 单一定时内核 / 真实广播与落盘（第一性原理：如无必要勿增实体） | Draft |
+| [ADR-056](ADR-056-rm00011-architecture-convergence.md) | RM-00011 架构收敛：单一 ECS / 单一绑定查询 / 字段标注声明 / 单一定时内核 / 真实广播与落盘（第一性原理：如无必要勿增实体） | Accepted |
 
 旧制度的 `DECISIONS_PENDING` 待决台账已随 `docs/` 一并删除（见 git 历史）；Living Architecture 下未定项直接落 ADR 或任务卡，不再另设台账。
 
