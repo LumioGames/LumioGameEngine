@@ -79,9 +79,9 @@ ECS 的结构事务是宿主跨 World 事务的**参与者**，不是协调者�
 |---|---|
 | **World** | 实体的容器与边界。服务器每进程一个（权威），客户端一个（同一套 ECS） |
 | **World Manager** | 世界的唯一持有者与消息入口：建世界（新建 / 从快照）、创建 WorldEntity、收消息在提交相生效、记线程归属。一进程一个 |
-| **WorldEntity** | 世界级单例实体：存档 / Dump / Tick 配置等世界级字段与命令的落点；World Manager 建世界时创建 |
+| **WorldEntity** | 世界级单例实体：由游戏在 `EntityTypes/` 声明（`World = true`，恰好一个），存档 / Dump / Tick 配置等世界级字段与命令的落点；World Manager 建世界时创建 |
 | **Entity** | 一个身份。网络身份不透明、永不复用；本地句柄只在本 World 有效 |
-| **EntityType** | 实体类型：声明式 static class，创建时按类型一次绑定整组组件 |
+| **EntityType** | 实体类型：声明式 abstract class，可用 C# 继承（子类型组件集 = 基类 ∪ 自己），创建时按类型一次绑定整组组件；`world.TypeOf(id)` 取 |
 | **Component** | 能力单元，可带数据与逻辑；同步字段用 `Sync<T>` 声明 |
 | **System** | 批处理与跨实体规则的容器 |
 | **Tick** | 固定步长逻辑帧，13 相推进，出错整帧作废 |
@@ -195,19 +195,21 @@ sequenceDiagram
 
   ② **两个建世界入口同一条路**：`Create(注册表, 实例ID)` 新建；`CreateFromSnapshot(快照)` 恢复——装载生成注册表、创建 WorldEntity、装身份表与发号器，同一段代码只是来源不同。恢复只跑 `OnHydrate`；恢复出来的是新世界，旧世界销毁；未标 `[Persist]` 的字段取声明默认值。
 
-  ③ **单例 WorldEntity**：建世界时由 Manager 创建，普通 CS 实体（有 NetEntityId、字段按声明同步）；存档 / Dump / Tick 配置是它组件上的字段；世界级命令 = 对 WorldEntity 的 `[ServerRpc]`（如 `WorldSaveComponent.Save`），存档系统在提交相消费，写文件走 outbox。客户端 World 按 EntityType 取单例（`Single<T>()`），不用固定编号。世界存在 = WorldEntity 存在。
+  ③ **单例 WorldEntity**：类型由游戏在 `EntityTypes/WorldEntity.cs` 声明，写法与其他 EntityType 相同，只多一个 `World = true`（注册表里恰好一个，缺或多 = 生成报错）；引擎只提供世界级组件（`WorldSaveComponent` 等），游戏的世界级状态（对局阶段、比分）再 `[Has]` 挂上。建世界时由 Manager 按它创建，普通 CS 实体（有 NetEntityId、字段按声明同步）；存档 / Dump / Tick 配置是它组件上的字段；世界级命令 = 对 WorldEntity 的 `[ServerRpc]`（如 `WorldSaveComponent.Save`），存档系统在提交相消费，写文件走 outbox。两端按组件类型取单例（`Single<T>()`），不用固定编号；客户端不自建，它是第一条创建记录。世界存在 = WorldEntity 存在。
 
-  ④ **收消息 → 提交相生效**：双端 Manager 都是「收消息、在自己提交相生效」的入口。服务器收 InputCommand（上行字段变更 / ServerRpc）；客户端收「世界变化」——创建实体（EntityType + NetEntityId + 全部可见字段当前值）、字段变化、销毁实体三种记录，**同一条有序流，创建优先**，按 Tick 成包一次性生效。
+  ④ **收消息 → 提交相生效**：双端 Manager 都是「收消息、在自己提交相生效」的入口。服务器收 InputCommand（上行字段变更 / ServerRpc）；客户端先收欢迎消息（世界实例 ID + 自己的 NetEntityId，提交相绑 `World.Self`），再收「世界变化」——创建实体（EntityType + NetEntityId + 全部可见字段当前值）、字段变化、销毁实体三种记录，**同一条有序流，创建优先**，按 Tick 成包一次性生效。
 
   ⑤ **线程归属**：Manager 在 Start 时记下 owner thread，所有入口统一校验；网络线程只能 `Enqueue` 到 Manager 的 inbox。
 
-  ⑥ **客户端模式**：同一个 Manager 类。不发号、不存世界档、字段上行只按 `Authority.Owner`。
+  ⑥ **客户端模式**：同一个 Manager 类、同一个 `Create(GeneratedRegistry.Instance)`，只差不传实例 ID（生成注册表自带端别，不传模式参数）；同样 `Start(ownerThread)`，网络线程只 `Enqueue`，主线程每帧 `Tick()`。不发号、不存世界档、字段上行只按 `Authority.Owner`。
 
   ⑦ **开发期热重载**（仅开发构建，设计概要，不进 r4）：改方法体走 .NET Hot Reload；改字段 / `[Persist]` / Scope / EntityType 组件集 = 生成器重跑 → 快照 → 换程序集 → `CreateFromSnapshot`，进程不重启、连接不断；改 wire 契约 = 重新握手。
 
   ⑧ **多房间**（后置，设计概要）：多个服务器进程各一个 Manager；匹配服 / 宿主路由决定连接进哪个进程；世界代码零改。
 
-- **不干什么**：任何模块不得自建第二个世界，不得用空世界当线程牌子；不做静态 `World.Current`；生产构建不开热重载；Manager 不持有实体数据（只有可从世界重建的派生索引）。
+  ⑨ **同进程双端**（单机 / 本地联调）：两个 Manager——服务器程序集一个、客户端程序集一个——中间用内存环回代替网络（`server.outbox → client.Enqueue`，同一行代码）。回调、同步、权限、校验与联网零差异；不共用一个 World（那要第三种编译配置，且 partial 方法两端体会撞）。
+
+- **不干什么**：任何模块不得自建第二个世界，不得用空世界当线程牌子；不做静态 `World.Current`；生产构建不开热重载；Manager 不持有实体数据（只有可从世界重建的派生索引）；同进程双端不共用 World。
 - **做完的标准**：生产源只有一条 CreateWorld 路径（结构断言）；`chat.input` 提交后属性查询读到本 Tick 写入的真实文本；`CreateFromSnapshot` 后同一 NetEntityId 可达且不变、新实体不与档内重号；从网络线程调用任何入口直接失败；开发构建改一个字段不重启进程、连接不断（热重载落地时验）。
 
 ### M2 EntityType 与创建
@@ -215,23 +217,29 @@ sequenceDiagram
 - **干什么**：声明「这类实体由哪些组件构成」，并按类型一次建好。
 - **能干什么**：
 
-  ① **声明式 static class**，不可实例化，玩法代码不经它读数据：
+  ① **声明式 abstract class**，不可实例化、无成员，玩法代码不经它读数据；继承就是 C# 继承：
 
   ```csharp
   [EntityType(Mode.CS)]
   [Has(typeof(IdentityComponent))]
   [Has(typeof(ChatComponent))]
   [Child("Weapon", typeof(WeaponEntity))]   // 出生自带的逻辑子实体（武器有耐久、宠物有 AI）——创建时一单全建
-  public static class PlayerEntity { }
+  public abstract class PlayerEntity { }
+
+  public abstract class VipPlayerEntity : PlayerEntity { }   // 子类型：组件集 = 基类 ∪ 自己的 [Has]；TypeOf(id).Is<PlayerEntity>() 为 true
+
+  [EntityType(Mode.CS, World = true)]         // 世界实体也是一个 EntityType，注册表里恰好一个
+  [Has(typeof(WorldSaveComponent))]
+  public abstract class WorldEntity { }
   ```
 
-  声明组件集合、组件间依赖与互斥、出生自带的逻辑子实体、实体模式。
+  声明组件集合、组件间依赖与互斥、出生自带的逻辑子实体、实体模式、继承关系；`world.TypeOf(id)` 返回类型句柄，`.Is<T>()` 含子类型（类型不编进 NetEntityId，世界本来存着每个实体的模板）。
 
-  ② **生成期校验**：缺必需组件、依赖成环、`Sync` 字段与 `[ServerOnly]` / `[ClientOnly]` 同现、类型阶梯外的同步字段——全部在生成命令里报错，不留到运行时。
+  ② **生成期校验**：缺必需组件、依赖成环、类型阶梯外的同步字段、`World = true` 不是恰好一个、声明类非 abstract 或带成员——全部在生成命令里报错，不留到运行时。
 
   ③ **模板拷贝批量创建是一等公民 API**：生成器按每个 EntityType 产一个**内部模板类**——实体对象 + 它的组件对象一次性相邻分配、整块入池；`Get<T>()` 走生成的定位表直达、无字典（组件式写法 + 模板内联存储）。建 1000 只怪 = 整块内存拷贝 + 发 1000 个号，拷完改个体差异，各跑自己的 Awake。模板类是内部物，玩法代码不引用它。
 
-  ④ **一个生成命令产三件**：组件注册表 + 实体模板类（`.g.cs`）、同步表、C-2 契约声明表（json）。挂 MSBuild 目标每次 build 自动跑（秒级、增量）；生成物入库、测试断言零 diff；世界只收生成的注册表。
+  ④ **一个生成命令产三件**：组件注册表 + 实体模板类 + 每字段可选钩子声明 + RPC 发送桩（`.g.cs`）、同步表、C-2 契约声明表（json）。挂 MSBuild 目标每次 build 自动跑（秒级、增量）；生成物入库、测试断言零 diff；世界只收生成的注册表。
 
 - **不干什么**：不支持运行时拼装任意组件组合；表现资源（刀光、模型、音效）不是实体，不进 EntityType；不用 Roslyn 源生成器；不手写注册表、不反射破门注册。
 - **做完的标准**：挂了移动组件没挂 Transform 的类型声明生成不过；依赖成环生成不过；批量建 1000 实体的耗时随数量线性增长，且用采样确认走的是整块拷贝而不是逐个初始化；生成物零 diff，手写注册路径不存在。
@@ -286,14 +294,14 @@ sequenceDiagram
 
   | 声明 | 含义 | 默认 |
   |---|---|---|
-  | `Sync<T> X = new(Scope, Authority)` | 同步字段：两端都有。`Scope` = 谁能收到（Room / AOI / Owner / Claim…）；`Authority` = 谁能写（`Server` / `Owner`） | `Authority.Server` |
+  | `Sync<T> X = new(Scope, Authority, Notify)` | 同步字段：两端都有。`Scope` = 谁能收到（Room / AOI / Owner / Claim…）；`Authority` = 谁能写（`Server` / `Owner`）；`Notify` = 本端自己写要不要触发变化钩子（`Remote` 只收对端 / `All`） | `Authority.Server`、`Notify.Remote` |
   | `[Persist]` | 进快照。普通字段与 `Sync` 字段都可打；哪端编译哪端存 | 关 |
-  | `[ServerOnly]` / `[ClientOnly]` | 字段只在该端程序集存在；与 `Sync` 同现 = 生成失败 | — |
+  | 文件后缀 `.Server.cs` / `.Client.cs` | 成员只在该端程序集存在；没有归属标注，后缀就是声明。非 Sync 的状态字段必须放这两种文件 | — |
   | 未标注的普通字段 | 本端本地值：不上网、不存档、恢复取声明默认值。服务器上即「私有字段」（同世界服务器代码可读、客户端读不到） | — |
 
   容器用框架容器 `SyncList<T>` / `SyncDict<K,V>`。`Sync<T>` 是 struct，写 `.Value`、读隐式转换；setter 当场记脏进 ChangeSet。忘打 `[Persist]` 丢数据是使用者 bug，引擎不兜底。四种同步×存档组合都合法：同步+存档（背包）、只存档（AI 仇恨表）、只同步（装备算出的移速终值，恢复时重算）、都不标（受击闪白）。
 
-  **一套源码编两份程序集**：一个组件类型按端拆 partial 文件、按组件聚合一个文件夹——`Components/<名>/X.cs`（共享：`Sync` 字段 + 共享逻辑）/ `X.Server.cs`（`[ServerOnly]` 字段、`[ServerRpc]` 处理体）/ `X.Client.cs`（`[ClientOnly]` 字段、表现钩子）/ `X.g.cs`（生成物，入库不手改）；`EntityTypes/` 一份声明。`*.Server.csproj` 排除 `**/*.Client.cs` 并定义 `LUMIO_SERVER`，Client 反之；逻辑块与敏感信息用 `#if LUMIO_SERVER` / `#if LUMIO_CLIENT` 物理剔除（防逆向）。lint：`[ServerOnly]` 只许在 `*.Server.cs`、`[ClientOnly]` 只许在 `*.Client.cs`；每文件首行注释列兄弟文件。
+  **一套源码编两份程序集**：一个组件类型按端拆 partial 文件、按组件聚合一个文件夹——`Components/<名>/X.cs`（共享：`Sync` 字段 + 共享逻辑）/ `X.Server.cs`（服务器私有字段、`[ServerRpc]` 处理体）/ `X.Client.cs`（客户端本地字段、表现钩子）/ `X.g.cs`（生成物，入库不手改）；`EntityTypes/` 一份声明。`*.Server.csproj` 排除 `**/*.Client.cs` 并定义 `LUMIO_SERVER`，Client 反之；逻辑块与敏感信息用 `#if LUMIO_SERVER` / `#if LUMIO_CLIENT` 物理剔除（防逆向）。lint：共享文件里只许 `Sync` / `SyncList` / `SyncDict` 字段、RPC 声明与共享逻辑，非 Sync 状态字段必须在 `.Server.cs` / `.Client.cs`（放共享文件 = 另一端多一个永远是默认值的死字段）；每文件首行注释列兄弟文件。
 
   ② **类型阶梯**：标量（int/float/bool/枚举/向量）变了发新值；string 当标量整体重发，**长文本（聊天）不走 `Sync` 走 `[ClientRpc]`**；List/Dict 必须用 `SyncList<T>` / `SyncDict<K,V>`（**裸容器生成报错**），按条目差量；嵌套结构体整体当一个值，超两层生成警告；实体引用存网络 ID；**阶梯外类型生成报错**。
 
@@ -301,15 +309,15 @@ sequenceDiagram
 
   ④ **发送是帧末统一打包**，三道闸控量：只发变化字段 × 只发视野内 × 同帧多次改只发末次。**diff 一次、分发多次**：变更集全服每帧只算一份，每连接只有一个游标（书签），绝不每连接存世界副本。
 
-  ⑤ **接收拼好再生效**：staging 拼整包 → 校验通过 → 客户端提交相一次性生效。`血量=0` 和 `状态=死亡` 同一权威帧产生，UI 回调绝不会看到「血量 0 但人还活着」。回调带原因三种：**初次见面 / 普通变化 / 权威纠正**——进视野收到全量不该播受伤动画。
+  ⑤ **接收拼好再生效**：staging 拼整包 → 校验通过 → 客户端提交相一次性生效。`血量=0` 和 `状态=死亡` 同一权威帧产生，UI 回调绝不会看到「血量 0 但人还活着」。**变化钩子按字段生成**：每个 Sync 字段一对可选 partial 方法 `OnXChanging(old, new, reason)`（改前，只通知不否决）/ `OnXChanged(old, new, reason)`（改后），容器为 `in ListChange<T>` / `in DictChange<K,V>`（Op / Index 或 Key / Old / New / Reason），声明由生成器产在 `.g.cs`，不写 = 不监听。`reason` = **`Sync` 普通变化 / `Correction` 权威纠正**（默认 `Notify.Remote` 只收这两种，本端自己写不触发；`Notify.All` 时本端写也触发，`reason = Local`）；**初次见面**（创建记录 / 进视野全量）不走变化钩子，走 PostAttribute——所以进视野收到全量不会播受伤动画。整包先全部写入、再统一触发 Changed：同帧到的多个字段在任一钩子里都已是新值。跨 Tick 先后到的字段要「都到齐再做」，玩法在各自钩子里判就绪；WhenAll 式组合器后置（§6）。
 
-  ⑥ **写权限（参照 Unity Netcode 的 NetworkVariable 模型）**：默认只有服务器写。`Authority.Owner` 的字段，绑定到该实体的连接改了 `.Value` 就自动上行——不写消息代码；写别人实体的字段一律拒。上行字段变更与 `[ServerRpc]` 调用都是 InputCommand 信封（ADR-049）的种类，进服务器同一条有序输入流，`ApplyInputs` 相按发送者 NetEntityId 排序后应用；组件可选 `OnClientWrite` 校验钩子，返回 false = 拒绝并把权威值推回（权威纠正）。没有通用 SetField RPC。客户端应用服务器下行数据走 `Sync` 内部接口，不记脏、不回声；客户端预测写走可预测维的独立通道。
+  ⑥ **写权限（参照 Unity Netcode 的 NetworkVariable 模型）**：默认只有服务器写。`Authority.Owner` 的字段，绑定到该实体的连接改了 `.Value` 就自动上行——不写消息代码；写别人实体的字段一律拒。上行字段变更与 `[ServerRpc]` 调用都是 InputCommand 信封（ADR-049）的种类，进服务器同一条有序输入流，`ApplyInputs` 相按发送者 NetEntityId 排序后应用；组件可选 `OnClientWrite(in SyncWrite w, ref bool accept)` 校验钩子，置 `accept = false` = 拒绝并把权威值推回（权威纠正）；不写 = 接受（带返回值的 partial 在 C# 里必须有实现，所以走 ref）。没有通用 SetField RPC。客户端应用服务器下行数据走 `Sync` 内部接口，不记脏、不回声；客户端预测写走可预测维的独立通道。
 
-  ⑦ **RPC 与事件**：`[ServerRpc]` = 客户端→服务器的意图，方法体在服务器 `ApplyInputs` 相执行；`[ClientRpc(Scope)]` = 服务器→客户端的一次性通知，就是**事件**——在提交相发出、与字段变化同一 Tick 包下发、投影后服务器即丢（每 Tick outbox）。服务器不保留事件历史；可靠有序由每连接有界传输队列 + 游标（宿主）保证；重连发全量快照不回放；聊天窗口之类是客户端 World 的 `[ClientOnly]` 状态。**字段 = 最后状态（可存可查可同步），事件 = 一次性通知（不存不查不回放）。**
+  ⑦ **RPC 与事件**：`[ServerRpc]` = 客户端→服务器的意图，方法体在服务器 `ApplyInputs` 相执行；`[ClientRpc(Scope)]` = 服务器→客户端的一次性通知，就是**事件**——在提交相发出、与字段变化同一 Tick 包下发、投影后服务器即丢（每 Tick outbox）。服务器不保留事件历史；可靠有序由每连接有界传输队列 + 游标（宿主）保证；重连发全量快照不回放；聊天窗口之类归 UI 层，事件到了就画，ECS 不留窗口字段。**字段 = 最后状态（可存可查可同步），事件 = 一次性通知（不存不查不回放）。**
 
   ⑧ **Attribute**：同步权威结果（当前值 + 修订号），不同步计算过程；Modifier 内部表默认不同步（GAS 边界）；必须同帧到达的字段（血量 + 死亡态）声明成一致性组。
 
-- **不干什么**：不做运行时反射式同步（编辑器反射除外）；不在用户类型上生成成员（生成器只产表与内部模板类）；不发明字节格式（信封与编码用已冻结的复制契约）；复制字段的值**不得依赖观察者**——因人而异的信息在登录准入时告知一次、存连接侧，「只给某些人看」用 `Scope` 控制发不发，绝不同一字段两副面孔。
+- **不干什么**：不做运行时反射式同步（编辑器反射除外）；不在用户类型上生成隐形成员（生成器只产表、内部模板类与可选 partial 钩子声明，入库可见、不写不生效）；不发明字节格式（信封与编码用已冻结的复制契约）；复制字段的值**不得依赖观察者**——因人而异的信息在登录准入时告知一次、存连接侧，「只给某些人看」用 `Scope` 控制发不发，绝不同一字段两副面孔。
 - **做完的标准**：非 `Sync` 字段在抓包里零出现；改一个 100 格背包的第 5 格，线上字节只包含那一格；血量与死亡态在客户端同一次回调里到达，中间态零观测；同一实体同帧改三次，只发最后一次的值；客户端应用服务器数据后不产生任何上行；同 Tick 100 条上行按发送者 NetEntityId 排序，两轮逐位一致；连续 N Tick 事件后服务器常驻内存不随 Tick 增长。
 
 ### M5 跨实体引用
@@ -360,9 +368,9 @@ sequenceDiagram
 ### M9 实体绑定与属性查询面
 
 - **干什么**：把「这条连接是哪个实体」和「怎么读一个实体的属性」做成全框架共用的能力——不是聊天专用逻辑，也不是第二份表。
-- **能干什么**：① **连接↔实体绑定 = 实体字段 + 派生索引**：`IdentityComponent` 上 `[Persist] AccountId`、`Sync<EntityKind> Kind`、`Connected / ConnectionGeneration / DisconnectedAtTick`（服务器专属、不存档，重启即离线）；World Manager 维护可从世界重建的 `accountId → NetEntityId` 索引；宿主只持连接 → NetEntityId 的会话表。顶号 = 查实体 `Connected`；断线过期 = `DisconnectedAtTick` + 内核定时。C-2 五元组由实体字段 + 宿主会话表拼出，其中 `roomId` 是宿主路由键（哪个 Game 实例），Runtime 接口按实例隐含。② **受控属性查询面**：玩法只用类型化读；C-2 的 `AttributeId` 查询是生成的薄适配层——字符串名 → 同一世界同一 `Sync` 字段，无自有存储，供宿主探针 / 验收 / 工具——**不是 SQL、不是数据库 API、不允许直接访问 Storage、不支持任意属性名查找**。③ **两侧各有边界**：服务器权威读只在 World Manager 的 owner thread（**不许从网络线程伸手进 Storage**）；客户端读自己的 `World`，本地读不判权限——可见性在同步时按 `Scope` 裁，收不到的字段本地不存在。④ **结果带 revision/Tick**，四种结局（不存在 / 墓碑 / 未声明 / 不可见）由世界状态派生，消费方能识别读到的是不是过期数据。⑤ **`AccountId` 是持久业务身份，不自动作为公开客户端属性披露**。
-- **不干什么**：不设独立绑定表、不在查询面里存值；不把 `AccountEntity` 作为对象引用带进 Game World（只带 `AccountId` 值）；不做任意表达式查询；不让客户端查到 `[ServerOnly]` 或 persist-only 字段。
-- **做完的标准**：查一个已销毁的 `NetEntityId`，返回明确的「不存在/墓碑/过期」而不是解析到替代实体；查一个不可见实体，返回明确的「不可见」而不是空数据（两者可区分）；从网络线程调用服务器查询直接失败；客户端查 `[ServerOnly]` 字段返回未声明（该字段不在客户端程序集）；`chat.input` 提交后 `QueryAttribute(ChatComponent.lastMessageText)` 与类型化读同一个值。
+- **能干什么**：① **连接↔实体绑定 = 实体字段 + 派生索引**：`IdentityComponent` 上 `[Persist] Sync<string> Name`、`[Persist] AccountId`、`Connected / ConnectionGeneration / DisconnectedAtTick`（后三者服务器专属，连接态不存档，重启即离线）；没有 `Kind` 字段，Player / Bot 由 EntityType 决定（`world.TypeOf(id)`）；World Manager 维护可从世界重建的 `accountId → NetEntityId` 索引；宿主只持连接 → NetEntityId 的会话表。顶号 = 查实体 `Connected`；断线过期 = `DisconnectedAtTick` + 内核定时。C-2 五元组由实体字段 + 宿主会话表拼出，其中 `roomId` 是宿主路由键（哪个 Game 实例），Runtime 接口按实例隐含。② **受控属性查询面**：玩法只用类型化读；C-2 的 `AttributeId` 查询是生成的薄适配层——字符串名 → 同一世界同一字段，无自有存储，供宿主探针 / 验收 / 工具——**不是 SQL、不是数据库 API、不允许直接访问 Storage、不支持任意属性名查找**。③ **两侧各有边界**：服务器权威读只在 World Manager 的 owner thread（**不许从网络线程伸手进 Storage**）；客户端读自己的 `World`，本地读不判权限——可见性在同步时按 `Scope` 裁，收不到的字段本地不存在。④ **结果带 revision/Tick**，四种结局（不存在 / 墓碑 / 未声明 / 不可见）由世界状态派生，消费方能识别读到的是不是过期数据。⑤ **`AccountId` 是持久业务身份，不自动作为公开客户端属性披露**。
+- **不干什么**：不设独立绑定表、不在查询面里存值；不把 `AccountEntity` 作为对象引用带进 Game World（只带 `AccountId` 值）；不做任意表达式查询；不让客户端查到 `.Server.cs` 字段或 persist-only 字段。
+- **做完的标准**：查一个已销毁的 `NetEntityId`，返回明确的「不存在/墓碑/过期」而不是解析到替代实体；查一个不可见实体，返回明确的「不可见」而不是空数据（两者可区分）；从网络线程调用服务器查询直接失败；客户端查 `.Server.cs` 字段返回未声明（该字段不在客户端程序集）；`chat.input` 提交后 `QueryAttribute(ChatComponent.lastMessageText)` 与类型化读同一个值。
 
 ### M10 预测、投影与对账
 
@@ -388,107 +396,146 @@ sequenceDiagram
 
 ## 4.5 样板示例：用户名（以后所有 ECS 代码与讨论都以此为标准）
 
-一条最小、完整的链路：声明 → 建世界 → 创建 → 写 → 同步 → 读 → 存档 → 恢复。每段代码前一句「这段在干什么」，怎么读代码见末尾。
+最小 Demo：建一个世界 → 世界上建一个 PlayerEntity → 实体有 Identity + Chat 两个组件 → Chat 取到自己实体的名字、发消息，消息 = 名字 + 内容 → 两端 log 验证；改名后下一句话的 log 就是新名字。一条最小、完整的链路：声明 → 建世界 → 创建 → 写 → 同步 → 读 → 存档 → 恢复。每段代码前一句「这段在干什么」，怎么读代码见末尾。代码与 LumioGameRuntime `modules/ecs/samples/username/` 逐文件一致。
 
-**① 声明**——组件类是唯一真源；同步字段用 `Sync<T>`，服务器专属的放 `.Server.cs`。
+**① 声明**——组件类是唯一真源；同步字段用 `Sync<T>`，服务器私有的放 `.Server.cs`，客户端本地的放 `.Client.cs`，文件后缀就是归属。
 
 ```csharp
-// Components/Identity/IdentityComponent.cs —— 共享文件，两端都编
+// Components/Identity/IdentityComponent.cs —— 共享文件，两端都编：只放 Sync 字段、RPC 声明与共享逻辑
 // 兄弟文件：IdentityComponent.Server.cs · IdentityComponent.Client.cs · IdentityComponent.g.cs
 [EcsComponent]
 public sealed partial class IdentityComponent : Component
 {
-    /// 用户名：房间内公开；owner 客户端可改（自动上行）；进快照
+    /// 用户名：房间内公开；owner 客户端可改（自动上行）；进快照。是 player 还是 bot 看 EntityType（world.TypeOf(id)），不另设字段
     [Persist] public Sync<string> Name = new(Scope.Room, Authority.Owner);
-    public Sync<EntityKind> Kind = new(Scope.Room);            // player / bot
 }
 
 // Components/Identity/IdentityComponent.Server.cs —— 只进服务器程序集
 public sealed partial class IdentityComponent
 {
-    [Persist] public string AccountId = "";                    // 私有：客户端读不到
+    [Persist] public string AccountId = "";                    // 服务器私有：客户端读不到
     public bool Connected; public ulong ConnectionGeneration; public ulong DisconnectedAtTick;   // 不存档，重启即离线
 
     /// 客户端改名上行到达（ApplyInputs 相，按发送者 NetEntityId 排序）：校验；返回 false = 拒绝并权威纠正
-    partial bool OnClientWrite(in SyncWrite w) => w.Is(Name) && w.Value<string>().Length is > 0 and <= 16;
+    partial void OnClientWrite(in SyncWrite w, ref bool accept) => accept = w.Is(Name) && w.Value<string>().Length is > 0 and <= 16;   // 带返回值的 partial 必须有实现，所以用 ref
 }
 
-// Components/Chat/ChatComponent.cs —— 共享
+// Components/Identity/IdentityComponent.Client.cs —— 只进客户端程序集
+public sealed partial class IdentityComponent
+{
+    /// Awake 之后、Start 之前，框架已把创建记录里的服务器字段值写入——此时 Name 已可读
+    partial void PostAttribute() => Console.WriteLine($"[client] entity arrived: name={Name.Value}");   // 赋给 string 走隐式转换；插值里显式 .Value
+
+    /// 生成器为每个 Sync 字段产一对可选钩子 OnXChanging / OnXChanged（在 .g.cs 里声明，不写 = 不监听）。
+    /// 默认只收对端来的变化：reason = Sync（别人改名到达）/ Correction（自己改名被拒、推回旧值）；
+    /// 自己写 Name.Value 不触发；要收自己写的，字段声明加第三个参数 Notify.All（reason = Local）
+    partial void OnNameChanged(string old, string @new, ChangeReason reason)
+        => Console.WriteLine($"[client] name {old} -> {@new} ({reason})");
+}
+
+// Components/Chat/ChatComponent.cs —— 共享：只有两条 RPC 声明
 [EcsComponent]
 public sealed partial class ChatComponent : Component
 {
-    [Persist] public string LastMessageText = "";              // 私有、存档、不同步（长文本不走 Sync）
-    [Persist] public ulong LastMessageTick;
-    [ServerRpc] public partial void SendMessage(string text);                 // 客户端 → 服务器意图
-    [ClientRpc(Scope.Room)] public partial void OnChatMessage(string text);   // 服务器 → 房间内客户端事件
+    [ServerRpc] public partial void SendMessage(string text);                              // 客户端 → 服务器意图
+    [ClientRpc(Scope.Room)] public partial void OnChatMessage(string line);   // 服务器 → 房间内客户端事件；line = 名字 + 内容，服务器拼好，就是 C-1 chat.event 的 text
 }
 
-// Components/Chat/ChatComponent.Server.cs
+// Components/Chat/ChatComponent.Server.cs —— 服务器私有状态与 ServerRpc 处理体
 public sealed partial class ChatComponent
 {
+    [Persist] public string LastMessageText = "";              // 服务器私有、存档、不同步（长文本不走 Sync）；客户端程序集里没有它
+    [Persist] public ulong LastMessageTick;
+
     public partial void SendMessage(string text)               // ApplyInputs 相执行
     {
-        if (text.Length is 0 or > 512) return;
+        if (text.Length == 0) return;
+        string name = Get<IdentityComponent>().Name;           // 同一实体上的另一个组件：Get<T>() 没参数 = 自己
+        string line = $"{name}: {text}";                       // 名字 + 内容拼成一行
+        if (Encoding.UTF8.GetByteCount(line) > 512) return;    // 按拼好的行、按 UTF-8 字节卡：C-1 chat.event.text maxUtf8Bytes = 512
+        Console.WriteLine($"[server] {name} says: {text}");
         LastMessageText = text; LastMessageTick = World.Tick;
-        OnChatMessage(text);                                   // 提交相发出；messageId / 序号 / sender / tick 由框架盖章
+        OnChatMessage(line);                                   // 提交相发出；messageId / 序号 / sender / tick 由框架盖章
     }
 }
 
-// Components/Chat/ChatComponent.Client.cs
+// Components/Chat/ChatComponent.Client.cs —— 客户端说话与事件到达
 public sealed partial class ChatComponent
 {
-    public List<(NetEntityId Sender, string Text)> Window = new();   // 本地玩家的聊天窗口：未标注 = 本端本地值，服务器不留副本
-    public partial void OnChatMessage(string text) => World.Self.Get<ChatComponent>().Window.Add((Rpc.Sender, text));   // World.Self = 本连接绑定的实体
+    public void Say(string text)                               // 先取自己实体的名字打 log，再调 ServerRpc（调用即发送）
+    {
+        string name = Get<IdentityComponent>().Name;
+        Console.WriteLine($"[client] {name} says: {text}");
+        SendMessage(text);
+    }
+    public partial void OnChatMessage(string line)             // 在发送者实体的 ChatComponent 上执行，line 已是「名字: 内容」；事件不存，窗口归 UI 层
+        => Console.WriteLine($"[client] {line}");
 }
 
-// EntityTypes/PlayerEntity.cs —— 组件集声明，一份
+// EntityTypes/PlayerEntity.cs —— 组件集声明，一份；abstract class，继承就是 C# 继承
 [EntityType(Mode.CS)]
 [Has(typeof(IdentityComponent))]
 [Has(typeof(ChatComponent))]
-public static class PlayerEntity { }
+public abstract class PlayerEntity { }                          // 子类型：public abstract class VipPlayerEntity : PlayerEntity { } 再加自己的 [Has]
+
+// EntityTypes/WorldEntity.cs —— 世界实体也由游戏声明；World = true 恰好一个；引擎只提供 WorldSaveComponent 这类组件
+[EntityType(Mode.CS, World = true)]
+[Has(typeof(WorldSaveComponent))]
+public abstract class WorldEntity { }
 ```
 
-生成命令（build 自动跑）从上面产出 `IdentityComponent.g.cs` / `ChatComponent.g.cs`（注册行）、`PlayerEntity` 模板类、同步表、`attribute-declarations.json`；生成物入库、零 diff。
+生成命令（build 自动跑）从上面产出 `IdentityComponent.g.cs` / `ChatComponent.g.cs`（注册行 + 每字段可选钩子声明 + RPC 发送桩：`[ServerRpc]` 在客户端、`[ClientRpc]` 在服务器都是没有用户实现的 partial 声明，桩体由生成器产在该端）、`PlayerEntity` / `WorldEntity` 模板类与父链表、同步表、`attribute-declarations.json`；生成物入库、零 diff。
 
-**② 建世界**——宿主进程启动时只做这一件事；WorldEntity 随世界诞生。
+**② 建世界**——两端同一个 `Create`，服务器多传实例 ID；WorldEntity 随世界诞生。
 
 ```csharp
-var manager = WorldManager.Create(GeneratedRegistry.Instance, instanceId: hostGivenInstanceId);   // 一进程一个
-manager.Start(ownerThread: Thread.CurrentThread);       // 记线程归属；之后所有入口校验
-var world = manager.World;                              // 唯一的 GameWorld；world.Single<WorldSaveComponent>() 已存在
+// 服务器（Host/ServerBootstrap.Server.cs）
+var manager = WorldManager.Create(GeneratedRegistry.Instance, instanceId: hostGivenInstanceId);   // 一进程一个；服务器发号
+manager.Start(ownerThread: Thread.CurrentThread);       // 记线程归属；之后所有入口校验，网络线程只能 Enqueue
+// 主线程每帧 manager.Tick()；manager.World 是唯一的 GameWorld，WorldEntity 已按 EntityTypes/WorldEntity.cs 建好
+
+// 客户端（Host/ClientBootstrap.Client.cs）
+var manager = WorldManager.Create(GeneratedRegistry.Instance);   // 同一个 Create，不传 instanceId；注册表自带端别
+manager.Start(ownerThread: Thread.CurrentThread);
+// 网络线程收到的每条消息只做一件事：manager.Enqueue(message)
+//   1. 欢迎消息（世界实例 ID + 你自己的 NetEntityId）→ 提交相绑定 World.Self
+//   2. 创建记录，第一条就是 WorldEntity（客户端不自建它）
+//   3. 之后每 Tick 一包：创建 / 字段变化 / 销毁记录 + 本 Tick 的 ClientRpc 事件
+// 同进程双端（单机 / 本地联调）：服务器 Manager 的 outbox 直接投到这里，同一行代码
 ```
 
 **③ 创建**——准入通过后下单建 PlayerEntity；提交相发号、亮相、Awake、Start；客户端收「创建记录」用同一模板建。
 
 ```csharp
 // 服务器：准入服务（Manager 的服务之一）在 ApplyInputs 相下单
-var order = world.Commands.Create(PlayerEntity.Type);    // 模板拷贝；NetEntityId 在提交相由世界发（实例ID + 计数器）
+var order = world.Commands.Create<PlayerEntity>();       // 模板拷贝；NetEntityId 在提交相由世界发（实例ID + 计数器）；声明类无成员，用泛型指类型
 order.Get<IdentityComponent>().AccountId = accountId;    // 出生初值
 order.Get<IdentityComponent>().Connected = true;
 
-// 客户端：World Manager 收到同一 Tick 包里的创建记录 → 按 PlayerEntity 模板建 → Awake → PostAttribute（写入服务器字段值）→ Start
+// 客户端：World Manager 收到同一 Tick 包里的创建记录 → 按 PlayerEntity 模板建 → Awake → PostAttribute（写入服务器字段值，上面的 log 在这时打）→ Start
 // 玩法代码不写任何东西，这是框架行为
 ```
 
 **④ 写**——两种上行都不写消息代码。
 
 ```csharp
-// owner 客户端改名：字段自动上行 → 服务器 OnClientWrite 校验 → 写入 → 记脏
-Get<IdentityComponent>().Name.Value = "ABCD";
-// 客户端说话：ServerRpc
-Get<ChatComponent>().SendMessage("gg");
-// 服务器内部系统写字段：直接赋值即记脏
+// owner 客户端改名：本地立刻生效并自动上行 → 服务器 OnClientWrite 校验 → 写入 → 记脏；被拒则推回旧值、本地回滚（OnNameChanged 收到 Correction）
+world.Self.Get<IdentityComponent>().Name.Value = "ABCD";
+// 客户端说话：Say 先取自己的名字打 log，再走 ServerRpc
+world.Self.Get<ChatComponent>().Say("gg");
+// 服务器内部系统写字段：直接赋值即记脏（自己写自己不触发变化钩子）
 Get<IdentityComponent>().Name.Value = "系统改名";
 ```
 
-**⑤ 同步**——帧末 `ReplicationProjection` 从 ChangeSet 取脏字段 × `Scope.Room` × 视野表 → 与本 Tick 的 `OnChatMessage` 事件同一个包下发；客户端提交相一次性生效。玩法代码零行。
+**⑤ 同步**——帧末 `ReplicationProjection` 从 ChangeSet 取脏字段 × `Scope.Room` × 视野表 → 与本 Tick 的 `OnChatMessage` 事件同一个包下发；客户端提交相整包先全部写入、再统一触发 `OnXChanged`。玩法代码零行。改名后，房间里其他客户端的 log 是 `name <旧名> -> ABCD (Sync)`，下一句话的 log 就是新名字。
 
-**⑥ 读**——一种写法，不用知道对方是什么实体。
+**⑥ 读**——一种写法，不用知道对方是什么实体；要知道类型时问 `TypeOf`。
 
 ```csharp
 string other = world.Get<IdentityComponent>(otherId).Name;   // 读别人（Sync 读隐式转换）
-string mine  = Get<IdentityComponent>().Name;                // 组件内读自己
-foreach (var chat in world.Each<ChatComponent>()) { /* 系统遍历 */ }
+string mine  = Get<IdentityComponent>().Name;                // 组件内读自己（跨组件也是它）
+bool isPlayer = world.TypeOf(otherId).Is<PlayerEntity>();    // 按 id 取类型；子类型也算
+foreach (var identity in world.Each<IdentityComponent>()) { /* 系统遍历 */ }
 ```
 
 **⑦ 存档与恢复**——存档是对 WorldEntity 的 ServerRpc；恢复是从快照建新世界。
@@ -498,7 +545,7 @@ world.Single<WorldSaveComponent>().Save("slot-1");      // 提交相由存档系
 var restored = WorldManager.CreateFromSnapshot(snapshotBytes);   // 新世界；只跑 OnHydrate；Name / AccountId / LastMessageText 回来，Connected 为默认 false
 ```
 
-**怎么读这段代码**：看到 `Sync<T>` = 会上网，`Scope` 说给谁，`Authority` 说谁能写；看到 `[Persist]` = 进快照；文件名带 `.Server` / `.Client` = 只在那一端存在；`[ServerRpc]` = 客户端喊服务器做事，`[ClientRpc]` = 服务器通知客户端一次；`Get<T>()` 没参数是自己、有参数是别人；`World.Self` = 本连接绑定的实体；没有任何标注的普通字段 = 本端私有临时值。样例代码同步放在 LumioGameRuntime `modules/ecs/samples/username/`。
+**怎么读这段代码**：看到 `Sync<T>` = 会上网，`Scope` 说给谁，`Authority` 说谁能写，第三个参数 `Notify` 说本端自己写要不要收回调（默认不收）；看到 `[Persist]` = 进快照；文件名带 `.Server` / `.Client` = 只在那一端存在，没有归属标注；`[ServerRpc]` = 客户端喊服务器做事，`[ClientRpc]` = 服务器通知客户端一次（不存不回放，窗口归 UI 层；聊天事件的 line 由服务器拼成「名字: 内容」，C-1 不加字段）；`Commands.Create<PlayerEntity>()` = 按类型下单；`Get<T>()` 没参数是自己、有参数是别人；`World.Self` = 本连接绑定的实体（欢迎消息绑定）；`world.TypeOf(id).Is<T>()` = 按 id 判类型，子类型也算；`OnNameChanged(old, new, reason)` = 生成器给每个 Sync 字段产的可选钩子；没有任何标注的普通字段 = 本端私有临时值。样例代码同步放在 LumioGameRuntime `modules/ecs/samples/username/`。
 
 ---
 
@@ -513,16 +560,16 @@ var restored = WorldManager.CreateFromSnapshot(snapshotBytes);   // 新世界；
 | 卡 | 内容 | 对应模块 |
 |---|---|---|
 | 0-1 | 生命周期与结构事务契约：九回调语义（含 PostAttribute）、两道闸门、钩子禁令、撞单裁决表、**四步 → 13 相映射表**（含「只有 `EcsCommandBufferCommit` 可写 `GameWorld`」这条约束的现行落点） | M3 |
-| 0-2 | 字段声明规范：`Sync<T>(Scope, Authority)` 全集 × `[Persist]` × `[ServerOnly]` / `[ClientOnly]` × 可预测 × 类型阶梯 × 一致性组 × 容器上限 × partial 文件布局与 lint | M4 |
+| 0-2 | 字段声明规范：`Sync<T>(Scope, Authority, Notify)` 全集 × `[Persist]` × 文件后缀归属 × 每字段变化钩子（reason / 批语义）× 可预测 × 类型阶梯 × 一致性组 × 容器上限 × partial 文件布局与 lint | M4 |
 | 0-3 | 组件/字段 ID 命名空间：永久编号与退役封存规则；同步字段 id 由名字派生 | M4 |
 | 0-4 | 容器条目差量的线上编码：`SyncList`/`SyncDict` 差量在状态载荷内的布局 | M4 |
 | 0-5 | 视野关系契约：视野表键、世代号、双半径、安全/性能离开、成套进视野、排队接口、**粗筛清单形状与确定性判据** | M6 |
 | 0-6 | 引用与欠条契约：网络引用解析状态机、欠条表、墓碑查询语义 | M5 |
 | 0-7 | 双 Transform 契约：LogicTransform 网络表示、父子结构单、单写者 | M7 |
 | 0-8 | 实体绑定与属性查询面契约：绑定 = 实体字段 + 派生索引、`AttributeId` 薄适配层、四种结果（存在/可见/权限/过期）的失败语义、roomId = 宿主路由键 | M9 |
-| 0-9 | EntityType 声明契约：声明式 static class、`[Has]` / `[Child]`、依赖/互斥校验、CS/Local 模式、生成三件与零 diff | M2 |
+| 0-9 | EntityType 声明契约：声明式 abstract class 与 C# 继承、`[Has]` / `[Child]`、`World = true`、`TypeOf` / `Is<T>`、依赖/互斥校验、CS/Local 模式、生成三件与零 diff | M2 |
 | 0-10 | Storage 中立 API 契约：`Get<T>()` / `Get<T>(id)` / `Each<T>`、句柄、单模式查询、模板内联存储与批量创建（**布局不冻**） | M8 |
-| 0-11 | World Manager 契约：`Create` / `CreateFromSnapshot` / inbox / OwnerThread / 客户端模式；WorldEntity 与 `WorldSaveComponent`；快照内容 | M1a |
+| 0-11 | World Manager 契约：`Create(registry, instanceId?)` / `CreateFromSnapshot` / inbox / OwnerThread / 客户端同一 Create + 欢迎消息绑 Self / 同进程双端环回；WorldEntity（游戏声明）与 `WorldSaveComponent`；快照内容 | M1a |
 
 **阶段 1：垂直切片**（跑通 = 路线成立）
 
@@ -581,6 +628,7 @@ var restored = WorldManager.CreateFromSnapshot(snapshotBytes);   // 新世界；
 | 休眠 / LOD 复制 | 推迟 | 规模测试前 |
 | 全链路 trace 工具 | 推迟 | 规模测试前 |
 | 同进程多房间 | 推迟 | 多房间 = 多进程；同进程多 Manager 只在实测多进程成本超标时重议 |
+| 多字段 WhenAll 式组合器（A 和 B 都到了才做） | 推迟 | 需求成立、可实现但复杂度高（续体在提交相调度、跨 Tick 中间态）；现阶段同 Tick 靠整包批语义与一致性组、创建靠 PostAttribute、跨 Tick 玩法在钩子里判就绪 |
 | 组件目录治理（谁能加组件类型） | 不做 | 团队规模到了再说，属治理不属框架 |
 
 ---
@@ -606,7 +654,7 @@ var restored = WorldManager.CreateFromSnapshot(snapshotBytes);   // 新世界；
 | 权威纠正 | 服务器说「你猜错了，实际是这个值」 |
 | 预表现 | 按下按键立刻放个纯本地特效，正式实体随后正常到达 |
 | World Manager | 世界的管家：一进程一个，建世界、喂消息、守线程，谁要世界都找它 |
-| WorldEntity | 世界自己那个实体：存档、Dump、Tick 配置都挂在它身上，给它发命令就是给世界发命令 |
+| WorldEntity | 世界自己那个实体，由游戏声明：存档、Dump、Tick 配置都挂在它身上，给它发命令就是给世界发命令 |
 | 客户端 World | 客户端那份世界——同一套 ECS、同一份源码，收服务器的创建 / 变化 / 销毁记录 |
 | 创建记录 | 服务器告诉客户端「建一个这种实体，号码是这个，字段现在是这些」的那条消息 |
 | PostAttribute | 客户端建实体时，Awake 之后、Start 之前，框架把服务器的字段值一次性写进去的那一刻 |
@@ -618,5 +666,8 @@ var restored = WorldManager.CreateFromSnapshot(snapshotBytes);   // 新世界；
 | 世界热重载 | 开发期改了字段：快照 → 换程序集 → 从快照建新世界，进程不重启 |
 | 多房间 | 多个服务器进程，各一个世界；匹配服决定你进哪个进程。世界里没有 Room |
 | CS 实体 / Local 实体 | 双端都有、占号的 / 纯本端、不上网不存档的 |
+| 同进程双端 | 单机或本地联调：服务器和客户端两个 Manager 跑在一个进程里，中间用内存环回代替网线，代码一行不改 |
+| TypeOf | 拿着 id 问世界「这是哪种实体」，子类型也认祖宗 |
+| 变化钩子 | 生成器给每个 Sync 字段配的 `OnXChanged(old, new, reason)`：默认只有对端改了才响，自己改自己不响 |
 | 接管 | 同一个账号又登进来了：踢掉旧连接（旧客户端退到登录界面），新连接接上同一个实体 |
 | 轻量哈希 / 全量哈希 | 每帧算一小撮字段看有没有歪 / 需要时算全部，用来定位歪在哪 |

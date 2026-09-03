@@ -46,14 +46,14 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 - One process hosts one World Manager and one GameWorld. `roomId` is the host routing key that sends a connection to that Game instance. Multiple rooms = multiple server processes plus matchmaking/routing (Unreal dedicated-server model). The main acceptance uses one instance; a second instance is deferred to the multi-room phase (acceptance 6.10).
 - Game Server accepts an admission credential from Account Server, not a username/password directly.
 - A connection may be active in only one Room at a time.
-- The authenticated login name determines game entity kind. Names matching `Bot` followed by decimal digits create `BotEntity` when admitted with the Bot-tool context; other normal client names create `PlayerEntity`. The client does not submit an arbitrary entity-kind field.
+- The authenticated login name determines the game EntityType. Names matching `Bot` followed by decimal digits create `BotEntity` when admitted with the Bot-tool context; other normal client names create `PlayerEntity`. The client does not submit an entity-type field, and the entity carries no `Kind` field either: the type is read with `world.TypeOf(id)`.
 - `PlayerEntity` and `BotEntity` may carry `AccountId` as an identity attribute, never an AccountEntity object reference.
 
 ### Entity Identity and Query
 
 - `NetEntityId` is the opaque, never-reused Game Entity reference (128-bit = instance id + counter). It is the game-layer address for client commands, server systems and client World mappings.
 - `LocalEntityId` and World-internal generation remain implementation handles and are not public game identities.
-- After admission, the five-tuple binding (`AccountId`, `RoomId`, `NetEntityId`, entity kind, connection generation) is assembled from `IdentityComponent` fields plus the host session table; Runtime does not hold a separate binding table.
+- After admission, the five-tuple binding (`AccountId`, `RoomId`, `NetEntityId`, EntityType, connection generation) is assembled from `IdentityComponent` fields plus the host session table; Runtime does not hold a separate binding table.
 - The client can resolve its own bound `NetEntityId`. The server can resolve an admitted connection or a `NetEntityId` to the authoritative entity in its Game instance.
 - Server systems query authoritative ECS attributes by `NetEntityId` on the Simulation Owner Thread. Client systems query their local client World by `NetEntityId`.
 - Attribute queries use generated stable `AttributeId` values, not SQL, arbitrary property names or direct storage access.
@@ -131,8 +131,8 @@ The new Workflow Requirement Room will contain new cards for this slice only; ex
 | Attribute query | Generated AttributeId query surface, revision results, visibility/permission filtering and failure semantics |
 | Chat component | ECS component declaration, SetMessage command path, persist-only last-message fields and event production |
 | Chat replication | Typed mapping, reliable ordered Room event delivery, duplicate suppression and Browser/Bot consumption |
-| ReplicaWorld | Full snapshot admission, entity mapping, client self lookup and visible Attribute Query |
-| Reconnect | Fresh login/handshake, five-minute Host deadline, client-only ReplicaWorld rebuild and expiry/tombstone behavior |
+| 客户端 World | Full snapshot admission as creation records, entity mapping via the same World Manager (`Create` without instanceId), client self lookup (`World.Self`) and visible Attribute Query |
+| Reconnect | Fresh login/handshake, five-minute Host deadline, client-only World rebuild from a full snapshot and expiry/tombstone behavior |
 | Timer and persistence | Native Timer Manager first slice plus existing ECS Snapshot/Restore integration |
 | End-to-end acceptance | 100 Bot + 1 Browser scenario, isolation smoke, failure cases, repeatability and evidence |
 

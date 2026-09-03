@@ -147,11 +147,13 @@ metadata:
 - **读权限**：同步时按 Visibility 裁；客户端本地读不再判。
 - **身份表入档**：NetEntityId 表是世界快照的一部分，恢复后 id 不变、永不复用。
 
-### 3.4 待新对话讨论 → 已于 2026-09-03 ECS 专题会话定稿，见 [ADR-058](../decisions/ADR-058-ecs-world-manager-and-annotation-registry.md)
+### 3.4 待新对话讨论 → 已定，见 ADR-058 第二轮
+
+已于 2026-09-03 ECS 专题会话定稿，见 [ADR-058](../decisions/ADR-058-ecs-world-manager-and-annotation-registry.md)。**第二轮（同日样板复审）**再改第 2 / 4 / 5 / 7 / 8 / 12 / 14 / 17 / 18 条：删 `[ServerOnly]` / `[ClientOnly]` 与 `IdentityComponent.Kind`；EntityType 用 C# `abstract class` 继承；客户端同一 `WorldManager.Create(GeneratedRegistry.Instance)` 不传 instanceId；变化钩子 `OnXChanging` / `OnXChanged`；同进程双端 = 两个 Manager + 环回。流水见 [ecs-sample-owner-rulings](2026-09-03-ecs-sample-owner-rulings.md)。
 
 - 「用户名」全链路 ①–⑦ 逐段确认 → **已定**：①声明 ADR-058 §1 / §7；②建世界 §2 / §13；③创建 §3；④写 §6；⑤同步 §7；⑥读 §8 / §9；⑦存档 §10。改写入口 → **已定** §6（Owner 否决「只有 InputCommand」，收敛为 Netcode 模型：Owner 字段自动上行 + `[ServerRpc]`）。
 - Room 的定义 → **已定** §11：一进程一 World Manager 一 GameWorld，世界与事件都无 Room 概念；多房间 = 多个服务器进程 + 匹配路由（Unreal 专用服务器方案）；roomId = 宿主路由键；需求 §6.10 后置。
-- 「标注 → 组件注册表 / 同步表」生成桥与 EntityType 声明写法 → **已定** §12（一句命令产三件 + MSBuild 目标 + 零 diff；声明式 static class；开发期世界热重载概要）。
+- 「标注 → 组件注册表 / 同步表」生成桥与 EntityType 声明写法 → **已定** §12（一句命令产三件 + MSBuild 目标 + 零 diff；声明式 abstract class + C# 继承，第二轮取代 static class；开发期世界热重载概要）。
 - 「私有字段」措辞 → **已定** §15（私有 = 非 `Sync<T>` 的组件字段；每实体状态只能在组件字段里；模块只留可重建派生缓存）。
 - ecs.md 改动处 → **已回写**（M1 / M1a / M2 / M3 / M4 / M8 / M9 / §4.5 样板示例 / §6 / §7；「ReplicaWorld」→「客户端 World」）。
 - 会话中新增裁决（讨论提示词未列）：一套源码编两份程序集（标注 + 宏，§4）；按端拆 partial 文件布局（§5）；`Sync<T>` 包装类型取代 `[Replicate]` / `[Visibility]`（§7）；组件式写法 + 生成模板内联存储（§9）；绑定 = 实体字段 + 派生索引（§14）；NetEntityId 128 位 = 实例 ID + 计数器（§16）；Client 直接引用 Runtime ECS（§17）；事件 = `[ClientRpc]` 无历史（§18）。Owner 反复强调的判据：**AI Agent 友好**（一处维护、显式调用点、生成物可读）与「结论先行、表格对比」。

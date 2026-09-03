@@ -33,6 +33,20 @@ metadata:
 
 ## 条目
 
+### 服务器私有字段放共享文件 = 另一端一个永远默认值的死字段，读到假值不报错
+- 日期：2026-09-03
+- 现象：样板 `ChatComponent.lastMessageText` 打了 `[Persist]` 却写在无后缀共享文件里。客户端程序集仍编译出这个字段，值永远是默认（空串 / 0），读起来像成功、不报错。与 r3 Runtime `_values` 字典答 seed 常量同类：看起来有字段，读到的不是真值。
+- 根因：两端共用一份源码时，共享文件里的非 `Sync` 状态字段会进两个程序集。生成器按 csproj 本来看不见另一端的 `.Server.cs` / `.Client.cs`，再打 `[ServerOnly]` / `[ClientOnly]` 是同一件事的第二份声明。忘了挪文件 = 对端静默假值。
+- 规避：①归属只由文件后缀决定，共享文件只许 `Sync` / RPC 声明 / 共享逻辑；非 Sync 状态必须在 `*.Server.cs` / `*.Client.cs`。②lint 抓「共享文件里的普通字段」。③读字段前问「这一端程序集里它是不是真有写入路径」，不要把「编译通过」当成「有真值」。
+- 来源：Owner 样板复审 Q4（`reviews/2026-09-03-ecs-sample-owner-rulings.md`）；ADR-058 第 4 / 5 条第二轮
+
+### 带返回值的 partial 方法在 C# 必须有实现，「可选钩子」只能是 `partial void`（用 `ref` 传结果）
+- 日期：2026-09-03
+- 现象：`partial bool OnClientWrite(in SyncWrite)` 本意是「不写 = 接受」。C# 对有返回值的 partial 要求每个声明都有实现（CS8795），做不到可选。要么处处手写 `return true`，要么编译失败。
+- 根因：把「可选」和「有返回值」绑在同一条 partial 签名上。C# 只允许无实现的是 `partial void`。
+- 规避：可选钩子一律 `partial void`；需要结果就 `ref bool accept`（进来 true，置 false = 拒）。生成器产声明、用户不写即不监听。不要再发明 `partial bool` / `partial T` 当可选 API。
+- 来源：ADR-058 第 6 条审查修正（`reviews/2026-09-03-ecs-sample-owner-rulings.md` 方案疑虑）
+
 ### 某处陈述被发现失真,要复跑同节其余「现状实测」——一句过期意味着那一批都过期
 - 日期：2026-08-29
 - 现象：上游裁决点名更正 LumioGame 设计文档 §164/§170 的 TFM 陈述(写「generated 包 TFM 为 `net8.0`」,实际早已是 `netstandard2.1;net8.0` 双目标)。总调度在复核表里对同节另一条写了「generated 面 6 包 ✅ 属实」——**只核了包数就放过了同节的 catalog-only 口径**。执行会话按裁决改文档时顺手复跑了 §6.1 其余「现状」陈述,发现原文「8 文件 437 行、无类型本体、无 validator、无 builder」**三项去其二**:1018 行的 `ContractBodies.cs` 与可执行的 `ProtocolGate.cs` 都已存在。而这一条才是影响设计结论的那条——文档据它推出了「本仓设计不依赖 generated 类型/validator 存在」,与上游 published rule「must use the generated validator」冲突。
