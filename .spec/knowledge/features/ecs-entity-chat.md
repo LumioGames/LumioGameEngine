@@ -43,7 +43,7 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 
 ### Game Server and Room
 
-- Game Server hosts multiple isolated `RoomId` / GameWorld instances. The main acceptance uses one Room; additional Rooms receive an isolation smoke test.
+- One process hosts one World Manager and one GameWorld. `roomId` is the host routing key that sends a connection to that Game instance. Multiple rooms = multiple server processes plus matchmaking/routing (Unreal dedicated-server model). The main acceptance uses one instance; a second instance is deferred to the multi-room phase (acceptance 6.10).
 - Game Server accepts an admission credential from Account Server, not a username/password directly.
 - A connection may be active in only one Room at a time.
 - The authenticated login name determines the game EntityType. Names matching `Bot` followed by decimal digits create `BotEntity` when admitted with the Bot-tool context; other normal client names create `PlayerEntity`. The client does not submit an entity-type field, and the entity carries no `Kind` field either: the type is read with `world.TypeOf(id)`.
@@ -51,7 +51,7 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 
 ### Entity Identity and Query
 
-- `NetEntityId` is the opaque, never-reused Game Entity reference. It is the game-layer address for client commands, server systems and ReplicaWorld mappings.
+- `NetEntityId` is the opaque, never-reused Game Entity reference (128-bit = instance id + counter). It is the game-layer address for client commands, server systems and client World mappings.
 - `LocalEntityId` and World-internal generation remain implementation handles and are not public game identities.
 - After admission, the five-tuple binding (`AccountId`, `RoomId`, `NetEntityId`, EntityType, connection generation) is assembled from `IdentityComponent` fields plus the host session table; Runtime does not hold a separate binding table.
 - The client can resolve its own bound `NetEntityId`. The server can resolve an admitted connection or a `NetEntityId` to the authoritative entity in its Game instance.
@@ -67,7 +67,8 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 - The gameplay-level `ChatInput` payload contains message text only. It contains no client input sequence and no client frame number.
 - Transport/session sequencing, connection-generation validation and duplicate handling remain protocol-layer responsibilities.
 - Text received by the server enters the bounded input path and is applied on the next fixed Simulation Tick through `IngressCapture` and the ECS command/commit path.
-- `ChatComponent.SetMessage` runs on the Simulation Owner Thread, updates the last-message state, and emits the authoritative event in the same committed Tick.
+- `ChatComponent.SendMessage` is a `[ServerRpc]`; `ChatMessageEvent` / `OnChatMessage` is a `[ClientRpc]`. The server does not retain event history (delta-live-only; reconnect does not replay chat).
+- `ChatComponent.SetMessage` / `SendMessage` runs on the Simulation Owner Thread, updates the last-message state, and emits the authoritative event in the same committed Tick.
 
 ### Component State
 
@@ -90,7 +91,7 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 - The disconnected entity remains Room-visible with an explicit disconnected state until the retention deadline.
 - The retention window is five minutes measured by the process-local monotonic Host clock; the logical Tick is recorded for audit but does not define expiry.
 - Reconnect is a fresh login and full handshake. During the five-minute window it rebinds the retained server entity A; it does not create a second Game Entity.
-- The reconnecting client discards its old `ReplicaWorld`, receives a complete authoritative snapshot, rebuilds the new `ReplicaWorld`, clears its local chat window and then re-enables input.
+- The reconnecting client discards its old client World, receives a complete authoritative snapshot, rebuilds the new client World, clears its local chat window and then re-enables input.
 - The server does not roll back or rebuild the Room, and no Chat event history is replayed to the reconnecting client.
 - After expiry, A is destroyed and tombstoned according to the entity-identity contract. A later login creates a new runtime entity B while retaining the same AccountId.
 - A process restart does not preserve old connection bindings or the five-minute session window. Recovered clients perform a normal new login; Room recovery follows the existing Snapshot/Restore contract.
@@ -103,6 +104,8 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 
 ## 6. Acceptance Scenarios
 
+Evidence is logs only: structured server logs plus structured client logs, stored under LumioGame `integration/entity-chat/logs/<date-SHA>/`. The oracle SHA-256 is computed over bytes after newline normalization. There is no separate evidence pack.
+
 1. **Account login-or-register**: submit `Bot01`/`123456` through Account Server; first request creates one AccountEntity and stable AccountId, repeated request loads the same account, and a wrong password is rejected.
 2. **Bot launch**: a Bot tool loops `Bot01` through `Bot100`, logs each account in, obtains admission credentials and enters the same Room. The server creates exactly 100 BotEntity instances.
 3. **Browser admission**: a normal Browser account logs in through Account Server and enters the same Room. The server creates exactly one PlayerEntity, bringing the Room total to 101 Game ECS Entities.
@@ -110,10 +113,10 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 5. **Attribute query**: server and client query declared attributes by NetEntityId; unauthorized, invisible, stale and tombstoned references return explicit failures and never alias another entity.
 6. **Chat path**: a Bot or Browser sends only text; the next authoritative Tick updates that sender's ChatComponent, emits one ordered event, and all permitted Room clients display it.
 7. **Chat persistence boundary**: Snapshot/Restore retains each entity's last message text and logical Tick/Frame, while no Chat history or client chat-window contents are restored.
-8. **Reconnect**: disconnect one client, reject its input while the Room continues, reconnect within five minutes, rebuild only that client's ReplicaWorld from a full snapshot, clear its chat window and rebind the original Entity A.
+8. **Reconnect**: disconnect one client, reject its input while the Room continues, reconnect within five minutes, rebuild only that client's client World from a full snapshot, clear its chat window and rebind the original Entity A.
 9. **Expiry**: let the monotonic retention deadline pass, verify A is destroyed/tombstoned, then log in again and verify a new Entity B with the same AccountId and a different NetEntityId.
-10. **Isolation**: create a second Room with a small number of clients and verify Entity bindings, Chat events and queries do not cross Room boundaries.
-11. **Scale and determinism**: capture evidence for 101 Game Entities, reliable ordered Chat delivery, fixed-Tick application, reconnect/expiry transitions and repeatable results across two identical runs.
+10. **Isolation**: deferred to the multi-room phase per ADR-058 §11 (a second Game instance = a second server process). Not verified in this round.
+11. **Scale and determinism**: capture evidence for 101 Game Entities, reliable ordered Chat delivery, fixed-Tick application, reconnect/expiry transitions; two identical runs must have bitwise-equal `eventOrder` and `appliedTicks`.
 
 ## 7. Requirement Tracks for the New Room
 

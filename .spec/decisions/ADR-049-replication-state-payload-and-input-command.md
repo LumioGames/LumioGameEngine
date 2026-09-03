@@ -114,7 +114,16 @@ Acceptance bar (对照组探针纪律, carried from the Draft): a deliberately b
 - `mappings.*.dimensions` 改为生成物：`source: "generated-from-field-annotations"`，钉 N-04 声明表拷贝与 sha256 `a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0`。`chat.component` 三维必须与 `ChatComponent` 字段标注生成结果一致（`persistent` / `not-replicated` / `server-only`）。
 - `chat.event` 验收以客户端实际收到的 `Delta.changedBlocks` 为准；harness 不得由发送计数合成 `eventOrder` / `appliedTicks` / `restoredWindow`。
 
+## 修订记录（2026-09-03，ADR-058）
+
+本段为 Accepted 正文的附录，不改写上方决策原文与前两条修订记录。ADR-058 将 C-1 修订如下，契约真值仍是 `engine/wire/gameplay-command-envelope-v1.json`：
+
+- `roomSequence` 语义改为世界内严格递增序号（字段名不变）；同 Tick 内按发送者 NetEntityId 排序后分配。
+- `entity.identity` 普查块升为创建记录（EntityType + NetEntityId + 该观察者可见 Sync 字段当前值）；FullSnapshot 与 Delta 用同一种记录，创建优先。
+- 新增 InputCommand 种类 `field.write`（`Authority.Owner` 字段上行；正用例 `input/field-write-owner-name`，写别人实体或 Server 权威字段 → `unauthorized`）。
+- `chat.event` 的 `senderNetEntityId` 在 LumioBinV1 上编码为 `senderNetEntityIdInstanceId` + `senderNetEntityIdCounter`（两个 u64 LE，16 字节）；与 C-2 32-hex 是同一 128 位值。不新增 ADR-047 `u128` 原语。
+- `chat.input` / `chat.event` 分别是 `ChatComponent.SendMessage` ServerRpc 与 `OnChatMessage` ClientRpc 的线上形态；事件 delta-live-only，服务器不保留历史。
+
 ## 修订记录（2026-09-02，R-00368 r2 / C-1′ entity.identity）
 
-本段为 Accepted 正文的附录，不改写上方决策原文与前一条修订记录。Room 路径 FullSnapshot 的活体身份普查租户是 `entity.identity`（kind=`state`，direction=`s2c`）：payload 为 LumioBinV1 数组（`u32` 元素个数 + 文档序记录），记录字段 `netEntityId` / `entityType`（仅 `player`|`bot`）/ `unmappedMark`，按 `netEntityId` 严格升序；`EntityIdentity.claimedMark` 不上本块。空 `stateBlocks: []` 仍只表示本 Room 无房间可见可复制状态；有活体时必须出现本块，零活体时省略。不新增错误码、不增加第二条 kind=state 映射。
-
+本段为 Accepted 正文的附录，不改写上方决策原文与前一条修订记录。Room 路径 FullSnapshot 的活体身份普查租户是 `entity.identity`（kind=`state`，direction=`s2c`）：payload 为 LumioBinV1 数组（`u32` 元素个数 + 文档序记录），记录字段 `netEntityId` / `entityType`（仅 `player`|`bot`）/`unmappedMark`，按 `netEntityId` 严格升序；`EntityIdentity.claimedMark` 不上本块。空 `stateBlocks: []` 仍只表示本 Room 无房间可见可复制状态；有活体时必须出现本块，零活体时省略。不新增错误码、不增加第二条 kind=state 映射。
