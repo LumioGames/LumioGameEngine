@@ -46,8 +46,8 @@ ADR-056 在 2026-09-03 由 R-00377（N-13）转为 Accepted，依据是六项「
 
 ## 接口 / Schema
 
-- C-2′：`engine/wire/entity-binding-and-query-v1.json` 增加「账号已在线」结局与顶号用例（由 r4 契约卡填实，本 ADR 不改契约）。
-- 其余接口不变；ECS 结构性接口（World Manager、WorldEntity、标注 → 注册桥）待 ECS 架构会话定稿后另立 ADR。
+- C-2′：`engine/wire/entity-binding-and-query-v1.json` Admit 结局 `account_already_online`（`errorCodes.admitOutcomeCodes`），正用例 `admit_second_connection_account_already_online`（第二次准入返回该结局并带现有 `netEntityId`），反用例 `admit_shape_error_is_not_account_already_online`（形状错误仍为 `invalid_binding_shape`）。`roomId` = 宿主路由键；绑定五元组由 `IdentityComponent` 字段 + 宿主会话表拼出；`NetEntityId` 128 位、32-hex 小写。
+- ECS 结构性接口由 [ADR-058](ADR-058-ecs-world-manager-and-annotation-registry.md) 定稿（World Manager、WorldEntity、标注 → 注册桥），不在本 ADR 展开。
 
 ## 失败语义
 

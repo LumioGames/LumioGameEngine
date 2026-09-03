@@ -131,6 +131,20 @@ function encodeRecord(mapping, record) {
   return re;
 }
 
+function encodeMappingPayload(mapping, body) {
+  if (mapping.collection === 'array') {
+    if (!Array.isArray(body)) throw new Error('array mapping requires an array body');
+    let re = encodeU32(body.length);
+    for (const record of body) re = Buffer.concat([re, encodeRecord(mapping, record)]);
+    return re;
+  }
+  return encodeRecord(mapping, body);
+}
+
+function sha256Hex(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
 function applyFieldConstraints(mapping, record) {
   for (const fieldName of mapping.fieldOrder) {
     const field = mapping.fields[fieldName];
@@ -796,6 +810,65 @@ function checkEntityBindingContract(contract, fileName, problems) {
   } else if (ids.has('EntityIdentity.accountId')) {
     problem('EntityIdentity.accountId query case is undeclared_attribute but the id is in the table');
   }
+
+  if (fileName === 'entity-binding-and-query-v1.json') {
+    const roomId = contract.identityModel?.roomId ?? '';
+    if (!roomId.includes('宿主路由键') || !roomId.includes('World Manager') || !roomId.includes('GameWorld')) {
+      problem('identityModel.roomId must describe the host routing key (one process / one World Manager / one GameWorld)');
+    }
+    const crossRoom = contract.errorCodes?.semantics?.cross_room_reference ?? '';
+    if (!crossRoom.includes('宿主路由')) {
+      problem('errorCodes.semantics.cross_room_reference must assign cross_room to the host routing layer');
+    }
+    if (!netEntityId.includes('128') || !netEntityId.includes('32-hex')) {
+      problem('identityModel.netEntityId must declare 128-bit = instanceId (high 64) + counter (low 64) with 32-hex encoding');
+    }
+    if (!notes.includes('IdentityComponent') || !notes.includes('不持独立绑定表')) {
+      problem('binding.record.notes must assemble the five-tuple from IdentityComponent fields + host session table; Runtime holds no binding table');
+    }
+    const adapterNotes = `${decls.notes ?? ''} ${decls.structure?.notes ?? ''}`;
+    if (!adapterNotes.includes('薄适配层') || !adapterNotes.includes('无自有存储')) {
+      problem('attributeDeclarations must say the query surface is a generated thin adapter with no private storage');
+    }
+    if (!contract.outcomes?.account_already_online) {
+      problem('outcomes.account_already_online missing');
+    }
+    const admitCodes = contract.errorCodes?.admitOutcomeCodes ?? [];
+    const outcomeCodes = contract.errorCodes?.outcomeCodes ?? [];
+    if (!admitCodes.includes('account_already_online') && !outcomeCodes.includes('account_already_online')) {
+      problem('account_already_online must be listed in admitOutcomeCodes (distinct from invalid_binding_shape)');
+    }
+    if ((contract.errorCodes?.requestErrorCodes ?? []).includes('account_already_online')) {
+      problem('account_already_online must not be folded into requestErrorCodes');
+    }
+    if (!contract.binding?.operations?.admit) {
+      problem('binding.operations.admit missing');
+    }
+    const testByName = new Map((contract.testCases ?? []).map((item) => [item.name, item]));
+    const already = testByName.get('admit_second_connection_account_already_online');
+    if (!already) {
+      problem('testCases missing admit_second_connection_account_already_online');
+    } else if (already.expect !== 'account_already_online') {
+      problem('testCases.admit_second_connection_account_already_online.expect must be account_already_online');
+    } else if (!String(already.then ?? '').includes('netEntityId')) {
+      problem('testCases.admit_second_connection_account_already_online must return the existing netEntityId');
+    }
+    const shapeCase = byName.get('admit_shape_error_is_not_account_already_online');
+    if (!shapeCase) {
+      problem('invalidCases missing admit_shape_error_is_not_account_already_online');
+    } else if (shapeCase.expectedRejection !== 'invalid_binding_shape') {
+      problem('invalidCases.admit_shape_error_is_not_account_already_online.expectedRejection must be invalid_binding_shape');
+    } else {
+      try {
+        admitBindingRecord(shapeCase.payload);
+        problem('invalidCases.admit_shape_error_is_not_account_already_online: expected rejection, was accepted');
+      } catch (error) {
+        if (!(error instanceof Rejection) || error.code !== 'invalid_binding_shape') {
+          problem(`invalidCases.admit_shape_error_is_not_account_already_online: rejected with [${error.code ?? error.message}] but expected [invalid_binding_shape]`);
+        }
+      }
+    }
+  }
 }
 
 // ---------- Contract validation ----------
@@ -944,6 +1017,8 @@ function checkGameplayEnvelopeContract(contract, fileName, problems) {
 
   const testNames = new Set((contract.testCases ?? []).map((item) => item.name));
   if (!testNames.has('snapshot/two-live-entities')) problem('testCases missing snapshot/two-live-entities');
+  if (!testNames.has('input/field-write-owner-name')) problem('testCases missing input/field-write-owner-name');
+  if (!testNames.has('delta/chat-event')) problem('testCases missing delta/chat-event');
 
   const names = new Set((contract.invalidCases ?? []).map((item) => item.name));
   for (const requiredName of [
@@ -954,8 +1029,97 @@ function checkGameplayEnvelopeContract(contract, fileName, problems) {
     'snapshot/entity-identity-unsorted-records',
     'snapshot/entity-identity-illegal-entity-type',
     'snapshot/event-replay',
+    'runtime/field-write-other-entity',
+    'runtime/field-write-server-authority',
   ]) {
     if (!names.has(requiredName)) problem(`invalidCases missing ${requiredName}`);
+  }
+
+  const roomSeq = contract.fieldSemantics?.roomSequence ?? '';
+  if (!roomSeq.includes('世界内') || !/NetEntityId/.test(roomSeq)) {
+    problem('fieldSemantics.roomSequence must be the in-world strictly increasing sequence assigned after sorting senders by NetEntityId');
+  }
+
+  const identityNotes = identity?.notes ?? '';
+  if (!identityNotes.includes('创建记录')) {
+    problem('mappings.entity.identity.notes must promote the census block to 创建记录 semantics');
+  }
+
+  const fieldWrite = contract.mappings?.['field.write'];
+  if (!fieldWrite) {
+    problem('mappings.field.write missing (Authority.Owner uplink)');
+  } else {
+    if (fieldWrite.kind !== 'command') problem('mappings.field.write.kind must be command');
+    if (fieldWrite.direction !== 'c2s') problem('mappings.field.write.direction must be c2s');
+    const fwOrder = fieldWrite.fieldOrder ?? [];
+    if (
+      fwOrder.length !== 4
+      || fwOrder[0] !== 'netEntityId'
+      || fwOrder[1] !== 'componentId'
+      || fwOrder[2] !== 'fieldId'
+      || fwOrder[3] !== 'value'
+    ) {
+      problem('mappings.field.write.fieldOrder must be netEntityId, componentId, fieldId, value');
+    }
+    if (fieldWrite.fields?.netEntityId?.type !== 'u64') {
+      problem('mappings.field.write.netEntityId must be u64 (this slice; 128-bit wire encoding is the two-u64 chat.event pair)');
+    }
+    if (fieldWrite.fields?.componentId?.type !== 'utf8-string' || fieldWrite.fields?.fieldId?.type !== 'utf8-string') {
+      problem('mappings.field.write.componentId and fieldId must be utf8-string');
+    }
+    if (fieldWrite.fields?.value?.type !== 'utf8-string') {
+      problem('mappings.field.write.value must be utf8-string for this slice (IdentityComponent.name)');
+    }
+    const fwNotes = fieldWrite.notes ?? '';
+    if (!fwNotes.includes('Authority.Owner') || !fwNotes.includes('权威纠正')) {
+      problem('mappings.field.write.notes must describe Authority.Owner uplink and authority correction');
+    }
+  }
+
+  const chatEvent = contract.mappings?.['chat.event'];
+  const eventOrder = chatEvent?.fieldOrder ?? [];
+  if (
+    eventOrder.length !== 6
+    || eventOrder[0] !== 'messageId'
+    || eventOrder[1] !== 'roomSequence'
+    || eventOrder[2] !== 'senderNetEntityIdInstanceId'
+    || eventOrder[3] !== 'senderNetEntityIdCounter'
+    || eventOrder[4] !== 'text'
+    || eventOrder[5] !== 'appliedTick'
+  ) {
+    problem('chat.event.fieldOrder must be messageId, roomSequence, senderNetEntityIdInstanceId, senderNetEntityIdCounter, text, appliedTick');
+  }
+  if (chatEvent?.fields?.senderNetEntityId || eventOrder.includes('senderNetEntityId')) {
+    problem('chat.event must not keep a single senderNetEntityId field; ADR-047 has no u128 primitive');
+  }
+  if (chatEvent?.fields?.senderNetEntityIdInstanceId?.type !== 'u64' || chatEvent?.fields?.senderNetEntityIdCounter?.type !== 'u64') {
+    problem('senderNetEntityIdInstanceId and senderNetEntityIdCounter must be u64 (16-byte LE pair)');
+  }
+  const eventNotesFull = chatEvent?.notes ?? '';
+  if (!eventNotesFull.includes('OnChatMessage') || !eventNotesFull.includes('ClientRpc')) {
+    problem('mappings.chat.event.notes must name ChatComponent.OnChatMessage ClientRpc');
+  }
+  if (!eventNotesFull.includes('32-hex')) {
+    problem('mappings.chat.event.notes must say the 16-byte pair is the same 128-bit value as C-2 32-hex');
+  }
+  const inputNotes = contract.mappings?.['chat.input']?.notes ?? '';
+  if (!inputNotes.includes('SendMessage') || !inputNotes.includes('ServerRpc')) {
+    problem('mappings.chat.input.notes must name ChatComponent.SendMessage ServerRpc');
+  }
+
+  const otherEntity = (contract.invalidCases ?? []).find((item) => item.name === 'runtime/field-write-other-entity');
+  const serverAuth = (contract.invalidCases ?? []).find((item) => item.name === 'runtime/field-write-server-authority');
+  for (const item of [otherEntity, serverAuth]) {
+    if (!item) continue;
+    if (item.expectedRejection !== 'unauthorized') {
+      problem(`invalidCases.${item.name}.expectedRejection must be unauthorized`);
+    }
+    if (item.validatorCheck !== false) {
+      problem(`invalidCases.${item.name}.validatorCheck must be false (receiver-enforced)`);
+    }
+  }
+  if (Array.isArray(contract.errorCodes) && !contract.errorCodes.includes('unauthorized')) {
+    problem('errorCodes must include unauthorized for field.write owner-only receiver cases');
   }
 }
 
@@ -1050,6 +1214,8 @@ export {
   hashDeclarationTable,
   canonicalizeDeclarationTable,
   N04_ATTRIBUTE_DECLARATIONS_SHA256,
+  encodeMappingPayload,
+  sha256Hex,
 };
 
 async function main() {
@@ -1741,4 +1907,125 @@ test('validator rejects attributeDeclarations sha256 that does not recompute fro
   contract.attributeDeclarations.sha256 = '0'.repeat(64);
   const { problems } = validateContract(contract, 'binding-fixture.json');
   assert.ok(problems.some((item) => item.includes('sha256') && item.includes('does not recompute')));
+});
+
+test('C-2 admit returns account_already_online on a second well-shaped connection; shape errors stay invalid_binding_shape', async () => {
+  const contract = await loadBindingContract();
+  assert.ok(contract.outcomes?.account_already_online, 'outcomes.account_already_online missing');
+  assert.ok(
+    (contract.errorCodes?.admitOutcomeCodes ?? []).includes('account_already_online'),
+    'admitOutcomeCodes must list account_already_online',
+  );
+  assert.equal((contract.errorCodes?.requestErrorCodes ?? []).includes('account_already_online'), false);
+  assert.notEqual(contract.outcomes.account_already_online.definition, contract.errorCodes?.semantics?.invalid_binding_shape);
+  const already = (contract.testCases ?? []).find((item) => item.name === 'admit_second_connection_account_already_online');
+  assert.ok(already, 'missing testCase admit_second_connection_account_already_online');
+  assert.equal(already.expect, 'account_already_online');
+  assert.match(String(already.then ?? ''), /netEntityId/);
+  const shape = (contract.invalidCases ?? []).find((item) => item.name === 'admit_shape_error_is_not_account_already_online');
+  assert.ok(shape, 'missing invalidCase admit_shape_error_is_not_account_already_online');
+  assert.equal(shape.expectedRejection, 'invalid_binding_shape');
+  assert.throws(
+    () => admitBindingRecord(shape.payload),
+    (error) => error instanceof Rejection && error.code === 'invalid_binding_shape',
+  );
+  const { problems } = validateContract(contract, 'entity-binding-and-query-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('C-2 roomId is the host routing key; binding record is IdentityComponent plus host session table; NetEntityId is 128-bit 32-hex', async () => {
+  const contract = await loadBindingContract();
+  assert.match(contract.identityModel.roomId, /宿主路由键/);
+  assert.match(contract.identityModel.roomId, /World Manager/);
+  assert.match(contract.identityModel.roomId, /GameWorld/);
+  assert.match(contract.errorCodes.semantics.cross_room_reference, /宿主路由/);
+  assert.match(contract.identityModel.netEntityId, /128/);
+  assert.match(contract.identityModel.netEntityId, /32-hex/);
+  assert.match(contract.binding.record.notes, /IdentityComponent/);
+  assert.match(contract.binding.record.notes, /不持独立绑定表/);
+  const adapterNotes = `${contract.attributeDeclarations.notes ?? ''} ${contract.attributeDeclarations.structure?.notes ?? ''}`;
+  assert.match(adapterNotes, /薄适配层/);
+  assert.match(adapterNotes, /无自有存储/);
+  assert.ok(contract.binding.operations.admit, 'binding.operations.admit missing');
+  const { problems } = validateContract(contract, 'entity-binding-and-query-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('C-1 roomSequence is the in-world sequence; entity.identity is a creation record', async () => {
+  const contract = await loadEnvelopeContract();
+  assert.match(contract.fieldSemantics.roomSequence, /世界内/);
+  assert.match(contract.fieldSemantics.roomSequence, /NetEntityId/);
+  assert.match(contract.mappings['entity.identity'].notes, /创建记录/);
+  const { problems } = validateContract(contract, 'gameplay-command-envelope-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('C-1 field.write is an Owner uplink command with positive and unauthorized receiver cases', async () => {
+  const contract = await loadEnvelopeContract();
+  const mapping = contract.mappings['field.write'];
+  assert.ok(mapping, 'mappings.field.write missing');
+  assert.equal(mapping.kind, 'command');
+  assert.equal(mapping.direction, 'c2s');
+  assert.deepEqual(mapping.fieldOrder, ['netEntityId', 'componentId', 'fieldId', 'value']);
+  const valid = (contract.testCases ?? []).find((item) => item.name === 'input/field-write-owner-name');
+  assert.ok(valid?.message, 'embedded field.write positive case must exist');
+  const encoded = encodeMappingPayload(mapping, {
+    netEntityId: 101,
+    componentId: 'IdentityComponent',
+    fieldId: 'name',
+    value: 'Alice',
+  });
+  assert.equal(valid.message.commands[0].payload, encoded.toString('hex'));
+  assert.equal(valid.message.commands[0].payloadSha256, sha256Hex(encoded));
+  assert.doesNotThrow(() => admitMessage(contract, valid.message));
+  for (const name of ['runtime/field-write-other-entity', 'runtime/field-write-server-authority']) {
+    const ic = (contract.invalidCases ?? []).find((item) => item.name === name);
+    assert.ok(ic, `missing invalidCase ${name}`);
+    assert.equal(ic.validatorCheck, false);
+    assert.equal(ic.expectedRejection, 'unauthorized');
+  }
+  assert.ok(contract.errorCodes.includes('unauthorized'));
+  const { problems } = validateContract(contract, 'gameplay-command-envelope-v1.json');
+  assert.deepEqual(problems, []);
+});
+
+test('C-1 chat.event senderNetEntityId is a 16-byte two-u64 LE pair recomputed by the encoder', async () => {
+  const contract = await loadEnvelopeContract();
+  const mapping = contract.mappings['chat.event'];
+  assert.deepEqual(mapping.fieldOrder, [
+    'messageId',
+    'roomSequence',
+    'senderNetEntityIdInstanceId',
+    'senderNetEntityIdCounter',
+    'text',
+    'appliedTick',
+  ]);
+  assert.equal(mapping.fields.senderNetEntityIdInstanceId.type, 'u64');
+  assert.equal(mapping.fields.senderNetEntityIdCounter.type, 'u64');
+  assert.equal(Object.prototype.hasOwnProperty.call(mapping.fields, 'senderNetEntityId'), false);
+  assert.match(mapping.notes, /32-hex/);
+  assert.match(mapping.notes, /ClientRpc/);
+  assert.match(contract.mappings['chat.input'].notes, /ServerRpc/);
+  const body = {
+    messageId: 1,
+    roomSequence: 1,
+    senderNetEntityIdInstanceId: 0,
+    senderNetEntityIdCounter: 101,
+    text: 'gg',
+    appliedTick: 7,
+  };
+  const encoded = encodeMappingPayload(mapping, body);
+  assert.equal(encoded.length, 8 + 8 + 8 + 8 + 4 + 2 + 8);
+  const digest = sha256Hex(encoded);
+  const hex = encoded.toString('hex');
+  const example = (contract.hash?.examples ?? []).find((item) => item.mappingId === 'chat.event');
+  assert.ok(example, 'hash.examples must include chat.event');
+  assert.equal(example.payload, hex);
+  assert.equal(example.payloadSha256, digest);
+  const valid = (contract.testCases ?? []).find((item) => item.name === 'delta/chat-event');
+  assert.equal(valid.message.changedBlocks[0].payload, hex);
+  assert.equal(valid.message.changedBlocks[0].payloadSha256, digest);
+  assert.doesNotThrow(() => admitMessage(contract, valid.message));
+  const { problems } = validateContract(contract, 'gameplay-command-envelope-v1.json');
+  assert.deepEqual(problems, []);
 });
