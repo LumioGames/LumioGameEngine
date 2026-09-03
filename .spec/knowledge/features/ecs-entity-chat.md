@@ -131,8 +131,8 @@ The new Workflow Requirement Room will contain new cards for this slice only; ex
 | Attribute query | Generated AttributeId query surface, revision results, visibility/permission filtering and failure semantics |
 | Chat component | ECS component declaration, SetMessage command path, persist-only last-message fields and event production |
 | Chat replication | Typed mapping, reliable ordered Room event delivery, duplicate suppression and Browser/Bot consumption |
-| ReplicaWorld | Full snapshot admission, entity mapping, client self lookup and visible Attribute Query |
-| Reconnect | Fresh login/handshake, five-minute Host deadline, client-only ReplicaWorld rebuild and expiry/tombstone behavior |
+| 客户端 World | Full snapshot admission as creation records, entity mapping via the same World Manager (`Create` without instanceId), client self lookup (`World.Self`) and visible Attribute Query |
+| Reconnect | Fresh login/handshake, five-minute Host deadline, client-only World rebuild from a full snapshot and expiry/tombstone behavior |
 | Timer and persistence | Native Timer Manager first slice plus existing ECS Snapshot/Restore integration |
 | End-to-end acceptance | 100 Bot + 1 Browser scenario, isolation smoke, failure cases, repeatability and evidence |
 
