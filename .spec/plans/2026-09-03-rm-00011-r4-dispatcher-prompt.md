@@ -29,7 +29,7 @@ metadata:
 1. `.spec/AGENTS.md`、`.spec/knowledge/README.md`、`.spec/knowledge/standards/dispatch.md`（派活模板）、`.spec/skills/cross-repo-delivery/SKILL.md`、`.spec/agents/reviewer.agent.md`。
 2. ADR-057、ADR-058 全文；`.spec/knowledge/features/ecs.md`（重点 M1a / M2 / M3 / M4 / M8 / M9 / §4.5）；`.spec/reviews/2026-09-03-rm-00011-r3-owner-review.md`（退回事实与行号）；`.spec/plans/2026-09-03-rm-00011-r4-cards.md`（十卡正文、最终 wave、共享热点所有者）。
 3. Workflow 只读预检：`GET /me`、`GET /projects/current`（subdomain 必须是 `lumiogamesengine`，`project.id` = `proj_b6979c277715a6c6c490a541ac69709b`）；`GET /requirements?roomId=01a05b5a-6fd3-797f-8608-580c55491802` 全量翻页，确认 R-00384…R-00393 存在、状态 `backlog`、各 4 条验收项、正文含 `workflow-plan: rm00011-r4/R4-xx`。任一不符即停止上报。
-4. 六仓 `git fetch origin`，记录各仓 `origin/main` SHA 作为本轮基线（写进每张卡的开工评论）。**Runtime 仓本地 `main` 落后 `origin/main` 77 个提交且 ECS 代码只在 `origin/main`**——所有 worktree 一律从 `origin/main` 切，不从本地 `main`。Runtime 分支 `docs/ecs-username-sample`（样板示例源码）在派 R4-05 前先合入或由你在开工评论指定其提交号。
+4. 六仓 `git fetch origin`，记录各仓 `origin/main` SHA 作为本轮基线（写进每张卡的开工评论）。**Runtime 仓本地 `main` 落后 `origin/main` 77 个提交且 ECS 代码只在 `origin/main`**——所有 worktree 一律从 `origin/main` 切，不从本地 `main`。Runtime 样板示例在 `origin/main` `modules/ecs/samples/username/`（第二轮 `docs/ecs-username-sample-r2` 已合入；派 R4-05 前钉 `origin/main` SHA，并读 ADR-058「修订（2026-09-03 第二轮）」）。
 5. 本机不得使用共享 checkout 施工，全部走独立 worktree（Agent 工具 `isolation: "worktree"` 或 `/Users/cui/LumioGames/.wt-<card>`）。
 
 ### 2. 单号与 wave（DAG 是硬约束）
