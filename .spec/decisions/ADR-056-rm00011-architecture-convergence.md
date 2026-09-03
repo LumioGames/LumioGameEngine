@@ -1,6 +1,6 @@
 # ADR-056：RM-00011 架构收敛——单一 ECS、单一绑定/查询、字段标注声明、单一定时内核、真实广播与落盘
 
-状态：Draft（2026-09-02，Owner 与独立深审 reviewer 七步对照 `knowledge/features/ecs-entity-chat.md` 与实现后的裁决；待 Owner 定稿为 Accepted）
+状态：Accepted（2026-09-03，R-00377 / N-13 独立深审复核 N-01…N-12 与验证 Fixture 六项后定稿；审查报告 `reviews/2026-09-03-rm-00011-r3-n13-closeout.md`。Draft 原文 2026-09-02 Owner 与独立深审七步对照 `knowledge/features/ecs-entity-chat.md`）
 取代：无（修订 ADR-055 的双层定时分层与 ADR-045 在 Room 路径上的 FullSnapshot 形状，见「兼容影响」）
 Owner：`LumioGameEngine`（裁决与契约真值）、`LumioGameRuntime`（ECS / 绑定 / 查询 / 持久化唯一实现）、`LumioNativeCore`（定时内核）、`LumioServer` / `LumioClient` / `LumioGame`（消费方）
 
