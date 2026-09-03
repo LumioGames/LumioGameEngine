@@ -72,8 +72,8 @@ RM-00011 r3 深审（`reviews/2026-09-03-rm-00011-r3-owner-review.md`）实测 R
 
 ## 接口 / Schema
 
-- **C-2 `engine/wire/entity-binding-and-query-v1.json`**：`roomId` 语义改为宿主路由键（Game 实例），Runtime 接口按实例隐含；`cross_room` 结局归宿主路由层；「账号已在线 → 可顶号」结局按 ADR-057 第 5 条。由 R4-01 填实，本 ADR 不改契约文件。
-- **C-1 `engine/wire/gameplay-command-envelope-v1.json`**：`roomSequence` 措辞改为世界内严格递增序号（字段名不变）；`entity.identity` 普查块语义升为「创建记录」（EntityType + NetEntityId + 可见字段当前值）；上行字段变更与 ServerRpc 作为 InputCommand 种类。由后续契约卡填实。
+- **C-2 `engine/wire/entity-binding-and-query-v1.json`**：`roomId` = 宿主路由键（一进程一 World Manager 一 GameWorld），Runtime 接口按实例隐含；`cross_room` 由宿主路由层判定；Admit 结局 `account_already_online`（正用例 `admit_second_connection_account_already_online`，形状错误仍 `invalid_binding_shape`）。绑定五元组由 `IdentityComponent` + 宿主会话表拼出。`NetEntityId` 128 位 = 实例 ID（高 64）+ 计数器（低 64），32-hex 小写。AttributeId 查询面是生成的薄适配层，无自有存储。
+- **C-1 `engine/wire/gameplay-command-envelope-v1.json`**：`roomSequence` = 世界内严格递增序号（字段名不变）；`entity.identity` = 创建记录；新增 InputCommand 种类 `field.write`（正用例 `input/field-write-owner-name`，反用例 `runtime/field-write-other-entity` / `runtime/field-write-server-authority` → `unauthorized`）。`chat.event` 的 `senderNetEntityId` 编码为 `senderNetEntityIdInstanceId`（u64 LE）+ `senderNetEntityIdCounter`（u64 LE），16 字节定宽，与 C-2 32-hex 是同一 128 位值；不引入 ADR-047 `u128` 原语。`chat.input` = `ChatComponent.SendMessage` ServerRpc；`chat.event` = `ChatComponent.OnChatMessage` ClientRpc。
 - **Runtime 公开 API 面（新增，R4-05 落地）**：`WorldManager.Create(registry, instanceId)` / `CreateFromSnapshot(snapshot)` / `Enqueue(message)` / `OwnerThread` / `Tick()` / `Get<T>(netId)` / `Each<T>()` / `Single<T>()`；`Sync<T>` / `SyncList<T>` / `SyncDict<K,V>`；标注 `[EcsComponent]` / `[Persist]` / `[ServerOnly]` / `[ClientOnly]` / `[EntityType]` / `[Has]` / `[Child]` / `[ServerRpc]` / `[ClientRpc]`；组件基类上的 `Get<T>()` / `Get<T>(id)` / `OnClientWrite` / 九回调。
 - **生成三件**：`<Assembly>.Registry.g.cs`（组件注册表 + 实体模板类）、`<Assembly>.Sync.g.cs`（同步表）、`generated/attribute-declarations.json`（C-2 声明表，sha 与契约一致）。
 

@@ -70,3 +70,13 @@ RM-00011（ECS Formal Entity and Chat Vertical Slice）的三张实现卡——R
 - 属性三维声明表是字段标注生成物（`attributeDeclarations.source` = `generated-from-field-annotations`），内嵌 N-04 产物 `modules/ecs/generated/attribute-declarations.json` 并记录 sha256 `a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0`；手写 `example` 删除。
 - `EntityIdentity.accountId` 不声明为可查属性；查询返回 `undeclared_attribute`，不得映射为 `unauthorized`。
 - 标注类型命名以 N-04 交付为准：`PersistenceKind` / `ReplicationKind` / `VisibilityKind` 与 `[Persist]` / `[Replicate]` / `[Visibility]` / `[EcsComponent]` / `[AttributeValueType]`。
+
+## 修订记录（2026-09-03，ADR-058）
+
+本段为 Accepted 正文的附录，不改写上方决策原文与前一条修订记录。ADR-058 / ADR-057 将 C-2 修订如下，契约真值仍是 `engine/wire/entity-binding-and-query-v1.json`：
+
+- `roomId` = 宿主路由键（一个进程一个 World Manager 一个 GameWorld）；`cross_room` 由宿主路由层判定，Runtime 接口按实例隐含。
+- 绑定五元组由实体 `IdentityComponent` 字段 + 宿主会话表拼出；Runtime 不持独立绑定表。
+- `NetEntityId` 128 位 = 实例 ID（高 64）+ 计数器（低 64），32-hex 小写不变；世界在提交相发号。
+- Admit 新增结局 `account_already_online`（与 `invalid_binding_shape` 严格区分）；正用例 `admit_second_connection_account_already_online`，反用例 `admit_shape_error_is_not_account_already_online`。
+- AttributeId 查询面是生成的薄适配层，玩法只用类型化读，无自有存储。
