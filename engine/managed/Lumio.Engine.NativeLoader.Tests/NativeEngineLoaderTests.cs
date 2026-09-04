@@ -88,4 +88,31 @@ public sealed class NativeEngineLoaderTests
         Assert.DoesNotContain("System.Reflection", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetField(\"_library\"", source, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void MissingRequiredTimerSlotIsRejected()
+    {
+        var present = (nint)1;
+        var api = new NativeEngineLoader.RootApi
+        {
+            StructSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeEngineLoader.RootApi>(),
+            TimerCreateManager = present,
+            TimerDestroyManager = present,
+            TimerRegisterDispatch = present,
+            TimerRegisterScope = present,
+            TimerTeardownScope = present,
+            TimerCreateSlot = present,
+            TimerBindSlot = present,
+            TimerCloseSlot = present,
+            TimerScheduleOneShot = present,
+            TimerScheduleRepeating = present,
+            TimerCancel = present,
+            TimerAdvance = present,
+            TimerPump = 0,
+            TimerDrain = present,
+        };
+
+        var error = Assert.Throws<InvalidOperationException>(() => NativeEngineLoader.ValidateTimerSlots(in api));
+        Assert.Contains("timer_* slots", error.Message, StringComparison.Ordinal);
+    }
 }

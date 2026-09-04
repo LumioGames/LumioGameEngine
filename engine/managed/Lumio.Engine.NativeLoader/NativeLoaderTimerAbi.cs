@@ -17,14 +17,19 @@ public sealed class NativeLoaderTimerAbi : INativeTimerAbi, IDisposable
     public static NativeLoaderTimerAbi Load(string nativePath)
     {
         var lease = NativeEngineLoader.LoadFromBuildInfo(nativePath);
-        var library = lease.LibraryHandle;
-        if (library == 0) { lease.Dispose(); throw new InvalidOperationException("NativeEngineLease did not expose a loaded module handle."); }
-        var entry = Marshal.GetDelegateForFunctionPointer<GetApiDelegate>(NativeLibrary.GetExport(library, AbiConstants.EntrySymbol));
-        if (entry(AbiConstants.AbiVersion, out nint address) != 0 || address == 0) { lease.Dispose(); throw new InvalidOperationException("Native engine entry rejected ABI version."); }
-        var table = Marshal.PtrToStructure<RootApiWithTimers>(address);
-        if (table.StructSize < (uint)Marshal.SizeOf<RootApiWithTimers>() || table.TimerCreateManager == 0 || table.TimerDestroyManager == 0 || table.TimerRegisterDispatch == 0 || table.TimerRegisterScope == 0 || table.TimerTeardownScope == 0 || table.TimerCreateSlot == 0 || table.TimerBindSlot == 0 || table.TimerCloseSlot == 0 || table.TimerScheduleOneShot == 0 || table.TimerScheduleRepeating == 0 || table.TimerCancel == 0 || table.TimerAdvance == 0 || table.TimerPump == 0 || table.TimerDrain == 0) { lease.Dispose(); throw new InvalidOperationException("Native root table is missing timer_* slots."); }
-        return new NativeLoaderTimerAbi(lease, D<CreateManagerDelegate>(table.TimerCreateManager), D<DestroyManagerDelegate>(table.TimerDestroyManager), D<RegisterDispatchDelegate>(table.TimerRegisterDispatch), D<RegisterScopeDelegate>(table.TimerRegisterScope), D<TeardownScopeDelegate>(table.TimerTeardownScope), D<CreateSlotDelegate>(table.TimerCreateSlot), D<BindSlotDelegate>(table.TimerBindSlot), D<CloseSlotDelegate>(table.TimerCloseSlot), D<ScheduleOneShotDelegate>(table.TimerScheduleOneShot), D<ScheduleRepeatingDelegate>(table.TimerScheduleRepeating), D<CancelDelegate>(table.TimerCancel), D<AdvanceDelegate>(table.TimerAdvance), D<PumpDelegate>(table.TimerPump), D<DrainDelegate>(table.TimerDrain));
-        T D<T>(nint p) where T : Delegate => Marshal.GetDelegateForFunctionPointer<T>(p);
+        try
+        {
+            var table = lease.Api;
+            NativeEngineLoader.ValidateTimerSlots(in table);
+            return new NativeLoaderTimerAbi(lease, D<CreateManagerDelegate>(table.TimerCreateManager), D<DestroyManagerDelegate>(table.TimerDestroyManager), D<RegisterDispatchDelegate>(table.TimerRegisterDispatch), D<RegisterScopeDelegate>(table.TimerRegisterScope), D<TeardownScopeDelegate>(table.TimerTeardownScope), D<CreateSlotDelegate>(table.TimerCreateSlot), D<BindSlotDelegate>(table.TimerBindSlot), D<CloseSlotDelegate>(table.TimerCloseSlot), D<ScheduleOneShotDelegate>(table.TimerScheduleOneShot), D<ScheduleRepeatingDelegate>(table.TimerScheduleRepeating), D<CancelDelegate>(table.TimerCancel), D<AdvanceDelegate>(table.TimerAdvance), D<PumpDelegate>(table.TimerPump), D<DrainDelegate>(table.TimerDrain));
+        }
+        catch
+        {
+            lease.Dispose();
+            throw;
+        }
+
+        static T D<T>(nint pointer) where T : Delegate => Marshal.GetDelegateForFunctionPointer<T>(pointer);
     }
     public int CreateManager(uint mode, out nint manager) => _create(mode, out manager);
     public int DestroyManager(nint manager) => _destroy(manager);
@@ -41,7 +46,6 @@ public sealed class NativeLoaderTimerAbi : INativeTimerAbi, IDisposable
     public int Cancel(nint manager, in NativeTimerHandle handle) { var h = new NativeTimerAbiHandle { Index = handle.Index, Generation = handle.Generation, Context = handle.Context }; return _cancel(manager, in h); }
     public int Drain(nint manager, Span<NativeTimerDrainRecord> records, out int count) { var b = new NativeDrainRecord[Math.Max(records.Length, 1)]; var pin = GCHandle.Alloc(b, GCHandleType.Pinned); try { var s = _drain(manager, pin.AddrOfPinnedObject(), (uint)records.Length, out var n); count = (int)n; for (var i = 0; i < Math.Min(count, records.Length); i++) records[i] = new NativeTimerDrainRecord(b[i].Due, b[i].ScheduleSequence, b[i].SlotDispatchId); return s; } finally { pin.Free(); } }
     public void Dispose() { if (!_disposed) { _disposed = true; _lease.Dispose(); } }
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int GetApiDelegate(uint version, out nint api);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int CreateManagerDelegate(uint mode, out nint manager);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int DestroyManagerDelegate(nint manager);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int RegisterDispatchDelegate(nint manager, uint id);
@@ -58,5 +62,4 @@ public sealed class NativeLoaderTimerAbi : INativeTimerAbi, IDisposable
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int DrainDelegate(nint manager, nint records, uint capacity, out uint count);
     [StructLayout(LayoutKind.Sequential)] private struct NativeTimerAbiHandle { public uint Index, Generation; public ulong Context; }
     [StructLayout(LayoutKind.Sequential)] private struct NativeDrainRecord { public uint HandleIndex, HandleGeneration; public ulong HandleContext, Due, ScheduleSequence; public uint SlotDispatchId, Pad; }
-    [StructLayout(LayoutKind.Sequential)] private struct RootApiWithTimers { public uint AbiVersion, StructSize; [MarshalAs(UnmanagedType.ByValArray, SizeConst=32)] public byte[] AbiHash; [MarshalAs(UnmanagedType.ByValArray, SizeConst=16)] public byte[] BuildId; public nint Ping, CreateClrHost, ClrHostCall, DestroyClrHost, TimerCreateManager, TimerDestroyManager, TimerRegisterDispatch, TimerRegisterScope, TimerTeardownScope, TimerCreateSlot, TimerBindSlot, TimerCloseSlot, TimerScheduleOneShot, TimerScheduleRepeating, TimerCancel, TimerAdvance, TimerPump, TimerDrain; }
 }
