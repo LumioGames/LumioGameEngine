@@ -3,7 +3,7 @@ name: runtime-manager-controls
 description: Runtime-owned admission, disconnect, and rebind controls that enter the WorldManager owner-thread queue
 metadata:
   type: doc
-  status: 设计中
+  status: 已交付
 ---
 
 # Runtime Manager Controls
@@ -89,3 +89,11 @@ reinterpret the result.
 
 This design does not add a network admission envelope, a Manager-owned connection
 dictionary, a local snapshot/delta format, or a synchronous `netEntityId` result.
+
+## Delivered implementation
+
+The Runtime ECS implementation is in `3bba165` and the Replication adapter is in
+`a230a74`. `WorldManager.Enqueue` is the only cross-thread entry; lifecycle controls
+are consumed before ordinary inputs on the owner tick. `EntityBindingQuery` registers
+the single adapter and detaches it on disposal. The architecture contract and validator
+are in `f07add7`; the handback report is `1bb6a32`.
