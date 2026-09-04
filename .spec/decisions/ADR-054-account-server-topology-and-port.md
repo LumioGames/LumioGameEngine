@@ -50,3 +50,7 @@ RM-00011「ECS Formal Entity and Chat Vertical Slice」要求 100 个 Bot 账号
 
 - 本卡：`node .spec/tools/spec-lint.mjs`（本 ADR 未登记 decisions/README.md 索引是**预期**单条报错——登记由主 loop 串行合并时统一处理，其余项通过）；`node eng/generate-abi.mjs` 零差异；契约 JSON 自检（parse + 必含节 + 用例引用的失败码全部存在于 errorCodes + 正负用例齐备）通过；合并时由 `eng/verify-wire.mjs`（R-00355/C-1 交付）纳入统一校验。
 - 下游验收钩子：R-00344「账号服重启后 Bot01 重登返回同一 AccountId」；「普通客户端用默认口令登录已存在 Bot 账号被拒」（P1-5）；R-00346 顶号踢线 + NetEntityId 不变；R-00354 集成考卷按 `testCases`/`invalidCases` 逐条取证。
+
+## 修订记录（2026-09-04，ADR-061）
+
+[ADR-061](ADR-061-lumioplatform-repository-and-account-authority.md) 取代本 ADR 第 1 条的**归属**（Account Server 由 `LumioServer/account-server/` 迁入 `LumioPlatform`，同一 Kestrel 进程以 `/account` 路径承载 WS 端口）与第 7 条交付载体中的目录声明；持久账号库改为 PostgreSQL；新增注册策略 profile 与 `registration_requires_platform` 失败码。login-or-register 语义、AccountEntity 走 ECS、准入凭证格式、Bot 工具凭证、顶号与 `verify_admission` 端口原文继续有效。

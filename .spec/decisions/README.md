@@ -80,6 +80,7 @@
 | [ADR-058](ADR-058-ecs-world-manager-and-annotation-registry.md) | ECS World Manager、Sync<T> 字段与标注生成桥（单进程单世界、WorldEntity、Netcode 式上行、一套源码两份程序集、组件式 API + 模板内联存储、128 位 NetEntityId、事件即 ClientRpc） | Draft |
 | [ADR-059](ADR-059-lumiocoreengine-repository-retirement.md) | LumioCoreEngine 仓库退役与 Owner 指针归属（远端删除、旧 ADR Owner 前向重定向、生成物 URL 经生成源更新） | Accepted |
 | [ADR-060](ADR-060-rm00011-r5-owner-rulings-pack-wire-and-observer-projection.md) | RM-00011 r5 Owner 裁决：World Manager 包上网线（C-1″ 一份 codec）、按观察者投影（ObserverComponent、先全量后增量、Scope 裁剪、出视野即删、墓碑推导）、admit 不同步回 id、声明表只从组件生成、模板内联存储做到底、删旧世界；彻底清理不留兼容 | Draft |
+| [ADR-061](ADR-061-lumioplatform-repository-and-account-authority.md) | LumioPlatform 第八实现仓与账号权威归属：账号服迁入平台、一库两端口（WS 契约不改 + HTTP `platform-port-v1`）、PostgreSQL 持久真值、AccountWorld 保留、注册策略 profile、launch 端口、`LumioServer/account-server/` 退役；部分取代 ADR-054 | Draft |
 
 旧制度的 `DECISIONS_PENDING` 待决台账已随 `docs/` 一并删除（见 git 历史）；Living Architecture 下未定项直接落 ADR 或任务卡，不再另设台账。
 

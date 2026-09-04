@@ -53,4 +53,4 @@ python3 tools/lumio_contract.py validate
 - Schema、Fixture、ID Registry 和各自索引必须双向一致；公共 ID 不重复、不复用。
 - Commit ordering、Revision monotonicity、Release exact match、Maintenance action pairing 与 V1 Mod 限制等语义检查必须通过。
 - 修改架构正文后，通过 CI 的构建与 Host 装载证明（Living Architecture 不再维护 BaselineId 与正文 Hash 清单）。
-- 影响实现仓库的变更必须列出七仓同步范围；Schema/ADR 文档样例不能替代实现仓的单元、Benchmark 或故障测试。
+- 影响实现仓库的变更必须列出八仓同步范围；Schema/ADR 文档样例不能替代实现仓的单元、Benchmark 或故障测试。

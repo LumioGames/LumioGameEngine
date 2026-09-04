@@ -12,9 +12,10 @@ metadata:
 
 ## 1. 产品拓扑
 
-`LumioGame` 是最终产品组合根，包含 Server、Client 和玩法内容。Server 与 Client 都消费同一个 `LumioEngineSDK`；SDK 由本仓组装，吸收原 `LumioCoreEngine` 的聚合职责。
+`LumioGame` 是最终产品组合根，包含 Server、Client 和玩法内容。Server 与 Client 都消费同一个 `LumioEngineSDK`；SDK 由本仓组装，吸收原 `LumioCoreEngine` 的聚合职责。`LumioPlatform` 是对外入口与唯一账号权威（ADR-061）：它不消费 SDK，只经 `engine/wire` 契约与 Server / Client 接缝。
 
 ```text
+LumioPlatform ──(account-port / platform-port 契约)──> 浏览器游戏页 · Game Server 验票
 LumioGame
 ├── LumioServer ──┐
 ├── LumioClient ──┴──> LumioEngineSDK
@@ -23,7 +24,7 @@ LumioGame
                        └── LumioVoxelEngine ──┴──> LumioNativeCore
 ```
 
-箭头表示编译或运行时消费方向；产品包含关系由 `LumioGame` 维护，Server/Client 不进入 SDK 内部实现。
+箭头表示编译或运行时消费方向；产品包含关系由 `LumioGame` 维护，Server/Client 不进入 SDK 内部实现；Platform 与 Server 之间只有签名凭证与公钥，没有源码依赖。
 
 ## 2. 仓库职责
 
@@ -33,9 +34,10 @@ LumioGame
 | `LumioNativeCore` | 领域无关 Rust Kernel、Handle、Error、Capability、内存、Job 和空间基础 | Voxel、ECS、Gameplay、网络和 Host |
 | `LumioVoxelEngine` | VoxelWorld、Chunk、Revision、Mutation、Streaming、Snapshot 和 Voxel Migration | Gameplay 权限、Socket、Session 和 Host 生命周期 |
 | `LumioGameRuntime` | ECS、Tick、Coordinator、Replication、GAS、Persistence、Config 和 Determinism | 进程、Socket、玩法内容和 Voxel 内部 |
-| `LumioServer` | Server Host、网络、Session、WorldSlot、CoreCLR Hosting、维护和升级编排 | Runtime 语义、Native 聚合和玩法规则 |
+| `LumioServer` | Server Host、网络、Session、WorldSlot、CoreCLR Hosting、维护和升级编排、`verify_admission` 离线验票 | Runtime 语义、Native 聚合、玩法规则和账号（账号服已迁入 `LumioPlatform`，ADR-061） |
 | `LumioClient` | Client Connection、Replica、Prediction、Unity/HybridCLR Adapter 和 Headless Bot | Server 权威、Native 聚合和玩法内容 |
 | `LumioGame` | Gameplay、Mapping、配置、内容、Scenario、Migration，以及 Server/Client 组合 | 通用 ABI、Runtime/Host 生命周期和 Voxel 内部 |
+| `LumioPlatform` | 唯一账号权威（注册 / 登录 / 口令哈希 / 准入凭证签发 / Bot 命名空间设防）、游戏目录与大厅、launch 端口与房间分配器接口、静态游戏页托管、反馈、运营后台、埋点、平台数据库 | 引擎内部语义、Game Server 验票与房间模拟、游戏页协议逻辑、集成验收尺子 |
 
 `LumioCoreEngine` 不再是独立职责或依赖节点；其实现迁入本仓 `engine/native/`。
 
@@ -65,7 +67,7 @@ NativeCore 和 VoxelEngine 不导出自己的根符号；SDK 聚合层负责把�
 
 ### 3.3 Wire 协议
 
-Browser/Bot 与 Server 之间的 WebSocket 消息是 wire 协议，不是 ABI。开发态里程碑（MS-00002 Hello World）的最小 wire 契约唯一真值是 [`engine/wire/hello-wire-v1.json`](../../../engine/wire/hello-wire-v1.json)：消息形状、字段语义（sender/sequence/revision/payloadSha256/latency）、失败错误码、进程 readiness/shutdown 边界与审计事件词表。消费方（Rust Server、C# Runtime、Browser、Bot、集成验收）不得另写一份协议真值；校验入口 `node eng/verify-hello-wire.mjs`。
+Browser/Bot 与 Server 之间的 WebSocket 消息是 wire 协议，不是 ABI。账号端口（`account-port-v1.json`）与平台 HTTP 端口（`platform-port-v1.json`，含 launch）同属 wire 契约，唯一实现在 `LumioPlatform`（ADR-061）。开发态里程碑（MS-00002 Hello World）的最小 wire 契约唯一真值是 [`engine/wire/hello-wire-v1.json`](../../../engine/wire/hello-wire-v1.json)：消息形状、字段语义（sender/sequence/revision/payloadSha256/latency）、失败错误码、进程 readiness/shutdown 边界与审计事件词表。消费方（Rust Server、C# Runtime、Browser、Bot、集成验收）不得另写一份协议真值；校验入口 `node eng/verify-hello-wire.mjs`。
 
 ## 4. 开发期构建与最新代码证明
 
