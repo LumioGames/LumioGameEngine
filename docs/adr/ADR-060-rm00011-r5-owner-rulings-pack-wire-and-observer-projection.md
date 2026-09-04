@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-060-rm00011-r5-owner-rulings-pack-wire-and-observer-projection.md
