@@ -142,7 +142,12 @@
     },
     "launch": {
       "binding": "POST /api/games/{slug}/launch",
-      "auth": "session",
+      "auth": {
+        "oneOf": ["session-cookie", "account-auth-bearer"],
+        "sessionCookie": "lumio_platform_session",
+        "accountAuthBearer": "Authorization: Bearer <accountAuthCredential>；供 Bot launcher、工具与 RM-00011 集成消费者使用。Platform 验签、校验 expiry 与六个 admissionBinding.unboundSentinel，并从凭证读取 accountId/loginName/botToolContext；不得接受客户端分配字段。",
+        "precedence": "同时出现 Cookie 与 Bearer 时拒 invalid_request，调用方必须明确选择一种认证。"
+      },
       "request": { "required": {}, "optional": {} },
       "success": {
         "status": 200,
@@ -153,6 +158,8 @@
       },
       "failureCodes": ["unauthorized", "account_banned", "game_not_found", "game_not_published", "no_room_available", "rate_limited", "untrusted_ws_endpoint", "admission_binding_mismatch"],
       "semantics": [
+        "调用方唯一提供的路由选择是 path 中的 game slug；body 必须为空，不接受 serverAudience、gameId、gameReleaseId、contractId、roomId、allocationId、wsUrl 或任何 allocator hint。",
+        "Cookie 与 accountAuthCredential 认证收敛为同一 accountId；Bearer 路径用于 Bot/tool/integration。认证成功后 Platform 查询账号状态与游戏目录，再由服务端 allocator 产生 allocationContext，并将原凭证中的 botToolContext 带入新签发的 Room-bound admissionCredential。",
         "admissionCredential 的格式、签名、keyId、TTL 与 account-port-v1.admissionCredential 完全一致；canonicalPayload 字段序与类型以 account-port-v1.admissionBinding 为唯一来源，每次调用新签发（新 nonce / expiry）。",
         "wsUrl / subprotocol / serverAudience / gameId / gameReleaseId / contractId / roomId / allocationId 由房间分配器作为同一分配上下文给出；v1 = 每游戏固定端点（roomId = slug），多房间时换分配器实现、本应答形状不变。",
         "Platform 在返回前必须把 allocationContext 与签名 admissionCredential 的六个绑定字段逐一比较，并拒绝任一不匹配；Game Server 随后从其受信 room/allocation registry 注入同一 allocationContext。",
@@ -163,7 +170,18 @@
   },
   "allocatorTrust": {
     "source": "server configuration, loaded at startup; never client supplied",
-    "allowlist": "Exact allocationId -> endpoint record allowlist. Each record pins serverAudience, gameId, gameReleaseId, contractId, roomId and wsUrl origin. Public endpoints require wss:// and an allowlisted origin; ws:// is accepted only for an explicitly marked loopback local-test record. Scheme alone is insufficient.",
+    "recordKey": "allocationId",
+    "exactMatchFields": ["serverAudience", "gameId", "gameReleaseId", "contractId", "roomId", "scheme", "host", "port", "path"],
+    "urlRules": {
+      "userinfo": "forbidden",
+      "scheme": "public records require wss; ws is allowed only when profile=test and the configured record explicitly marks a loopback host",
+      "host": "exact configured host; DNS suffix/wildcard matching forbidden",
+      "port": "exact configured effective port; implicit and explicit default ports normalize before exact comparison",
+      "path": "exact configured absolute path; dot-segment or percent-decoding normalization occurs before comparison",
+      "query": "forbidden",
+      "fragment": "forbidden",
+      "redirects": "forbidden; allocator and launch do not follow or return redirects"
+    },
     "failure": "Missing, expired, or mismatched allowlist record is a server/configuration failure and returns 503; it is never a client authorization (403) decision."
   },
   "admissionBinding": {
@@ -276,6 +294,7 @@
     { "name": "ws_login_after_http_register_same_account", "operation": "login", "given": "alice 经 HTTP register 创建；再经 WS /account 用 loginName=alice + 同口令 login_or_register（行为按 account-port-v1 用例 idempotent_relogin_same_account）", "expect": "WS 返回 accountNewlyCreated=false 且 accountId 与 HTTP 注册一致；其 accountAuthCredential 带 unbound sentinel，不能直接通过 Room admission；Platform Launch 才签发 bound admissionCredential。" },
     { "name": "launch_issues_fresh_offline_verifiable_credential", "operation": "launch", "given": "alice 已登录；游戏 hello 已发布且固定端点已配置", "expect": "200；wsUrl=wss://game.example、serverAudience/gameId/gameReleaseId/contractId/roomId/allocationId 与分配上下文一致；admissionCredential 通过 account-port-v1 的解形→验签→过期→Bot 上下文四步；连续两次 launch 的 nonce 不同；事件表新增 game.launched。" },
     { "name": "launch_trusted_wss_endpoint", "operation": "launch", "given": "alice 已登录；服务端 allocatorTrust allowlist 命中 allocationId=alloc-1 且固定 wss://game.example origin", "expect": "200；allowlist record 与 allocationContext、admissionCredential 全部一致；凭证不在 URL 或日志。" },
+    { "name": "bot_exchanges_account_auth_for_bound_admission", "operation": "launch", "given": "Bot07 经 WS login_or_register 取得有效 accountAuthCredential；POST /api/games/bomber/launch 仅带 Authorization Bearer，无 Cookie、无 body", "expect": "200；Platform 从 Bearer 读取账号与 botToolContext，由服务端 allocator 生成上下文并签发 Room-bound admissionCredential；Game Server 用 registry allocationContext 验证成功。" },
     { "name": "set_avatar_within_range", "operation": "set_avatar", "given": "alice 已登录；avatarId=7（≤ avatarCount）", "expect": "200 且 me 返回 avatarId=7。" },
     { "name": "http_register_then_ws_profile_cases_delegated", "operation": "register", "given": "注册策略 profile 对 WS 端口的行为", "expect": "不在本契约另立用例：production 下 WS 拒 registration_requires_platform 由 account-port-v1 invalidCases.production_profile_plain_register_rejected 覆盖；test 下 WS 登录即注册由 account-port-v1 testCases.register_new_account 覆盖。本契约只保证：production 下 HTTP register 对同一 loginName 随后成功创建。" }
   ],
@@ -291,7 +310,13 @@
     { "name": "launch_without_session", "operation": "launch", "violates": "launch 需会话", "given": "无 Cookie", "expectedRejection": "unauthorized" },
     { "name": "launch_unpublished_game", "operation": "launch", "violates": "只对 published 生效", "given": "已登录；slug=draft-game 为 draft", "expectedRejection": "game_not_published" },
     { "name": "launch_banned_account", "operation": "launch", "violates": "封禁账号不得取凭证", "given": "账号 status=banned 且已有会话", "expectedRejection": "account_banned" },
+    { "name": "launch_rejects_ambiguous_auth", "operation": "launch", "violates": "Cookie 与 account-auth Bearer 必须二选一", "given": "同一请求同时带 lumio_platform_session Cookie 与 Authorization Bearer", "expectedRejection": "invalid_request" },
     { "name": "launch_rejects_untrusted_ws_endpoint", "operation": "launch", "violates": "公网 launch 仅允许服务端 allowlist endpoint", "given": "分配器返回 ws://public.example（非 loopback 测试）或未命中的 wss origin", "expectedRejection": "untrusted_ws_endpoint" },
+    { "name": "launch_rejects_client_allocation_claims", "operation": "launch", "violates": "客户端只提交 path slug", "given": "Cookie 或 Bearer 调用在 body/query/header 中提交 audience/game/release/contract/room/allocation/wsUrl hint", "expectedRejection": "invalid_request" },
+    { "name": "launch_rejects_endpoint_userinfo", "operation": "launch", "violates": "allocator endpoint userinfo 禁止", "given": "allowlist/allocator endpoint 含 user:pass@host", "expectedRejection": "untrusted_ws_endpoint" },
+    { "name": "launch_rejects_endpoint_component_mismatch", "operation": "launch", "violates": "allocator endpoint scheme/host/port/path 精确匹配", "given": "normalized scheme、host、effective port 或 absolute path 任一与 allocationId allowlist record 不同", "expectedRejection": "untrusted_ws_endpoint" },
+    { "name": "launch_rejects_endpoint_redirect_or_fragment", "operation": "launch", "violates": "allocator endpoint 不允许 redirect/query/fragment", "given": "allocator 需要 redirect，或 endpoint 含 query/fragment", "expectedRejection": "untrusted_ws_endpoint" },
+    { "name": "launch_rejects_loopback_ws_outside_test_profile", "operation": "launch", "violates": "loopback ws 仅显式 test profile/config", "given": "ws://127.0.0.1 endpoint 未同时满足 profile=test 与 allowlist record.localTest=true", "expectedRejection": "untrusted_ws_endpoint" },
     { "name": "launch_rejects_mismatched_audience", "operation": "launch", "violates": "Launch allocation context 与 admissionCredential 六元组一致", "given": "serverAudience 与签名 credential 不一致", "expectedRejection": "admission_binding_mismatch" },
     { "name": "launch_rejects_mismatched_game", "operation": "launch", "violates": "Launch allocation context 与 admissionCredential 六元组一致", "given": "gameId 与签名 credential 不一致", "expectedRejection": "admission_binding_mismatch" },
     { "name": "launch_rejects_mismatched_release", "operation": "launch", "violates": "Launch allocation context 与 admissionCredential 六元组一致", "given": "gameReleaseId 与签名 credential 不一致", "expectedRejection": "admission_binding_mismatch" },

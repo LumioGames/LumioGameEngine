@@ -212,6 +212,7 @@
   "accountAuthCredential": {
     "wireForm": "base64url(credentialBytes)",
     "purpose": "WS login_or_register response credential for account authentication only; it is not a Room admission credential and is never accepted by verify_admission.",
+    "formatSource": "Uses admissionCredential framing, canonical payload, signature profile and limits.admissionCredentialTtlSeconds; the distinct response field name and unbound sentinel define its non-admittable capability.",
     "binding": "The six allocation fields in the shared canonical payload are all admissionBinding.unboundSentinel.",
     "expiryField": "accountAuthExpiresAt",
     "issuer": "LumioPlatform account domain",
@@ -367,6 +368,7 @@
       "account_created": { "required": ["accountId", "loginName"] },
       "login_succeeded": { "required": ["accountId", "accountNewlyCreated"] },
       "login_rejected": { "required": ["loginName", "code"] },
+      "account_auth_credential_issued": { "required": ["accountId", "keyId", "expiresAt"] },
       "admission_credential_issued": { "required": ["accountId", "keyId", "expiresAt"] }
     },
     "auditNote": "全部审计事件禁止携带 password、哈希、botToolCredential、admissionCredential 原文；game-server 侧 verify/takeover 审计由 R-00346 / R-00350 卡定义。"
@@ -404,10 +406,10 @@
       "expect": "返回 accountId/loginName/serverAudience/gameId/gameReleaseId/contractId/roomId/allocationId/botToolContext/expiresAt/keyId，全部字段与签发及当前 allocationContext 一致。"
     },
     {
-      "name": "verify_admission_trusted_wss_endpoint",
+      "name": "verify_admission_bound_credential",
       "operation": "verify_admission",
       "given": "Platform Launch 签发的合法未过期 Room-bound admissionCredential；Game Server 提供受信 allocationContext",
-      "expect": "返回绑定字段全部一致；verify_admission 不解析或信任 wsUrl，凭证不出现在 URL 或日志。"
+      "expect": "返回绑定字段全部一致；verify_admission 只验证签名凭证与 server-owned allocationContext，不接收或处理 endpoint。"
     },
     {
       "name": "account_restart_stability",
