@@ -28,7 +28,7 @@
     "errorBody": { "code": "enum:errorCodes", "detail": "string" },
     "statusMapping": {
       "400": ["invalid_request", "invalid_email", "invalid_username", "invalid_password", "invalid_avatar", "verification_code_invalid", "verification_code_expired"],
-      "401": ["unauthorized"],
+      "401": ["unauthorized", "invalid_credentials"],
       "403": ["forbidden", "account_banned", "bot_namespace_register_forbidden", "game_not_published"],
       "404": ["game_not_found"],
       "409": ["email_taken", "username_taken"],
@@ -67,7 +67,7 @@
       "failureCodes": ["invalid_request", "invalid_email", "email_taken", "email_unconfigured", "code_resend_cooldown", "rate_limited"],
       "semantics": [
         "生成 6 位数字验证码，10 分钟有效，最多 5 次尝试，同一邮箱 60 秒内不重发；库中只存 SHA-256。",
-        "SMTP 未配置且未显式开启 PLATFORM_EMAIL_ALLOW_CONSOLE=1（仅开发）时返回 email_unconfigured，且不落库。",
+        "SMTP 未配置且未显式开启 PLATFORM_EMAIL_ALLOW_CONSOLE=1（仅开发；生产禁止）时返回 email_unconfigured，且不落库。",
         "邮箱已注册返回 email_taken（注册路径允许揭示；登录路径不允许，见 login）。"
       ]
     },
@@ -90,7 +90,7 @@
       "success": { "status": 200, "body": "profileShape", "setCookie": true },
       "failureCodes": ["invalid_request", "invalid_credentials", "account_banned", "rate_limited"],
       "semantics": [
-        "邮箱不存在与口令错误返回**同一**应答体与状态（invalid_credentials，401 以外的 400 不用；固定 401），防枚举。",
+        "邮箱不存在与口令错误返回**同一**应答体与状态：固定 401 invalid_credentials，防枚举。",
         "status=banned → account_banned（403）；成功写 lastLoginAt 与 login_attempts(port=http)。",
         "口令只出现在本请求；任何响应、日志、审计不得回显口令或其哈希。"
       ]
@@ -220,11 +220,10 @@
   "testCases": [
     { "name": "register_with_verified_email", "operation": "register", "given": "request-code 后取得验证码；email=alice@example.com、loginName=alice、password 合法", "expect": "201；body 为 profileShape，accountId 匹配 ^acct_[0-9a-f]{32}$，uid ≥ 100000，avatarId=1，role=player；Set-Cookie lumio_platform_session（HttpOnly、SameSite=Lax）。" },
     { "name": "login_sets_session_and_me_returns_profile", "operation": "login", "given": "alice 已注册；正确口令", "expect": "200 + Set-Cookie；随后 GET /api/account/me 200 且 accountId 与注册时一致；login_attempts 新增一条 outcome=success、port=http。" },
-    { "name": "ws_login_after_http_register_same_account", "operation": "login", "given": "alice 经 HTTP 注册；再经 WS /account 用 loginName=alice + 同口令 login_or_register", "expect": "WS 返回 accountNewlyCreated=false 且 accountId 与 HTTP 注册一致；其 admissionCredential 可被 verify_admission 接受（一库两端口）。" },
+    { "name": "ws_login_after_http_register_same_account", "operation": "login", "given": "alice 经 HTTP register 创建；再经 WS /account 用 loginName=alice + 同口令 login_or_register（行为按 account-port-v1 用例 idempotent_relogin_same_account）", "expect": "WS 返回 accountNewlyCreated=false 且 accountId 与 HTTP 注册一致；其 admissionCredential 可被 verify_admission 接受（一库两端口，ADR-061 验证 Fixture 2）。" },
     { "name": "launch_issues_fresh_offline_verifiable_credential", "operation": "launch", "given": "alice 已登录；游戏 hello 已发布且固定端点已配置", "expect": "200；wsUrl / subprotocol / contractId / roomId=hello；admissionCredential 通过 account-port-v1 的解形→验签→过期→Bot 上下文四步；连续两次 launch 的 nonce 不同；事件表新增 game.launched。" },
     { "name": "set_avatar_within_range", "operation": "set_avatar", "given": "alice 已登录；avatarId=7（≤ avatarCount）", "expect": "200 且 me 返回 avatarId=7。" },
-    { "name": "production_profile_plain_ws_register_rejected", "operation": "register", "given": "PLATFORM_REGISTRATION_PROFILE=production；WS /account 对不存在的 loginName=carol（非 Bot）login_or_register", "expect": "WS Error code=registration_requires_platform；accounts 零新增；同一 loginName 随后可经 HTTP register 创建。" },
-    { "name": "test_profile_plain_ws_register_allowed", "operation": "register", "given": "PLATFORM_REGISTRATION_PROFILE=test；WS /account 对不存在的 loginName=dave login_or_register", "expect": "照 account-port-v1 register_new_account 创建；email 为空。" }
+    { "name": "http_register_then_ws_profile_cases_delegated", "operation": "register", "given": "注册策略 profile 对 WS 端口的行为", "expect": "不在本契约另立用例：production 下 WS 拒 registration_requires_platform 由 account-port-v1 invalidCases.production_profile_plain_register_rejected 覆盖；test 下 WS 登录即注册由 account-port-v1 testCases.register_new_account 覆盖。本契约只保证：production 下 HTTP register 对同一 loginName 随后成功创建。" }
   ],
   "invalidCases": [
     { "name": "register_bot_name_rejected", "operation": "register", "violates": "HTTP 注册对 Bot 命名空间关闭", "given": "loginName=Bot77，验证码合法", "expectedRejection": "bot_namespace_register_forbidden" },

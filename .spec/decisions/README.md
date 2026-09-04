@@ -4,7 +4,7 @@
 
 本目录分两段历史，读之前先认这条线：
 
-- **ADR-001 ~ ADR-048（`Historical`）**——全部产生于 2026-08-31 之前的「架构源 + Baseline 门禁 + 七仓镜像」旧制度，其赖以成立的 `schemas/` / `fixtures/` / `ids/` / `packages/` 与 Baseline 校验链已随制度废止一并删除（见 git 历史）。它们的**技术结论仍可被新 ADR 引用**，但「`Accepted` 后不可改写」的约束随旧制度一并失效：允许就地修正失效的引用路径，不必为一处路径新增一号。状态列写作 `Historical · <原状态>`，原状态保留可读。
+- **ADR-001 ~ ADR-048（`Historical`）**——全部产生于 2026-08-31 之前的「架构源 + Baseline 门禁 + 八仓镜像」旧制度，其赖以成立的 `schemas/` / `fixtures/` / `ids/` / `packages/` 与 Baseline 校验链已随制度废止一并删除（见 git 历史）。它们的**技术结论仍可被新 ADR 引用**，但「`Accepted` 后不可改写」的约束随旧制度一并失效：允许就地修正失效的引用路径，不必为一处路径新增一号。状态列写作 `Historical · <原状态>`，原状态保留可读。
 - **ADR-049 起（在册）**——Living Architecture 制度下的决策。ADR-049 于 2026-09-01 在新制度下重新 `Accepted`（明确为 pre-launch wire 契约、非 baseline event），因此不属旧制度、不打 `Historical`。此段的 `Accepted` 不可改写规则正常生效。
 
 `ADR-015` 保持 `Reserved`（Mod 是 P2）。NativeCore 内部实现决策在 [`nativecore/`](nativecore/README.md) 子命名空间，另起一套 `000N` 编号，与本表互不占号。
@@ -13,7 +13,7 @@
 
 - 一个决策一个 `ADR-NNN-<slug>.md`，沿用现有三位编号并递增；无 frontmatter。
 - 正文必须包含背景、决策、替代方案、接口/Schema、失败语义、兼容影响、迁移方案和验证 Fixture。
-- 跨边界语义变化同步更新 [`knowledge/features/architecture.md`](../knowledge/features/architecture.md) 与受影响的接口定义（`engine/abi/`、`engine/wire/`）；Living Architecture 不再维护 BaselineId、Schema/Fixture 全量门与七仓镜像。
+- 跨边界语义变化同步更新 [`knowledge/features/architecture.md`](../knowledge/features/architecture.md) 与受影响的接口定义（`engine/abi/`、`engine/wire/`）；Living Architecture 不再维护 BaselineId、Schema/Fixture 全量门与八仓镜像。
 - ADR-049 起，`Accepted`/`Superseded` 历史不改写；取代时新增 ADR，并在旧 ADR 状态与本索引中记录关系。`Historical` 段不受此约束（见上）。
 
 ## 索引

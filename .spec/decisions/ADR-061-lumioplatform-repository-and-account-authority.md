@@ -30,7 +30,7 @@ Owner 要做对外的「游戏平台」：网页账号系统（邮箱注册、ID
 8. **launch 端口**：`POST /api/games/{slug}/launch`（需会话）返回 `{ wsUrl, subprotocol, contractId, roomId, admissionCredential, admissionExpiresAt, accountId, loginName }`；凭证不进 URL；每次新签发。应答对房间分配中立：v1 分配器 = 每游戏一个固定端点（一进程一 GameWorld，ADR-058 §11）；多房间时只换分配器实现，端口不改。游戏页（LumioClient）改为同源调用该端口，`?ws=` 只保留给集成考卷本地模式。
 9. **网页端栈**：React 19 + TypeScript + Vite 单页应用，构建产物进 ASP.NET `wwwroot`，大厅 / 反馈 / 后台同一 SPA 按角色路由；DTO 真值在 C#，OpenAPI 文档由宿主 `openapi-export` 子命令导出入库并生成 TS 类型（平台内部决策 `LumioPlatform/.spec/decisions/0001`）。
 10. **进程边界**：平台单进程 readiness 行 `PLATFORM_READY {"port","pid","listen","database":"postgresql","accountPort":"/account","contractIds":[...]}` 取代 `ACCOUNT_SERVER_READY`；退出码词表不变（0 / 1 / 2 / 3）；`--store-path` 废止，连接串只经 `PLATFORM_DB_CONNECTION_STRING`。
-11. **退役条件与顺序**：平台在 CI 上通过 `account-port-v1.json` 全部 7 + 11 条冻结用例，且 RM-00011 集成考卷（R4-09 口径）指向平台 `/account` 端口全绿 → 同一 wave 内删除 `LumioServer/account-server/` 整目录及其 CI job / README 条目。不设并存期。
+11. **退役条件与顺序**：平台在 CI 上通过 `account-port-v1.json` 全部 7 + 12 条冻结用例（含本 ADR 新增的 `production_profile_plain_register_rejected`），且 RM-00011 集成考卷（R4-09 口径）指向平台 `/account` 端口全绿 → 同一 wave 内删除 `LumioServer/account-server/` 整目录及其 CI job / README 条目。不设并存期。
 12. **拓扑待调研**：v1 部署假设「平台 + Game Server + PostgreSQL 同一台机器、各一容器」是否成立、进程 ↔ 房间 ↔ 容器映射、单机双容器成立规模与拆机信号，由 `plans/2026-09-04-platform-topology-research-prompt.md` 的调研给出结论后另立 ADR；本 ADR 不定拓扑。
 
 ## 替代方案
@@ -46,7 +46,7 @@ Owner 要做对外的「游戏平台」：网页账号系统（邮箱注册、ID
 ## 接口 / Schema
 
 - **新增** [`engine/wire/platform-port-v1.json`](../../engine/wire/platform-port-v1.json)（`lumio.platform-port.v1`）：HTTP 绑定；操作 `request_code` / `register` / `login` / `logout` / `me` / `set_avatar` / `list_avatars` / `launch`；会话（Cookie `lumio_platform_session`，HttpOnly、SameSite=Lax、Secure 随 https、14 天滑动）；`registrationProfile`；`Profile` 形状；失败码与 HTTP 状态映射；limits；正反用例。
-- **修订** [`engine/wire/account-port-v1.json`](../../engine/wire/account-port-v1.json)（本 ADR 授权）：`purpose` / `roleSemantics.account-server` / `topology.accountServer.{repository,directory,processModel,durability}` 改为 LumioPlatform 与 PostgreSQL；`process.accountServer.readiness` 改为 `PLATFORM_READY` 行；新增 `registrationProfile` 节、`registration_requires_platform` 失败码及其语义与反用例。消息形状、凭证、Bot 凭证、顶号、limits 字节不变。
+- **修订** [`engine/wire/account-port-v1.json`](../../engine/wire/account-port-v1.json)（本 ADR 授权）：`purpose` / `roleSemantics.account-server` / `topology.accountServer.{repository,directory,processModel,durability}` 改为 LumioPlatform 与 PostgreSQL；`process.accountServer.{listen,readiness,shutdown,exitCodes}` 改为平台进程边界（`PLATFORM_READY` 行、`PLATFORM_LISTEN_URL`、PostgreSQL 语义的关闭与退出码）；新增 `registrationProfile` 节、`registration_requires_platform` 失败码及其语义与反用例。消息形状、凭证、Bot 凭证、顶号、limits 字节不变。
 - **Game Server 侧**：`verify_admission` 输入输出、公钥分发、`keyId` 均不变。
 - 平台内部 API（反馈、后台、埋点）不进 `engine/wire`：前后端同仓，其真值是 C# 生成的 OpenAPI 文档。
 
@@ -70,13 +70,13 @@ Owner 要做对外的「游戏平台」：网页账号系统（邮箱注册、ID
 
 ## 迁移方案
 
-按 `LumioPlatform/.spec/plans/2026-09-04-platform-ms1-cards.md`：W0 骨架 → W1 数据模型 → W2 账号域搬入 + WS 端口（契约 18 条用例全过）∥ SPA 骨架 → W3 HTTP 账号 ∥ 大厅与 launch ∥ 游戏页接 launch（LumioClient）→ W4 反馈 ∥ 后台 ∥ 埋点 → W5 集成考卷指向平台 + 删 `LumioServer/account-server/` ∥ 上线前置（限流、访问控制、镜像定稿）。同 wave 文件集互不重叠；跨仓卡按 `cross-repo-delivery` 派。
+按 `LumioPlatform/.spec/plans/2026-09-04-platform-ms1-cards.md`：W0 骨架 → W1 数据模型 → W2 账号域搬入 + WS 端口（契约 19 条用例全过）∥ SPA 骨架 → W3 HTTP 账号 ∥ 大厅与 launch ∥ 游戏页接 launch（LumioClient）→ W4 反馈 ∥ 后台 ∥ 埋点 → W5 集成考卷指向平台 + 删 `LumioServer/account-server/` ∥ 上线前置（限流、访问控制、镜像定稿）。同 wave 文件集互不重叠；跨仓卡按 `cross-repo-delivery` 派。
 
 ## 验证 Fixture
 
 1. **一库**：平台源码只有一份 `Argon2idPasswordHasher`、一份 `AdmissionCredential` 签发、一个 `accounts` 表；`LumioServer` 仓 `grep -r account-server` 零命中（W5 后）。
-2. **两端口同库**：经 WS `/account` 注册的账号可用同一口令在 HTTP `/api/account/login`（loginName 路径）… 不成立——HTTP 登录标识是邮箱；改为：经 HTTP 注册的账号可在 WS 端口用 loginName + 口令登录并取到可被 `verify_admission` 接受的凭证；两条路径返回同一 `accountId`。
-3. **契约不变**：`account-port-v1.json` 除本 ADR 列出的字段外字节不变（`git diff` 只命中列出的键）；平台通过其全部 7 + 11 条用例，测试名与用例名一致。
+2. **两端口同库**：经 HTTP 注册的账号可在 WS 端口用 loginName + 口令登录并取到可被 `verify_admission` 接受的凭证；两条路径返回同一 `accountId`。
+3. **契约不变**：`account-port-v1.json` 除本 ADR 列出的字段外字节不变（`git diff` 只命中列出的键）；平台通过其全部 7 + 12 条用例，测试名与用例名一致。
 4. **Game Server 零改动**：`LumioServer` 的 `verify_admission` 实现与测试在本 ADR 前后 `git diff` 为空，仍能验证平台签发的凭证。
 5. **profile 设防**：`production` 下 WS 普通新 loginName 拒 `registration_requires_platform`；`test` 下照 ADR-054 创建；HTTP 注册 Bot 名拒 `bot_namespace_register_forbidden`。
 6. **launch 中立**：换分配器实现（固定端点 → 假登记表）后 `launch` 应答形状与游戏页代码不变（LumioClient 页面 `git diff` 为空）。
