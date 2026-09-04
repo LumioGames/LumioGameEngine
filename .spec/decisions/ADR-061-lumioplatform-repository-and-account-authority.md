@@ -1,7 +1,7 @@
 # ADR-061：LumioPlatform 仓库加入与账号权威归属——一库两端口、PostgreSQL 持久真值、launch 端口与 `LumioServer/account-server/` 退役
 
 状态：Draft（2026-09-04，Owner 逐题裁决：账号权威归属、网页端栈、存储、仓名、AccountWorld 去留；本 ADR 随 P0–P5 卡实现验证后转 Accepted）
-取代：部分取代 [ADR-054](ADR-054-account-server-topology-and-port.md)——第 1 条「Account Server 是 `LumioServer` 仓 `account-server/` 目录下的独立 C# 进程」的**归属**与第 7 条交付载体中的目录声明；ADR-054 其余条款（login-or-register 语义、AccountEntity 走 ECS、准入凭证格式、Bot 工具凭证、顶号）原文继续有效
+取代：部分取代 [ADR-054](ADR-054-account-server-topology-and-port.md)——取代第 1 条账号服务归属、第 7 条交付目录，以及“`login_or_register` 直接返回可进入 Room 的 `admissionCredential`”语义；登录/注册、AccountEntity、Bot 工具凭证与顶号语义继续有效，但凭证响应字段、六元绑定格式和 WS account-auth → Launch → Room admission 交换链以本 ADR 与两份 v1 wire contract 为准
 Owner：`LumioGameEngine`（裁决与契约真值）、`LumioPlatform`（账号权威、大厅、反馈、后台的唯一实现）、`LumioServer`（离线 `verify_admission` 消费扩展后的绑定声明；`account-server/` 退役）、`LumioClient`（游戏页改经 launch 端口取地址与凭证）、`LumioGame`（集成考卷改起平台进程）
 
 ## 治理原则
@@ -26,7 +26,7 @@ Owner 要做对外的「游戏平台」：网页账号系统（邮箱注册、ID
 4. **持久真值 PostgreSQL（从第一天）**：`DurableAccountStore` JSON 文件存储删除；账号、口令哈希、邮箱验证、登录记录、游戏目录、反馈、事件、设置、审计全部在一个 PostgreSQL 库；本地 Docker，CI service container。
 5. **AccountWorld 保留**（Owner 明确）：ADR-054 §2 的低频 ECS World 与 `AccountIdentityComponent` 继续作为账号域**运行态模型**（登录加载 / 创建 AccountEntity、登出只结束会话），数据库是持久真值；账号的一切写入只经 `AccountRuntime` 一条路径，后台读走数据库只读投影。理由：将来 Steam / iOS / Android / 真机客户端要走同一账号域，不能把账号绑死在网页平台上。
 6. **账号身份扩展**：`accountId`（不变，进凭证）、`loginName`（= 用户名，ADR-054 grammar 与 Bot 命名空间规则不变，进凭证）、新增 `email`（HTTP 登录标识，唯一，需验证；Bot 与 `test` profile 账号可空）、`uid`（公开数字 ID，从 100000 起）、`avatarId`（系统默认头像集编号，不支持上传）、`role`（player | admin）、`status`（active | banned）。Admission credential v1 canonical payload 在既有字段后固定追加 `serverAudience`、`gameId`、`gameReleaseId`、`contractId`、`roomId`、`allocationId`；Game Server 必须逐字段比对当前分配上下文。
-7. **注册策略 profile**（`PLATFORM_REGISTRATION_PROFILE`）：`test` = WS `login_or_register` 照 ADR-054 对任何合法 loginName 登录即注册（集成考卷、开发）；`production`（默认）= WS 端口只允许 Bot 命名空间 + 有效工具凭证注册，普通新 loginName 拒 `registration_requires_platform`，人类账号只能经 HTTP 邮箱注册；已存在的人类账号仍可在 WS 端口用 loginName + 口令登录取 `accountAuthCredential`。生产不得开 `test`。该失败码加入 `account-port-v1.json` 的 `errorCodes`（本 ADR 授权的唯一 WS 契约扩展）。
+7. **注册策略 profile**（`PLATFORM_REGISTRATION_PROFILE`）：`test` = WS `login_or_register` 照 ADR-054 对任何合法 loginName 登录即注册（集成考卷、开发）；`production`（默认）= WS 端口只允许 Bot 命名空间 + 有效工具凭证注册，普通新 loginName 拒 `registration_requires_platform`，人类账号只能经 HTTP 邮箱注册；已存在的人类账号仍可在 WS 端口用 loginName + 口令登录取 `accountAuthCredential`。生产不得开 `test`；该失败码加入 `account-port-v1.json` 的 `errorCodes`。
 8. **launch 端口**：`POST /api/games/{slug}/launch` 接受 Cookie 或 WS account-auth Bearer，返回 `{ wsUrl, subprotocol, serverAudience, gameId, gameReleaseId, contractId, roomId, allocationId, admissionCredential, admissionExpiresAt, accountId, loginName }`；调用方除 path slug 外不得提交分配 claim，凭证不进 URL/日志且每次新签发。服务端 allowlist 按 allocationId 精确绑定 scheme/host/port/path 与六元上下文，禁止 userinfo、query、fragment、redirect 和 wildcard host；公网必须是 allowlisted `wss://`，`ws://` 仅显式 test profile + loopback record。多房间时只换服务端分配器实现，端口不改。
 9. **网页端栈**：React 19 + TypeScript + Vite 单页应用，构建产物进 ASP.NET `wwwroot`，大厅 / 反馈 / 后台同一 SPA 按角色路由；DTO 真值在 C#，OpenAPI 文档由宿主 `openapi-export` 子命令导出入库并生成 TS 类型（平台内部决策 `LumioPlatform/.spec/decisions/0001`）。
 10. **进程边界**：平台单进程 readiness 行 `PLATFORM_READY {"port","pid","listen","database":"postgresql","accountPort":"/account","contractIds":[...]}` 取代 `ACCOUNT_SERVER_READY`；退出码词表不变（0 / 1 / 2 / 3）；`--store-path` 废止，连接串只经 `PLATFORM_DB_CONNECTION_STRING`。
@@ -48,7 +48,7 @@ Owner 要做对外的「游戏平台」：网页账号系统（邮箱注册、ID
 契约镜像基线：`c9f017b` 仅是 PR #77 已合入时的历史基线，不包含本次 Gate-0 扩展。新 source revision 是分支 `docs/2026-09-04-platform-route` 的 Gate-0 commit，合入后由主线实际 merge SHA 固定并供下游 CI 镜像/漂移检查；不得把未合入分支描述为当前 main。v1 凭证采用可离线强制的有界 bearer replay policy：Room credential 仅接受六元分配上下文绑定，WS credential 使用 unbound sentinel 且不可入 Room；WSS/TLS 与审计降低暴露风险。nonce 仅用于唯一性与审计，不引入在线 nonce-consumption 表，也不宣称全局单活跃会话，300 秒 TTL 保持不变。
 
 - **新增** [`engine/wire/platform-port-v1.json`](../../engine/wire/platform-port-v1.json)（`lumio.platform-port.v1`）：HTTP 绑定；操作 `request_code` / `register` / `login` / `logout` / `me` / `set_avatar` / `list_avatars` / `launch`；会话（Cookie `lumio_platform_session`，HttpOnly、SameSite=Lax、Secure 随 https、14 天滑动）；`registrationProfile`；`Profile` 形状；失败码与 HTTP 状态映射；limits；正反用例。
-- **修订** [`engine/wire/account-port-v1.json`](../../engine/wire/account-port-v1.json)（本 ADR 授权）：`purpose` / `roleSemantics.account-server` / `topology.accountServer.{repository,directory,processModel,durability}` 改为 LumioPlatform 与 PostgreSQL；`process.accountServer.{listen,readiness,shutdown,exitCodes}` 改为平台进程边界（`PLATFORM_READY` 行、`PLATFORM_LISTEN_URL`、PostgreSQL 语义的关闭与退出码）；新增 `registrationProfile` 节、`registration_requires_platform` 失败码及其语义与反用例；admission canonical payload 追加六元分配绑定字段并冻结 verifier 比对语义。消息形状、Bot 凭证、顶号、TTL limits 保持既有语义。
+- **修订** [`engine/wire/account-port-v1.json`](../../engine/wire/account-port-v1.json)（本 ADR 授权）：`purpose` / `roleSemantics.account-server` / `topology.accountServer.{repository,directory,processModel,durability}` 改为 LumioPlatform 与 PostgreSQL；`process.accountServer.{listen,readiness,shutdown,exitCodes}` 改为平台进程边界（`PLATFORM_READY` 行、`PLATFORM_LISTEN_URL`、PostgreSQL 语义的关闭与退出码）；新增 `registrationProfile`、`registration_requires_platform`；`LoginOrRegisterAck` 的 Room credential 字段改为不可入 Room 的 `accountAuthCredential/accountAuthExpiresAt`；admission canonical payload 追加六元分配绑定字段并冻结 verifier 比对语义。Bot 工具凭证、顶号与 300 秒 TTL 保持既有语义。
 - **Game Server 侧**：`verify_admission` 仍离线验签；输出增加六个分配绑定声明，随后逐一比较当前分配上下文。公钥分发与 `keyId` 语义不变。
 - 平台内部 API（反馈、后台、埋点）不进 `engine/wire`：前后端同仓，其真值是 C# 生成的 OpenAPI 文档。
 
@@ -58,7 +58,7 @@ Owner 要做对外的「游戏平台」：网页账号系统（邮箱注册、ID
 - Bot 命名空间四触点（register / claim / login / admission）只在账号域一处设防；HTTP 注册对 Bot 命名空间一律 `bot_namespace_register_forbidden`。
 - `production` profile 下 WS 端口对普通新 loginName 拒 `registration_requires_platform`；任何环境不得把 `test` profile 带上生产。
 - 缺 `PLATFORM_DB_CONNECTION_STRING` 即启动失败（退出码 1）；SMTP 未配置即注册请求 503 `email_unconfigured`，不静默退回。
-- 口令、哈希、凭证原文、私钥不进响应、审计、日志、组件、证据。
+- 口令、哈希、`accountAuthCredential` / `admissionCredential` 原文、私钥不进响应之外的 URL、审计、日志、组件或证据。
 - 源码出现第二份账号库 / 口令哈希 / 凭证签发 / 协议真值 / 手写 DTO——结构断言失败，收口审查退回。
 
 ## 兼容影响
