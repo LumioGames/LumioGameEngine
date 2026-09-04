@@ -10,7 +10,7 @@
 `LumioGameEngine` 是引擎的 SDK 组装根、Native 聚合根和跨 Host 开发入口，同时是架构说明与公共决策的唯一来源。主要资产是 `engine/`（Native / 托管 / ABI / wire 契约）、`eng/`（生成与构建入口）与 `.spec/`（全仓唯一文档根）。
 
 - 当前主线是预上线 Living Architecture；本仓同时拥有 SDK 组装、Native 聚合、共享 Loader 和架构说明。
-- 开发态公共语义变更先在唯一 ABI/API 定义和可运行 Host 中验证；不要求 Baseline、七仓镜像或全量 Fixture。
+- 开发态公共语义变更先在唯一 ABI/API 定义和可运行 Host 中验证；不要求 Baseline、八仓镜像或全量 Fixture。
 - 全仓文档只有一个根 `.spec/`：设计现状落 `knowledge/features/`（活文档，文件名不带日期），计划落 `plans/`、审查与裁决流水落 `reviews/`（某天的记录，文件名带日期前缀），决策落 `decisions/`，在途任务落 `tasks/`。`docs/` 已废止，唯一例外是仓根 `docs/adr/` 作为 `.spec/decisions` 的 git mode 120000 镜像（spec-lint 8b）。
 - 开工前先读 [`repository-architecture.md`](knowledge/standards/repository-architecture.md)；规范入口见根 [`README.md`](../README.md)，决策入口见 [`decisions/README.md`](decisions/README.md)。
 
@@ -35,7 +35,7 @@
   - **审查方隔离:** reviewer 审实现方交付环境相对基线的完整 diff,**且自己的验证也必须跑在独立环境里**——`git worktree` 或只读快照(`git archive` 物化)皆可,口径与 [`dispatch.md`](knowledge/standards/dispatch.md)、[`reviewer.agent.md`](agents/reviewer.agent.md) 一致;并发编辑中的仓优先快照(worktree 会向仓写注册记录,见 `lessons.md`)。**主 loop 派审后不得在同一环境跑构建**——同环境并发构建会互锁(MSBuild 节点复用 + `obj/` 争用,.NET 侧已实测;node / python 栈无此问题),两侧都会假失败。
   - **合入:** 通过才由主 loop 合入主工作区,未过审不合入,冲突退回实现方。
 - **派活模板:** worker 派遣与 reviewer 触发的 prompt 骨架见 [`knowledge/standards/dispatch.md`](knowledge/standards/dispatch.md)。
-- **跨仓交付:** 向七个实现仓提需求、派活、核验交回物、聚合验收走 [`skills/cross-repo-delivery`](skills/cross-repo-delivery/SKILL.md)——Workflow(lumiogamesengine)是跨仓需求真值,主 loop 是唯一 Workflow 写入方。
+- **跨仓交付:** 向八个实现仓提需求、派活、核验交回物、聚合验收走 [`skills/cross-repo-delivery`](skills/cross-repo-delivery/SKILL.md)——Workflow(lumiogamesengine)是跨仓需求真值,主 loop 是唯一 Workflow 写入方。
 - **定期盘点(TD 职能):** 盘进度/对账 Workflow 与仓库真实状态/产出本地评估报告/编排派活走 [`skills/td-progress-audit`](skills/td-progress-audit/SKILL.md);发现状态漂移或证据不可复核也用它。技能按职能前缀命名(td- = 引擎总监/技术 Owner)。
 - **交回物格式(全仓单一权威):** ① 改动清单;② **验证证据**——命令与关键输出,不得只声称「已通过」;③ known gaps;④ 知识沉淀落点(或声明无需沉淀)。拆解类交任务卡集合,②以自检结论 + 待澄清项代替;reviewer 交审查报告(见 [`agents/reviewer.agent.md`](agents/reviewer.agent.md))。
 - **谁来调度:** 只有主 loop 派活;子 Agent 只执行,各自上下文只拿任务卡 + 相关文件。

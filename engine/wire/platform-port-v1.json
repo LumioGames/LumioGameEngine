@@ -1,0 +1,242 @@
+{
+  "contractId": "lumio.platform-port.v1",
+  "version": 1,
+  "purpose": "LumioPlatform HTTP 端口的公共契约唯一真值：邮箱验证码注册、登录、Cookie 会话、资料与头像、以及游戏页启动（launch）取 Game Server 地址与准入凭证。消费方：LumioPlatform（唯一实现）、LumioClient 浏览器游戏页（launch）、LumioGame 集成考卷（HTTP 注册路径）。WS 端口 lumio-account-v1 的字段真值仍是 account-port-v1.json，本契约不复制其消息；准入凭证的格式、签名与 verify_admission 亦以 account-port-v1.json 为准。",
+  "rulings": [
+    "ADR-061 第 1–3 条：LumioPlatform 是唯一账号权威；一库两端口（WS 契约端口不改 + 本 HTTP 端口）",
+    "ADR-061 第 6 条：账号身份扩展 email / uid / avatarId / role / status；accountId 与 loginName 不变并继续进凭证",
+    "ADR-061 第 7 条：注册策略 profile——production 下人类账号只能经本端口邮箱注册，WS 端口对普通新 loginName 拒 registration_requires_platform",
+    "ADR-061 第 8 条：launch 应答对房间分配中立，凭证不进 URL，每次新签发"
+  ],
+  "roles": ["browser", "game-page", "platform", "game-server"],
+  "roleSemantics": {
+    "browser": "平台 SPA（大厅 / 注册登录 / 反馈 / 后台）；经 Cookie 会话调用 /api/*。",
+    "game-page": "LumioClient/modules/web 的静态游戏页，按 /games/<slug>/ 托管于平台同源；只调用 launch 取 wsUrl 与凭证，之后走 DS 五步准入。",
+    "platform": "LumioPlatform 单进程（Kestrel）：本端口 + WS /account 端口 + 静态托管；持久真值 PostgreSQL。",
+    "game-server": "不出现在本端口；只经 account-port-v1 的 verify_admission 离线验票。"
+  },
+  "transport": {
+    "kind": "http",
+    "encoding": "application/json; charset=utf-8",
+    "pathPrefix": "/api",
+    "session": {
+      "cookie": "lumio_platform_session",
+      "attributes": "HttpOnly; SameSite=Lax; Secure 当 PLATFORM_PUBLIC_ORIGIN 为 https；Path=/",
+      "lifetime": "14 天滑动过期；每次请求核 accounts.status，banned 即 401",
+      "principal": ["accountId", "uid", "loginName", "role"]
+    },
+    "errorBody": { "code": "enum:errorCodes", "detail": "string" },
+    "statusMapping": {
+      "400": ["invalid_request", "invalid_email", "invalid_username", "invalid_password", "invalid_avatar", "verification_code_invalid", "verification_code_expired"],
+      "401": ["unauthorized", "invalid_credentials"],
+      "403": ["forbidden", "account_banned", "bot_namespace_register_forbidden", "game_not_published"],
+      "404": ["game_not_found"],
+      "409": ["email_taken", "username_taken"],
+      "429": ["rate_limited", "code_resend_cooldown"],
+      "503": ["email_unconfigured", "no_room_available"]
+    },
+    "maxRequestJsonBytes": 16384
+  },
+  "identity": {
+    "accountId": { "format": "^acct_[0-9a-f]{32}$", "semantics": "与 account-port-v1 同一值；进准入凭证。" },
+    "uid": { "type": "u64", "semantics": "公开数字 ID，从 100000 起单调分配、永不复用；UI / 反馈 / 后台检索用，不进凭证。" },
+    "loginName": { "grammar": "^[A-Za-z][A-Za-z0-9_-]{2,31}$", "caseSensitive": true, "semantics": "= 用户名；与 account-port-v1 同一 grammar 与 Bot 命名空间规则；进准入凭证。" },
+    "email": { "normalization": "trim + 小写", "grammar": "RFC 5322 addr-spec 子集：^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$，≤ 254 字节", "semantics": "HTTP 登录标识，唯一；注册须验证码通过。" },
+    "avatarId": { "type": "u16", "range": "1..avatarCount（由平台资产数决定，默认 12）", "semantics": "系统默认头像集编号；不支持上传。" },
+    "role": { "enum": ["player", "admin"] },
+    "status": { "enum": ["active", "banned"] },
+    "profileShape": {
+      "required": { "accountId": "account-id", "uid": "u64", "loginName": "username", "email": "string|null", "avatarId": "u16", "role": "enum:role", "createdAt": "epoch-s" },
+      "optional": {}
+    }
+  },
+  "registrationProfile": {
+    "variable": "PLATFORM_REGISTRATION_PROFILE",
+    "values": {
+      "test": "WS login_or_register 照 account-port-v1 对任何合法 loginName 登录即注册；用于集成考卷与开发；口令测试档案见 account-port-v1.passwordProfile.testProfile。",
+      "production": "默认。WS 端口只允许 Bot 命名空间 + 有效工具凭证注册；普通新 loginName 在 WS 端口拒 registration_requires_platform；人类账号只能经本端口 register（邮箱验证码）创建。已存在的人类账号仍可在 WS 端口用 loginName + 口令登录并取凭证。"
+    },
+    "rule": "生产部署不得设置 test；该开关是配置字面量而非代码分支旁路。"
+  },
+  "operations": {
+    "request_code": {
+      "binding": "POST /api/account/register/request-code",
+      "auth": "none",
+      "request": { "required": { "email": "email" }, "optional": {} },
+      "success": { "status": 204, "body": null },
+      "failureCodes": ["invalid_request", "invalid_email", "email_taken", "email_unconfigured", "code_resend_cooldown", "rate_limited"],
+      "semantics": [
+        "生成 6 位数字验证码，10 分钟有效，最多 5 次尝试，同一邮箱 60 秒内不重发；库中只存 SHA-256。",
+        "SMTP 未配置且未显式开启 PLATFORM_EMAIL_ALLOW_CONSOLE=1（仅开发；生产禁止）时返回 email_unconfigured，且不落库。",
+        "邮箱已注册返回 email_taken（注册路径允许揭示；登录路径不允许，见 login）。"
+      ]
+    },
+    "register": {
+      "binding": "POST /api/account/register",
+      "auth": "none",
+      "request": { "required": { "email": "email", "code": "string(6 digits)", "loginName": "username", "password": "string" }, "optional": { "avatarId": "u16" } },
+      "success": { "status": 201, "body": "profileShape", "setCookie": true },
+      "failureCodes": ["invalid_request", "invalid_email", "email_taken", "verification_code_invalid", "verification_code_expired", "invalid_username", "username_taken", "bot_namespace_register_forbidden", "invalid_password", "invalid_avatar", "rate_limited"],
+      "semantics": [
+        "校验顺序：请求可解形 → email 语法 → 验证码（不存在/错误 → verification_code_invalid；过期 → verification_code_expired；尝试次数用尽按 invalid）→ loginName grammar → Bot 命名空间（一律拒）→ password 长度（account-port-v1.limits）→ 唯一性（email_taken / username_taken）。",
+        "成功即创建账号（AccountEntity + 凭证哈希 + emailVerifiedAt）并建立会话；avatarId 缺省为 1。",
+        "并发同邮箱 / 同 loginName 首次注册必收敛为恰一个账号，其余得 *_taken。"
+      ]
+    },
+    "login": {
+      "binding": "POST /api/account/login",
+      "auth": "none",
+      "request": { "required": { "email": "email", "password": "string" }, "optional": {} },
+      "success": { "status": 200, "body": "profileShape", "setCookie": true },
+      "failureCodes": ["invalid_request", "invalid_credentials", "account_banned", "rate_limited"],
+      "semantics": [
+        "邮箱不存在与口令错误返回**同一**应答体与状态：固定 401 invalid_credentials，防枚举。",
+        "status=banned → account_banned（403）；成功写 lastLoginAt 与 login_attempts(port=http)。",
+        "口令只出现在本请求；任何响应、日志、审计不得回显口令或其哈希。"
+      ]
+    },
+    "logout": {
+      "binding": "POST /api/account/logout",
+      "auth": "session",
+      "request": { "required": {}, "optional": {} },
+      "success": { "status": 204, "body": null, "clearCookie": true },
+      "failureCodes": ["unauthorized"],
+      "semantics": ["只结束会话；账号对象不销毁（与 account-port-v1 logout 语义一致）。"]
+    },
+    "me": {
+      "binding": "GET /api/account/me",
+      "auth": "session",
+      "request": { "required": {}, "optional": {} },
+      "success": { "status": 200, "body": "profileShape" },
+      "failureCodes": ["unauthorized"],
+      "semantics": []
+    },
+    "set_avatar": {
+      "binding": "PUT /api/account/me/avatar",
+      "auth": "session",
+      "request": { "required": { "avatarId": "u16" }, "optional": {} },
+      "success": { "status": 200, "body": "profileShape" },
+      "failureCodes": ["unauthorized", "invalid_avatar"],
+      "semantics": ["avatarId 超出 1..avatarCount → invalid_avatar。"]
+    },
+    "list_avatars": {
+      "binding": "GET /api/account/avatars",
+      "auth": "none",
+      "request": { "required": {}, "optional": {} },
+      "success": { "status": 200, "body": "[{ id: u16, url: string }]" },
+      "failureCodes": [],
+      "semantics": ["url 为平台同源静态资源路径。"]
+    },
+    "launch": {
+      "binding": "POST /api/games/{slug}/launch",
+      "auth": "session",
+      "request": { "required": {}, "optional": {} },
+      "success": {
+        "status": 200,
+        "body": {
+          "required": { "wsUrl": "ws-url", "subprotocol": "string", "contractId": "string", "roomId": "string", "admissionCredential": "base64url", "admissionExpiresAt": "epoch-s", "accountId": "account-id", "loginName": "username" },
+          "optional": {}
+        }
+      },
+      "failureCodes": ["unauthorized", "account_banned", "game_not_found", "game_not_published", "no_room_available", "rate_limited"],
+      "semantics": [
+        "admissionCredential 的格式、签名、keyId、TTL 与 account-port-v1.admissionCredential 完全一致；每次调用新签发（新 nonce / expiry）。",
+        "wsUrl / subprotocol / contractId / roomId 由房间分配器给出；v1 = 每游戏固定端点（roomId = slug），多房间时换分配器实现、本应答形状不变。",
+        "凭证只在本应答体内返回，不进 URL、不进日志；游戏页同源 fetch 后立即用于 DS 握手。",
+        "记录事件 game.launched（accountId、slug、roomId）。"
+      ]
+    }
+  },
+  "errorCodes": [
+    "invalid_request",
+    "invalid_email",
+    "email_taken",
+    "email_unconfigured",
+    "code_resend_cooldown",
+    "verification_code_invalid",
+    "verification_code_expired",
+    "invalid_username",
+    "username_taken",
+    "bot_namespace_register_forbidden",
+    "invalid_password",
+    "invalid_avatar",
+    "invalid_credentials",
+    "account_banned",
+    "unauthorized",
+    "forbidden",
+    "game_not_found",
+    "game_not_published",
+    "no_room_available",
+    "registration_requires_platform",
+    "rate_limited"
+  ],
+  "errorCodeSemantics": {
+    "invalid_request": "请求不可解形 / 缺必填字段 / JSON 越界（maxRequestJsonBytes）。",
+    "invalid_email": "email 不符合 grammar 或超长。",
+    "email_taken": "邮箱已被注册（注册与验证码请求路径）。",
+    "email_unconfigured": "SMTP 未配置且未显式允许控制台输出；注册请求不可用（503）。",
+    "code_resend_cooldown": "同一邮箱 60 秒内重复请求验证码。",
+    "verification_code_invalid": "验证码不存在、不匹配或尝试次数用尽。",
+    "verification_code_expired": "验证码已过 10 分钟有效期。",
+    "invalid_username": "loginName 不符合 account-port-v1 grammar。",
+    "username_taken": "loginName 已存在。",
+    "bot_namespace_register_forbidden": "经 HTTP 注册 Bot 命名空间（^Bot[0-9]+$）一律拒绝；Bot 账号只能经 WS 端口 + 工具凭证创建。",
+    "invalid_password": "password 不符合 account-port-v1.limits 的长度界限。",
+    "invalid_avatar": "avatarId 超出 1..avatarCount。",
+    "invalid_credentials": "邮箱不存在或口令错误（同一应答，防枚举）；零覆写。",
+    "account_banned": "accounts.status = banned；登录与 launch 均拒。",
+    "unauthorized": "无有效会话。",
+    "forbidden": "有会话但无权限（后台端点）。",
+    "game_not_found": "slug 不存在。",
+    "game_not_published": "游戏存在但 status ≠ published。",
+    "no_room_available": "分配器无可用端点（v1 固定端点不会出现；多房间实现用）。",
+    "registration_requires_platform": "production profile 下 WS 端口对普通新 loginName 的注册被拒：人类账号须经本端口邮箱注册。该码同时登记在 account-port-v1.errorCodes（ADR-061）。",
+    "rate_limited": "超过部署配置的限流阈值（P5-2 上线前置卡实现；阈值走环境变量）。"
+  },
+  "limits": {
+    "maxRequestJsonBytes": 16384,
+    "emailMaxBytes": 254,
+    "verificationCodeDigits": 6,
+    "verificationCodeTtlSeconds": 600,
+    "verificationCodeMaxAttempts": 5,
+    "verificationCodeResendCooldownSeconds": 60,
+    "sessionSlidingDays": 14,
+    "avatarCountDefault": 12,
+    "passwordMinLength": 6,
+    "passwordMaxLength": 128,
+    "loginNameMinLength": 3,
+    "loginNameMaxLength": 32
+  },
+  "process": {
+    "platform": {
+      "listen": "PLATFORM_LISTEN_URL，默认 http://127.0.0.1:0（动态端口，禁止硬编码）；暴露非环回地址前必须确认访问控制与限流。",
+      "readiness": "stdout 单行前缀 PLATFORM_READY 后接 JSON {\"port\":N,\"pid\":P,\"listen\":\"http://127.0.0.1:N\",\"database\":\"postgresql\",\"accountPort\":\"/account\",\"contractIds\":[\"lumio.account-port.v1\",\"lumio.platform-port.v1\"]}",
+      "shutdown": "SIGTERM → 停止接受连接 → 关闭 WS → flush → 退出码 0",
+      "exitCodes": { "0": "正常关闭", "1": "初始化失败（缺配置、迁移失败、数据库不可达）", "2": "运行期致命错误", "3": "参数错误" }
+    },
+    "auditNote": "全部审计与日志禁止携带 password、哈希、验证码原文、admissionCredential 原文、私钥。"
+  },
+  "fixturesNote": "testCases/invalidCases 是冻结用例集：LumioPlatform 必须把每条实现为同名自动化测试；LumioClient 游戏页只消费 launch 应答形状；invalidCases.expectedRejection 必须逐条命中 errorCodeSemantics 的失败码。",
+  "testCases": [
+    { "name": "register_with_verified_email", "operation": "register", "given": "request-code 后取得验证码；email=alice@example.com、loginName=alice、password 合法", "expect": "201；body 为 profileShape，accountId 匹配 ^acct_[0-9a-f]{32}$，uid ≥ 100000，avatarId=1，role=player；Set-Cookie lumio_platform_session（HttpOnly、SameSite=Lax）。" },
+    { "name": "login_sets_session_and_me_returns_profile", "operation": "login", "given": "alice 已注册；正确口令", "expect": "200 + Set-Cookie；随后 GET /api/account/me 200 且 accountId 与注册时一致；login_attempts 新增一条 outcome=success、port=http。" },
+    { "name": "ws_login_after_http_register_same_account", "operation": "login", "given": "alice 经 HTTP register 创建；再经 WS /account 用 loginName=alice + 同口令 login_or_register（行为按 account-port-v1 用例 idempotent_relogin_same_account）", "expect": "WS 返回 accountNewlyCreated=false 且 accountId 与 HTTP 注册一致；其 admissionCredential 可被 verify_admission 接受（一库两端口，ADR-061 验证 Fixture 2）。" },
+    { "name": "launch_issues_fresh_offline_verifiable_credential", "operation": "launch", "given": "alice 已登录；游戏 hello 已发布且固定端点已配置", "expect": "200；wsUrl / subprotocol / contractId / roomId=hello；admissionCredential 通过 account-port-v1 的解形→验签→过期→Bot 上下文四步；连续两次 launch 的 nonce 不同；事件表新增 game.launched。" },
+    { "name": "set_avatar_within_range", "operation": "set_avatar", "given": "alice 已登录；avatarId=7（≤ avatarCount）", "expect": "200 且 me 返回 avatarId=7。" },
+    { "name": "http_register_then_ws_profile_cases_delegated", "operation": "register", "given": "注册策略 profile 对 WS 端口的行为", "expect": "不在本契约另立用例：production 下 WS 拒 registration_requires_platform 由 account-port-v1 invalidCases.production_profile_plain_register_rejected 覆盖；test 下 WS 登录即注册由 account-port-v1 testCases.register_new_account 覆盖。本契约只保证：production 下 HTTP register 对同一 loginName 随后成功创建。" }
+  ],
+  "invalidCases": [
+    { "name": "register_bot_name_rejected", "operation": "register", "violates": "HTTP 注册对 Bot 命名空间关闭", "given": "loginName=Bot77，验证码合法", "expectedRejection": "bot_namespace_register_forbidden" },
+    { "name": "login_unknown_email_and_wrong_password_same_body", "operation": "login", "violates": "防枚举", "given": "① email 不存在 ② email 存在但口令错", "expectedRejection": "invalid_credentials", "then": "两次应答状态与 body 逐字节相同；② 后用正确口令登录仍成功（零覆写）。" },
+    { "name": "request_code_without_smtp", "operation": "request_code", "violates": "未配置就是不可用，不静默退回", "given": "SMTP 变量未设且 PLATFORM_EMAIL_ALLOW_CONSOLE 未开", "expectedRejection": "email_unconfigured", "then": "email_verifications 零新增。" },
+    { "name": "verification_code_expired", "operation": "register", "violates": "验证码 TTL", "given": "验证码签发 601 秒后 register", "expectedRejection": "verification_code_expired" },
+    { "name": "verification_code_attempts_exhausted", "operation": "register", "violates": "最多 5 次尝试", "given": "错误验证码连续 5 次后再用正确码", "expectedRejection": "verification_code_invalid" },
+    { "name": "register_duplicate_email", "operation": "register", "violates": "email 唯一", "given": "alice@example.com 已注册", "expectedRejection": "email_taken" },
+    { "name": "register_duplicate_login_name", "operation": "register", "violates": "loginName 唯一", "given": "loginName=alice 已存在，新邮箱", "expectedRejection": "username_taken" },
+    { "name": "invalid_username_grammar", "operation": "register", "violates": "loginName grammar", "given": "loginName=\"9lives\"（首字符非字母）", "expectedRejection": "invalid_username" },
+    { "name": "launch_without_session", "operation": "launch", "violates": "launch 需会话", "given": "无 Cookie", "expectedRejection": "unauthorized" },
+    { "name": "launch_unpublished_game", "operation": "launch", "violates": "只对 published 生效", "given": "已登录；slug=draft-game 为 draft", "expectedRejection": "game_not_published" },
+    { "name": "launch_banned_account", "operation": "launch", "violates": "封禁账号不得取凭证", "given": "账号 status=banned 且已有会话", "expectedRejection": "account_banned" },
+    { "name": "avatar_out_of_range", "operation": "set_avatar", "violates": "avatarId 范围", "given": "avatarId=0 与 avatarId=avatarCount+1", "expectedRejection": "invalid_avatar" }
+  ]
+}

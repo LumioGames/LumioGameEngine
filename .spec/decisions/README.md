@@ -4,7 +4,7 @@
 
 本目录分两段历史，读之前先认这条线：
 
-- **ADR-001 ~ ADR-048（`Historical`）**——全部产生于 2026-08-31 之前的「架构源 + Baseline 门禁 + 七仓镜像」旧制度，其赖以成立的 `schemas/` / `fixtures/` / `ids/` / `packages/` 与 Baseline 校验链已随制度废止一并删除（见 git 历史）。它们的**技术结论仍可被新 ADR 引用**，但「`Accepted` 后不可改写」的约束随旧制度一并失效：允许就地修正失效的引用路径，不必为一处路径新增一号。状态列写作 `Historical · <原状态>`，原状态保留可读。
+- **ADR-001 ~ ADR-048（`Historical`）**——全部产生于 2026-08-31 之前的「架构源 + Baseline 门禁 + 八仓镜像」旧制度，其赖以成立的 `schemas/` / `fixtures/` / `ids/` / `packages/` 与 Baseline 校验链已随制度废止一并删除（见 git 历史）。它们的**技术结论仍可被新 ADR 引用**，但「`Accepted` 后不可改写」的约束随旧制度一并失效：允许就地修正失效的引用路径，不必为一处路径新增一号。状态列写作 `Historical · <原状态>`，原状态保留可读。
 - **ADR-049 起（在册）**——Living Architecture 制度下的决策。ADR-049 于 2026-09-01 在新制度下重新 `Accepted`（明确为 pre-launch wire 契约、非 baseline event），因此不属旧制度、不打 `Historical`。此段的 `Accepted` 不可改写规则正常生效。
 
 `ADR-015` 保持 `Reserved`（Mod 是 P2）。NativeCore 内部实现决策在 [`nativecore/`](nativecore/README.md) 子命名空间，另起一套 `000N` 编号，与本表互不占号。
@@ -13,7 +13,7 @@
 
 - 一个决策一个 `ADR-NNN-<slug>.md`，沿用现有三位编号并递增；无 frontmatter。
 - 正文必须包含背景、决策、替代方案、接口/Schema、失败语义、兼容影响、迁移方案和验证 Fixture。
-- 跨边界语义变化同步更新 [`knowledge/features/architecture.md`](../knowledge/features/architecture.md) 与受影响的接口定义（`engine/abi/`、`engine/wire/`）；Living Architecture 不再维护 BaselineId、Schema/Fixture 全量门与七仓镜像。
+- 跨边界语义变化同步更新 [`knowledge/features/architecture.md`](../knowledge/features/architecture.md) 与受影响的接口定义（`engine/abi/`、`engine/wire/`）；Living Architecture 不再维护 BaselineId、Schema/Fixture 全量门与八仓镜像。
 - ADR-049 起，`Accepted`/`Superseded` 历史不改写；取代时新增 ADR，并在旧 ADR 状态与本索引中记录关系。`Historical` 段不受此约束（见上）。
 
 ## 索引
@@ -80,6 +80,7 @@
 | [ADR-058](ADR-058-ecs-world-manager-and-annotation-registry.md) | ECS World Manager、Sync<T> 字段与标注生成桥（单进程单世界、WorldEntity、Netcode 式上行、一套源码两份程序集、组件式 API + 模板内联存储、128 位 NetEntityId、事件即 ClientRpc） | Draft |
 | [ADR-059](ADR-059-lumiocoreengine-repository-retirement.md) | LumioCoreEngine 仓库退役与 Owner 指针归属（远端删除、旧 ADR Owner 前向重定向、生成物 URL 经生成源更新） | Accepted |
 | [ADR-060](ADR-060-rm00011-r5-owner-rulings-pack-wire-and-observer-projection.md) | RM-00011 r5 Owner 裁决：World Manager 包上网线（C-1″ 一份 codec）、按观察者投影（ObserverComponent、先全量后增量、Scope 裁剪、出视野即删、墓碑推导）、admit 不同步回 id、声明表只从组件生成、模板内联存储做到底、删旧世界；彻底清理不留兼容 | Draft |
+| [ADR-061](ADR-061-lumioplatform-repository-and-account-authority.md) | LumioPlatform 第八实现仓与账号权威归属：账号服迁入平台、一库两端口（WS 契约不改 + HTTP `platform-port-v1`）、PostgreSQL 持久真值、AccountWorld 保留、注册策略 profile、launch 端口、`LumioServer/account-server/` 退役；部分取代 ADR-054 | Draft |
 
 旧制度的 `DECISIONS_PENDING` 待决台账已随 `docs/` 一并删除（见 git 历史）；Living Architecture 下未定项直接落 ADR 或任务卡，不再另设台账。
 

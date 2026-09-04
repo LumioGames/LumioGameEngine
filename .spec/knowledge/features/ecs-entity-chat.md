@@ -33,7 +33,7 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 
 ### Account Server
 
-- One central Account Server owns account identity and account profile data.
+- One central Account Server owns account identity and account profile data. Since ADR-061 it lives inside `LumioPlatform` (the account domain plus the `/account` WebSocket port and the HTTP platform port in one process, PostgreSQL as the durable store); the port semantics below are unchanged.
 - `AccountId` is the stable persistent business identity.
 - `AccountEntity` is the Account Server's long-lived ECS account object. Login loads or creates it; logout ends only the session.
 - Login-or-register accepts a username and password. If the username is absent, the Account Server creates the account and its AccountEntity during the request. An existing username with a wrong password is rejected and never overwritten.

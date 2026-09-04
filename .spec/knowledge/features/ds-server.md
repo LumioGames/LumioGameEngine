@@ -74,8 +74,8 @@ flowchart TB
     BA["副本应用 + 预测<br/>ECS + GAS + 体素同一确认/回滚单元"]
     BAOI["本地 AOI：只管『显示什么』<br/>绝不决定『收什么数据』"]
   end
-  subgraph AS["Account Server（独立进程）"]
-    A1["账号注册表 · 口令哈希存储<br/>AccountEntity（自带低频 ECS World）<br/>签发有期限的不透明准入凭据"]
+  subgraph AS["Account Server（LumioPlatform 进程内的账号域，ADR-061）"]
+    A1["账号库（PostgreSQL）· 口令哈希存储<br/>AccountEntity（自带低频 ECS World）<br/>签发有期限的不透明准入凭据<br/>两端口：WS lumio-account-v1 · HTTP platform-port"]
   end
   subgraph EDGE["连接与字节层"]
     T1["M1 准入五步与连接层<br/>TLS/WSS · 未验证流量限额<br/>连接代次 · 关闭原因码"]
@@ -167,7 +167,7 @@ flowchart LR
 
 ### M2 Account Server 与凭据交接
 
-- **干什么**：把「你是谁」和「你能进哪个游戏服」这两件事从游戏服里拿出来，做成独立服务。
+- **干什么**：把「你是谁」和「你能进哪个游戏服」这两件事从游戏服里拿出来，做成独立服务。归属：`LumioPlatform`（ADR-061）——账号域 + `/account` WS 端口 + HTTP 端口同住一个 Kestrel 进程，持久库 PostgreSQL；Game Server 只验票。
 - **能干什么**：① 独立进程，自带一份**低频 ECS World**，账号数据建模成组件；`AccountEntity` 按稳定 `AccountId` 加载或创建，登录加载、登出只结束会话不换账号对象。② **登录即注册**（idempotent login-or-register）：用户名不存在就建号连带建 `AccountEntity`；已存在但口令错**直接拒绝、永不覆盖**；同一用户名的并发首次请求收敛到同一个 `AccountEntity` 和同一个 `AccountId`。③ **口令哈希存储**，明文不落盘（测试口令也一样）；口令材料永不返回给游戏服或客户端。④ 签发**有期限的、带签名的、不透明的**准入凭据。⑤ **持久账号库**：服务重启后同一个 `AccountId` 还在。⑥ **Bot 命名空间受控**：`Bot` + 十进制数字这类登录名只有携带已认证的 Bot 工具注册上下文才能创建或认领，普通客户端注册拿不到。
 - **不干什么**：不把 `AccountEntity` 作为对象引用交给游戏服（只交 `AccountId` 值）；凭据材料不进普通 ECS 组件（留在凭据库里，或声明成只存档、永不复制）；游戏服**不接受用户名/口令**作为准入替代品。
 - **做完的标准**：同一用户名并发发 100 个首次登录请求，最终只有一个 `AccountEntity` 和一个 `AccountId`；错口令登录被拒且账号数据零变化；服务重启后同一用户名拿到同一个 `AccountId`；普通客户端尝试注册 `Bot01` 被拒；抓包和日志里零口令明文。
@@ -271,7 +271,7 @@ flowchart LR
 ## 5. TODO（按这个顺序开卡）
 
 > 交付按 **Living Architecture**（口径见 `.spec/knowledge/standards/repository-architecture.md`「变更顺序」）：
-> 托管↔Native 二进制边界改 `engine/abi/native-abi.json`；**其余公共语义（玩法、绑定、账号、定时）各落一份独立的 `engine/wire/<name>-v1.json`——不得扩展 `hello-wire-v1.json`**，由 `node eng/verify-wire.mjs` 跑契约内嵌的正反例。开发态不跑 Baseline / Fixture 门 / 七仓镜像。ADR 编号落笔时现查最高号（编号无机器占号，会被并发抢）。
+> 托管↔Native 二进制边界改 `engine/abi/native-abi.json`；**其余公共语义（玩法、绑定、账号、定时）各落一份独立的 `engine/wire/<name>-v1.json`——不得扩展 `hello-wire-v1.json`**，由 `node eng/verify-wire.mjs` 跑契约内嵌的正反例。开发态不跑 Baseline / Fixture 门 / 八仓镜像。ADR 编号落笔时现查最高号（编号无机器占号，会被并发抢）。
 
 **阶段 0：先立规矩**
 

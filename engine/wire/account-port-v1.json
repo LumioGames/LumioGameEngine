@@ -1,7 +1,7 @@
 {
   "contractId": "lumio.account-port.v1",
   "version": 1,
-  "purpose": "RM-00011 ECS Formal Entity and Chat 切片的账号与准入公共契约唯一真值：Account Server 第三服务拓扑、login-or-register 端口、签名过期不透明准入凭证、Bot 工具凭证 claim、顶号语义与全部失败码。LumioServer（account-server 与 game-server 验证端口）、LumioClient、Bot 启动器与集成验收全部以本文件为字段真值，不得另写一份协议真值。宿主无关：C# MVP 宿主先行，切片级最小 Rust 宿主随后复跑同一契约。",
+  "purpose": "RM-00011 ECS Formal Entity and Chat 切片的账号与准入公共契约唯一真值：Account Server 第三服务拓扑、login-or-register 端口、签名过期不透明准入凭证、Bot 工具凭证 claim、顶号语义与全部失败码。LumioPlatform（账号域与 /account WS 端口，ADR-061）、LumioServer（game-server 验证端口）、LumioClient、Bot 启动器与集成验收全部以本文件为字段真值，不得另写一份协议真值。宿主无关：C# MVP 宿主先行，切片级最小 Rust 宿主随后复跑同一契约。",
   "rulings": [
     "docs/specs/2026-09-01-ecs-formal-entity-chat-decision-log.md · Room Review Rulings (2026-09-01) #3：Account Server 为正式独立服务（六件事：真实 login-or-register 协议 / 哈希凭证存储 / 签名过期不透明准入凭证 / 持久账号库 / 真 Bot 工具凭证 claim / 第三服务拓扑 ADR）",
     "同文件 #3b：AccountEntity 走 ECS——低频 World，账号数据为专用组件，凭证材料不进普通组件",
@@ -11,15 +11,15 @@
   "roleSemantics": {
     "client": "普通浏览器/普通客户端；以非 Bot 命名空间账号登录，准入后由 Game Server 创建 PlayerEntity。",
     "bot-launcher": "Bot 启动器（Bot 工具上下文持有者）；循环生成 Bot01–Bot100 登录名、携带默认测试口令与 Bot 工具凭证走与普通客户端相同的 login-or-register 路径；不做EntityType 自选。",
-    "account-server": "独立 C# 进程（LumioServer/account-server/）；拥有持久账号库、login-or-register、准入凭证签发与 Bot 工具凭证验证。",
+    "account-server": "LumioPlatform 进程内的账号域（src/Lumio.Platform.Account + /account WS 端口宿主，ADR-061）；拥有持久账号库（PostgreSQL）、login-or-register、准入凭证签发与 Bot 工具凭证验证。",
     "game-server": "经 verify_admission 端口离线验证准入凭证并做 Player/Bot 分类；不创建账号、不接受用户名口令替代 Account Server 准入。"
   },
   "topology": {
     "accountServer": {
-      "repository": "LumioServer",
-      "directory": "account-server/",
-      "processModel": "独立 C# 进程；每个部署一个中心实例（本切片不做多实例与跨服转移）。必须确认有访问控制后才可暴露到非环回地址。",
-      "durability": "持久账号库为硬性要求：同一账号跨服务重启保持同一 AccountId；禁止纯内存实现。",
+      "repository": "LumioPlatform",
+      "directory": "src/Lumio.Platform.Account/（账号域）与 src/Lumio.Platform.App/AccountPort/（WS 端口宿主）",
+      "processModel": "LumioPlatform 单 Kestrel 进程承载（ADR-061）：WS 端口挂 /account 路径，与 HTTP 端口（platform-port-v1）同进程同监听；每个部署一个中心实例（不做多实例与跨服转移）。必须确认有访问控制后才可暴露到非环回地址。",
+      "durability": "持久账号库为硬性要求：同一账号跨服务重启保持同一 AccountId；禁止纯内存实现。持久层为 PostgreSQL（ADR-061），不再有 JSON 文件存储。",
       "ecsModel": {
         "world": "Account Server 自有的低频 ECS World；不与任何 Game World 混置。",
         "accountEntity": "AccountEntity 按稳定 AccountId 加载或创建；login 加载/创建，logout 只结束会话、不销毁账号对象；账号身份跨登录会话存活。",
@@ -105,7 +105,8 @@
         "bot_namespace_login_forbidden",
         "bot_tool_credential_malformed",
         "bot_tool_credential_invalid",
-        "bot_tool_credential_expired"
+        "bot_tool_credential_expired",
+        "registration_requires_platform"
       ],
       "semantics": [
         "幂等 login-or-register：loginName 不存在 → 创建账号与 AccountEntity（accountNewlyCreated=true）；存在且口令正确 → 成功（accountNewlyCreated=false，同一 accountId）；存在且口令错误 → wrong_password 拒绝，且绝不覆写任何已存凭证或账号数据。",
@@ -232,6 +233,14 @@
       "note": "Hello World profile 的配置默认测试口令（决策日志 Topology 节）；生产口令策略是另行安全决策，不在本契约。"
     }
   },
+  "registrationProfile": {
+    "variable": "PLATFORM_REGISTRATION_PROFILE",
+    "values": {
+      "test": "login_or_register 对任何合法 loginName 登录即注册（本契约 testCases 原语义；集成考卷与开发）。",
+      "production": "默认。本端口只允许 Bot 命名空间 + 有效 botToolCredential 注册；普通新 loginName 拒 registration_requires_platform（人类账号须经 platform-port-v1 邮箱注册）；已存在的人类账号仍可用 loginName + 口令登录并取凭证。"
+    },
+    "rule": "ADR-061 第 7 条；生产部署不得设置 test。"
+  },
   "errorCodes": [
     "invalid_request",
     "invalid_username",
@@ -246,7 +255,8 @@
     "admission_credential_malformed",
     "admission_credential_invalid_signature",
     "admission_credential_expired",
-    "takeover_notice_invalid"
+    "takeover_notice_invalid",
+    "registration_requires_platform"
   ],
   "errorCodeSemantics": {
     "invalid_request": "请求不可解形/缺 messageType/JSON 越界；关闭连接。",
@@ -262,7 +272,8 @@
     "admission_credential_malformed": "verify_admission：credential 不可解形/字段不闭合。",
     "admission_credential_invalid_signature": "verify_admission：签名验证失败或 keyId 无对应公钥。",
     "admission_credential_expired": "verify_admission：当前时间晚于 expiresAt。",
-    "takeover_notice_invalid": "客户端侧校验 TakeoverNotice 失败（缺 required 字段/reasonCode 非 connection_superseded）。"
+    "takeover_notice_invalid": "客户端侧校验 TakeoverNotice 失败（缺 required 字段/reasonCode 非 connection_superseded）。",
+    "registration_requires_platform": "registrationProfile=production 下普通（非 Bot 命名空间）新 loginName 的注册被拒；人类账号须经 platform-port-v1 邮箱注册（ADR-061）。"
   },
   "limits": {
     "maxFrameBytes": 65536,
@@ -276,10 +287,10 @@
   },
   "process": {
     "accountServer": {
-      "listen": "127.0.0.1 动态分配端口（:0），禁止硬编码端口；暴露非环回地址前必须确认访问控制。",
-      "readiness": "stdout 单行前缀 ACCOUNT_SERVER_READY 后接 JSON {\"port\":N,\"pid\":P,\"contractId\":\"lumio.account-port.v1\",\"storePath\":S}",
-      "shutdown": "关闭全部连接、flush 持久账号库、退出码 0",
-      "exitCodes": { "0": "正常关闭", "1": "初始化失败（含账号库打开失败）", "2": "运行期致命错误", "3": "参数错误" }
+      "listen": "PLATFORM_LISTEN_URL，默认 http://127.0.0.1:0（动态端口，禁止硬编码）；WS 端口路径 /account；暴露非环回地址前必须确认访问控制。",
+      "readiness": "stdout 单行前缀 PLATFORM_READY 后接 JSON {\"port\":N,\"pid\":P,\"listen\":\"http://127.0.0.1:N\",\"database\":\"postgresql\",\"accountPort\":\"/account\",\"contractIds\":[\"lumio.account-port.v1\",\"lumio.platform-port.v1\"]}（ADR-061：账号服并入平台进程，取代 ACCOUNT_SERVER_READY）",
+      "shutdown": "关闭全部连接、flush 持久账号库（PostgreSQL 事务已提交即持久）、退出码 0",
+      "exitCodes": { "0": "正常关闭", "1": "初始化失败（含数据库连接串缺失、迁移失败）", "2": "运行期致命错误", "3": "参数错误" }
     },
     "auditEventKinds": {
       "account_created": { "required": ["accountId", "loginName"] },
@@ -406,6 +417,14 @@
       "violates": "Bot 命名空间 admission 触点要求 botToolContext=true",
       "given": "loginName=Bot07 的 credential 但 botToolContext=false",
       "expectedRejection": "bot_namespace_admission_forbidden"
+    },
+    {
+      "name": "production_profile_plain_register_rejected",
+      "operation": "login_or_register",
+      "violates": "registrationProfile=production 下本端口对普通新 loginName 关闭注册（ADR-061）",
+      "given": "PLATFORM_REGISTRATION_PROFILE=production；loginName=carol（不存在、非 Bot 命名空间），无 botToolCredential",
+      "expectedRejection": "registration_requires_platform",
+      "then": "accounts 零新增；同一 loginName 经 platform-port-v1 register 创建后，再经本端口同口令登录成功且 accountNewlyCreated=false。"
     },
     {
       "name": "takeover_notice_missing_reason_code",

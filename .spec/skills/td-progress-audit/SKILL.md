@@ -1,6 +1,6 @@
 ---
 name: td-progress-audit
-description: 引擎总监(TD/技术 Owner)职能——定期盘点七仓进度与需求完成度、对账 Workflow 与仓库真实状态、产出本地评估报告并编排下一阶段派活时使用;发现状态漂移或交付证据不可复核时也用。
+description: 引擎总监(TD/技术 Owner)职能——定期盘点八仓进度与需求完成度、对账 Workflow 与仓库真实状态、产出本地评估报告并编排下一阶段派活时使用;发现状态漂移或交付证据不可复核时也用。
 ---
 
 # TD · Progress Audit(引擎总监 · 定期进度盘点与对账)
