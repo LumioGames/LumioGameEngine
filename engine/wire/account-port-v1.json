@@ -8,6 +8,19 @@
     "同文件 #5：重复准入 = 顶号（单行为；后来者踢前者并经重连重绑继承同一实体）"
   ],
   "roles": ["client", "bot-launcher", "account-server", "game-server"],
+  "sharedTypes": {
+    "allocationContext": {
+      "required": {
+        "serverAudience": "string(ascii)",
+        "gameId": "string(ascii)",
+        "gameReleaseId": "string(ascii)",
+        "contractId": "string(ascii)",
+        "roomId": "string(ascii)",
+        "allocationId": "string(ascii)"
+      },
+      "optional": {}
+    }
+  },
   "roleSemantics": {
     "client": "普通浏览器/普通客户端；以非 Bot 命名空间账号登录，准入后由 Game Server 创建 PlayerEntity。",
     "bot-launcher": "Bot 启动器（Bot 工具上下文持有者）；循环生成 Bot01–Bot100 登录名、携带默认测试口令与 Bot 工具凭证走与普通客户端相同的 login-or-register 路径；不做EntityType 自选。",
@@ -37,7 +50,7 @@
     "bindingContract": "准入成功后的连接绑定五元组（AccountId+RoomId+NetEntityId+EntityType+ConnectionGeneration）由 R-00356 契约（contractId lumio.entity-binding-query.v1）冻结，本契约只供给 AccountId 与分类依据。",
     "outOfScope": [
       "跨服转移（cross-server transfer）",
-      "生产口令策略、找回/改密、外部身份提供方、限流设计（超出受控切片 profile 的均另行决策）",
+      "生产口令策略、找回/改密与外部身份提供方（均另行决策；WS 登录分区限流属于当前端口 DoD）",
       "准入凭证在线吊销/introspection（本切片为离线验证；生产撤销机制另行决策）"
     ]
   },
@@ -83,8 +96,8 @@
           "accountNewlyCreated": "bool",
           "accountId": "account-id",
           "loginName": "username",
-          "admissionCredential": "base64url",
-          "admissionExpiresAt": "epoch-s"
+          "accountAuthCredential": "base64url",
+          "accountAuthExpiresAt": "epoch-s"
         },
         "optional": {}
       },
@@ -106,22 +119,25 @@
         "bot_tool_credential_malformed",
         "bot_tool_credential_invalid",
         "bot_tool_credential_expired",
-        "registration_requires_platform"
+        "registration_requires_platform",
+        "rate_limited"
       ],
       "semantics": [
         "幂等 login-or-register：loginName 不存在 → 创建账号与 AccountEntity（accountNewlyCreated=true）；存在且口令正确 → 成功（accountNewlyCreated=false，同一 accountId）；存在且口令错误 → wrong_password 拒绝，且绝不覆写任何已存凭证或账号数据。",
         "并发首次收敛：同一不存在用户名的并发首次请求必须收敛为恰一个 AccountEntity 与同一 AccountId；全部请求拿到相同 accountId。",
         "不预置账号：Bot01–Bot100 由启动器循环生成并即时经本操作创建；账号库不预灌。",
         "命中 Bot 命名空间的请求必须携带 botToolCredential；缺失或无效按 bot_* 失败码拒绝（注册触点=bot_namespace_register_forbidden；登录已存在 Bot 账号触点=bot_namespace_login_forbidden；凭证问题=bot_tool_credential_*）。",
-        "每次成功登录都新签发 admissionCredential（新 nonce/expiry）；旧凭证在过期前仍可验证（幂等重登不吊销已发凭证）。",
-        "password 只出现在本请求；任何响应、事件、日志、组件不得回显口令或其哈希。"
+        "每次成功登录都新签发 account-authentication credential（新 nonce/expiry）；其六个分配字段固定为 admissionBinding.unboundSentinel，凭证仅用于账号认证，不能进入任何 Room。旧凭证在过期前仍可用于账号认证（幂等重登不吊销已发凭证）。",
+        "password 只出现在本请求；任何响应、事件、日志、组件不得回显口令或其哈希。",
+        "按来源 IP、loginName 与已解析 accountId 分区限流；阈值来自部署配置，超限统一 rate_limited，不得延后到上线最终门。"
       ]
     },
     "verify_admission": {
       "binding": "in-process port（game-server 侧，非网络消息）",
       "input": {
         "required": {
-          "admissionCredential": "base64url"
+          "admissionCredential": "base64url",
+          "allocationContext": "allocationContext"
         },
         "optional": {}
       },
@@ -129,6 +145,12 @@
         "required": {
           "accountId": "account-id",
           "loginName": "username",
+          "serverAudience": "string(ascii)",
+          "gameId": "string(ascii)",
+          "gameReleaseId": "string(ascii)",
+          "contractId": "string(ascii)",
+          "roomId": "string(ascii)",
+          "allocationId": "string(ascii)",
           "botToolContext": "bool",
           "expiresAt": "epoch-s",
           "keyId": "u8"
@@ -139,12 +161,14 @@
         "admission_credential_malformed",
         "admission_credential_invalid_signature",
         "admission_credential_expired",
+        "admission_binding_mismatch",
+        "admission_credential_unbound",
         "bot_namespace_admission_forbidden"
       ],
       "semantics": [
         "离线验证：Game Server 以 Account Server 公钥（keyId 对应，经部署面分发）本地验证；不调用 Account Server 网络。",
-        "验证顺序：解形（按 admissionCredential.framing 的字节布局：base64url 解码 → LumioBinV1 payload 解形 → 尾随恰 64 字节 raw 签名；任何一步不合 → admission_credential_malformed）→ 验签（invalid_signature）→ 过期（expired）→ Bot 命名空间准入上下文（loginName 命中 Bot 命名空间且 botToolContext=false → bot_namespace_admission_forbidden）。",
-        "验证通过后 Game Server 才可做 Room 准入并构建 R-00356 绑定五元组；EntityType 分类依据 = loginName 规则 + botToolContext。"
+        "验证顺序：解形（按 admissionCredential.framing 的字节布局：base64url 解码 → LumioBinV1 payload 解形 → 尾随恰 64 字节 raw 签名；任何一步不合 → admission_credential_malformed）→ 验签（invalid_signature）→ 过期（expired）→ 检查六个分配字段是否全为 admissionBinding.unboundSentinel（是则 admission_credential_unbound）→ Bot 命名空间准入上下文（loginName 命中 Bot 命名空间且 botToolContext=false → bot_namespace_admission_forbidden）。",
+        "allocationContext 必须由受信 Game Server 的 room/allocation registry 注入，服务端调用方不得接受客户端提供的声明；凭证与 context 的六个字段必须全部非空、不得等于 admissionBinding.unboundSentinel，并逐一比较。任一非法或不匹配返回 admission_binding_mismatch，不得进入 Room 准入或构建 R-00356 绑定五元组；EntityType 分类依据 = loginName 规则 + botToolContext。"
       ]
     }
   },
@@ -162,7 +186,13 @@
         { "name": "botToolContext", "type": "u8", "value": "0|1" },
         { "name": "issuedAt", "type": "u64", "unit": "epoch-s" },
         { "name": "expiresAt", "type": "u64", "unit": "epoch-s" },
-        { "name": "nonce", "type": "bytes16" }
+        { "name": "nonce", "type": "bytes16" },
+        { "name": "serverAudience", "type": "string(ascii)" },
+        { "name": "gameId", "type": "string(ascii)" },
+        { "name": "gameReleaseId", "type": "string(ascii)" },
+        { "name": "contractId", "type": "string(ascii)" },
+        { "name": "roomId", "type": "string(ascii)" },
+        { "name": "allocationId", "type": "string(ascii)" }
       ]
     },
     "digest": "SHA-256 over canonical payload bytes；摘要以 64 小写 hex 字符拼入 LumioSignatureV1 preimage 参与验签（与 ADR-042 §2 逐句一致：签名从不在裸摘要之上——32 字节是摘要本体，被签字节是含 payloadDigest-hex 的完整 preimage）",
@@ -179,7 +209,48 @@
       "rotation": "keyId 预留轮换位；轮换流程是部署决策，不在本契约",
       "keyIdNote": "取舍：本切片采纳 payload 内 u8 数字轮换位（0–255 预留），不采纳 ADR-042 §3 的派生串 keyId 规则；实现方不得按 §3 从公钥推导 keyId。"
     },
-    "replayNote": "nonce 保证签发唯一性与可审计性；过期前的窃取重放不在本切片防护范围（生产撤销/在线吊销另行决策）。"
+    "replayNote": "v1 采用有界 bearer replay policy：Room 凭证仅由 Platform Launch 签发并绑定 serverAudience/game/release/contract/room/allocation；WS 登录凭证保持 unbound sentinel 且不可入 Room。WSS/TLS 与审计降低暴露风险；nonce 仅保证签发唯一性与可审计性，不引入在线 nonce-consumption 表，也不宣称离线可强制全局单活跃会话。过期前的窃取重放仍不在本切片防护范围。"
+  },
+  "accountAuthCredential": {
+    "wireForm": "base64url(credentialBytes)",
+    "purpose": "WS login_or_register response credential for account authentication only; it is not a Room admission credential and is never accepted by verify_admission.",
+    "formatSource": "Uses admissionCredential framing, canonical payload, signature profile and limits.admissionCredentialTtlSeconds; the distinct response field name and unbound sentinel define its non-admittable capability.",
+    "binding": "The six allocation fields in the shared canonical payload are all admissionBinding.unboundSentinel.",
+    "expiryField": "accountAuthExpiresAt",
+    "issuer": "LumioPlatform account domain",
+    "roomAdmission": "forbidden; only platform-port-v1 launch may issue a Room-bound admissionCredential"
+  },
+  "admissionBinding": {
+    "source": "admissionCredential.canonicalPayload.fields",
+    "canonicalFieldOrder": ["version", "keyId", "accountId", "loginName", "botToolContext", "issuedAt", "expiresAt", "nonce", "serverAudience", "gameId", "gameReleaseId", "contractId", "roomId", "allocationId"],
+    "canonicalFieldTypes": {
+      "version": "u16",
+      "keyId": "u8",
+      "accountId": "string(ascii)",
+      "loginName": "string(ascii)",
+      "serverAudience": "string(ascii)",
+      "gameId": "string(ascii)",
+      "gameReleaseId": "string(ascii)",
+      "contractId": "string(ascii)",
+      "roomId": "string(ascii)",
+      "allocationId": "string(ascii)",
+      "botToolContext": "u8",
+      "issuedAt": "u64",
+      "expiresAt": "u64",
+      "nonce": "bytes16"
+    },
+    "fieldOrder": ["serverAudience", "gameId", "gameReleaseId", "contractId", "roomId", "allocationId"],
+    "unboundSentinel": "__unbound__",
+    "fields": {
+      "serverAudience": "string(ascii)",
+      "gameId": "string(ascii)",
+      "gameReleaseId": "string(ascii)",
+      "contractId": "string(ascii)",
+      "roomId": "string(ascii)",
+      "allocationId": "string(ascii)"
+    },
+    "boundValueRule": "Every Room credential and trusted allocationContext field must be non-empty and not unboundSentinel before exact comparison.",
+    "verification": "Game Server compares every field to the allocation context before Room admission."
   },
   "botToolCredential": {
     "purpose": "Bot 启动器的工具上下文真凭证 claim：证明本次注册/登录来自持有 Bot 工具凭证的启动器。它不是用户口令，不得当口令使用或存储。",
@@ -255,8 +326,11 @@
     "admission_credential_malformed",
     "admission_credential_invalid_signature",
     "admission_credential_expired",
+    "admission_binding_mismatch",
+    "admission_credential_unbound",
     "takeover_notice_invalid",
-    "registration_requires_platform"
+    "registration_requires_platform",
+    "rate_limited"
   ],
   "errorCodeSemantics": {
     "invalid_request": "请求不可解形/缺 messageType/JSON 越界；关闭连接。",
@@ -272,8 +346,11 @@
     "admission_credential_malformed": "verify_admission：credential 不可解形/字段不闭合。",
     "admission_credential_invalid_signature": "verify_admission：签名验证失败或 keyId 无对应公钥。",
     "admission_credential_expired": "verify_admission：当前时间晚于 expiresAt。",
+    "admission_binding_mismatch": "verify_admission：serverAudience、gameId、gameReleaseId、contractId、roomId 或 allocationId 任一为空、等于 unbound sentinel，或与受信 allocationContext 不一致。",
+    "admission_credential_unbound": "verify_admission：凭证是 WS 账号认证凭证，六个分配字段仍为 admissionBinding.unboundSentinel；只有 Platform Launch 签发的 Room-bound credential 可入 Room。",
     "takeover_notice_invalid": "客户端侧校验 TakeoverNotice 失败（缺 required 字段/reasonCode 非 connection_superseded）。",
-    "registration_requires_platform": "registrationProfile=production 下普通（非 Bot 命名空间）新 loginName 的注册被拒；人类账号须经 platform-port-v1 邮箱注册（ADR-061）。"
+    "registration_requires_platform": "registrationProfile=production 下普通（非 Bot 命名空间）新 loginName 的注册被拒；人类账号须经 platform-port-v1 邮箱注册（ADR-061）。",
+    "rate_limited": "login_or_register 超过按来源 IP、loginName 或已解析 accountId 配置的分区阈值；统一拒绝且不泄露账号是否存在。"
   },
   "limits": {
     "maxFrameBytes": 65536,
@@ -296,9 +373,10 @@
       "account_created": { "required": ["accountId", "loginName"] },
       "login_succeeded": { "required": ["accountId", "accountNewlyCreated"] },
       "login_rejected": { "required": ["loginName", "code"] },
+      "account_auth_credential_issued": { "required": ["accountId", "keyId", "expiresAt"] },
       "admission_credential_issued": { "required": ["accountId", "keyId", "expiresAt"] }
     },
-    "auditNote": "全部审计事件禁止携带 password、哈希、botToolCredential、admissionCredential 原文；game-server 侧 verify/takeover 审计由 R-00346 / R-00350 卡定义。"
+    "auditNote": "全部审计、日志与证据禁止携带 password、哈希、botToolCredential、accountAuthCredential 原文或 admissionCredential 原文；game-server 侧 verify/takeover 审计由 R-00346 / R-00350 卡定义。"
   },
   "fixturesNote": "testCases/invalidCases 是冻结用例集：消费方（R-00344 account-server、R-00346 准入、R-00349 客户端、R-00354 集成）必须把每条实现为自动化测试或在验收报告中逐条对应证据；invalidCases.expectedRejection 必须逐条命中 errorCodeSemantics 的失败码。",
   "testCases": [
@@ -306,13 +384,13 @@
       "name": "register_new_account",
       "operation": "login_or_register",
       "given": "loginName=alice（不存在、非 Bot 命名空间），password 合法",
-      "expect": "accepted=true；accountNewlyCreated=true；accountId 匹配 ^acct_[0-9a-f]{32}$；admissionCredential 非空且 admissionExpiresAt > 发出时刻。"
+      "expect": "accepted=true；accountNewlyCreated=true；accountId 匹配 ^acct_[0-9a-f]{32}$；accountAuthCredential 非空且 accountAuthExpiresAt > 发出时刻；其六个分配字段为 admissionBinding.unboundSentinel，不能进入 Room。"
     },
     {
       "name": "idempotent_relogin_same_account",
       "operation": "login_or_register",
       "given": "同 loginName=alice、同口令再次登录",
-      "expect": "accountNewlyCreated=false；accountId 与首次完全一致；新签发的 admissionCredential（nonce/expiry 更新）。"
+      "expect": "accountNewlyCreated=false；accountId 与首次完全一致；新签发的 accountAuthCredential（nonce/expiry 更新，六个分配字段仍为 admissionBinding.unboundSentinel，不可入 Room）。"
     },
     {
       "name": "concurrent_first_login_converges",
@@ -324,13 +402,19 @@
       "name": "bot_login_with_tool_credential",
       "operation": "login_or_register",
       "given": "loginName=Bot07（不存在），password=123456（测试档案默认），携带有效 botToolCredential",
-      "expect": "成功创建 Bot07；verify_admission 对其 admissionCredential 解出 loginName=Bot07 且 botToolContext=true。"
+      "expect": "成功创建 Bot07；WS credential 六个分配字段为 admissionBinding.unboundSentinel，不能通过 Room admission；Platform Launch 后签发的 bound credential 才可供 verify_admission。"
     },
     {
       "name": "verify_admission_accept",
       "operation": "verify_admission",
       "given": "合法未过期 admissionCredential",
-      "expect": "返回 accountId/loginName/botToolContext/expiresAt/keyId，五字段与签发一致。"
+      "expect": "返回 accountId/loginName/serverAudience/gameId/gameReleaseId/contractId/roomId/allocationId/botToolContext/expiresAt/keyId，全部字段与签发及当前 allocationContext 一致。"
+    },
+    {
+      "name": "verify_admission_bound_credential",
+      "operation": "verify_admission",
+      "given": "Platform Launch 签发的合法未过期 Room-bound admissionCredential；Game Server 提供受信 allocationContext",
+      "expect": "返回绑定字段全部一致；verify_admission 只验证签名凭证与 server-owned allocationContext，不接收或处理 endpoint。"
     },
     {
       "name": "account_restart_stability",
@@ -412,6 +496,62 @@
       "expectedRejection": "admission_credential_invalid_signature"
     },
     {
+      "name": "ws_auth_credential_is_not_room_admittable",
+      "operation": "verify_admission",
+      "violates": "WS-issued credential uses unbound sentinel and cannot enter a Room",
+      "given": "WS login-issued credential with all six allocation fields=admissionBinding.unboundSentinel",
+      "expectedRejection": "admission_credential_unbound"
+    },
+    {
+      "name": "admission_binding_mismatched_audience",
+      "operation": "verify_admission",
+      "violates": "准入凭证 audience/game/release/contract/room/allocation 全绑定",
+      "given": "credential.serverAudience=game-server-public；当前分配上下文 audience=other-server",
+      "expectedRejection": "admission_binding_mismatch"
+    },
+    {
+      "name": "admission_binding_mismatched_game",
+      "operation": "verify_admission",
+      "violates": "准入凭证 audience/game/release/contract/room/allocation 全绑定",
+      "given": "credential.gameId=hello；当前分配上下文 gameId=bomber",
+      "expectedRejection": "admission_binding_mismatch"
+    },
+    {
+      "name": "admission_binding_mismatched_release",
+      "operation": "verify_admission",
+      "violates": "准入凭证 audience/game/release/contract/room/allocation 全绑定",
+      "given": "credential.gameReleaseId=hello-1；当前分配上下文 gameReleaseId=hello-2",
+      "expectedRejection": "admission_binding_mismatch"
+    },
+    {
+      "name": "admission_binding_mismatched_contract",
+      "operation": "verify_admission",
+      "violates": "准入凭证 audience/game/release/contract/room/allocation 全绑定",
+      "given": "credential.contractId=lumio.hello-wire.v1；当前分配上下文 contractId=lumio.gameplay-envelope.v1",
+      "expectedRejection": "admission_binding_mismatch"
+    },
+    {
+      "name": "admission_binding_mismatched_room",
+      "operation": "verify_admission",
+      "violates": "准入凭证 audience/game/release/contract/room/allocation 全绑定",
+      "given": "credential.roomId=hello；当前分配上下文 roomId=hello-2",
+      "expectedRejection": "admission_binding_mismatch"
+    },
+    {
+      "name": "admission_binding_mismatched_allocation",
+      "operation": "verify_admission",
+      "violates": "准入凭证 audience/game/release/contract/room/allocation 全绑定",
+      "given": "credential.allocationId=alloc-1；当前分配上下文 allocationId=alloc-2",
+      "expectedRejection": "admission_binding_mismatch"
+    },
+    {
+      "name": "admission_binding_empty_or_unbound_field",
+      "operation": "verify_admission",
+      "violates": "Room-bound credential 与 trusted allocationContext 的六元字段必须非空且不能使用 unbound sentinel",
+      "given": "并非六字段全 sentinel 的 credential/context，但任一绑定字段为空或等于 admissionBinding.unboundSentinel",
+      "expectedRejection": "admission_binding_mismatch"
+    },
+    {
       "name": "bot_admission_without_tool_context",
       "operation": "verify_admission",
       "violates": "Bot 命名空间 admission 触点要求 botToolContext=true",
@@ -425,6 +565,14 @@
       "given": "PLATFORM_REGISTRATION_PROFILE=production；loginName=carol（不存在、非 Bot 命名空间），无 botToolCredential",
       "expectedRejection": "registration_requires_platform",
       "then": "accounts 零新增；同一 loginName 经 platform-port-v1 register 创建后，再经本端口同口令登录成功且 accountNewlyCreated=false。"
+    },
+    {
+      "name": "ws_login_rate_limited",
+      "operation": "login_or_register",
+      "violates": "WS 登录分区限流",
+      "given": "来源 IP、loginName 或已解析 accountId 任一超过部署配置阈值",
+      "expectedRejection": "rate_limited",
+      "then": "不创建或修改账号、口令、AccountEntity 或凭证；响应不泄露账号是否存在。"
     },
     {
       "name": "takeover_notice_missing_reason_code",
