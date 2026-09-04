@@ -26,7 +26,7 @@
 </div>
 <!-- lumio-community:end -->
 
-`LumioCoreEngine` 独立仓库已标记为 **Deprecated**，仅保留历史审计与回滚用途；新开发不得继续向该仓库添加功能或依赖，其实现已迁入本仓 `engine/native/`。
+`LumioCoreEngine` 独立仓库已于 2026-09-04 **删除**（2026-08-31 标记 Deprecated 后退役），其实现已迁入本仓 `engine/native/`。旧 ADR 中以该仓为 Owner 的条目按 [`ADR-059`](.spec/decisions/ADR-059-lumiocoreengine-repository-retirement.md) 重定向理解。
 
 ## 这是什么
 

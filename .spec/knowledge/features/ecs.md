@@ -408,6 +408,13 @@ public sealed partial class IdentityComponent : Component
 {
     /// 用户名：房间内公开；owner 客户端可改（自动上行）；进快照。是 player 还是 bot 看 EntityType（world.TypeOf(id)），不另设字段
     [Persist] public Sync<string> Name = new(Scope.Room, Authority.Owner);
+
+    /// 好友名单：只有我自己看得到（Scope.Owner）；它同时是下面 RealName 的「凭证名单」
+    [Persist] public SyncList<NetEntityId> Friends = new(Scope.Owner);
+
+    /// 真名：只有在我的 Friends 里的观察者能收到（Scope.Claim + claimBy 指名同一组件上的名单字段）。
+    /// 凭证 = 目标实体自己身上的名单，不另建凭证表；服务器打包时按名单裁，客户端收不到就是不存在（ADR-060 第 12 条）
+    [Persist] public Sync<string> RealName = new(Scope.Claim, claimBy: nameof(Friends));
 }
 
 // Components/Identity/IdentityComponent.Server.cs —— 只进服务器程序集
@@ -545,7 +552,7 @@ world.Single<WorldSaveComponent>().Save("slot-1");      // 提交相由存档系
 var restored = WorldManager.CreateFromSnapshot(snapshotBytes);   // 新世界；只跑 OnHydrate；Name / AccountId / LastMessageText 回来，Connected 为默认 false
 ```
 
-**怎么读这段代码**：看到 `Sync<T>` = 会上网，`Scope` 说给谁，`Authority` 说谁能写，第三个参数 `Notify` 说本端自己写要不要收回调（默认不收）；看到 `[Persist]` = 进快照；文件名带 `.Server` / `.Client` = 只在那一端存在，没有归属标注；`[ServerRpc]` = 客户端喊服务器做事，`[ClientRpc]` = 服务器通知客户端一次（不存不回放，窗口归 UI 层；聊天事件的 line 由服务器拼成「名字: 内容」，C-1 不加字段）；`Commands.Create<PlayerEntity>()` = 按类型下单；`Get<T>()` 没参数是自己、有参数是别人；`World.Self` = 本连接绑定的实体（欢迎消息绑定）；`world.TypeOf(id).Is<T>()` = 按 id 判类型，子类型也算；`OnNameChanged(old, new, reason)` = 生成器给每个 Sync 字段产的可选钩子；没有任何标注的普通字段 = 本端私有临时值。样例代码同步放在 LumioGameRuntime `modules/ecs/samples/username/`。
+**怎么读这段代码**：看到 `Sync<T>` = 会上网，`Scope` 说给谁，`Authority` 说谁能写，第三个参数 `Notify` 说本端自己写要不要收回调（默认不收），`Scope.Claim` 必带 `claimBy:` 指同一组件上的名单字段 = 只发给名单里的人；看到 `[Persist]` = 进快照；文件名带 `.Server` / `.Client` = 只在那一端存在，没有归属标注；`[ServerRpc]` = 客户端喊服务器做事，`[ClientRpc]` = 服务器通知客户端一次（不存不回放，窗口归 UI 层；聊天事件的 line 由服务器拼成「名字: 内容」，C-1 不加字段）；`Commands.Create<PlayerEntity>()` = 按类型下单；`Get<T>()` 没参数是自己、有参数是别人；`World.Self` = 本连接绑定的实体（欢迎消息绑定）；`world.TypeOf(id).Is<T>()` = 按 id 判类型，子类型也算；`OnNameChanged(old, new, reason)` = 生成器给每个 Sync 字段产的可选钩子；没有任何标注的普通字段 = 本端私有临时值。样例代码同步放在 LumioGameRuntime `modules/ecs/samples/username/`。
 
 ---
 
