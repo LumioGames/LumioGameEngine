@@ -18,7 +18,7 @@ public sealed class RootApiLayoutTests
             return;
         }
 
-        Assert.Equal(88, Marshal.SizeOf<NativeEngineLoader.RootApi>());
+        Assert.Equal(200, Marshal.SizeOf<NativeEngineLoader.RootApi>());
 
         Assert.Equal(0L, Offset(nameof(NativeEngineLoader.RootApi.AbiVersion)));
         Assert.Equal(4L, Offset(nameof(NativeEngineLoader.RootApi.StructSize)));
@@ -28,6 +28,8 @@ public sealed class RootApiLayoutTests
         Assert.Equal(64L, Offset(nameof(NativeEngineLoader.RootApi.CreateClrHost)));
         Assert.Equal(72L, Offset(nameof(NativeEngineLoader.RootApi.ClrHostCall)));
         Assert.Equal(80L, Offset(nameof(NativeEngineLoader.RootApi.DestroyClrHost)));
+        Assert.Equal(88L, Offset(nameof(NativeEngineLoader.RootApi.TimerCreateManager)));
+        Assert.Equal(192L, Offset(nameof(NativeEngineLoader.RootApi.TimerDrain)));
     }
 
     private static long Offset(string field)

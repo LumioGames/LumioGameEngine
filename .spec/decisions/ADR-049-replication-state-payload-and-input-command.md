@@ -127,3 +127,6 @@ Acceptance bar (对照组探针纪律, carried from the Draft): a deliberately b
 ## 修订记录（2026-09-02，R-00368 r2 / C-1′ entity.identity）
 
 本段为 Accepted 正文的附录，不改写上方决策原文与前一条修订记录。Room 路径 FullSnapshot 的活体身份普查租户是 `entity.identity`（kind=`state`，direction=`s2c`）：payload 为 LumioBinV1 数组（`u32` 元素个数 + 文档序记录），记录字段 `netEntityId` / `entityType`（仅 `player`|`bot`）/`unmappedMark`，按 `netEntityId` 严格升序；`EntityIdentity.claimedMark` 不上本块。空 `stateBlocks: []` 仍只表示本 Room 无房间可见可复制状态；有活体时必须出现本块，零活体时省略。不新增错误码、不增加第二条 kind=state 映射。
+## 修订记录（2026-09-04，ADR-060）
+
+The R5-01 C-1 migration removes FullSnapshot, Delta, entity.identity, chat.event, and chat.component from this wire contract. Runtime WorldChange is the single ordered projection and ClientRpc carries chat events; all entity and connection identifiers are 128-bit.

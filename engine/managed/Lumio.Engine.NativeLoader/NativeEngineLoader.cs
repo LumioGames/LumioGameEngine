@@ -59,11 +59,12 @@ public sealed class NativeEngineLease : IDisposable
 {
     private readonly nint _library;
     private readonly nint _ping;
+    private readonly NativeEngineLoader.RootApi _api;
     private bool _disposed;
 
     internal NativeEngineLease(
         nint library,
-        nint _,
+        NativeEngineLoader.RootApi api,
         string nativePath,
         string buildId,
         string abiHash,
@@ -71,6 +72,7 @@ public sealed class NativeEngineLease : IDisposable
         nint ping)
     {
         _library = library;
+        _api = api;
         _ping = ping;
         NativePath = nativePath;
         BuildId = buildId;
@@ -82,6 +84,8 @@ public sealed class NativeEngineLease : IDisposable
     public string BuildId { get; }
     public string AbiHash { get; }
     public string BinarySha256 { get; }
+
+    internal NativeEngineLoader.RootApi Api => _api;
 
     public void Ping()
     {
@@ -146,6 +150,42 @@ public static class NativeEngineLoader
         public nint CreateClrHost;
         public nint ClrHostCall;
         public nint DestroyClrHost;
+        public nint TimerCreateManager;
+        public nint TimerDestroyManager;
+        public nint TimerRegisterDispatch;
+        public nint TimerRegisterScope;
+        public nint TimerTeardownScope;
+        public nint TimerCreateSlot;
+        public nint TimerBindSlot;
+        public nint TimerCloseSlot;
+        public nint TimerScheduleOneShot;
+        public nint TimerScheduleRepeating;
+        public nint TimerCancel;
+        public nint TimerAdvance;
+        public nint TimerPump;
+        public nint TimerDrain;
+    }
+
+    internal static void ValidateTimerSlots(in RootApi api)
+    {
+        if (api.StructSize < (uint)Marshal.SizeOf<RootApi>()
+            || api.TimerCreateManager == 0
+            || api.TimerDestroyManager == 0
+            || api.TimerRegisterDispatch == 0
+            || api.TimerRegisterScope == 0
+            || api.TimerTeardownScope == 0
+            || api.TimerCreateSlot == 0
+            || api.TimerBindSlot == 0
+            || api.TimerCloseSlot == 0
+            || api.TimerScheduleOneShot == 0
+            || api.TimerScheduleRepeating == 0
+            || api.TimerCancel == 0
+            || api.TimerAdvance == 0
+            || api.TimerPump == 0
+            || api.TimerDrain == 0)
+        {
+            throw new InvalidOperationException("Native root table is missing timer_* slots.");
+        }
     }
 
     public static NativeEngineLease Load(string nativePath, string expectedBuildId, string expectedAbiHash)
@@ -212,7 +252,7 @@ public static class NativeEngineLoader
                     $"Native engine BuildId {buildId} does not match {expectedBuildId}.");
             }
 
-            return new NativeEngineLease(library, apiAddress, nativePath, buildId, abiHash, binarySha256, api.Ping);
+            return new NativeEngineLease(library, api, nativePath, buildId, abiHash, binarySha256, api.Ping);
         }
         catch (NativeEngineLoadException)
         {

@@ -6,6 +6,14 @@ namespace Lumio.Engine.NativeLoader.Tests;
 public sealed class NativeEngineLoaderTests
 {
     [Fact]
+    public void NativeTimerAbiExposesTheHostedTimerOperations()
+    {
+        Assert.NotNull(typeof(INativeTimerAbi).GetMethod(nameof(INativeTimerAbi.CreateManager)));
+        Assert.NotNull(typeof(INativeTimerAbi).GetMethod(nameof(INativeTimerAbi.ScheduleRepeating)));
+        Assert.NotNull(typeof(INativeTimerAbi).GetMethod(nameof(INativeTimerAbi.Drain)));
+        Assert.Equal(16, System.Runtime.InteropServices.Marshal.SizeOf<NativeTimerHandle>());
+    }
+    [Fact]
     public void MissingNativeFileIsRejectedBeforeLoad()
     {
         var error = Assert.Throws<NativeEngineLoadException>(() =>
@@ -71,5 +79,40 @@ public sealed class NativeEngineLoaderTests
         var nativePath = Path.Combine("run", "build-id", "engine.dll");
 
         Assert.Equal(Path.Combine("run", "build-id", "build-info.json"), NativeBuildInfo.SidecarPath(nativePath));
+    }
+
+    [Fact]
+    public void NativeTimerAdapterUsesTheLeaseModuleHandleWithoutReflection()
+    {
+        var source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Lumio.Engine.NativeLoader", "NativeLoaderTimerAbi.cs"));
+        Assert.DoesNotContain("System.Reflection", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetField(\"_library\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MissingRequiredTimerSlotIsRejected()
+    {
+        var present = (nint)1;
+        var api = new NativeEngineLoader.RootApi
+        {
+            StructSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeEngineLoader.RootApi>(),
+            TimerCreateManager = present,
+            TimerDestroyManager = present,
+            TimerRegisterDispatch = present,
+            TimerRegisterScope = present,
+            TimerTeardownScope = present,
+            TimerCreateSlot = present,
+            TimerBindSlot = present,
+            TimerCloseSlot = present,
+            TimerScheduleOneShot = present,
+            TimerScheduleRepeating = present,
+            TimerCancel = present,
+            TimerAdvance = present,
+            TimerPump = 0,
+            TimerDrain = present,
+        };
+
+        var error = Assert.Throws<InvalidOperationException>(() => NativeEngineLoader.ValidateTimerSlots(in api));
+        Assert.Contains("timer_* slots", error.Message, StringComparison.Ordinal);
     }
 }

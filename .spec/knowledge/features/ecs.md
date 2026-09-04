@@ -445,7 +445,7 @@ public sealed partial class IdentityComponent
 public sealed partial class ChatComponent : Component
 {
     [ServerRpc] public partial void SendMessage(string text);                              // 客户端 → 服务器意图
-    [ClientRpc(Scope.Room)] public partial void OnChatMessage(string line);   // 服务器 → 房间内客户端事件；line = 名字 + 内容，服务器拼好，就是 C-1 chat.event 的 text
+    [ClientRpc(Scope.Room)] public partial void OnChatMessage(string line);   // 服务器 -> 房间内客户端事件；进入 C-1 WorldChange.rpcs 记录
 }
 
 // Components/Chat/ChatComponent.Server.cs —— 服务器私有状态与 ServerRpc 处理体
@@ -459,7 +459,7 @@ public sealed partial class ChatComponent
         if (text.Length == 0) return;
         string name = Get<IdentityComponent>().Name;           // 同一实体上的另一个组件：Get<T>() 没参数 = 自己
         string line = $"{name}: {text}";                       // 名字 + 内容拼成一行
-        if (Encoding.UTF8.GetByteCount(line) > 512) return;    // 按拼好的行、按 UTF-8 字节卡：C-1 chat.event.text maxUtf8Bytes = 512
+        if (Encoding.UTF8.GetByteCount(line) > 512) return;    // 按拼好的行、按 UTF-8 字节卡；ClientRpc 参数随 WorldChange.rpcs 交付
         Console.WriteLine($"[server] {name} says: {text}");
         LastMessageText = text; LastMessageTick = World.Tick;
         OnChatMessage(line);                                   // 提交相发出；messageId / 序号 / sender / tick 由框架盖章
@@ -678,3 +678,6 @@ var restored = WorldManager.CreateFromSnapshot(snapshotBytes);   // 新世界；
 | 变化钩子 | 生成器给每个 Sync 字段配的 `OnXChanged(old, new, reason)`：默认只有对端改了才响，自己改自己不响 |
 | 接管 | 同一个账号又登进来了：踢掉旧连接（旧客户端退到登录界面），新连接接上同一个实体 |
 | 轻量哈希 / 全量哈希 | 每帧算一小撮字段看有没有歪 / 需要时算全部，用来定位歪在哪 |
+## ADR-060 R5-01 contract projection
+
+The World Manager is the sole packet owner. C-1 uses Welcome, WorldChange, InputCommand, ConnectionSuperseded, and Error; WorldChange carries creates, field changes, destroys, and ClientRpc records in one ordered stream. NetEntityId and connection references are 128-bit values. C-2 admission returns accepted or a rejection only; Welcome delivers the assigned id and generation. Derived entityType comes from World.TypeOf and tombstoned is derived from the issued counter and live set.
