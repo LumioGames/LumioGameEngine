@@ -6,6 +6,14 @@ namespace Lumio.Engine.NativeLoader.Tests;
 public sealed class NativeEngineLoaderTests
 {
     [Fact]
+    public void NativeTimerAbiExposesTheHostedTimerOperations()
+    {
+        Assert.NotNull(typeof(INativeTimerAbi).GetMethod(nameof(INativeTimerAbi.CreateManager)));
+        Assert.NotNull(typeof(INativeTimerAbi).GetMethod(nameof(INativeTimerAbi.ScheduleRepeating)));
+        Assert.NotNull(typeof(INativeTimerAbi).GetMethod(nameof(INativeTimerAbi.Drain)));
+        Assert.Equal(16, System.Runtime.InteropServices.Marshal.SizeOf<NativeTimerHandle>());
+    }
+    [Fact]
     public void MissingNativeFileIsRejectedBeforeLoad()
     {
         var error = Assert.Throws<NativeEngineLoadException>(() =>
