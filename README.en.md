@@ -26,7 +26,7 @@
 </div>
 <!-- lumio-community:end -->
 
-`LumioCoreEngine` has been marked **Deprecated** as a standalone repository and is kept only for historical audit and rollback purposes; no new feature or dependency should be added there. Its implementation now lives under `engine/native/` in this repository.
+The standalone `LumioCoreEngine` repository was **deleted** on 2026-09-04, after being marked Deprecated on 2026-08-31. Its implementation now lives under `engine/native/` in this repository. Entries in older ADRs that name it as Owner redirect through [`ADR-059`](.spec/decisions/ADR-059-lumiocoreengine-repository-retirement.md).
 
 ## What this is
 

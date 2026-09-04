@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "kind": "contracts-wrapper-generation-record",
-  "repository": "https://github.com/LumioGames/LumioCoreEngine",
+  "repository": "https://github.com/LumioGames/LumioGameEngine",
   "architectureRepository": "https://github.com/LumioGames/LumioGameEngineArchitecture",
   "architectureCommit": "1f2ead332b3dfc3042e1495bfbe6febb8699df7e",
   "architectureBaselineId": "LGE-V1.4-2026-08-27",
   "mirrorRoot": "generated/architecture/LGE-V1.4-2026-08-27",
   "generatorName": "modules/root-abi/contracts/tests/generated_integrity.rs",
   "generatorVersion": 1,
-  "generatorSha256": "2611b827c8ea02b4feaeeb9a1eaab0f12473a1f30c8987c8450bac3040cf9c0e",
+  "generatorSha256": "83cf096851622a2cdd5a3b7c9c491cb4879f5a28cbbdda5f88dd9f46a42b1d9d",
   "argv": "LUMIO_CONTRACTS_REGENERATE=1 cargo test -p lumio-core-contracts --locked --test generated_integrity",
   "targetPlatform": "host-independent",
   "upstream": {

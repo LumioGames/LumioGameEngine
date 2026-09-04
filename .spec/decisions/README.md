@@ -78,6 +78,7 @@
 | [ADR-056](ADR-056-rm00011-architecture-convergence.md) | RM-00011 架构收敛：单一 ECS / 单一绑定查询 / 字段标注声明 / 单一定时内核 / 真实广播与落盘（第一性原理：如无必要勿增实体） | Accepted |
 | [ADR-057](ADR-057-rm00011-r4-owner-rulings.md) | RM-00011 r4 Owner 裁决：ADR-056 六项 Fixture 在 r3 未成立的事实与补救范围（顺序一致、证据即日志、Bot 归 Client、在线名单只在 Runtime、自驱主循环、单一世界原则） | Draft |
 | [ADR-058](ADR-058-ecs-world-manager-and-annotation-registry.md) | ECS World Manager、Sync<T> 字段与标注生成桥（单进程单世界、WorldEntity、Netcode 式上行、一套源码两份程序集、组件式 API + 模板内联存储、128 位 NetEntityId、事件即 ClientRpc） | Draft |
+| [ADR-059](ADR-059-lumiocoreengine-repository-retirement.md) | LumioCoreEngine 仓库退役与 Owner 指针归属（远端删除、旧 ADR Owner 前向重定向、生成物 URL 经生成源更新） | Accepted |
 
 旧制度的 `DECISIONS_PENDING` 待决台账已随 `docs/` 一并删除（见 git 历史）；Living Architecture 下未定项直接落 ADR 或任务卡，不再另设台账。
 

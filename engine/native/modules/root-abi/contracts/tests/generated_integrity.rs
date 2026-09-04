@@ -775,7 +775,7 @@ fn render_descriptor(inp: &Inputs, outputs: &BTreeMap<String, String>) -> String
     s.push_str("{\n");
     s.push_str("  \"schemaVersion\": 1,\n");
     s.push_str("  \"kind\": \"contracts-wrapper-generation-record\",\n");
-    s.push_str("  \"repository\": \"https://github.com/LumioGames/LumioCoreEngine\",\n");
+    s.push_str("  \"repository\": \"https://github.com/LumioGames/LumioGameEngine\",\n");
     s.push_str(&format!(
         "  \"architectureRepository\": \"{}\",\n",
         json_escape(&inp.architecture_repository)
