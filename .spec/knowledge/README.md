@@ -32,6 +32,7 @@ metadata:
 | [`features/save-load.md`](features/save-load.md) | Lumio 存档设计概要——场景体素、动态实体事件、玩家本地偏好三类别与耐久档位;做存读档前查 |
 | [`features/config-table.md`](features/config-table.md) | LumioConfig 设计概要——配表编译、typed Table Reader 与 Tick 内不可变快照;做配表或热更前查 |
 | [`features/ecs-entity-chat.md`](features/ecs-entity-chat.md) | ECS 正式实体与聊天垂直切片的需求真值——行为与归属边界;实现该切片或改其验收标准前查 |
+| [`features/runtime-manager-controls.md`](features/runtime-manager-controls.md) | Runtime Manager 内部准入、断开与重绑定控制消息——网络线程入队、Owner Thread 统一应用;修改连接生命周期前查 |
 | [`features/_TEMPLATE.md`](features/_TEMPLATE.md) | 新功能文档模板——新增功能记录时照此建,放对 领域 / 模块 |
 
 ## lessons(经验教训 · 复发问题暂存区)
