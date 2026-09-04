@@ -21,8 +21,8 @@
   },
   "identityModel": {
     "accountId": "持久业务身份，不透明字符串；由账号服 login-or-register 分配，登录/登出不改变。可作为身份属性值随实体携带，但不声明为可查属性（见 readRules）；只在登录回应中给出，不自动对其他客户端公开。",
-    "roomId": "隔离 Room World 的不透明标识。绑定、解析与查询一律在单一 Room 范围内成立。",
-    "netEntityId": "运行时网络身份，不透明字符串，销毁后永不复用。由 Runtime 身份表发号；宿主准入时调用 Runtime 取号；宿主不得自铸。它是客户端与服务端寻址实体的唯一游戏层引用：不是数组下标、不是数据库主键 API、也不是客户端或宿主自造的临时标识。同一账号的运行时实体 A 过期后重登生成 B 时，NetEntityId 变化而 AccountId 不变。",
+    "roomId": "宿主路由键：标识连接被路由到的 Game 实例（一个进程一个 World Manager 一个 GameWorld）。Runtime 接口按实例隐含，不解析该值；cross_room 结局由宿主路由层判定。契约字段名保留。绑定、解析与查询一律在单一实例范围内成立。",
+    "netEntityId": "运行时网络身份，128 位 = 实例 ID（高 64）+ 计数器（低 64），32-hex 小写编码不变；世界在提交相发号（Runtime 身份表发号并入档），跨进程唯一、跨重启不复用、销毁后永不复用。由 Runtime 身份表发号；宿主准入时调用 Runtime 取号；宿主不得自铸。它是客户端与服务端寻址实体的唯一游戏层引用：不是数组下标、不是数据库主键 API、也不是客户端或宿主自造的临时标识。同一账号的运行时实体 A 过期后重登生成 B 时，NetEntityId 变化而 AccountId 不变。",
     "entityType": "实体类别枚举 player | bot。由服务端按已认证登录名规则分类创建（PlayerEntity / BotEntity），客户端不得提交任意 EntityType 字段。",
     "connectionGeneration": "绑定纪元号，u64。首次准入为 1；同账号经重连重绑或顶号重绑继承同一实体（NetEntityId 不变）时严格递增。旧纪元的查询/引用在新纪元生效后以 stale_generation 结局返回。"
   },
@@ -36,13 +36,13 @@
         "connectionGeneration": "u64"
       },
       "optional": {},
-      "notes": "五元组即绑定记录全部字段；会话号与宿主内部句柄不得出现在绑定记录。不得携带 AccountEntity 对象引用、存储句柄、宿主指针、会话号或任何第六字段。"
+      "notes": "五元组由实体 IdentityComponent 字段（accountId / kind / connectionGeneration）+ 宿主会话表（connection → netEntityId）拼出；Runtime 不持独立绑定表。五元组即绑定记录全部字段；会话号与宿主内部句柄不得出现在绑定记录。不得携带 AccountEntity 对象引用、存储句柄、宿主指针、会话号或任何第六字段。"
     },
     "invariants": [
       "一个账号同一时刻至多在一个 Room 内活跃（一个活跃绑定）。",
       "NetEntityId 只由 Runtime 身份表发号并登记墓碑；宿主准入只调用 Runtime 取号，不得自铸。",
       "绑定记录只保留五元组；会话号归连接层会话表，宿主内部句柄归宿主私有映射，二者不得混入绑定记录。",
-      "每条已准入连接恰有一条活跃绑定记录；绑定由 Runtime 维护，宿主只转发，客户端不得自行声明他人绑定。",
+      "每条已准入连接恰有一条活跃绑定记录；绑定由实体 IdentityComponent 字段与派生索引构成，Runtime 不持独立绑定表，宿主只持连接 → NetEntityId 会话表并转发，客户端不得自行声明他人绑定。",
       "重连窗口内重绑与顶号重绑都继承同一实体：NetEntityId 不变，connectionGeneration 严格递增；旧连接按其终止语义处理（R-00357 / R-00350）。",
       "断线保留期内实体保持 Room 可见（显式断线状态）；过期销毁后绑定记录进入 tombstone 语义，永不复活、永不改指替代实体。",
       "AccountId 只是身份属性值；AccountEntity 对象引用在任何方向上都不进入 Game World。"
@@ -64,7 +64,13 @@
         "caller": "server | client",
         "request": { "required": { "roomId": "string", "netEntityId": "string" }, "optional": { "connectionGeneration": "u64" } },
         "result": "成功返回实体引用 {netEntityId, roomId, entityType} 与当前权威 revision；失败按五结局矩阵返回显式结局，绝不返回替代实体。",
-        "notes": "携带 connectionGeneration 时按该纪元校验，过期即 stale_generation；服务端解析以权威存储为准，客户端解析以其 ReplicaWorld 为准。"
+        "notes": "携带 connectionGeneration 时按该纪元校验，过期即 stale_generation；服务端解析以权威存储为准，客户端解析以其客户端 World 为准。"
+      },
+      "admit": {
+        "caller": "server",
+        "request": { "required": { "accountId": "string", "roomId": "string", "entityType": "enum:entityType" }, "optional": {} },
+        "result": "首次准入 ok 并返回 Runtime 发号的 binding.record。该账号已有活跃实体且 Connected=true 时返回 account_already_online，并带现有 netEntityId；宿主走顶号路径（旧连接收 ConnectionSuperseded，Runtime rebind 同一 NetEntityId，connectionGeneration+1）。形状错误仍是 invalid_binding_shape，与本结局严格区分。",
+        "notes": "在线名单只在 Runtime。宿主不得自建账号会话表来裁决顶号。"
       }
     }
   },
@@ -120,6 +126,7 @@
   },
   "attributeDeclarations": {
     "source": "generated-from-field-annotations",
+    "notes": "玩法只用类型化读（Get<T>() / Get<T>(id) / Each<T>()）；本查询面是生成的薄适配层（字符串 AttributeId → 同一世界同一 Sync 字段），无自有存储。",
     "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
     "table": [
       {
@@ -219,10 +226,17 @@
       "producerRules": "墓碑期内一律返回本结局；过期遗忘后返回 non_existent。",
       "consumerObligation": "墓碑永不复活：不得重试、不得改指替代实体（后继实体是新的 NetEntityId，须经正常准入获得）。",
       "resolvesToReplacement": false
+    },
+    "account_already_online": {
+      "definition": "该账号已有活跃实体且 Connected=true：第二次准入不是形状错误，而是可顶号结局。",
+      "producerRules": "Runtime Admit 在实体 Connected=true 时必须返回本结局并携带现有 netEntityId；不得映射为 invalid_binding_shape。",
+      "consumerObligation": "宿主删除自建账号表，按本结局走顶号：旧连接先收 ConnectionSuperseded，再 rebind 同一 NetEntityId 且 connectionGeneration+1。",
+      "resolvesToReplacement": false
     }
   },
   "errorCodes": {
     "outcomeCodes": ["non_existent", "stale_generation", "invisible", "unauthorized", "tombstoned"],
+    "admitOutcomeCodes": ["account_already_online"],
     "requestErrorCodes": [
       "invalid_attribute_id",
       "undeclared_attribute",
@@ -235,7 +249,7 @@
     "semantics": {
       "invalid_attribute_id": "attributeId 不符合文法。SQL 表达式与自由格式属性名显式归此码（它们同样无法通过文法）。",
       "undeclared_attribute": "attributeId 合法但不在任何已冻结的属性声明表中。",
-      "cross_room_reference": "请求试图解析/查询请求 Room 之外的实体或 Room。判定依据是实体归属表（服务端权威归属或客户端 ReplicaWorld 映射）：目标实体已知属于另一 Room；不解析 netEntityId 字符串本身（该字符串不编码 Room）。",
+      "cross_room_reference": "请求试图解析/查询请求 roomId（宿主路由键）之外的 Game 实例。cross_room 由宿主路由层判定，Runtime 接口按实例隐含、不解析 roomId；本查询面若收到指向另一实例的引用，返回本码。不解析 netEntityId 字符串本身（该字符串不编码实例）。",
       "storage_access_forbidden": "请求试图以任何存储寻址形式（表名、列名、存储路径、主键 API）触达存储；查询面没有任何存储直连通路。",
       "binding_not_found": "selfLookup/resolveByConnection 找不到活跃绑定（未准入、已终止或不在本 Room）。",
       "invalid_binding_shape": "绑定记录/请求形状非法（含携带 AccountEntity 对象引用、存储句柄、宿主指针、会话号、宿主自铸 NetEntityId 等违禁字段）。",
@@ -360,6 +374,13 @@
       "when": "任一作用域解析/查询 N1",
       "expect": "tombstoned",
       "then": "显式 tombstoned；永不复活、永不改指；重登产生的后继实体是新的 NetEntityId。"
+    },
+    {
+      "name": "admit_second_connection_account_already_online",
+      "given": "账号 acct-07 已准入，绑定 {accountId:acct-07, roomId:room-01, netEntityId:00000000000000010000000000000065, entityType:player, connectionGeneration:1}，实体 Connected=true",
+      "when": "同一账号第二次 Runtime Admit(accountId=acct-07, roomId=room-01, entityType=player)，请求五元组形状合法",
+      "expect": "account_already_online",
+      "then": "返回 account_already_online 并带现有 netEntityId；不得返回 invalid_binding_shape。宿主随后顶号：旧连接 ConnectionSuperseded，rebind 同一 netEntityId，connectionGeneration=2。"
     }
   ],
   "invalidCases": [
@@ -445,6 +466,12 @@
       "violates": "多违例并存时单码裁决：invalid_binding_shape > scope_violation > attributeId 分类链",
       "given": "同一请求同时携带违禁 accountEntityRef、client origin 调用 server-authoritative、以及存储寻址 attributeId；N1 在 room-01 存在。实现必须全部检查并把其余命中写入 detail，对外只返回最高优先级单码。",
       "payload": { "callerScope": "server-authoritative", "roomId": "room-01", "netEntityId": "N1", "attributeId": "Storage.tables.entity_row(42)", "origin": "client-connection", "accountEntityRef": "<live object handle>" },
+      "expectedRejection": "invalid_binding_shape"
+    },
+    {
+      "name": "admit_shape_error_is_not_account_already_online",
+      "violates": "绑定记录/请求形状非法仍是 invalid_binding_shape，不得改判为 account_already_online",
+      "payload": { "accountId": "acct-07", "roomId": "room-01", "netEntityId": "N1", "entityType": "player", "connectionGeneration": 1, "accountEntityRef": "<live object handle>" },
       "expectedRejection": "invalid_binding_shape"
     }
   ],
