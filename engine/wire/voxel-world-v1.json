@@ -1,0 +1,1301 @@
+{
+  "contractId": "lumio.voxel-world.v1",
+  "version": 1,
+  "kind": "world-data-contract",
+  "purpose": "体素世界公共语义的唯一真值：Block/Section/Chunk 三层分层与命名、Section 与 Chunk 的规范键、BlockId 位段、Section 载荷信封、三种全量编码与增量编码、改动层派发与零字节短票、驻留脏 Section与落盘回执边界，以及光照作为派生数据不入载荷的硬边界。消费方（Rust Voxel 实现、托管 Runtime、前端、集成验收）不得另写一份真值。",
+  "scope": {
+    "includes": [
+      "三层分层的名字与尺寸（Block / Section / Chunk / World）",
+      "Section 与 Chunk 的规范键语法与坐标定义域",
+      "BlockId 的 32 位位段与 BlockType 分段",
+      "材质类（BlockType 的大类属性）与每类的网格/渲染通道/碰撞/透光声明",
+      "Section 载荷信封：三种全量编码 + 增量编码、载荷长度、摘要",
+      "改动层派发：按 Section 派发、零字节短票、缺块四态",
+      "驻留：脏 Section 标记与落盘回执覆盖语义",
+      "光照的契约级边界：不入任何载荷、不落盘",
+      "方块与实体的绑定：Section 级稀疏引用表、一致性不变量与三种损坏的显式失败",
+      "BlockType 的作用域位与段表、官方与玩家两个素材库的编号边界",
+      "调色板死项的回收时机与序列化纪律"
+    ],
+    "excludes": [
+      "网格顶点格式与零拷贝句柄的 ABI 形状（属 engine/abi/native-abi.json）",
+      "光照传播算法的实现细节（派生计算，非公共语义）",
+      "物理检测的查询形状",
+      "地形生成与原始地图烘焙管线",
+      "玩法权限、连接与会话（属 Host 与玩法契约）",
+      "贴图、着色器与美术资产（材质类只管大类行为，不管贴图）",
+      "容器规则、战利品生成、权限与距离校验（属 ECS 与玩法契约）"
+    ]
+  },
+  "layering": {
+    "statement": "世界只有三层实体：Block、Section、Chunk。数据只存在于 Section 上；Chunk 不携带数据、不持有独立版本。",
+    "levels": {
+      "Block": {
+        "extent": [
+          1,
+          1,
+          1
+        ],
+        "carriesData": true,
+        "payload": "一个 32 位 BlockId",
+        "isUnitOf": [
+          "世界最小单位，不可再分"
+        ]
+      },
+      "Section": {
+        "extent": [
+          16,
+          16,
+          16
+        ],
+        "cells": 4096,
+        "carriesData": true,
+        "payload": "方块（BlockId 数组）与光照（运行时派生，不入载荷）",
+        "isUnitOf": [
+          "最小同步单位（改动层按 Section 派发）",
+          "驻留单位（加载与卸载）",
+          "版本锚点（SectionRevision）",
+          "网格生成与块光传播的任务单位"
+        ]
+      },
+      "Chunk": {
+        "extent": [
+          16,
+          256,
+          16
+        ],
+        "sectionsPerChunk": 16,
+        "carriesData": false,
+        "payload": "无——Chunk 是容器，不存字节",
+        "isUnitOf": [
+          "存档打包单位",
+          "按列计算单位（天光、高度图、地形生成）",
+          "流式批量请求单位"
+        ]
+      },
+      "World": {
+        "carriesData": false,
+        "isUnitOf": [
+          "所有 Chunk 的集合"
+        ]
+      }
+    },
+    "worldHeightBlocks": 256,
+    "heightRationale": "世界高度恰好等于一个 Chunk 的高度，因此垂直方向只有一层 Chunk；Chunk 只需两个坐标，Section 的层号取值 0~15 恰好 4 bit。",
+    "namingDiscipline": "本契约是这三个名字的唯一权威。任何消费方不得用 Chunk 指代 16×16×16 的数据单元——那个单元的名字是 Section。"
+  },
+  "identity": {
+    "sectionKey": {
+      "syntax": "s:<x>:<y>:<z>",
+      "pattern": "^s:(0|-?[1-9][0-9]{0,9}):(0|1[0-5]|[1-9]):(0|-?[1-9][0-9]{0,9})$",
+      "coordinates": {
+        "x": {
+          "type": "int32",
+          "min": -2147483648,
+          "max": 2147483647
+        },
+        "y": {
+          "type": "uint8",
+          "min": 0,
+          "max": 15,
+          "meaning": "在所属 Chunk 内的层号"
+        },
+        "z": {
+          "type": "int32",
+          "min": -2147483648,
+          "max": 2147483647
+        }
+      },
+      "canonicalForm": "十进制，无前导零，不得出现 -0；x 与 z 的负坐标是一等公民",
+      "role": "每个以 Section 为键的映射（改动层、版本集、回执覆盖集）的必需键格式"
+    },
+    "chunkKey": {
+      "syntax": "c:<x>:<z>",
+      "pattern": "^c:(0|-?[1-9][0-9]{0,9}):(0|-?[1-9][0-9]{0,9})$",
+      "coordinates": {
+        "x": {
+          "type": "int32",
+          "min": -2147483648,
+          "max": 2147483647
+        },
+        "z": {
+          "type": "int32",
+          "min": -2147483648,
+          "max": 2147483647
+        }
+      },
+      "canonicalForm": "同 Section 键的十进制规范",
+      "role": "存档记录与按列计算的键"
+    },
+    "arityIsTheGuard": {
+      "statement": "Chunk 键是两坐标、Section 键是三坐标，且前缀不同。任何三坐标的 c: 键在语法上即非法，必须**显式拒绝**——拒绝码按它被提交到哪个命名空间给：作为 Section 键提交报 unknown_section_key，作为 Chunk 键提交报 unknown_chunk_key。两种情况下都不得被解读为 c:x:z，也不得被解读为 s:x:y:z。拒绝原因必须与「普通的前缀或元数不匹配」可区分，不得退化成一个泛化的解析失败。",
+      "why": "键的元数差异使得错层引用无法静默通过，只能显式失败。",
+      "rejectionCodeDependsOnNamespace": "本段不指定单一错误码；机器可校验的真值是 rules.key.section.arity 与 rules.key.chunk.arity 各自的 onViolation。"
+    },
+    "derivation": {
+      "sectionToChunk": "s:x:y:z 所属的 Chunk 是 c:x:z（丢弃 y）",
+      "chunkToSections": "c:x:z 含且仅含 s:x:0:z … s:x:15:z 共 16 个 Section"
+    }
+  },
+  "blockId": {
+    "width": 32,
+    "encoding": "BlockId = BlockType << 8 | BlockState",
+    "fields": {
+      "BlockType": {
+        "bits": 24,
+        "shift": 8,
+        "max": 16777215,
+        "meaning": "方块种类，永不变更；新增方块只加 1"
+      },
+      "BlockState": {
+        "bits": 8,
+        "shift": 0,
+        "max": 255,
+        "meaning": "同一种方块的不同摆法：朝向、开合、液面高度等"
+      }
+    },
+    "stateLayout": {
+      "model": "dynamic-bitfield",
+      "statement": "BlockState 的 8 位由每种形状自行划分成若干字段，框架维护每个字段的位偏移与位宽；读写只经存取函数。",
+      "example": "门：朝向 2 位 + 开合 1 位 + 合页 1 位 + 上下半扇 1 位 = 5 位",
+      "liquidLevel": "Liquid 类的方块以 BlockState 中的 4 位字段承载液面高度（0~15 级）；液面高度不新开一路逐格数据"
+    },
+    "typeSegments": {
+      "0": "空气",
+      "1": "错误块（BlockState 承载错误标识）",
+      "2": "被 ECS 实体占用（多格物件与带业务数据方块的占位；实体本体经稀疏引用寻址）",
+      "3": "结构占位块",
+      "4-255": "系统预留",
+      "256-8388607": "官方素材库方块（全局段，作用域位 = 0）",
+      "8388608-16777215": "玩家素材库方块（房间局部段，作用域位 = 1；局部号 = BlockType & 0x7FFFFF）"
+    },
+    "consumerDiscipline": [
+      "玩法层禁止对 BlockId 直接做位运算；BlockType 与 BlockId 不得混用，一律走转换函数。",
+      "不单独暴露 BlockState；要带状态就用完整 BlockId。"
+    ],
+    "unsignedDiscipline": "BlockId 一律按无符号 32 位处理。房间局部方块的作用域位落在 BlockType 的 bit 23，即 BlockId 的最高位；用有符号 int32 承载会变成负数。",
+    "scope": {
+      "statement": "BlockType 的最高位（bit 23）是作用域位：0 = 全局官方段，1 = 房间局部段。整张段表只靠这一个位和一个 256 分界，没有其他魔数。",
+      "bit": 23,
+      "mask": 8388608,
+      "global": {
+        "condition": "bit 23 == 0",
+        "range": "0 – 8388607",
+        "meaning": "官方素材库。跨房间恒定，玩法代码可以写常量",
+        "systemReserved": "0 – 255",
+        "firstOfficialBlock": 256,
+        "dense": "256 起连号稠密分配；配表按 BlockType 直接下标"
+      },
+      "roomLocal": {
+        "condition": "bit 23 == 1",
+        "range": "8388608 – 16777215",
+        "meaning": "玩家素材库。编号只在本房间有效",
+        "localIndex": "局部号 = BlockType & 0x7FFFFF，房间内从 0 起连号稠密分配",
+        "mappingTable": "「局部号 → 行为模板 + 素材引用 + 名字」的映射表必须随存档一起保存；缺表即 room_local_type_without_mapping",
+        "crossRoom": "跨房间搬运必须显式导入并重编号；房间局部编号不得当成全局编号使用"
+      },
+      "why256": "256 不是新引入的常量——它就是调色板的项数上限，本契约全文只此一个数字。",
+      "densityIsThePerformanceProperty": "两段各一张稠密表，解析一个调色板项是一次数组下标；编号散布则只能用哈希表，每次解析多一次哈希与一次随机访存。"
+    }
+  },
+  "assetLibraries": {
+    "statement": "素材是外观，BlockType 是编号，行为模板是官方定义的那几种方块玩法。三者分开；玩家只能碰前两样。",
+    "official": {
+      "contains": "官方贴图、模型、声音，以及全部行为模板",
+      "distribution": "随包 / CDN，全局固定",
+      "segment": "全局段（作用域位 = 0）"
+    },
+    "player": {
+      "contains": "玩家自制的贴图、模型、声音",
+      "distribution": "随房间存档",
+      "segment": "房间局部段（作用域位 = 1）",
+      "mayNotDefineBehavior": "玩家只能挑一个官方行为模板再挂自己的素材，不得定义新行为——行为是网格生成、碰撞与透光的代码，不是数据",
+      "externalContent": "玩家素材是外部内容；尺寸限制与内容审核归平台面，不在本契约内"
+    },
+    "perCellCost": "0——玩家方块与官方方块在 Section 里都是同一个 32 位 BlockId，共用同一张调色板，逐格成本完全相同。"
+  },
+  "materialClasses": {
+    "statement": "材质类是方块的大类行为分类，是 BlockType 的配表属性——不是 BlockState 字段，也不是第三路逐格数据。运行时是一张 BlockType → 材质类的表。",
+    "notATexture": "材质类不是贴图。金属与木头是同一个材质类（Solid），只是贴图不同；水是另一个材质类，因为它在网格结构上根本表现不了。",
+    "admissionTest": "新增材质类的唯一判据：这个差异能否只靠贴图表达？能，就不是新类。只有在网格生成、渲染通道、碰撞或透光四项中至少一项无法用现有类表达时，才允许新增。",
+    "resolutionCost": "因为 Section 采用调色板编码，材质类每个 Section 只需按调色板项解析至多 256 次，而不是逐格 4096 次。",
+    "declaredAxes": [
+      "mesh",
+      "renderPass",
+      "collision",
+      "lightAttenuation"
+    ],
+    "singleTable": "四个轴必须由同一张材质类表声明；不得在网格器、渲染器、物理、光照里各写一份分支。",
+    "classes": {
+      "Solid": {
+        "meaning": "普通不透明方块：石头、金属、木头、玻璃以外的绝大多数方块",
+        "mesh": "满格立方体，或由 BlockState 定形（楼梯、半砖）；相邻 Solid 之间做隐藏面剔除；贪心合面在同材质类同贴图内进行",
+        "renderPass": "opaque——写深度，不需排序",
+        "collision": "solid——阻挡移动",
+        "lightAttenuation": "opaque——完全阻断光传播"
+      },
+      "Liquid": {
+        "meaning": "液体：v1 仅水",
+        "mesh": "顶面按 BlockState 的液面高度下沉；同类相邻面不生成（水↔水不画），水↔Solid 不画，**水↔空气必须画**；不参与 Solid 的贪心合面",
+        "renderPass": "transparent——排序后绘制",
+        "collision": "passable——不阻挡移动；可被查询命中，浮力与游泳归玩法层",
+        "lightAttenuation": "attenuating——透光但每格额外衰减，水下随深度变暗"
+      }
+    },
+    "v1Scope": {
+      "classes": [
+        "Solid",
+        "Liquid"
+      ],
+      "staticLiquidOnly": "v1 的液体是静态的：放置即固定液面高度，体素系统不自动传播。需要「水往低处流」时由玩法层显式改写方块，步数与范围由玩法控制。",
+      "why": "自动传播意味着每 tick 扫描并改写大量方块，而每一次改写都是一次权威写入 + 一次派发 + 一次光照重算 + 一次网格重建——那是持续成本，不是一次性成本。",
+      "futureCandidates": "树叶与草是后续候选类；新增时仍须通过 admissionTest。"
+    },
+    "noIdSegmentEncoding": "材质类不得编码进 BlockType 的 ID 分段——否则新增一个类就要重排 ID。它只是配表的一列。"
+  },
+  "blockEntityBinding": {
+    "statement": "箱子、告示牌、熔炉这类既占一格又带业务数据的方块拆成两半：方块那半是体素里的真方块类型（朝向等有限状态写在 BlockState 里），业务数据那半是一个 ECS 实体。体素侧只持有指向该实体的稀疏引用，不持有业务字段。",
+    "whyNotASecondStore": "业务数据复用 ECS 已有的组件、结构事务、墓碑与快照。体素侧另起一套稀疏业务存储就要连带自造编解码注册表、schema 版本、修订号、孤儿检测与懒解码——那是在 ECS 旁边重造一个实体系统。",
+    "sparseReference": {
+      "shape": "每个 Section 一张 `格内偏移 → NetEntityId` 的稀疏表",
+      "cellOffsetRange": "0~4095",
+      "payload": "只有实体号；表内不得出现任何业务字段（库存、名字、锁、战利品表与种子）",
+      "sparsity": "只有需要实体的格子才有条目；该表不得退化成每格一个字段的 dense 数据",
+      "authority": "坐标是持久化身份；实体不得绕开该表私自认领一个坐标"
+    },
+    "invariants": [
+      "方块是「需要实体的类型」当且仅当该格引用指向一个活实体",
+      "引用指向的实体类型必须与该格方块类型匹配",
+      "方块被删除或换成别的类型时，同一提交点内删除或替换引用与实体",
+      "不需要实体的方块类型，该格不得残留引用"
+    ],
+    "commitPoint": "方块、引用与实体三者在同一个提交点内一起变更，回滚是同一个单元——与 residency 的脏标记、SectionRevision 同批发布。",
+    "corruption": {
+      "blockWithoutEntity": "有方块没实体：报存档一致性错误，按产品规则建默认空实体或把该 Chunk 标为损坏；不得无日志地静默继续",
+      "entityWithoutBlock": "有实体没方块：判为孤儿，记诊断后隔离或删除；不得在别的坐标复活",
+      "typeMismatch": "方块类型与实体类型不匹配：判为数据损坏或迁移失败；不得强制转换后继续运行"
+    },
+    "transfer": {
+      "statement": "方块与可移动实体之间的转换是原子的，业务数据全程只存在一份。",
+      "pickUp": "同一事务内：读走实体 → 清掉方块与引用 → 生成可移动实体",
+      "place": "同一事务内：校验目标格 → 写方块 → 建引用 → 销毁可移动实体",
+      "onFailure": "中途失败整体回滚；不得出现两份业务数据，也不得两边都没有"
+    },
+    "multiCell": "多格物件不是一个「大对象」：相邻各格各写自己的方块与各自的引用，逻辑视图由玩法层在运行时组合；破坏其中一格，其余各格退回单格形态。",
+    "businessDataNeverOnTheWire": "改动层、Section 载荷与落盘回执中不得出现任何业务字段；这些数据走 ECS 的同步与视野，只发给有权限的消费方。否则未探索的战利品会被提前读出。"
+  },
+  "sectionPayload": {
+    "statement": "一个 Section 的方块数据以载荷的形式携带。载荷有三种全量编码和一种增量编码，按该 Section 实际出现的 BlockId 种类数选择。",
+    "encodings": {
+      "Uniform": {
+        "condition": "整个 Section 只有 1 种 BlockId",
+        "payload": "该 BlockId 一个 32 位值",
+        "cellBits": 0
+      },
+      "Palette": {
+        "condition": "2 ≤ 种类数 ≤ 256",
+        "payload": "调色板表（≤256 个 32 位 BlockId）+ 每格 1 字节调色板索引",
+        "cellBits": 8,
+        "cellBytes": 4096
+      },
+      "Raw": {
+        "condition": "种类数 > 256",
+        "payload": "每格一个完整 32 位 BlockId",
+        "cellBits": 32,
+        "cellBytes": 16384
+      },
+      "Delta": {
+        "condition": "该 Section 已在接收方就位，本次只变了少数几格",
+        "payload": "变更条目数组，每条 = 格内偏移（0~4095）+ 新的 32 位 BlockId",
+        "cellBits": 48,
+        "bytesPerEntry": 6,
+        "requiresBase": "必须携带 baseSectionRevision；接收方当前 revision 与之不符即 delta_base_revision_mismatch，须请求一次全量重发",
+        "neverFirstDelivery": "首次送达与重同步不得使用 Delta——接收方没有可打补丁的基线",
+        "why": "全量一条约 4.3 KB，挖一格的增量约 36 字节。只发全量会让同步字节随 Section 大小走而不是随改动量走，与「改动量决定成本」的前提冲突。"
+      }
+    },
+    "singleIndexWidth": {
+      "statement": "调色板索引宽度只有 8 位一种，不存在 1/2/4 位的窄索引变体。",
+      "why": "窄索引真正能省的场景已被 Uniform 覆盖；多一种宽度就多一条解码路径。"
+    },
+    "envelope": {
+      "required": [
+        "sectionKey",
+        "sectionRevision",
+        "encoding",
+        "payloadLength",
+        "payloadSha256"
+      ],
+      "payloadSha256": "对载荷字节的 SHA-256，在任何解释之前先行校验",
+      "selfDescribing": "载荷信封必须携带格式标识与版本；不存在只有引擎自己认识的字节段",
+      "conditional": {
+        "baseSectionRevision": "encoding = Delta 时必需；其余三种全量编码不得携带"
+      }
+    },
+    "paletteSlotReclamation": {
+      "statement": "调色板项在该 Section 最后一格不再引用它之后成为死项。死项平时不回收。",
+      "noResidentStructure": "不得为此维护常驻引用计数或空闲链表：256 项的计数表是 512 字节/Section 的常驻开销，且每条写路径都要加减，漏一处即静默损坏；换来的只是省掉一次微秒级、且仅在撞上限时发生的扫描。",
+      "onCapacity": [
+        "写入需要第 257 种 BlockId 时，先扫一遍该 Section 的 4096 格，标出仍被引用的槽（256 位位图，32 字节）",
+        "存在死槽 → 直接覆盖该槽，4096 字节的格数据一个字节都不改动",
+        "全部槽仍被引用 → 这才升级为 Raw 编码"
+      ],
+      "mustReclaimBeforeEscalation": "未先做一次压缩就从 Palette 升级到 Raw，即 palette_reclaim_before_escalation",
+      "onSerialization": "落盘与派发按实际被引用的项重编；任何载荷或存档记录中都不得出现死项。"
+    },
+    "oneConceptOnly": "世界里只有 Section 这一个数据单元，没有比它更小的传输或存储单元。一个 Section 的方块数据永远是一条载荷，不拆分；传输层怎么分片是传输层自己的事，不进本契约。",
+    "fullVsDelta": {
+      "full": "Uniform / Palette / Raw 三种是全量编码：收到即整体替换该 Section 的方块数据",
+      "delta": "Delta 是增量编码：收到即按条目打补丁，其余格不动",
+      "oneSwitch": "接收方只有一个分发点——按 encoding 取值分支；四种取值共用同一个载荷信封"
+    }
+  },
+  "diffDispatch": {
+    "statement": "房间的体素状态以「相对原始地图的单层 Diff」表达；派发粒度是 Section。",
+    "singleLayer": "改动层只有一层，不做多层叠加；原始地图永不当权威",
+    "presence": {
+      "Ready": "该 Section 已送达且内容有效",
+      "Unchanged": "该 Section 相对原始地图没有改动——以零字节短票表达，不携带任何载荷",
+      "Pending": "该 Section 已请求、尚未送达",
+      "Unavailable": "该 Section 当前不可提供"
+    },
+    "missingIsNotAir": {
+      "statement": "Pending 与 Unavailable 都不得被物化成空气或视为已删除；消费方必须挂起等待。",
+      "appliesTo": [
+        "改动层派发",
+        "部分快照",
+        "流式加载"
+      ]
+    },
+    "shortTicket": {
+      "payloadLength": 0,
+      "statement": "Unchanged 的回答必须是零字节短票，与「未收到」在语法上可区分"
+    },
+    "costProperty": "改动层的大小与派发字节随实际改动量增长，不随地图大小增长",
+    "deltaAfterReady": "Section 进入 Ready 之后的后续改动以 Delta 编码派发；Ready 的首次送达与任何重同步用全量编码。"
+  },
+  "residency": {
+    "dirty": "Section 被权威写入后进入脏态；脏态只能由覆盖它的落盘回执清除",
+    "ackCoverage": {
+      "shape": "回执按 Section 键列出 upToSectionRevision",
+      "semantics": "只清除 revision ≤ upToSectionRevision 的脏标记；更晚的写入让该 Section 继续为脏"
+    },
+    "evictionFence": "未被回执覆盖的脏 Section 不得卸载；违反即 dirty_section_not_durable，且该 Section 保持驻留",
+    "noTimeBasedEviction": "不得按时间或最近最少使用淘汰脏 Section——那是在静默丢弃已提交的权威写入"
+  },
+  "lighting": {
+    "classification": "derived",
+    "statement": "光照是「方块 + 光源」的纯函数。它不进入本契约的任何载荷、不落盘、不上网；服务器与客户端各自从方块算出同一份结果。",
+    "runtimeFormat": {
+      "bitsPerCell": 16,
+      "channels": {
+        "blockR": 4,
+        "blockG": 4,
+        "blockB": 4,
+        "sky": 4
+      },
+      "range": "每通道 0~15",
+      "note": "此格式是运行时内存表示，列在此处仅为固定两端的取值语义，不构成载荷字段"
+    },
+    "maxPropagationDistance": 15,
+    "bakedException": {
+      "statement": "只有不可变的原始地图资产可以携带预先烘焙的光照；房间改动层永远不携带光照。",
+      "why": "烘焙那份对应的方块不可变，不存在与方块漂移的可能"
+    },
+    "prohibition": "任何在改动层、快照载荷或回执中携带光照的消息一律以 lighting_in_payload 拒绝"
+  },
+  "fieldSemantics": {
+    "sectionKey": "规范三坐标键，y 限 0~15；任何越界或非规范写法即 unknown_section_key",
+    "chunkKey": "规范两坐标键；三坐标的 c: 键在语法上非法",
+    "sectionRevision": "按 Section 单调递增的 64 位版本号",
+    "worldRevision": "按世界单调递增的 64 位版本号",
+    "payloadSha256": "载荷字节的 SHA-256，先于任何解释校验",
+    "presence": "四态之一；Pending 与 Unavailable 永不等价于空气",
+    "upToSectionRevision": "落盘回执对该 Section 的覆盖上界",
+    "baseSectionRevision": "Delta 载荷声明它所基于的 SectionRevision；与接收方当前 revision 不符即拒收并请求全量重发"
+  },
+  "limits": {
+    "sectionExtent": 16,
+    "sectionCells": 4096,
+    "sectionsPerChunk": 16,
+    "sectionYMin": 0,
+    "sectionYMax": 15,
+    "worldHeightBlocks": 256,
+    "paletteMaxEntries": 256,
+    "paletteIndexBits": 8,
+    "blockTypeMax": 16777215,
+    "blockStateMax": 255,
+    "lightBitsPerCell": 16,
+    "lightMaxPropagation": 15,
+    "notes": "尺寸与坐标语义一经冻结即不可变更；改动它等于全量转档，没有例外。",
+    "blockTypeScopeBit": 23,
+    "blockTypeScopeMask": 8388608,
+    "systemReservedTypeMax": 255,
+    "firstOfficialBlockType": 256,
+    "globalSegmentMax": 8388607,
+    "roomLocalSegmentMin": 8388608
+  },
+  "errorCodes": [
+    "unknown_section_key",
+    "unknown_chunk_key",
+    "section_y_out_of_range",
+    "coordinate_out_of_bounds",
+    "section_unavailable",
+    "stale_section_revision",
+    "palette_overflow",
+    "section_encoding_mismatch",
+    "section_digest_mismatch",
+    "dirty_section_not_durable",
+    "lighting_in_payload",
+    "chunk_carries_data",
+    "unknown_material_class",
+    "material_class_not_a_cell_lane",
+    "liquid_auto_propagation_unsupported",
+    "cross_material_face_merge",
+    "entity_binding_missing",
+    "entity_binding_orphan",
+    "entity_binding_type_mismatch",
+    "entity_binding_not_sparse",
+    "business_data_in_payload",
+    "binding_commit_split",
+    "block_type_scope_violation",
+    "system_reserved_type_misuse",
+    "room_local_type_without_mapping",
+    "player_type_declares_behavior",
+    "palette_reclaim_before_escalation",
+    "dead_palette_entry_in_payload",
+    "delta_base_revision_mismatch",
+    "delta_used_for_first_delivery"
+  ],
+  "rules": [
+    {
+      "id": "key.section.arity",
+      "text": "Section 键必须是三坐标 s: 形式；任何其他元数或前缀即非法",
+      "enforcedBy": "receiver",
+      "onViolation": "unknown_section_key"
+    },
+    {
+      "id": "key.chunk.arity",
+      "text": "Chunk 键必须是两坐标 c: 形式；三坐标的 c: 键在语法上非法",
+      "enforcedBy": "receiver",
+      "onViolation": "unknown_chunk_key"
+    },
+    {
+      "id": "key.canonical",
+      "text": "坐标必须是无前导零的十进制，且不得出现 -0",
+      "enforcedBy": "receiver",
+      "onViolation": "unknown_section_key"
+    },
+    {
+      "id": "key.section.y-range",
+      "text": "Section 的层号必须落在 0~15",
+      "enforcedBy": "receiver",
+      "onViolation": "section_y_out_of_range"
+    },
+    {
+      "id": "key.coordinate-bounds",
+      "text": "x 与 z 必须落在 int32 定义域内",
+      "enforcedBy": "receiver",
+      "onViolation": "coordinate_out_of_bounds"
+    },
+    {
+      "id": "layering.chunk-carries-no-data",
+      "text": "Chunk 不得携带数据字节，也不得持有独立版本",
+      "enforcedBy": "receiver",
+      "onViolation": "chunk_carries_data"
+    },
+    {
+      "id": "payload.palette-cap",
+      "text": "调色板编码的种类数不得超过 256；超过必须使用 Raw 编码",
+      "enforcedBy": "receiver",
+      "onViolation": "palette_overflow"
+    },
+    {
+      "id": "payload.encoding-matches-content",
+      "text": "载荷编码必须与该 Section 实际种类数一致",
+      "enforcedBy": "receiver",
+      "onViolation": "section_encoding_mismatch"
+    },
+    {
+      "id": "payload.digest-before-interpretation",
+      "text": "载荷摘要必须在任何解释之前校验",
+      "enforcedBy": "receiver",
+      "onViolation": "section_digest_mismatch"
+    },
+    {
+      "id": "presence.missing-is-not-air",
+      "text": "Pending 与 Unavailable 不得被物化成空气或视为已删除",
+      "enforcedBy": "receiver",
+      "onViolation": "section_unavailable"
+    },
+    {
+      "id": "presence.short-ticket-is-zero-bytes",
+      "text": "Unchanged 必须以零字节短票表达，与未送达在语法上可区分",
+      "enforcedBy": "receiver",
+      "onViolation": "section_encoding_mismatch"
+    },
+    {
+      "id": "residency.dirty-needs-ack",
+      "text": "未被落盘回执覆盖的脏 Section 不得卸载",
+      "enforcedBy": "receiver",
+      "onViolation": "dirty_section_not_durable"
+    },
+    {
+      "id": "residency.ack-covers-declared-bound",
+      "text": "落盘回执只清除 revision 不超过其声明上界的脏标记",
+      "enforcedBy": "receiver",
+      "onViolation": "stale_section_revision"
+    },
+    {
+      "id": "lighting.never-on-the-wire",
+      "text": "光照不得出现在改动层、快照载荷或回执中",
+      "enforcedBy": "receiver",
+      "onViolation": "lighting_in_payload"
+    },
+    {
+      "id": "material.class-is-a-type-attribute",
+      "text": "材质类只能是 BlockType 的配表属性；不得存成 BlockState 字段或逐格数据",
+      "enforcedBy": "receiver",
+      "onViolation": "material_class_not_a_cell_lane"
+    },
+    {
+      "id": "material.class-must-be-declared",
+      "text": "每个 BlockType 必须解析到一个已声明的材质类",
+      "enforcedBy": "receiver",
+      "onViolation": "unknown_material_class"
+    },
+    {
+      "id": "material.no-texture-only-class",
+      "text": "仅贴图不同不得新增材质类；必须在网格/渲染通道/碰撞/透光中至少一项无法表达",
+      "enforcedBy": "receiver",
+      "onViolation": "unknown_material_class"
+    },
+    {
+      "id": "material.no-cross-class-merge",
+      "text": "贪心合面不得跨材质类进行",
+      "enforcedBy": "receiver",
+      "onViolation": "cross_material_face_merge"
+    },
+    {
+      "id": "liquid.static-in-v1",
+      "text": "v1 的液体不自动传播；体素系统不提供流动模拟",
+      "enforcedBy": "receiver",
+      "onViolation": "liquid_auto_propagation_unsupported"
+    },
+    {
+      "id": "binding.block-implies-live-entity",
+      "text": "需要实体的方块类型，该格必须有引用且指向一个活实体",
+      "enforcedBy": "receiver",
+      "onViolation": "entity_binding_missing"
+    },
+    {
+      "id": "binding.no-orphan-entity",
+      "text": "引用或实体存在而该格方块不是需要实体的类型时，判为孤儿并隔离；不得在别的坐标复活",
+      "enforcedBy": "receiver",
+      "onViolation": "entity_binding_orphan"
+    },
+    {
+      "id": "binding.entity-type-matches-block-type",
+      "text": "引用指向的实体类型必须与该格方块类型匹配；不匹配即数据损坏，不得强制转换后继续",
+      "enforcedBy": "receiver",
+      "onViolation": "entity_binding_type_mismatch"
+    },
+    {
+      "id": "binding.reference-table-is-sparse",
+      "text": "稀疏引用表只对需要实体的格子有条目，且只携带实体号；不得退化成逐格字段或携带业务字段",
+      "enforcedBy": "receiver",
+      "onViolation": "entity_binding_not_sparse"
+    },
+    {
+      "id": "binding.two-halves-share-one-commit",
+      "text": "方块、引用与实体必须在同一个提交点内一起变更，回滚是同一个单元",
+      "enforcedBy": "receiver",
+      "onViolation": "binding_commit_split"
+    },
+    {
+      "id": "binding.business-data-never-on-the-wire",
+      "text": "业务字段不得出现在改动层、Section 载荷或落盘回执中",
+      "enforcedBy": "receiver",
+      "onViolation": "business_data_in_payload"
+    },
+    {
+      "id": "blockType.scope-bit-is-authoritative",
+      "text": "BlockType 的 bit 23 是作用域位；房间局部编号不得当作全局编号解析，反之亦然",
+      "enforcedBy": "receiver",
+      "onViolation": "block_type_scope_violation"
+    },
+    {
+      "id": "blockType.system-reserved-range",
+      "text": "全局段 0–255 是系统保留，不得作为普通方块分配；官方方块从 256 起连号",
+      "enforcedBy": "receiver",
+      "onViolation": "system_reserved_type_misuse"
+    },
+    {
+      "id": "blockType.room-local-needs-mapping",
+      "text": "存档中出现的每个房间局部 BlockType，都必须在随档的映射表里有对应条目",
+      "enforcedBy": "receiver",
+      "onViolation": "room_local_type_without_mapping"
+    },
+    {
+      "id": "blockType.player-picks-template-only",
+      "text": "玩家素材库的方块只能引用一个已声明的官方行为模板，不得定义新行为",
+      "enforcedBy": "receiver",
+      "onViolation": "player_type_declares_behavior"
+    },
+    {
+      "id": "palette.reclaim-before-escalation",
+      "text": "从 Palette 升级到 Raw 之前，必须先做一次死项压缩；仍然全满才允许升级",
+      "enforcedBy": "receiver",
+      "onViolation": "palette_reclaim_before_escalation"
+    },
+    {
+      "id": "palette.no-dead-entry-in-payload",
+      "text": "载荷与存档记录中的调色板不得包含未被任何格引用的死项",
+      "enforcedBy": "receiver",
+      "onViolation": "dead_palette_entry_in_payload"
+    },
+    {
+      "id": "payload.delta-needs-matching-base",
+      "text": "Delta 载荷必须携带 baseSectionRevision，且与接收方当前 revision 一致；不一致须拒收并请求全量重发，不得静默打补丁",
+      "enforcedBy": "receiver",
+      "onViolation": "delta_base_revision_mismatch"
+    },
+    {
+      "id": "payload.delta-not-for-first-delivery",
+      "text": "首次送达与重同步必须用全量编码；接收方尚无基线时不得下发 Delta",
+      "enforcedBy": "receiver",
+      "onViolation": "delta_used_for_first_delivery"
+    }
+  ],
+  "testCases": [
+    {
+      "name": "section_key_canonical_roundtrip",
+      "class": "identity",
+      "given": "Section 位于 x=-3, y=7, z=0",
+      "when": "生成规范键",
+      "then": "键为 s:-3:7:0；解析回来得到同一坐标"
+    },
+    {
+      "name": "chunk_key_two_coordinates",
+      "class": "identity",
+      "given": "Chunk 位于 x=12, z=-5",
+      "when": "生成规范键",
+      "then": "键为 c:12:-5，只有两个坐标"
+    },
+    {
+      "name": "section_to_chunk_derivation",
+      "class": "identity",
+      "given": "Section s:12:9:-5",
+      "when": "求它所属的 Chunk",
+      "then": "得到 c:12:-5；同一 Chunk 含且仅含 s:12:0:-5 … s:12:15:-5 共 16 个"
+    },
+    {
+      "name": "uniform_section_is_one_value",
+      "class": "payload",
+      "given": "一个 Section 内 4096 格全是石头",
+      "when": "编码成载荷",
+      "then": "编码为 Uniform，载荷只有一个 32 位 BlockId，不随 4096 增长"
+    },
+    {
+      "name": "palette_section_at_cap",
+      "class": "payload",
+      "given": "一个 Section 内恰好 256 种 BlockId",
+      "when": "编码成载荷",
+      "then": "编码为 Palette，每格 1 字节索引，格数据 4096 字节"
+    },
+    {
+      "name": "raw_section_above_cap",
+      "class": "payload",
+      "given": "一个 Section 内 257 种 BlockId",
+      "when": "编码成载荷",
+      "then": "编码为 Raw，每格 32 位，格数据 16384 字节"
+    },
+    {
+      "name": "block_id_composition",
+      "class": "blockId",
+      "given": "BlockType=10007 的橡木门，朝向与开合等状态位组成 BlockState=13",
+      "when": "组装 BlockId",
+      "then": "BlockId = 10007 << 8 | 13；反解得到同一对 BlockType 与 BlockState"
+    },
+    {
+      "name": "entity_occupancy_placeholder",
+      "class": "blockId",
+      "given": "一张床占两格，本体是一个 ECS 实体",
+      "when": "写入被占的两格",
+      "then": "两格写 BlockType=3 的占位类型，实体经稀疏引用寻址；不产生逐格的第二路数据"
+    },
+    {
+      "name": "unchanged_section_is_zero_bytes",
+      "class": "dispatch",
+      "given": "某 Section 相对原始地图没有改动",
+      "when": "派发该 Section",
+      "then": "回答为零字节短票，payloadLength=0，不携带载荷"
+    },
+    {
+      "name": "ack_clears_only_covered_revisions",
+      "class": "residency",
+      "given": "Section 在 revision 7 被写脏，随后又在 revision 9 被写",
+      "when": "收到 upToSectionRevision=7 的落盘回执",
+      "then": "revision 7 的脏标记清除，该 Section 因 revision 9 继续为脏"
+    },
+    {
+      "name": "lighting_absent_from_diff",
+      "class": "lighting",
+      "given": "玩家挖掉一格导致大范围光照变化",
+      "when": "服务器派发改动层",
+      "then": "载荷中只有该格的方块变化，零字节光照；两端各自算出逐格一致的光照"
+    },
+    {
+      "name": "baked_light_rides_immutable_map_only",
+      "class": "lighting",
+      "given": "原始地图资产携带预先烘焙的光照",
+      "when": "客户端首次进房",
+      "then": "烘焙光可直接使用；房间改动层仍不携带任何光照"
+    },
+    {
+      "name": "metal_and_wood_share_one_class",
+      "class": "material",
+      "given": "金属块与木块贴图完全不同",
+      "when": "解析各自的材质类",
+      "then": "两者都是 Solid；贴图差异不产生新的材质类"
+    },
+    {
+      "name": "water_face_against_air_only",
+      "class": "material",
+      "given": "一片水，内部相邻、下方是石头、上方是空气",
+      "when": "生成网格",
+      "then": "水↔水与水↔石头都不生成面，只有水↔空气那一面生成，且顶面按液面高度下沉"
+    },
+    {
+      "name": "liquid_level_rides_block_state",
+      "class": "material",
+      "given": "水的液面高度为 12 级",
+      "when": "编码该格",
+      "then": "高度写在 BlockState 的 4 位字段里；不产生任何逐格的第二路数据"
+    },
+    {
+      "name": "material_class_resolved_per_palette_entry",
+      "class": "material",
+      "given": "一个 Palette 编码的 Section 含 40 种 BlockId",
+      "when": "网格器解析材质类",
+      "then": "按调色板项解析 40 次，而不是逐格 4096 次"
+    },
+    {
+      "name": "water_passable_but_queryable",
+      "class": "material",
+      "given": "玩家走进一格水",
+      "when": "做扫掠检测",
+      "then": "水不阻挡移动，但检测能报告命中了 Liquid 类；浮力与游泳由玩法层决定"
+    },
+    {
+      "name": "light_attenuates_through_water",
+      "class": "material",
+      "given": "水下第 5 格",
+      "when": "传播天光",
+      "then": "光穿过水但每格额外衰减，越深越暗；石头则完全阻断"
+    },
+    {
+      "name": "chest_is_block_plus_entity",
+      "class": "binding",
+      "given": "玩家在 s:0:4:0 的某一格放下一个箱子",
+      "when": "提交该写入",
+      "then": "格子写箱子的 BlockType、朝向写在 BlockState 里；该 Section 的稀疏引用表增加一条 `格内偏移 → NetEntityId`；载荷里零字节库存"
+    },
+    {
+      "name": "plain_block_has_no_binding",
+      "class": "binding",
+      "given": "同一 Section 内相邻一格是石头",
+      "when": "编码该 Section",
+      "then": "稀疏引用表中没有该格的条目；普通方块不产生绑定"
+    },
+    {
+      "name": "double_chest_is_two_cells_two_entities",
+      "class": "binding",
+      "given": "两个相邻格各是一个箱子",
+      "when": "玩家打开其中一个",
+      "then": "两格各有自己的方块与自己的实体，逻辑视图由玩法层运行时组合；破坏其中一格，另一格退回单格形态且其业务数据不受影响"
+    },
+    {
+      "name": "pickup_and_place_conserves_business_data",
+      "class": "binding",
+      "given": "一个装有物品的箱子被玩家搬起后再放到别处",
+      "when": "先后执行搬起与放下两个事务",
+      "then": "任一时刻业务数据只存在一份；放下失败时可移动实体仍持有完整业务数据，目标格不留半套状态"
+    },
+    {
+      "name": "diff_carries_no_business_data",
+      "class": "binding",
+      "given": "某 Section 内的箱子库存发生变化",
+      "when": "派发该 Section 的改动层",
+      "then": "载荷中只有方块变化，零字节业务数据；库存经 ECS 同步只发给有权限的消费方"
+    },
+    {
+      "name": "scope_bit_separates_official_and_player",
+      "class": "blockId",
+      "given": "官方方块 BlockType=4096 与玩家方块 BlockType=8388608+7",
+      "when": "判定作用域",
+      "then": "前者 bit23=0 走全局表按 4096 下标；后者 bit23=1 走房间局部表按局部号 7 下标；两张表互不干扰"
+    },
+    {
+      "name": "official_blocks_start_at_256",
+      "class": "blockId",
+      "given": "官方素材库新增第一个方块",
+      "when": "分配 BlockType",
+      "then": "得到 256；0–255 保留给空气、错误块、被实体占用、结构占位与系统预留"
+    },
+    {
+      "name": "player_block_picks_official_template",
+      "class": "blockId",
+      "given": "玩家用自制贴图做一块「我画的木板」",
+      "when": "注册该方块",
+      "then": "得到一个房间局部 BlockType，行为引用官方的满格 Solid 模板；逐格成本与官方方块完全相同，共用同一张调色板"
+    },
+    {
+      "name": "room_local_type_remapped_on_import",
+      "class": "blockId",
+      "given": "一份带玩家自定义方块的存档被导入另一个房间",
+      "when": "执行导入",
+      "then": "全部房间局部编号按目标房间重新分配，映射表随之重写；渲染结果一致"
+    },
+    {
+      "name": "block_id_is_unsigned",
+      "class": "blockId",
+      "given": "一个房间局部方块的 BlockId，其最高位为 1",
+      "when": "在消费方承载该值",
+      "then": "按无符号 32 位解释；用有符号 int32 承载会得到负数，属实现缺陷"
+    },
+    {
+      "name": "dead_palette_slot_reused_at_capacity",
+      "class": "payload",
+      "given": "某 Section 调色板已满 256 项，其中 3 项已无任何格引用",
+      "when": "写入第 257 种 BlockId",
+      "then": "扫描 4096 格标出活槽后直接覆盖一个死槽，格数据一个字节不变，编码仍为 Palette"
+    },
+    {
+      "name": "escalate_to_raw_only_when_all_alive",
+      "class": "payload",
+      "given": "某 Section 调色板已满 256 项且全部仍被引用",
+      "when": "写入第 257 种 BlockId",
+      "then": "压缩一次后确认无死槽，这才升级为 Raw 编码"
+    },
+    {
+      "name": "serialized_palette_has_no_dead_entry",
+      "class": "payload",
+      "given": "某 Section 运行时调色板含死项",
+      "when": "落盘或派发该 Section",
+      "then": "按实际被引用的项重编，载荷中不含任何死项"
+    },
+    {
+      "name": "single_cell_change_rides_delta",
+      "class": "payload",
+      "given": "某 Section 已在客户端就位于 revision 12，玩家挖掉其中一格",
+      "when": "派发该次改动",
+      "then": "载荷 encoding = Delta，baseSectionRevision = 12，只含一条 6 字节条目；不重发 4 KB 全量"
+    },
+    {
+      "name": "first_delivery_rides_full_encoding",
+      "class": "payload",
+      "given": "客户端首次进房，某 Section 尚未就位",
+      "when": "派发该 Section",
+      "then": "使用 Uniform / Palette / Raw 之一的全量编码；不得使用 Delta"
+    },
+    {
+      "name": "delta_rejected_then_resynced_in_full",
+      "class": "payload",
+      "given": "客户端该 Section 处于 revision 12，收到 baseSectionRevision = 14 的 Delta",
+      "when": "接收该载荷",
+      "then": "拒收并请求全量重发；本地数据保持 revision 12 不变，不得部分应用"
+    }
+  ],
+  "invalidCases": [
+    {
+      "name": "legacy_three_coordinate_chunk_key",
+      "class": "identity",
+      "violates": "key.chunk.arity",
+      "given": "残留的旧式键 c:12:9:-5（三坐标）",
+      "when": "作为 Chunk 键或 Section 键提交",
+      "expectedRejection": "unknown_chunk_key",
+      "then": "以语法非法拒绝；不得被解读为 c:12:-5，也不得被解读为 s:12:9:-5",
+      "validatorCheck": false
+    },
+    {
+      "name": "section_key_with_chunk_prefix",
+      "class": "identity",
+      "violates": "key.section.arity",
+      "given": "键 c:12:9:-5 被当作 Section 键使用",
+      "when": "查询该 Section",
+      "expectedRejection": "unknown_section_key",
+      "then": "拒绝；Section 键必须是 s: 前缀三坐标",
+      "validatorCheck": false
+    },
+    {
+      "name": "section_key_leading_zero",
+      "class": "identity",
+      "violates": "key.canonical",
+      "given": "键 s:012:7:0",
+      "when": "解析",
+      "expectedRejection": "unknown_section_key",
+      "then": "拒绝；坐标不得有前导零",
+      "validatorCheck": false
+    },
+    {
+      "name": "section_key_negative_zero",
+      "class": "identity",
+      "violates": "key.canonical",
+      "given": "键 s:-0:7:0",
+      "when": "解析",
+      "expectedRejection": "unknown_section_key",
+      "then": "拒绝；不得出现 -0",
+      "validatorCheck": false
+    },
+    {
+      "name": "section_y_sixteen",
+      "class": "identity",
+      "violates": "key.section.y-range",
+      "given": "键 s:3:16:9",
+      "when": "解析",
+      "expectedRejection": "section_y_out_of_range",
+      "then": "拒绝；层号只能是 0~15",
+      "validatorCheck": false
+    },
+    {
+      "name": "section_x_beyond_int32",
+      "class": "identity",
+      "violates": "key.coordinate-bounds",
+      "given": "键 s:2147483648:0:0",
+      "when": "解析",
+      "expectedRejection": "coordinate_out_of_bounds",
+      "then": "拒绝；x 超出 int32 定义域",
+      "validatorCheck": false
+    },
+    {
+      "name": "chunk_record_carries_section_bytes",
+      "class": "layering",
+      "violates": "layering.chunk-carries-no-data",
+      "given": "一条 Chunk 记录直接携带载荷字节",
+      "when": "提交该记录",
+      "expectedRejection": "chunk_carries_data",
+      "then": "拒绝；数据只存在于 Section 上，Chunk 是容器",
+      "validatorCheck": false
+    },
+    {
+      "name": "chunk_declares_own_revision",
+      "class": "layering",
+      "violates": "layering.chunk-carries-no-data",
+      "given": "一条 Chunk 记录声明了自己的 chunkRevision",
+      "when": "提交该记录",
+      "expectedRejection": "chunk_carries_data",
+      "then": "拒绝；版本只锚在 Section 上，否则出现第二份真相",
+      "validatorCheck": false
+    },
+    {
+      "name": "palette_with_257_entries",
+      "class": "payload",
+      "violates": "payload.palette-cap",
+      "given": "一条载荷声明 Palette 编码但调色板有 257 项",
+      "when": "提交该载荷",
+      "expectedRejection": "palette_overflow",
+      "then": "拒绝；超过 256 必须改用 Raw 编码",
+      "validatorCheck": false
+    },
+    {
+      "name": "uniform_encoding_with_two_kinds",
+      "class": "payload",
+      "violates": "payload.encoding-matches-content",
+      "given": "一条载荷声明 Uniform 编码但实际含两种 BlockId",
+      "when": "提交该载荷",
+      "expectedRejection": "section_encoding_mismatch",
+      "then": "拒绝；编码必须与实际种类数一致",
+      "validatorCheck": false
+    },
+    {
+      "name": "payload_interpreted_before_digest_check",
+      "class": "payload",
+      "violates": "payload.digest-before-interpretation",
+      "given": "载荷字节被篡改，payloadSha256 不匹配",
+      "when": "接收方先解码后校验摘要",
+      "expectedRejection": "section_digest_mismatch",
+      "then": "拒绝；摘要必须先于任何解释校验",
+      "validatorCheck": false
+    },
+    {
+      "name": "pending_section_rendered_as_air",
+      "class": "dispatch",
+      "violates": "presence.missing-is-not-air",
+      "given": "某 Section 处于 Pending",
+      "when": "消费方把它当作空气渲染或参与碰撞",
+      "expectedRejection": "section_unavailable",
+      "then": "拒绝；必须挂起等待，缺块永不等于空气",
+      "validatorCheck": false
+    },
+    {
+      "name": "unavailable_section_treated_as_deleted",
+      "class": "dispatch",
+      "violates": "presence.missing-is-not-air",
+      "given": "部分快照中缺少某 Section",
+      "when": "消费方将其视为已删除",
+      "expectedRejection": "section_unavailable",
+      "then": "拒绝；未覆盖不等于已删除",
+      "validatorCheck": false
+    },
+    {
+      "name": "unchanged_answered_with_full_payload",
+      "class": "dispatch",
+      "violates": "presence.short-ticket-is-zero-bytes",
+      "given": "某 Section 无改动",
+      "when": "派发方回以完整载荷而非零字节短票",
+      "expectedRejection": "section_encoding_mismatch",
+      "then": "拒绝；Unchanged 必须零字节，否则与未送达不可区分",
+      "validatorCheck": false
+    },
+    {
+      "name": "evict_dirty_without_ack",
+      "class": "residency",
+      "violates": "residency.dirty-needs-ack",
+      "given": "某 Section 为脏且无回执覆盖",
+      "when": "请求卸载它",
+      "expectedRejection": "dirty_section_not_durable",
+      "then": "拒绝且该 Section 保持驻留",
+      "validatorCheck": false
+    },
+    {
+      "name": "ack_clears_later_revision",
+      "class": "residency",
+      "violates": "residency.ack-covers-declared-bound",
+      "given": "Section 当前脏于 revision 9",
+      "when": "以 upToSectionRevision=7 的回执清除全部脏标记",
+      "expectedRejection": "stale_section_revision",
+      "then": "拒绝；回执只覆盖到它声明的上界",
+      "validatorCheck": false
+    },
+    {
+      "name": "diff_carries_light_field",
+      "class": "lighting",
+      "violates": "lighting.never-on-the-wire",
+      "given": "改动层载荷中附带每格光照值",
+      "when": "提交该载荷",
+      "expectedRejection": "lighting_in_payload",
+      "then": "拒绝；光照是派生数据，永不上网",
+      "validatorCheck": false
+    },
+    {
+      "name": "durability_ack_carries_light",
+      "class": "lighting",
+      "violates": "lighting.never-on-the-wire",
+      "given": "落盘回执中附带光照覆盖信息",
+      "when": "提交该回执",
+      "expectedRejection": "lighting_in_payload",
+      "then": "拒绝；回执只覆盖方块写入",
+      "validatorCheck": false
+    },
+    {
+      "name": "new_class_for_texture_only_difference",
+      "class": "material",
+      "violates": "material.no-texture-only-class",
+      "given": "为「花岗岩」单独新增一个材质类，理由只是贴图与石头不同",
+      "when": "注册该类",
+      "expectedRejection": "unknown_material_class",
+      "then": "拒绝；贴图差异用 BlockType 表达，不是新材质类",
+      "validatorCheck": false
+    },
+    {
+      "name": "material_class_stored_per_cell",
+      "class": "material",
+      "violates": "material.class-is-a-type-attribute",
+      "given": "实现把材质类存成每格一个字节的第三路数据",
+      "when": "编码 Section 载荷",
+      "expectedRejection": "material_class_not_a_cell_lane",
+      "then": "拒绝；材质类由 BlockType 查表得到，逐格数据只有方块一路",
+      "validatorCheck": false
+    },
+    {
+      "name": "block_type_without_material_class",
+      "class": "material",
+      "violates": "material.class-must-be-declared",
+      "given": "配表新增一个 BlockType 但未声明材质类",
+      "when": "加载配表",
+      "expectedRejection": "unknown_material_class",
+      "then": "拒绝；每个 BlockType 必须解析到一个已声明的类",
+      "validatorCheck": false
+    },
+    {
+      "name": "greedy_merge_across_solid_and_liquid",
+      "class": "material",
+      "violates": "material.no-cross-class-merge",
+      "given": "一面石头与相邻水面共面且贴图索引相同",
+      "when": "贪心合面把两者合并成一个四边形",
+      "expectedRejection": "cross_material_face_merge",
+      "then": "拒绝；合面只在同材质类内进行，否则渲染通道会错",
+      "validatorCheck": false
+    },
+    {
+      "name": "voxel_system_asked_to_flow_water",
+      "class": "material",
+      "violates": "liquid.static-in-v1",
+      "given": "调用方要求体素系统每 tick 自动传播水",
+      "when": "发起该请求",
+      "expectedRejection": "liquid_auto_propagation_unsupported",
+      "then": "拒绝；v1 液体静态，流动由玩法层显式改写方块",
+      "validatorCheck": false
+    },
+    {
+      "name": "chest_block_without_entity",
+      "class": "binding",
+      "violates": "binding.block-implies-live-entity",
+      "given": "存档里某格是箱子方块，但该格没有引用（或引用指向已销毁的实体）",
+      "when": "加载该 Chunk",
+      "expectedRejection": "entity_binding_missing",
+      "then": "报存档一致性错误；按产品规则建默认空实体或把该 Chunk 标为损坏，不得无日志地静默继续",
+      "validatorCheck": false
+    },
+    {
+      "name": "entity_bound_to_a_stone_cell",
+      "class": "binding",
+      "violates": "binding.no-orphan-entity",
+      "given": "一条实体记录指向的坐标现在是石头",
+      "when": "加载该 Chunk",
+      "expectedRejection": "entity_binding_orphan",
+      "then": "判为孤儿并记诊断后隔离或删除；不得在石头那一格被激活",
+      "validatorCheck": false
+    },
+    {
+      "name": "chest_block_bound_to_furnace_entity",
+      "class": "binding",
+      "violates": "binding.entity-type-matches-block-type",
+      "given": "某格方块是箱子，引用指向的实体却是熔炉",
+      "when": "加载该 Chunk",
+      "expectedRejection": "entity_binding_type_mismatch",
+      "then": "判为数据损坏或迁移失败；不得强制转换后继续运行",
+      "validatorCheck": false
+    },
+    {
+      "name": "binding_table_stored_per_cell",
+      "class": "binding",
+      "violates": "binding.reference-table-is-sparse",
+      "given": "实现把引用表存成每格一个实体号字段，或在表里塞入库存字段",
+      "when": "编码 Section",
+      "expectedRejection": "entity_binding_not_sparse",
+      "then": "拒绝；引用表只对需要实体的格子有条目，且只携带实体号",
+      "validatorCheck": false
+    },
+    {
+      "name": "block_removed_without_entity_in_same_commit",
+      "class": "binding",
+      "violates": "binding.two-halves-share-one-commit",
+      "given": "一次提交把箱子方块改成空气，却把实体与引用的删除留到下一次提交",
+      "when": "提交该写入",
+      "expectedRejection": "binding_commit_split",
+      "then": "拒绝；方块、引用与实体在同一个提交点内一起变更",
+      "validatorCheck": false
+    },
+    {
+      "name": "diff_carries_inventory_bytes",
+      "class": "binding",
+      "violates": "binding.business-data-never-on-the-wire",
+      "given": "改动层载荷中附带箱子的库存槽位",
+      "when": "提交该载荷",
+      "expectedRejection": "business_data_in_payload",
+      "then": "拒绝；业务数据走 ECS 同步与视野，不进体素载荷",
+      "validatorCheck": false
+    },
+    {
+      "name": "room_local_type_used_as_global",
+      "class": "blockId",
+      "violates": "blockType.scope-bit-is-authoritative",
+      "given": "一个 bit23=1 的房间局部 BlockType 被拿去查全局官方表",
+      "when": "解析该类型",
+      "expectedRejection": "block_type_scope_violation",
+      "then": "拒绝；不得解析到另一个方块",
+      "validatorCheck": false
+    },
+    {
+      "name": "official_block_allocated_in_reserved_range",
+      "class": "blockId",
+      "violates": "blockType.system-reserved-range",
+      "given": "配表把一个普通官方方块分配到 BlockType=7",
+      "when": "加载配表",
+      "expectedRejection": "system_reserved_type_misuse",
+      "then": "拒绝；0–255 是系统保留，官方方块从 256 起",
+      "validatorCheck": false
+    },
+    {
+      "name": "save_references_unmapped_room_local_type",
+      "class": "blockId",
+      "violates": "blockType.room-local-needs-mapping",
+      "given": "存档里某格引用了房间局部 BlockType，但随档映射表里没有该条目",
+      "when": "加载该存档",
+      "expectedRejection": "room_local_type_without_mapping",
+      "then": "拒绝；房间局部编号离开映射表就没有意义，存档必须自描述",
+      "validatorCheck": false
+    },
+    {
+      "name": "player_block_declares_new_behavior",
+      "class": "blockId",
+      "violates": "blockType.player-picks-template-only",
+      "given": "玩家素材库的方块声明了一套自己的合面与碰撞行为，而不是引用官方模板",
+      "when": "注册该方块",
+      "expectedRejection": "player_type_declares_behavior",
+      "then": "拒绝；行为是代码不是数据，玩家只能挑模板挂素材",
+      "validatorCheck": false
+    },
+    {
+      "name": "escalate_to_raw_without_reclaim",
+      "class": "payload",
+      "violates": "palette.reclaim-before-escalation",
+      "given": "某 Section 调色板满 256 项且含死项",
+      "when": "直接升级为 Raw 编码而未先压缩",
+      "expectedRejection": "palette_reclaim_before_escalation",
+      "then": "拒绝；必须先压一次，仍然全满才允许升级",
+      "validatorCheck": false
+    },
+    {
+      "name": "payload_palette_contains_dead_entry",
+      "class": "payload",
+      "violates": "palette.no-dead-entry-in-payload",
+      "given": "载荷的调色板里有一项不被任何格引用",
+      "when": "提交该载荷",
+      "expectedRejection": "dead_palette_entry_in_payload",
+      "then": "拒绝；序列化时必须按实际被引用的项重编",
+      "validatorCheck": false
+    },
+    {
+      "name": "delta_applied_over_mismatched_base",
+      "class": "payload",
+      "violates": "payload.delta-needs-matching-base",
+      "given": "接收方该 Section 处于 revision 12，收到 baseSectionRevision = 14 的 Delta",
+      "when": "直接把条目打上去",
+      "expectedRejection": "delta_base_revision_mismatch",
+      "then": "拒绝；错位打补丁会静默产生与权威不一致的世界",
+      "validatorCheck": false
+    },
+    {
+      "name": "delta_sent_as_first_delivery",
+      "class": "payload",
+      "violates": "payload.delta-not-for-first-delivery",
+      "given": "某 Section 在接收方尚未就位",
+      "when": "派发方以 Delta 编码下发",
+      "expectedRejection": "delta_used_for_first_delivery",
+      "then": "拒绝；没有基线就没有可打补丁的对象",
+      "validatorCheck": false
+    }
+  ],
+  "boundary": {
+    "noChunkAsDataUnit": "不得用 Chunk 指代 16×16×16 的数据单元；那个单元叫 Section",
+    "noSecondPerCellLane": "每格 dense 数据只有方块一路进入载荷；光照是派生的第二路，永不入载荷",
+    "noNarrowPaletteIndex": "调色板索引宽度只有 8 位，不引入 1/2/4 位变体",
+    "noMultiLayerDiff": "改动层只有一层，不做多层叠加",
+    "noTimeBasedDirtyEviction": "不得按时间或最近最少使用淘汰脏 Section",
+    "noOpaqueByteSegment": "不得存在只有引擎自己认识的字节段；每一段都要自描述",
+    "noMeshAbiHere": "网格顶点格式与零拷贝句柄属 ABI 面，不在本 wire 契约内",
+    "noTextureOnlyMaterialClass": "仅贴图不同不得新增材质类",
+    "noMaterialClassPerCell": "材质类不得成为第三路逐格数据",
+    "noLiquidSimulation": "v1 体素系统不做液体流动模拟",
+    "noVoxelSideBusinessStore": "体素侧不得自带一套稀疏业务数据存储；业务数据挂 ECS 实体，体素侧只存实体号",
+    "noBusinessDataOnTheWire": "改动层、Section 载荷与落盘回执中不得出现业务字段",
+    "noPlayerDefinedBehavior": "玩家素材库不得定义新的方块行为，只能引用官方行为模板",
+    "noGlobalPlayerTypeMinting": "玩家方块不占全局编号；房间局部编号 + 随存档映射表，跨房间走显式导入",
+    "noResidentPaletteRefcount": "不得为调色板槽维护常驻引用计数或空闲链表；死项在撞上限与序列化两个点上压掉",
+    "noSubSectionUnit": "不存在比 Section 更小的传输或存储单元；一个 Section 的方块数据永远是一条载荷，不分页",
+    "noFullResendForOneCell": "已就位的 Section 发生小改动时不得重发全量；同步字节随改动量增长，不随 Section 大小增长"
+  }
+}

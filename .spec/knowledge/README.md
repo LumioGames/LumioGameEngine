@@ -27,6 +27,7 @@ metadata:
 |------|--------|
 | [`features/architecture.md`](features/architecture.md) | 预上线 Living Architecture——产品拓扑、仓库边界与可运行的 API/ABI 接口;改跨仓边界或接口前查 |
 | [`features/ecs.md`](features/ecs.md) | Lumio ECS 设计概要(Active-Component Hybrid)——身份、存储、查询、结构事务与同步;动 ECS 或其消费方前查 |
+| [`features/voxel.md`](features/voxel.md) | Lumio 体素设计概要——Section/Chunk 分层、方块编码、存储压缩、光照、网格与方块实体绑定;做体素世界或其消费方前查 |
 | [`features/ds-server.md`](features/ds-server.md) | Lumio DS 设计概要——权威服务端分层、视野与变更集下发、连接生命周期;动服务端或网络面前查 |
 | [`features/gas.md`](features/gas.md) | Lumio GAS 设计概要——Ability/Effect/Attribute/Tag 与表现层;做技能、效果或属性系统前查 |
 | [`features/save-load.md`](features/save-load.md) | Lumio 存档设计概要——场景体素、动态实体事件、玩家本地偏好三类别与耐久档位;做存读档前查 |
