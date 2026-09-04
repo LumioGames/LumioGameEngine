@@ -20,7 +20,10 @@
       "轴语义：y 是竖直轴、世界 y 无符号 0~255",
       "官方方块目录的登记形状与铸号规程",
       "玩法侧批量读的请求 / 返回形状、缺块四态与预算",
-      "权威写入条目的公共形状与整批语义"
+      "权威写入条目的公共形状与整批语义",
+      "格内偏移的唯一算式与反解",
+      "区域常驻 pin：声明、就绪信号、硬预算与不可淘汰",
+      "行为模板登记表（v1 穷尽：FullCube / Liquid）"
     ],
     "excludes": [
       "网格顶点格式与零拷贝句柄的 ABI 形状（属 engine/abi/native-abi.json）",
@@ -153,6 +156,23 @@
       "worldXZ": "x 与 z 是水平轴，各自 signed 32 位，负坐标是一等公民",
       "whyDeclared": "identity 只给了键的正则，没有一句轴语义。消费方按「z 是竖直轴」去理解时，所有正则都照过、没有任何机器校验会挡下来——错误会一路漂到渲染和物理才暴露。",
       "noAlternateConvention": "不接受 y-up / z-up 的可配置项；轴向是冻结语义，改它等于全量转档。"
+    },
+    "cellOffset": {
+      "statement": "格内偏移是一个 0~4095 的数，由世界坐标唯一确定。算式写死在这里，不留推导空间。",
+      "formula": "cellOffset = (worldY & 15) * 256 + (worldZ & 15) * 16 + (worldX & 15)",
+      "strides": {
+        "y": 256,
+        "z": 16,
+        "x": 1
+      },
+      "order": "y 外层、z 中层、x 内层——与 blockRead.box 的铺开序完全相同，两处不得出现第二种序",
+      "inverse": {
+        "y": "(cellOffset >> 8) & 15",
+        "z": "(cellOffset >> 4) & 15",
+        "x": "cellOffset & 15"
+      },
+      "range": "0 ~ 4095；超出即 cell_offset_out_of_range",
+      "why": "只写「按固定序合成」时，两端各推一次就可能取到不同的 stride，结果是静默的错位读写——错的格子被改了，没有任何校验会报错。"
     }
   },
   "blockId": {
@@ -449,7 +469,21 @@
       "semantics": "只清除 revision ≤ upToSectionRevision 的脏标记；更晚的写入让该 Section 继续为脏"
     },
     "evictionFence": "未被回执覆盖的脏 Section 不得卸载；违反即 dirty_section_not_durable，且该 Section 保持驻留",
-    "noTimeBasedEviction": "不得按时间或最近最少使用淘汰脏 Section——那是在静默丢弃已提交的权威写入"
+    "noTimeBasedEviction": "不得按时间或最近最少使用淘汰脏 Section——那是在静默丢弃已提交的权威写入",
+    "pinnedRegions": {
+      "statement": "有些世界不走流式调度——整张地图必须一直在内存里，且同一 tick 内的查询不允许出现「还没到」。区域 pin 就是把这件事声明出来的唯一方式。",
+      "declaration": "pin 声明一组 Section 键（可由世界坐标范围推出）；可在世界创建时声明，也可运行时增删",
+      "guarantee": "pin 就绪之后，落在 pin 内的 blockRead 与物理查询**永不返回 Pending 或 Unavailable**；调用方可以在同一 tick 内拿到确定结果，不必挂起等待。",
+      "readiness": {
+        "statement": "pin 从声明到就绪之间有一个明确的就绪信号；就绪之前不得放玩法进场。",
+        "beforeReady": "pin 未就绪时对其范围的读仍可能是 Pending——这不是违约，是还没就绪；玩法必须等就绪信号",
+        "onViolation": "pin 未就绪就开始玩法结算即 pin_region_not_ready"
+      },
+      "budgetIsHard": "pin 覆盖的 Section 总数必须落在声明的驻留预算内。超出即 residency_pin_exceeds_budget，**声明当场失败**——不得静默降级成「尽量常驻」，也不得部分满足。",
+      "neverEvicted": "pin 内的 Section 不参与任何淘汰，比脏页栅栏更强：干净也不许卸载。只有解除 pin 之后才可卸载。",
+      "notStreaming": "pin 区域不参与按玩家位置的流式调度与优先级排序；它就是一直在。",
+      "sizing": "pin 的成本按 Section 算，不按格算。举例：61×61 格、2 格高的一张小地图，覆盖 ceil(61/16) × ceil(61/16) × 1 = 4 × 4 × 1 = 16 个 Section，调色板态下约 64 KB——全图常驻在这种量级上是白给的。"
+    }
   },
   "lighting": {
     "classification": "derived",
@@ -481,7 +515,9 @@
     "presence": "四态之一；Pending 与 Unavailable 永不等价于空气",
     "upToSectionRevision": "落盘回执对该 Section 的覆盖上界",
     "baseSectionRevision": "Delta 载荷声明它所基于的 SectionRevision；与接收方当前 revision 不符即拒收并请求全量重发",
-    "queryResolution": "查询结果三态之一：Hit / Miss / Unresolved；Unresolved 带产生它的 Section 键，且永不等价于 Miss 或 Hit"
+    "queryResolution": "查询结果三态之一：Hit / Miss / Unresolved；Unresolved 带产生它的 Section 键，且永不等价于 Miss 或 Hit",
+    "cellOffset": "格内偏移 0~4095，唯一算式 (worldY & 15) * 256 + (worldZ & 15) * 16 + (worldX & 15)",
+    "pin": "区域常驻声明；就绪后其范围内的读与物理查询不再出现 Pending / Unavailable"
   },
   "limits": {
     "sectionExtent": 16,
@@ -553,7 +589,14 @@
     "read_budget_exceeded",
     "read_result_missing_revision",
     "write_batch_too_large",
-    "unstructured_mutation_entry"
+    "unstructured_mutation_entry",
+    "cell_offset_out_of_range",
+    "residency_pin_exceeds_budget",
+    "pin_region_not_ready",
+    "pinned_section_evicted",
+    "pinned_read_returned_pending",
+    "unknown_behavior_template",
+    "cell_read_missing_presence"
   ],
   "rules": [
     {
@@ -849,6 +892,48 @@
       "text": "一批写入任一条目校验失败即整批拒绝，不得部分应用",
       "enforcedBy": "receiver",
       "onViolation": "write_batch_too_large"
+    },
+    {
+      "id": "identity.cell-offset-formula",
+      "text": "格内偏移只有一个算式：(worldY & 15) * 256 + (worldZ & 15) * 16 + (worldX & 15)；取值 0~4095",
+      "enforcedBy": "receiver",
+      "onViolation": "cell_offset_out_of_range"
+    },
+    {
+      "id": "residency.pin-guarantees-ready",
+      "text": "pin 就绪后，落在 pin 内的读与物理查询不得返回 Pending 或 Unavailable",
+      "enforcedBy": "receiver",
+      "onViolation": "pinned_read_returned_pending"
+    },
+    {
+      "id": "residency.pin-budget-is-hard",
+      "text": "pin 覆盖的 Section 数超出驻留预算时声明当场失败，不得静默降级或部分满足",
+      "enforcedBy": "receiver",
+      "onViolation": "residency_pin_exceeds_budget"
+    },
+    {
+      "id": "residency.pinned-never-evicted",
+      "text": "pin 内的 Section 不得被卸载，干净也不行；只有解除 pin 之后才可卸载",
+      "enforcedBy": "receiver",
+      "onViolation": "pinned_section_evicted"
+    },
+    {
+      "id": "residency.pin-ready-before-gameplay",
+      "text": "pin 未就绪不得开始依赖该区域的玩法结算",
+      "enforcedBy": "receiver",
+      "onViolation": "pin_region_not_ready"
+    },
+    {
+      "id": "catalog.behavior-template-must-be-registered",
+      "text": "方块目录的 behaviorTemplate 必须解析到 behaviorTemplates 里已登记的一项",
+      "enforcedBy": "receiver",
+      "onViolation": "unknown_behavior_template"
+    },
+    {
+      "id": "read.cell-carries-presence",
+      "text": "单格读必须返回 presence；缺块时不给 BlockId 字段，不得用 0 或空气顶替",
+      "enforcedBy": "receiver",
+      "onViolation": "cell_read_missing_presence"
     }
   ],
   "testCases": [
@@ -1180,6 +1265,48 @@
       "given": "同一个事务 ID 的写入批被重复提交 100 次",
       "when": "每次都执行提交",
       "then": "世界状态与回执均不变，不重复生效"
+    },
+    {
+      "name": "cell_offset_round_trip",
+      "class": "identity",
+      "given": "世界坐标 x=37, y=200, z=19",
+      "when": "求格内偏移并反解",
+      "then": "cellOffset = (200&15)*256 + (19&15)*16 + (37&15) = 8*256 + 3*16 + 5 = 2101；反解得 y=8, z=3, x=5"
+    },
+    {
+      "name": "cell_offset_bounds",
+      "class": "identity",
+      "given": "格内三轴各取 15",
+      "when": "求格内偏移",
+      "then": "得 15*256 + 15*16 + 15 = 4095，正好是上界；三轴各取 0 得 0"
+    },
+    {
+      "name": "pinned_small_map_never_pending",
+      "class": "residency",
+      "given": "一张 61×61 格、2 格高的地图整体 pin，覆盖 4×4×1 = 16 个 Section（调色板态约 64 KB）",
+      "when": "pin 就绪后在同一 tick 内对该范围做批量读与扫掠检测",
+      "then": "全部返回 Ready，不出现 Pending 或 Unavailable；调用方无需挂起等待"
+    },
+    {
+      "name": "pin_ready_signal_gates_gameplay",
+      "class": "residency",
+      "given": "pin 已声明但尚未就绪",
+      "when": "查询该范围",
+      "then": "此时返回 Pending 是合法的；玩法必须等就绪信号才开始结算，提前结算即 pin_region_not_ready"
+    },
+    {
+      "name": "behavior_template_resolves_to_registry",
+      "class": "catalog",
+      "given": "官方目录里一行石头声明 behaviorTemplate = FullCube",
+      "when": "加载配表",
+      "then": "解析到 behaviorTemplates.v1.FullCube；该模板不使用任何 BlockState 位"
+    },
+    {
+      "name": "cell_read_on_pending_omits_block_id",
+      "class": "read",
+      "given": "单格读命中一个处于 Pending 的 Section",
+      "when": "返回结果",
+      "then": "presence = Pending，且结果里没有 BlockId 字段——不是 0，也不是空气"
     }
   ],
   "invalidCases": [
@@ -1692,6 +1819,66 @@
       "expectedRejection": "stale_section_revision",
       "then": "拒绝；没有它就无法发现自己是基于过期读做的写",
       "validatorCheck": false
+    },
+    {
+      "name": "cell_offset_with_wrong_stride",
+      "class": "identity",
+      "violates": "identity.cell-offset-formula",
+      "given": "实现按 (x&15)*256 + (z&15)*16 + (y&15) 合成偏移",
+      "when": "写入某一格",
+      "expectedRejection": "cell_offset_out_of_range",
+      "then": "拒绝；stride 只有一种，猜错会静默改到别的格子上",
+      "validatorCheck": false
+    },
+    {
+      "name": "pinned_region_read_returns_pending",
+      "class": "residency",
+      "violates": "residency.pin-guarantees-ready",
+      "given": "某 Section 在已就绪的 pin 内",
+      "when": "对它的读返回 Pending",
+      "expectedRejection": "pinned_read_returned_pending",
+      "then": "拒绝；pin 的全部意义就是让同 tick 内的查询有确定答案",
+      "validatorCheck": false
+    },
+    {
+      "name": "pin_silently_downgraded_to_best_effort",
+      "class": "residency",
+      "violates": "residency.pin-budget-is-hard",
+      "given": "pin 覆盖的 Section 数超出驻留预算",
+      "when": "实现只常驻其中一部分并照常返回成功",
+      "expectedRejection": "residency_pin_exceeds_budget",
+      "then": "拒绝；声明当场失败，不得静默降级成「尽量」",
+      "validatorCheck": false
+    },
+    {
+      "name": "clean_pinned_section_evicted",
+      "class": "residency",
+      "violates": "residency.pinned-never-evicted",
+      "given": "pin 内一个干净的 Section",
+      "when": "按内存压力把它卸载",
+      "expectedRejection": "pinned_section_evicted",
+      "then": "拒绝；pin 比脏页栅栏更强，干净也不许卸载",
+      "validatorCheck": false
+    },
+    {
+      "name": "catalog_references_unlisted_template",
+      "class": "catalog",
+      "violates": "catalog.behavior-template-must-be-registered",
+      "given": "目录里一行声明 behaviorTemplate = Stairs，但 behaviorTemplates 未登记它",
+      "when": "加载配表",
+      "expectedRejection": "unknown_behavior_template",
+      "then": "拒绝；v1 只有 FullCube 与 Liquid，没有「等等」",
+      "validatorCheck": false
+    },
+    {
+      "name": "cell_read_returns_zero_for_pending",
+      "class": "read",
+      "violates": "read.cell-carries-presence",
+      "given": "单格读命中 Pending 的 Section",
+      "when": "实现返回 BlockId = 0（空气）且不带 presence",
+      "expectedRejection": "cell_read_missing_presence",
+      "then": "拒绝；玩法会以为那里是空的",
+      "validatorCheck": false
     }
   ],
   "boundary": {
@@ -1717,7 +1904,10 @@
     "noAlternateAxisConvention": "不接受 y-up / z-up 的可配置项；y 是竖直轴，冻结语义",
     "noStringMapMutation": "写入条目不得用字符串键值 map 承载",
     "noSilentReadTruncation": "批量读超预算整条拒绝，不静默截断",
-    "noPollingInsteadOfDispatch": "持续观察一片区域走改动层派发，不用轮询读代替"
+    "noPollingInsteadOfDispatch": "持续观察一片区域走改动层派发，不用轮询读代替",
+    "noAlternateCellOffsetStride": "格内偏移只有一种 stride，不留第二种推导",
+    "noBestEffortPin": "pin 是硬声明；装不下就当场失败，不静默降级",
+    "noUnlistedBehaviorTemplate": "方块目录不得引用未登记的行为模板；v1 只有 FullCube 与 Liquid"
   },
   "blockCatalog": {
     "statement": "官方方块目录是 BlockType 到方块定义的登记表，是全局段（作用域位 = 0）的唯一分配来源。房间局部段不进本表，走随存档的映射表。",
@@ -1725,7 +1915,7 @@
       "blockType": "uint24，全局段编号；256 起连号稠密分配，不留空洞",
       "name": "稳定标识串（如 lumio.stone），一经登记不得改写——存档与工具按它做人类可读投影",
       "materialClass": "必须解析到一个已声明的材质类；缺失即 unknown_material_class",
-      "behaviorTemplate": "官方行为模板标识（满格 Solid / 楼梯 / 半砖 / 门 / Liquid 等）",
+      "behaviorTemplate": "必须解析到 behaviorTemplates 里已登记的一项；v1 只有 FullCube 与 Liquid，引用未登记的模板即 unknown_behavior_template",
       "assetRef": "素材引用（贴图 / 模型 / 声音），只影响外观，不影响任何四轴行为",
       "stateLayout": "该方块 BlockState 的动态位段声明；不声明即视为无状态位"
     },
@@ -1744,7 +1934,8 @@
     "requests": {
       "cell": {
         "input": "单个世界坐标",
-        "output": "一个 BlockId + 该格所属 Section 的 sectionRevision"
+        "output": "该格所属 Section 的 presence，外加：presence = Ready 或 Unchanged 时给出一个 BlockId 与 sectionRevision；presence = Pending 或 Unavailable 时**不给 BlockId 字段**（不是给 0、不是给空气）。",
+        "presenceAlwaysPresent": "单格读也是一段——presence 是必答字段，不因为只读一格就省略。调用方必须先看 presence 再看 BlockId；BlockId 字段缺失是合法结局，不是错误。"
       },
       "box": {
         "input": "两个世界坐标围成的轴对齐矩形范围",
@@ -1762,7 +1953,8 @@
       "statement": "读请求覆盖的 Section 同样有四态；缺块的处理与派发面完全一致，不另立一套。",
       "shape": "结果按 Section 分段标注 Ready / Unchanged / Pending / Unavailable",
       "missingIsNotAir": "Pending 与 Unavailable 覆盖的格子不得填空气、不得填 0、不得省略；必须让调用方能区分「这里是空气」和「这里还不知道」",
-      "partialResultIsLegal": "一次请求可以部分 Ready 部分 Pending；这是正常结局，不是错误"
+      "partialResultIsLegal": "一次请求可以部分 Ready 部分 Pending；这是正常结局，不是错误",
+      "appliesToSingleCell": "四态对单格读同样成立：单格读返回的是一段长度为 1 的结果，presence 是必答字段。缺块时 BlockId 字段缺失，绝不用 0 或空气顶替。"
     },
     "budget": {
       "statement": "批量读必须有显式上限，且上限是声明出来的数字，不是「尽量」。",
@@ -1778,7 +1970,7 @@
     "statement": "权威写入的公共请求形状。写入分 prepare 与 commit 两段，本块定义的是提交给 prepare 的条目形状。",
     "entry": {
       "sectionKey": "规范三坐标键，定位到哪个 Section",
-      "cellOffset": "格内偏移 0~4095（由 worldY&15、worldZ&15、worldX&15 按固定序合成）",
+      "cellOffset": "格内偏移 0~4095，算式见 identity.cellOffset：cellOffset = (worldY & 15) * 256 + (worldZ & 15) * 16 + (worldX & 15)",
       "blockId": "要写入的完整 32 位 BlockId，无符号",
       "expectedSectionRevision": "调用方读到的那个 revision；与当前不符即 stale_section_revision，整批拒绝"
     },
@@ -1793,5 +1985,24 @@
     "orderWithinBatch": "同一批内对同一格的多次写入按提交序生效，最后一条为准；顺序排死，重放结果一致。",
     "prepareThenCommit": "全部可能失败的校验在 prepare 做完；commit 一次性不可失败地发布——Section 载荷、Dirty 标记、SectionRevision、WorldRevision 同批发布。",
     "sameCommitPointAsEcs": "体素提交与 ECS 提交是同一个提交点、同一个回滚单元。"
+  },
+  "behaviorTemplates": {
+    "statement": "行为模板决定一个方块**长成什么形状、怎么读它的 BlockState**。它和材质类是两个轴：材质类管「在网格 / 渲染通道 / 碰撞 / 透光上怎么表现」，行为模板管「这一格摆出什么形状、状态位怎么解释」。楼梯和石头是同一个材质类、不同的行为模板。",
+    "registry": "本块是行为模板的唯一登记处。官方方块目录的 behaviorTemplate 字段必须解析到这里的一项。",
+    "whoMaintains": "官方内容层与引擎同时改——新增一个模板要动网格器，因此它是代码变更，不是配表变更。",
+    "v1": {
+      "FullCube": {
+        "meaning": "满格立方体，最常见的形状",
+        "shape": "占满整格；相邻同材质类之间做隐藏面剔除，参与贪心合面",
+        "stateBitsUsed": "不使用任何 BlockState 位"
+      },
+      "Liquid": {
+        "meaning": "液体：v1 仅水",
+        "shape": "顶面按液面高度下沉；水↔水不画、水↔Solid 不画、水↔空气必须画；不参与 Solid 的贪心合面",
+        "stateBitsUsed": "BlockState 的 4 位承载液面高度（0~15 级）"
+      }
+    },
+    "v1IsExhaustive": "v1 只有这两个模板，**没有「等等」**。楼梯、半砖、门是后续候选，在它们真正实现之前不得出现在方块目录里——目录引用未登记的模板即 unknown_behavior_template。",
+    "admissionTest": "新增行为模板的判据：这个形状能不能用现有模板加贴图表达？能，就不是新模板。只有需要网格器生成不同几何时才允许新增，且新增必须同批声明它占用哪些 BlockState 位。"
   }
 }
