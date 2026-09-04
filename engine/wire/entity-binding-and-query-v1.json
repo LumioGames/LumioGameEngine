@@ -1,6 +1,18 @@
 {
   "contractId": "lumio.entity-binding-query.v1",
   "version": 1,
+  "runtimeManagerControls": {
+    "transport": "in-process",
+    "entryPoint": "WorldManager.Enqueue",
+    "messages": {
+      "admit": { "type": "AdmitConnectionMessage", "required": ["connection", "accountId", "roomId", "entityType"], "entityType": ["player", "bot"] },
+      "disconnect": { "type": "DisconnectConnectionMessage", "required": ["connection"] },
+      "rebind": { "type": "RebindConnectionMessage", "required": ["connection", "accountId", "roomId", "mode"], "mode": ["reconnect", "takeover"] }
+    },
+    "result": "accepted-or-error-without-netEntityId",
+    "connectionRouting": "adapter-callback",
+    "persistence": "none"
+  },
   "purpose": "RM-00011 ECS Formal Entity and Chat Vertical Slice 的连接绑定与 ECS Attribute Query 公共契约：绑定五元组、客户端自查与服务端解析、AttributeId 寻址的受控查询面、五结局失败矩阵与每属性声明三维。LumioGameRuntime（R-00347）、LumioClient（R-00349）、LumioServer（R-00350）的绑定与查询实现全部以本文件为唯一真值，不得另写一份语义真值。契约措辞宿主无关（当前 C# MVP 宿主，后续最小 Rust 宿主复跑同一语义）。",
   "scope": {
     "includes": [

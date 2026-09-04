@@ -822,6 +822,49 @@ function checkEntityBindingContract(contract, fileName, problems) {
   }
 
   if (fileName === 'entity-binding-and-query-v1.json') {
+    const controls = contract.runtimeManagerControls;
+    if (!controls || typeof controls !== 'object' || Array.isArray(controls)) {
+      problem('runtimeManagerControls missing');
+    } else {
+      if (controls.transport !== 'in-process') problem('runtimeManagerControls.transport must be in-process');
+      if (controls.entryPoint !== 'WorldManager.Enqueue') problem('runtimeManagerControls.entryPoint must be WorldManager.Enqueue');
+      const messages = controls.messages;
+      const expectedNames = ['admit', 'disconnect', 'rebind'];
+      if (!messages || typeof messages !== 'object' || Array.isArray(messages)) {
+        problem('runtimeManagerControls.messages missing');
+      } else {
+        if (JSON.stringify(Object.keys(messages)) !== JSON.stringify(expectedNames)) {
+          problem('runtimeManagerControls.messages must be exactly admit, disconnect, rebind');
+        }
+        const expected = {
+          admit: { type: 'AdmitConnectionMessage', required: ['connection', 'accountId', 'roomId', 'entityType'] },
+          disconnect: { type: 'DisconnectConnectionMessage', required: ['connection'] },
+          rebind: { type: 'RebindConnectionMessage', required: ['connection', 'accountId', 'roomId', 'mode'] },
+        };
+        for (const name of expectedNames) {
+          const spec = messages[name];
+          if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+            problem(`runtimeManagerControls.messages.${name} missing`);
+            continue;
+          }
+          if (spec.type !== expected[name].type) problem(`runtimeManagerControls.messages.${name}.type must be ${expected[name].type}`);
+          if (JSON.stringify(spec.required) !== JSON.stringify(expected[name].required)) {
+            problem(`runtimeManagerControls.messages.${name}.required must be exactly ${expected[name].required.join(', ')}`);
+          }
+        }
+        if (JSON.stringify(messages.admit?.entityType) !== JSON.stringify(['player', 'bot'])) {
+          problem('runtimeManagerControls.messages.admit.entityType must be exactly player, bot');
+        }
+        if (JSON.stringify(messages.rebind?.mode) !== JSON.stringify(['reconnect', 'takeover'])) {
+          problem('runtimeManagerControls.messages.rebind.mode must be exactly reconnect, takeover');
+        }
+      }
+      if (controls.result !== 'accepted-or-error-without-netEntityId' || /netEntityId/i.test(String(controls.result)) && !/without-netEntityId/i.test(String(controls.result))) {
+        problem('runtimeManagerControls.result must not permit synchronous netEntityId');
+      }
+      if (controls.connectionRouting !== 'adapter-callback') problem('runtimeManagerControls.connectionRouting must be adapter-callback');
+      if (controls.persistence !== 'none') problem('runtimeManagerControls.persistence must be none');
+    }
     const roomId = contract.identityModel?.roomId ?? '';
     if (!roomId.includes('宿主路由键') || !roomId.includes('World Manager') || !roomId.includes('GameWorld')) {
       problem('identityModel.roomId must describe the host routing key (one process / one World Manager / one GameWorld)');
@@ -1120,6 +1163,42 @@ test('R5-01 C-2 admit is asynchronous and declaration projections are derived', 
   assert.match(contract.derived.tombstoned, /next-issued-counter/);
   assert.match(contract.claim.credential, /claimBy/);
   assert.deepEqual(validateContract(contract, 'entity-binding-and-query-v1.json').problems, []);
+});
+
+test('R5-01 C-2 declares the closed in-process Runtime Manager controls table', async () => {
+  const contract = await loadBindingContract();
+  const controls = contract.runtimeManagerControls;
+  assert.ok(controls, 'runtimeManagerControls missing');
+  assert.equal(controls.transport, 'in-process');
+  assert.equal(controls.entryPoint, 'WorldManager.Enqueue');
+  assert.deepEqual(Object.keys(controls.messages), ['admit', 'disconnect', 'rebind']);
+  assert.deepEqual(controls.messages.admit.required, ['connection', 'accountId', 'roomId', 'entityType']);
+  assert.deepEqual(controls.messages.disconnect.required, ['connection']);
+  assert.deepEqual(controls.messages.rebind.required, ['connection', 'accountId', 'roomId', 'mode']);
+  assert.deepEqual(controls.messages.admit.entityType, ['player', 'bot']);
+  assert.deepEqual(controls.messages.rebind.mode, ['reconnect', 'takeover']);
+  assert.equal(controls.result, 'accepted-or-error-without-netEntityId');
+  assert.equal(controls.connectionRouting, 'adapter-callback');
+  assert.equal(controls.persistence, 'none');
+  assert.deepEqual(validateContract(contract, 'entity-binding-and-query-v1.json').problems, []);
+});
+
+test('R5-01 C-2 rejects malformed Runtime Manager controls declarations', async () => {
+  const contract = await loadBindingContract();
+  assert.ok(contract.runtimeManagerControls, 'runtimeManagerControls missing');
+  const mutations = [
+    ['unknown control key', (value) => { value.messages.extra = { type: 'Unexpected', required: [] }; }, 'messages must be exactly admit, disconnect, rebind'],
+    ['missing required field', (value) => { value.messages.admit.required = ['connection']; }, 'messages.admit.required must be exactly'],
+    ['unsupported rebind mode', (value) => { value.messages.rebind.mode = ['reconnect']; }, 'messages.rebind.mode must be exactly reconnect, takeover'],
+    ['wrong transport', (value) => { value.transport = 'websocket'; }, 'transport must be in-process'],
+    ['synchronous entity id result', (value) => { value.result = 'accepted-with-netEntityId'; }, 'result must not permit synchronous netEntityId'],
+  ];
+  for (const [label, mutate, expected] of mutations) {
+    const mutated = JSON.parse(JSON.stringify(contract));
+    mutate(mutated.runtimeManagerControls);
+    const { problems } = validateContract(mutated, 'entity-binding-and-query-v1.json');
+    assert.ok(problems.some((problem) => problem.includes(expected)), `${label} was accepted: ${problems.join('; ')}`);
+  }
 });
 
 test('hello-wire-v1 still passes the unified validator and is not the envelope', async () => {
