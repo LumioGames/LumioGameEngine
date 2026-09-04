@@ -52,12 +52,12 @@ metadata:
 | 卡片 | 仓库 | 当前应检查的入口 |
 |---|---|---|
 | R4-01 | `LumioGameEngineArchitecture` | R-00384 合入主线的 C-1′/C-2′ 与 ADR 附录 |
-| R4-05 | `LumioGameRuntime` | `7f198e5`；另有 `origin/feat/r-00385-r4-05-single-world-r2` 的 `3e52258`、`13a52d2`，必须判断其未合入修正是否影响验收 |
+| R4-05 | `LumioGameRuntime` | 当前 `origin/main`（代码基线 `7f198e5`，文档同步后 HEAD `010ae46`）；r2 修正已通过 PR 合入，旧 feature ref 已删除 |
 | R4-07 | `LumioNativeCore` | `70b9834` |
-| R4-03 | `LumioServer` | `8ba3fe3`；检查 Server 是否仍有 `DOTNET_STARTUP_HOOKS` 或第二 oracle |
-| R4-02 | `LumioServer` | `be9c28d` 仅在本地 handback 分支，未 push、未开 PR、未写 Workflow 证据 |
-| R4-04 | `LumioClient` | `1473cc9` |
-| R4-06 | `LumioGame` | `a080edf` |
+| R4-03 | `LumioServer` | 当前 `origin/main` HEAD `4c7688b`；检查 Server 是否仍有 `DOTNET_STARTUP_HOOKS` 或第二 oracle |
+| R4-02 | `LumioServer` | 分支 HEAD `f8aef77`，PR #33 已公开；Windows/Ubuntu cargo 与 README 通过，11-scenario 和 MVP C# live 仍失败 |
+| R4-04 | `LumioClient` | 当前 `origin/main` HEAD `f06d5e6` |
+| R4-06 | `LumioGame` | 当前 `origin/main` HEAD `e7afb5b` |
 | R4-08 | 多仓 | 尚未发现可审计的独立交付分支 |
 | R4-09 | `LumioGame` + `LumioServer` | 尚未发现集成交付分支或入库日志目录 |
 | R4-10 | 架构仓 | 尚未发现独立深审报告 |
@@ -98,7 +98,7 @@ metadata:
 
 把 R-00388 的 `DONE_WITH_CONCERNS` 当作未完成交付，逐条核对：
 
-- `be9c28d` 是否已推送到远端、是否有 PR、是否有 Workflow 评论和验收项回写。
+- 分支 `f8aef77` 是否仍与 `origin/main` 对齐、PR #33 的检查是否完成、Workflow 评论和验收项是否回写。
 - Windows `cargo test`、`cargo fmt`、`spec-lint` 的输出是否可复核；不要把缺少 `LUMIO_GAME_ROOT` 的 11 场景当作通过。
 - `clippy` 在未改 `bots.rs` 上的既有失败是否仍存在。
 - Ubuntu/macOS 编译是否只有 CI 配置，还是已有真实运行输出。
