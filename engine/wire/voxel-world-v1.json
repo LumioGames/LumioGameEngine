@@ -15,16 +15,21 @@
       "光照的契约级边界：不入任何载荷、不落盘",
       "方块与实体的绑定：Section 级稀疏引用表、一致性不变量与三种损坏的显式失败",
       "BlockType 的作用域位与段表、官方与玩家两个素材库的编号边界",
-      "调色板死项的回收时机与序列化纪律"
+      "调色板死项的回收时机与序列化纪律",
+      "物理查询面：射线 / 重叠 / 扫掠三种检测的查询与返回语义、缺块四态下的行为、材质类过滤",
+      "轴语义：y 是竖直轴、世界 y 无符号 0~255",
+      "官方方块目录的登记形状与铸号规程",
+      "玩法侧批量读的请求 / 返回形状、缺块四态与预算",
+      "权威写入条目的公共形状与整批语义"
     ],
     "excludes": [
       "网格顶点格式与零拷贝句柄的 ABI 形状（属 engine/abi/native-abi.json）",
       "光照传播算法的实现细节（派生计算，非公共语义）",
-      "物理检测的查询形状",
       "地形生成与原始地图烘焙管线",
       "玩法权限、连接与会话（属 Host 与玩法契约）",
       "贴图、着色器与美术资产（材质类只管大类行为，不管贴图）",
-      "容器规则、战利品生成、权限与距离校验（属 ECS 与玩法契约）"
+      "容器规则、战利品生成、权限与距离校验（属 ECS 与玩法契约）",
+      "物理查询的 C 函数签名与结构布局（语义在本契约，签名属 engine/abi/native-abi.json）"
     ]
   },
   "layering": {
@@ -135,6 +140,19 @@
     "derivation": {
       "sectionToChunk": "s:x:y:z 所属的 Chunk 是 c:x:z（丢弃 y）",
       "chunkToSections": "c:x:z 含且仅含 s:x:0:z … s:x:15:z 共 16 个 Section"
+    },
+    "axes": {
+      "statement": "y 是竖直轴。x 与 z 是水平轴。世界坐标里没有第二种轴向约定。",
+      "worldY": {
+        "type": "uint8",
+        "min": 0,
+        "max": 255,
+        "meaning": "世界高度，0 是最底层、255 是最顶层；无符号，不存在负的世界 y",
+        "derivation": "世界 y 拆成 Section 层号与格内偏移：sectionY = worldY >> 4（0~15），cellY = worldY & 15（0~15）"
+      },
+      "worldXZ": "x 与 z 是水平轴，各自 signed 32 位，负坐标是一等公民",
+      "whyDeclared": "identity 只给了键的正则，没有一句轴语义。消费方按「z 是竖直轴」去理解时，所有正则都照过、没有任何机器校验会挡下来——错误会一路漂到渲染和物理才暴露。",
+      "noAlternateConvention": "不接受 y-up / z-up 的可配置项；轴向是冻结语义，改它等于全量转档。"
     }
   },
   "blockId": {
@@ -284,6 +302,56 @@
     "multiCell": "多格物件不是一个「大对象」：相邻各格各写自己的方块与各自的引用，逻辑视图由玩法层在运行时组合；破坏其中一格，其余各格退回单格形态。",
     "businessDataNeverOnTheWire": "改动层、Section 载荷与落盘回执中不得出现任何业务字段；这些数据走 ECS 的同步与视野，只发给有权限的消费方。否则未探索的战利品会被提前读出。"
   },
+  "physicsQuery": {
+    "statement": "体素是密铺的规则立方体，位置可以直接算出来——查询沿 DDA 逐格步进，不建空间划分树。三种检测由体素侧提供，调用方只读结果，不在别处重做一份。",
+    "granularity": "命中的最小单位是 Block：返回哪一格、格里是什么 BlockId，不返回比一格更细的东西。",
+    "whereTheShapeLives": {
+      "semantics": "查询与返回的语义、缺块四态下的行为、过滤规则由本契约定义",
+      "signatures": "具体的 C 函数签名、结构布局与调用约定属 engine/abi/native-abi.json",
+      "why": "语义要跨 Rust / 托管 / 前端 / 验收四方一致，签名只在托管与 Native 之间成立"
+    },
+    "queries": {
+      "raycast": {
+        "input": "起点、单位方向、最大距离、材质类过滤器",
+        "output": "命中格坐标、该格 BlockId、交点、面法线、行进距离；或未命中；或未决",
+        "method": "DDA 沿射线逐格步进"
+      },
+      "overlap": {
+        "input": "形状与位姿、材质类过滤器、调用方提供的结果缓冲与容量",
+        "output": "相交的格坐标与 BlockId 列表、实际条数、truncated 标志",
+        "buffering": "结果写进调用方提供的缓冲；体素侧不分配、不返回需要释放的句柄"
+      },
+      "sweep": {
+        "input": "形状与位姿、本帧位移、材质类过滤器",
+        "output": "是否碰撞、可行进比例（0~1）、碰撞点、面法线、命中格坐标与 BlockId；或未决",
+        "note": "只回答会不会撞、撞在哪；怎么响应由调用方决定"
+      }
+    },
+    "resolution": {
+      "statement": "每种查询的结果都有三种结局，必须可区分：Hit（命中）、Miss（确定没命中）、Unresolved（路径上有 Section 尚未就位，答不了）。",
+      "unresolved": {
+        "carries": "答不了是因为哪个 Section——返回该 Section 键",
+        "isNotAir": "Unresolved 不得当作 Miss（穿过去），玩家会掉进地里",
+        "isNotSolid": "Unresolved 也不得当作 Hit（挡住），角色会被卡在空气墙上",
+        "isNormalNotAnError": "流式加载途中出现 Unresolved 是正常结局，不是错误码；调用方自己决定挂起、保守处理还是请求加载"
+      }
+    },
+    "filter": {
+      "shape": "按材质类的掩码",
+      "source": "阻挡与否只能来自材质类表；查询实现不得自带一份碰撞行为分支",
+      "examples": {
+        "角色移动": "只要 Solid——Liquid 不阻挡",
+        "视线与交互": "只要 Solid——Liquid 透过",
+        "是否在水里": "只要 Liquid"
+      }
+    },
+    "determinism": "同一份世界、同一组输入，服务器与客户端必须得到同一个结果；预测与对账建立在这条上。",
+    "readOnly": "查询不得改变世界的任何一格；任何写入必须走 prepare/commit 的权威路径。",
+    "nonVoxelBodies": "角色、NPC、掉落物等非体素物体单独注册进检测世界，与地形一起参与查询；命中结果需能区分命中的是方块还是注册物体。",
+    "costProperty": "查询耗时随射线经过的格数增长，与世界总方块数无关。",
+    "noBatchInV1": "v1 不提供批量查询接口。一个角色一帧约 3~10 次扫掠加若干射线，十个本地实体约 100 次；按跨边界调用 1 微秒估，最坏 100 微秒，占一帧预算不到 1%。实测成为热点再回头。",
+    "noSpatialTree": "不为地形建 AABB 树或八叉树——密铺规则体的空间索引就是坐标本身。"
+  },
   "sectionPayload": {
     "statement": "一个 Section 的方块数据以载荷的形式携带。载荷有三种全量编码和一种增量编码，按该 Section 实际出现的 BlockId 种类数选择。",
     "encodings": {
@@ -412,7 +480,8 @@
     "payloadSha256": "载荷字节的 SHA-256，先于任何解释校验",
     "presence": "四态之一；Pending 与 Unavailable 永不等价于空气",
     "upToSectionRevision": "落盘回执对该 Section 的覆盖上界",
-    "baseSectionRevision": "Delta 载荷声明它所基于的 SectionRevision；与接收方当前 revision 不符即拒收并请求全量重发"
+    "baseSectionRevision": "Delta 载荷声明它所基于的 SectionRevision；与接收方当前 revision 不符即拒收并请求全量重发",
+    "queryResolution": "查询结果三态之一：Hit / Miss / Unresolved；Unresolved 带产生它的 Section 键，且永不等价于 Miss 或 Hit"
   },
   "limits": {
     "sectionExtent": 16,
@@ -433,7 +502,12 @@
     "systemReservedTypeMax": 255,
     "firstOfficialBlockType": 256,
     "globalSegmentMax": 8388607,
-    "roomLocalSegmentMin": 8388608
+    "roomLocalSegmentMin": 8388608,
+    "worldYMin": 0,
+    "worldYMax": 255,
+    "maxCellsPerReadRequest": 262144,
+    "maxEntriesPerWriteBatch": 65536,
+    "firstCatalogBlockType": 256
   },
   "errorCodes": [
     "unknown_section_key",
@@ -465,7 +539,21 @@
     "palette_reclaim_before_escalation",
     "dead_palette_entry_in_payload",
     "delta_base_revision_mismatch",
-    "delta_used_for_first_delivery"
+    "delta_used_for_first_delivery",
+    "unresolved_hit_treated_as_air",
+    "unresolved_hit_treated_as_solid",
+    "query_buffer_overflow",
+    "query_result_divergence",
+    "collision_behavior_not_from_material_table",
+    "query_mutates_world",
+    "world_y_out_of_range",
+    "block_catalog_not_dense",
+    "block_catalog_name_reused",
+    "block_catalog_row_incomplete",
+    "read_budget_exceeded",
+    "read_result_missing_revision",
+    "write_batch_too_large",
+    "unstructured_mutation_entry"
   ],
   "rules": [
     {
@@ -665,6 +753,102 @@
       "text": "首次送达与重同步必须用全量编码；接收方尚无基线时不得下发 Delta",
       "enforcedBy": "receiver",
       "onViolation": "delta_used_for_first_delivery"
+    },
+    {
+      "id": "query.unresolved-is-not-air",
+      "text": "路径上有 Section 尚未就位时结果为 Unresolved，不得当作未命中让查询穿过去",
+      "enforcedBy": "receiver",
+      "onViolation": "unresolved_hit_treated_as_air"
+    },
+    {
+      "id": "query.unresolved-is-not-solid",
+      "text": "Unresolved 同样不得当作命中挡住；它是第三种结局，由调用方决定怎么处理",
+      "enforcedBy": "receiver",
+      "onViolation": "unresolved_hit_treated_as_solid"
+    },
+    {
+      "id": "query.collision-comes-from-material-table",
+      "text": "阻挡与否只能查材质类表；物理实现不得自带一份碰撞行为分支",
+      "enforcedBy": "receiver",
+      "onViolation": "collision_behavior_not_from_material_table"
+    },
+    {
+      "id": "query.overflow-must-be-reported",
+      "text": "重叠检测结果超出调用方缓冲容量时必须报告 truncated 与实际总数，不得静默截断",
+      "enforcedBy": "receiver",
+      "onViolation": "query_buffer_overflow"
+    },
+    {
+      "id": "query.deterministic-across-ends",
+      "text": "同一份世界同一组输入，服务器与客户端必须得到同一个查询结果",
+      "enforcedBy": "receiver",
+      "onViolation": "query_result_divergence"
+    },
+    {
+      "id": "query.read-only",
+      "text": "查询不得改变世界的任何一格",
+      "enforcedBy": "receiver",
+      "onViolation": "query_mutates_world"
+    },
+    {
+      "id": "axis.y-is-vertical-unsigned",
+      "text": "y 是竖直轴，世界 y 是无符号 0~255；不存在负的世界 y，也不接受 y-up/z-up 可配置项",
+      "enforcedBy": "receiver",
+      "onViolation": "world_y_out_of_range"
+    },
+    {
+      "id": "catalog.dense-allocation",
+      "text": "官方方块目录的 blockType 从 256 起连号稠密分配，不得留空洞",
+      "enforcedBy": "receiver",
+      "onViolation": "block_catalog_not_dense"
+    },
+    {
+      "id": "catalog.name-is-stable-and-unique",
+      "text": "目录里的 name 全局唯一，一经登记不得改写或复用",
+      "enforcedBy": "receiver",
+      "onViolation": "block_catalog_name_reused"
+    },
+    {
+      "id": "catalog.row-must-be-complete",
+      "text": "目录每行必须填齐 blockType / name / materialClass / behaviorTemplate / assetRef / stateLayout",
+      "enforcedBy": "receiver",
+      "onViolation": "block_catalog_row_incomplete"
+    },
+    {
+      "id": "read.budget-is-declared",
+      "text": "批量读超出声明的上限即整条拒绝，不得静默截断",
+      "enforcedBy": "receiver",
+      "onViolation": "read_budget_exceeded"
+    },
+    {
+      "id": "read.result-carries-revision",
+      "text": "读结果必须带上取自的 sectionRevision，否则调用方无法判断数据是否过期",
+      "enforcedBy": "receiver",
+      "onViolation": "read_result_missing_revision"
+    },
+    {
+      "id": "read.missing-is-not-air",
+      "text": "读结果里 Pending 与 Unavailable 覆盖的格子不得填空气或省略，必须与真空气可区分",
+      "enforcedBy": "receiver",
+      "onViolation": "section_unavailable"
+    },
+    {
+      "id": "write.entry-is-structured",
+      "text": "写入条目是结构化字段，不得用字符串键值 map 承载",
+      "enforcedBy": "receiver",
+      "onViolation": "unstructured_mutation_entry"
+    },
+    {
+      "id": "write.expected-revision-required",
+      "text": "每条写入条目必须携带 expectedSectionRevision；与当前不符即整批拒绝",
+      "enforcedBy": "receiver",
+      "onViolation": "stale_section_revision"
+    },
+    {
+      "id": "write.batch-is-all-or-nothing",
+      "text": "一批写入任一条目校验失败即整批拒绝，不得部分应用",
+      "enforcedBy": "receiver",
+      "onViolation": "write_batch_too_large"
     }
   ],
   "testCases": [
@@ -905,6 +1089,97 @@
       "given": "客户端该 Section 处于 revision 12，收到 baseSectionRevision = 14 的 Delta",
       "when": "接收该载荷",
       "then": "拒收并请求全量重发；本地数据保持 revision 12 不变，不得部分应用"
+    },
+    {
+      "name": "raycast_returns_block_granular_hit",
+      "class": "query",
+      "given": "一条射线射向一面石墙",
+      "when": "执行射线检测",
+      "then": "返回命中格坐标、该格 BlockId、交点、面法线与行进距离；命中的最小单位是一格，不再细分"
+    },
+    {
+      "name": "raycast_through_pending_section_is_unresolved",
+      "class": "query",
+      "given": "射线路径上某个 Section 处于 Pending",
+      "when": "执行射线检测",
+      "then": "返回 Unresolved 并带上那个 Section 键；既不当作穿过去，也不当作挡住"
+    },
+    {
+      "name": "solid_filter_passes_through_water",
+      "class": "query",
+      "given": "射线穿过一片水打到水底的石头，过滤器只要 Solid",
+      "when": "执行射线检测",
+      "then": "水不产生命中，命中的是水底的石头；阻挡与否来自材质类表而不是查询实现里的分支"
+    },
+    {
+      "name": "sweep_returns_time_of_impact",
+      "class": "query",
+      "given": "一个角色包围盒本帧向前位移，前方半程有一堵墙",
+      "when": "执行扫掠检测",
+      "then": "返回会碰撞、可行进比例、碰撞点与面法线；不做任何运动积分"
+    },
+    {
+      "name": "overlap_reports_truncation",
+      "class": "query",
+      "given": "一个大盒子罩住 1000 个方块，调用方只提供 256 条容量的缓冲",
+      "when": "执行重叠检测",
+      "then": "写满 256 条并报告 truncated 与实际总数 1000；体素侧不分配、不返回需要释放的句柄"
+    },
+    {
+      "name": "query_cost_tracks_traversed_cells",
+      "class": "query",
+      "given": "一条穿过 100 格的射线",
+      "when": "在一个小世界与一个大世界里各执行一次",
+      "then": "两次耗时相当；查询耗时随经过的格数增长，与世界总方块数无关"
+    },
+    {
+      "name": "world_y_splits_into_section_and_cell",
+      "class": "identity",
+      "given": "世界坐标 y = 200",
+      "when": "拆成 Section 层号与格内偏移",
+      "then": "sectionY = 200 >> 4 = 12，cellY = 200 & 15 = 8；y 是竖直轴，取值 0~255 无符号"
+    },
+    {
+      "name": "catalog_row_is_complete_and_dense",
+      "class": "catalog",
+      "given": "官方目录当前最大 blockType 是 4095",
+      "when": "登记一个新方块",
+      "then": "得到 4096，六个字段填齐；编号连续无空洞，name 全局唯一且此后不再改写"
+    },
+    {
+      "name": "box_read_returns_ids_with_revisions",
+      "class": "read",
+      "given": "玩法请求一个 16x16x16 的矩形范围",
+      "when": "执行批量读",
+      "then": "返回按 y/z/x 固定序铺开的 BlockId 数组，并附每个被覆盖 Section 的 sectionRevision；两次运行逐字节相同"
+    },
+    {
+      "name": "column_read_for_ground_height",
+      "class": "read",
+      "given": "玩法要知道 (x, z) 这一列从 y=0 到 y=255 是什么",
+      "when": "执行列读",
+      "then": "返回该列自下而上的 BlockId 数组与所涉 Section 的 sectionRevision"
+    },
+    {
+      "name": "partial_read_marks_pending_sections",
+      "class": "read",
+      "given": "请求范围横跨两个 Section，其中一个处于 Pending",
+      "when": "执行批量读",
+      "then": "Ready 那段给出真实 BlockId，Pending 那段标注为 Pending 而不是填空气；部分结果是正常结局"
+    },
+    {
+      "name": "write_batch_carries_expected_revision",
+      "class": "write",
+      "given": "玩法读到某 Section 处于 revision 12，随后要改其中三格",
+      "when": "提交一批三条写入条目",
+      "then": "每条带 sectionKey + cellOffset + blockId + expectedSectionRevision=12；整批要么全生效要么全不生效"
+    },
+    {
+      "name": "write_batch_is_idempotent_by_transaction_id",
+      "class": "write",
+      "given": "同一个事务 ID 的写入批被重复提交 100 次",
+      "when": "每次都执行提交",
+      "then": "世界状态与回执均不变，不重复生效"
     }
   ],
   "invalidCases": [
@@ -1277,6 +1552,146 @@
       "expectedRejection": "delta_used_for_first_delivery",
       "then": "拒绝；没有基线就没有可打补丁的对象",
       "validatorCheck": false
+    },
+    {
+      "name": "pending_section_walked_through_by_raycast",
+      "class": "query",
+      "violates": "query.unresolved-is-not-air",
+      "given": "射线路径上有 Pending 的 Section",
+      "when": "实现把它当空气继续步进",
+      "expectedRejection": "unresolved_hit_treated_as_air",
+      "then": "拒绝；玩家会踩空掉进地里",
+      "validatorCheck": false
+    },
+    {
+      "name": "pending_section_treated_as_wall",
+      "class": "query",
+      "violates": "query.unresolved-is-not-solid",
+      "given": "扫掠路径上有 Pending 的 Section",
+      "when": "实现把它当实心挡住",
+      "expectedRejection": "unresolved_hit_treated_as_solid",
+      "then": "拒绝；角色会被卡在一堵不存在的空气墙上",
+      "validatorCheck": false
+    },
+    {
+      "name": "physics_hardcodes_liquid_passability",
+      "class": "query",
+      "violates": "query.collision-comes-from-material-table",
+      "given": "物理实现里写死「BlockType 是水就不阻挡」",
+      "when": "执行检测",
+      "expectedRejection": "collision_behavior_not_from_material_table",
+      "then": "拒绝；阻挡与否只能查材质类表，四个轴由同一张表声明",
+      "validatorCheck": false
+    },
+    {
+      "name": "overlap_silently_truncated",
+      "class": "query",
+      "violates": "query.overflow-must-be-reported",
+      "given": "重叠结果 1000 条，缓冲只有 256 条",
+      "when": "实现写满 256 条后直接返回，不报告截断",
+      "expectedRejection": "query_buffer_overflow",
+      "then": "拒绝；调用方会以为只有 256 个方块相交",
+      "validatorCheck": false
+    },
+    {
+      "name": "query_results_diverge_between_ends",
+      "class": "query",
+      "violates": "query.deterministic-across-ends",
+      "given": "服务器与客户端持有同一份世界，同一条射线",
+      "when": "两端得到不同的命中格",
+      "expectedRejection": "query_result_divergence",
+      "then": "拒绝；预测与对账建立在两端同结果之上",
+      "validatorCheck": false
+    },
+    {
+      "name": "query_writes_a_block",
+      "class": "query",
+      "violates": "query.read-only",
+      "given": "一次扫掠检测顺手把命中的方块改成空气",
+      "when": "执行该查询",
+      "expectedRejection": "query_mutates_world",
+      "then": "拒绝；写入必须走 prepare/commit 的权威路径",
+      "validatorCheck": false
+    },
+    {
+      "name": "negative_world_y",
+      "class": "identity",
+      "violates": "axis.y-is-vertical-unsigned",
+      "given": "消费方按「z 是竖直轴」理解，提交了 world y = -3",
+      "when": "解析该坐标",
+      "expectedRejection": "world_y_out_of_range",
+      "then": "拒绝；y 是竖直轴且无符号 0~255，不存在负的世界 y",
+      "validatorCheck": false
+    },
+    {
+      "name": "catalog_skips_block_type_numbers",
+      "class": "catalog",
+      "violates": "catalog.dense-allocation",
+      "given": "目录里最大编号是 4095，新行直接登记成 5000",
+      "when": "加载配表",
+      "expectedRejection": "block_catalog_not_dense",
+      "then": "拒绝；稠密分配是按 BlockType 直接下标的前提，空洞会逼出哈希表",
+      "validatorCheck": false
+    },
+    {
+      "name": "catalog_reuses_a_retired_name",
+      "class": "catalog",
+      "violates": "catalog.name-is-stable-and-unique",
+      "given": "一个已下线方块的 name 被新方块复用",
+      "when": "加载配表",
+      "expectedRejection": "block_catalog_name_reused",
+      "then": "拒绝；存档与工具按 name 做人类可读投影，复用会让旧档解出错误的方块",
+      "validatorCheck": false
+    },
+    {
+      "name": "read_request_exceeds_budget",
+      "class": "read",
+      "violates": "read.budget-is-declared",
+      "given": "一次批量读请求覆盖 100 万格",
+      "when": "提交该请求",
+      "expectedRejection": "read_budget_exceeded",
+      "then": "拒绝整条请求；不得静默截断成 262144 格返回",
+      "validatorCheck": false
+    },
+    {
+      "name": "read_result_without_revision",
+      "class": "read",
+      "violates": "read.result-carries-revision",
+      "given": "批量读只返回 BlockId 数组，不带 sectionRevision",
+      "when": "消费该结果",
+      "expectedRejection": "read_result_missing_revision",
+      "then": "拒绝；没有 revision 就无法判断读到的是不是过期数据，也无法拼出写入的 expectedRevision",
+      "validatorCheck": false
+    },
+    {
+      "name": "pending_cells_filled_with_air_in_read",
+      "class": "read",
+      "violates": "read.missing-is-not-air",
+      "given": "读请求覆盖一个 Pending 的 Section",
+      "when": "实现把那一段填成空气返回",
+      "expectedRejection": "section_unavailable",
+      "then": "拒绝；玩法会以为那里是空的，与缺块永不等于空气冲突",
+      "validatorCheck": false
+    },
+    {
+      "name": "mutation_entry_as_string_map",
+      "class": "write",
+      "violates": "write.entry-is-structured",
+      "given": "写入条目以 fields 字符串键值 map 的形态提交",
+      "when": "提交该批",
+      "expectedRejection": "unstructured_mutation_entry",
+      "then": "拒绝；字符串 map 让字段名、类型与边界都不可机器校验",
+      "validatorCheck": false
+    },
+    {
+      "name": "write_entry_without_expected_revision",
+      "class": "write",
+      "violates": "write.expected-revision-required",
+      "given": "写入条目不带 expectedSectionRevision",
+      "when": "提交该批",
+      "expectedRejection": "stale_section_revision",
+      "then": "拒绝；没有它就无法发现自己是基于过期读做的写",
+      "validatorCheck": false
     }
   ],
   "boundary": {
@@ -1296,6 +1711,87 @@
     "noGlobalPlayerTypeMinting": "玩家方块不占全局编号；房间局部编号 + 随存档映射表，跨房间走显式导入",
     "noResidentPaletteRefcount": "不得为调色板槽维护常驻引用计数或空闲链表；死项在撞上限与序列化两个点上压掉",
     "noSubSectionUnit": "不存在比 Section 更小的传输或存储单元；一个 Section 的方块数据永远是一条载荷，不分页",
-    "noFullResendForOneCell": "已就位的 Section 发生小改动时不得重发全量；同步字节随改动量增长，不随 Section 大小增长"
+    "noFullResendForOneCell": "已就位的 Section 发生小改动时不得重发全量；同步字节随改动量增长，不随 Section 大小增长",
+    "noSecondPhysicsSurface": "物理查询只有体素侧这一份；消费方不得自己再实现一套地形检测",
+    "noCollisionBranchOutsideMaterialTable": "碰撞行为只来自材质类表，物理实现不得自带分支",
+    "noAlternateAxisConvention": "不接受 y-up / z-up 的可配置项；y 是竖直轴，冻结语义",
+    "noStringMapMutation": "写入条目不得用字符串键值 map 承载",
+    "noSilentReadTruncation": "批量读超预算整条拒绝，不静默截断",
+    "noPollingInsteadOfDispatch": "持续观察一片区域走改动层派发，不用轮询读代替"
+  },
+  "blockCatalog": {
+    "statement": "官方方块目录是 BlockType 到方块定义的登记表，是全局段（作用域位 = 0）的唯一分配来源。房间局部段不进本表，走随存档的映射表。",
+    "rowShape": {
+      "blockType": "uint24，全局段编号；256 起连号稠密分配，不留空洞",
+      "name": "稳定标识串（如 lumio.stone），一经登记不得改写——存档与工具按它做人类可读投影",
+      "materialClass": "必须解析到一个已声明的材质类；缺失即 unknown_material_class",
+      "behaviorTemplate": "官方行为模板标识（满格 Solid / 楼梯 / 半砖 / 门 / Liquid 等）",
+      "assetRef": "素材引用（贴图 / 模型 / 声音），只影响外观，不影响任何四轴行为",
+      "stateLayout": "该方块 BlockState 的动态位段声明；不声明即视为无状态位"
+    },
+    "denseAllocation": "分配必须连号稠密——配表按 BlockType 直接下标，散布就只能上哈希，每次解析调色板项都多一次哈希与一次随机访存。空洞即 block_catalog_not_dense。",
+    "mintingProcedure": {
+      "whoAdds": "官方内容层在目录里加一行；实现仓不得自行铸号",
+      "howToAdd": "取当前最大 blockType + 1，填齐 rowShape 的六个字段",
+      "neverReuse": "已登记的 blockType 与 name 永不回收、永不改写——存档会引用它们",
+      "neverRenumber": "不得为了整理而重排既有编号；重排等于全量转档",
+      "whoVerifies": "加载配表时逐行校验：编号连续、name 唯一、材质类可解析、行为模板已声明"
+    },
+    "reservedRowsAreNotBlocks": "0~255 是系统保留，不在本目录里登记为普通方块；它们的语义由 blockId.typeSegments 固定。"
+  },
+  "blockRead": {
+    "statement": "玩法侧读方块的公共形状。diffDispatch 的 presence 是派发用的，不是读接口——读与派发是两条路，本块定义的是读。",
+    "requests": {
+      "cell": {
+        "input": "单个世界坐标",
+        "output": "一个 BlockId + 该格所属 Section 的 sectionRevision"
+      },
+      "box": {
+        "input": "两个世界坐标围成的轴对齐矩形范围",
+        "output": "按固定序（y 外层、z 中层、x 内层）铺开的 BlockId 数组，附每个被覆盖 Section 的 sectionRevision",
+        "order": "顺序排死，同一请求两次运行逐字节相同"
+      },
+      "column": {
+        "input": "一个 (x, z) 与 y 范围",
+        "output": "该列自下而上的 BlockId 数组，附被覆盖 Section 的 sectionRevision",
+        "why": "地形高度、落点、掉落判定都是按列问的，单列请求省掉一次矩形展开"
+      }
+    },
+    "revisionAccompaniesResult": "每个结果必须带上它取自的 sectionRevision。没有 revision 的读结果无法判断是不是过期数据——调用方拿它和后续写入的 expectedRevision 对齐。",
+    "presence": {
+      "statement": "读请求覆盖的 Section 同样有四态；缺块的处理与派发面完全一致，不另立一套。",
+      "shape": "结果按 Section 分段标注 Ready / Unchanged / Pending / Unavailable",
+      "missingIsNotAir": "Pending 与 Unavailable 覆盖的格子不得填空气、不得填 0、不得省略；必须让调用方能区分「这里是空气」和「这里还不知道」",
+      "partialResultIsLegal": "一次请求可以部分 Ready 部分 Pending；这是正常结局，不是错误"
+    },
+    "budget": {
+      "statement": "批量读必须有显式上限，且上限是声明出来的数字，不是「尽量」。",
+      "maxCellsPerRequest": 262144,
+      "why": "262144 = 64 个 Section 的格数，覆盖一个 4x4x4 Section 的立方；再大就该分批或改用订阅",
+      "onExceeded": "超出即 read_budget_exceeded，拒绝整条请求，不做静默截断",
+      "callerProvidedBuffer": "结果写进调用方提供的缓冲；体素侧不分配、不返回需要释放的句柄"
+    },
+    "readOnly": "读不得改变世界的任何一格，也不得触发加载副作用；要加载走流式请求。",
+    "notASubscription": "本块是一次性读；持续观察某片区域走改动层派发，不要用轮询读代替。"
+  },
+  "blockWrite": {
+    "statement": "权威写入的公共请求形状。写入分 prepare 与 commit 两段，本块定义的是提交给 prepare 的条目形状。",
+    "entry": {
+      "sectionKey": "规范三坐标键，定位到哪个 Section",
+      "cellOffset": "格内偏移 0~4095（由 worldY&15、worldZ&15、worldX&15 按固定序合成）",
+      "blockId": "要写入的完整 32 位 BlockId，无符号",
+      "expectedSectionRevision": "调用方读到的那个 revision；与当前不符即 stale_section_revision，整批拒绝"
+    },
+    "batch": {
+      "statement": "一批写入是若干条目加一个事务 ID；整批要么全生效要么全不生效。",
+      "transactionId": "提交按事务 ID 幂等；重复提交返回同一份回执，不重复生效",
+      "allOrNothing": "任一条目校验失败即整批拒绝，不部分应用",
+      "maxEntriesPerBatch": 65536,
+      "onExceeded": "超出即 write_batch_too_large，拒绝整批"
+    },
+    "noStringMap": "条目是结构化字段，不是字符串键值 map。字符串 map 让字段名、类型与边界都不可机器校验，是 unstructured_mutation_entry。",
+    "orderWithinBatch": "同一批内对同一格的多次写入按提交序生效，最后一条为准；顺序排死，重放结果一致。",
+    "prepareThenCommit": "全部可能失败的校验在 prepare 做完；commit 一次性不可失败地发布——Section 载荷、Dirty 标记、SectionRevision、WorldRevision 同批发布。",
+    "sameCommitPointAsEcs": "体素提交与 ECS 提交是同一个提交点、同一个回滚单元。"
   }
 }
