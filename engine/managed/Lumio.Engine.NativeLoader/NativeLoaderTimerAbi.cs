@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace Lumio.Engine.NativeLoader;
@@ -18,12 +17,12 @@ public sealed class NativeLoaderTimerAbi : INativeTimerAbi, IDisposable
     public static NativeLoaderTimerAbi Load(string nativePath)
     {
         var lease = NativeEngineLoader.LoadFromBuildInfo(nativePath);
-        var field = typeof(NativeEngineLease).GetField("_library", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (field?.GetValue(lease) is not nint library || library == 0) { lease.Dispose(); throw new InvalidOperationException("NativeEngineLease did not expose a loaded module handle."); }
+        var library = lease.LibraryHandle;
+        if (library == 0) { lease.Dispose(); throw new InvalidOperationException("NativeEngineLease did not expose a loaded module handle."); }
         var entry = Marshal.GetDelegateForFunctionPointer<GetApiDelegate>(NativeLibrary.GetExport(library, AbiConstants.EntrySymbol));
         if (entry(AbiConstants.AbiVersion, out nint address) != 0 || address == 0) { lease.Dispose(); throw new InvalidOperationException("Native engine entry rejected ABI version."); }
         var table = Marshal.PtrToStructure<RootApiWithTimers>(address);
-        if (table.StructSize < (uint)Marshal.SizeOf<RootApiWithTimers>() || table.TimerCreateManager == 0 || table.TimerDestroyManager == 0 || table.TimerRegisterDispatch == 0 || table.TimerRegisterScope == 0 || table.TimerCreateSlot == 0 || table.TimerBindSlot == 0 || table.TimerScheduleRepeating == 0 || table.TimerAdvance == 0 || table.TimerDrain == 0) { lease.Dispose(); throw new InvalidOperationException("Native root table is missing timer_* slots."); }
+        if (table.StructSize < (uint)Marshal.SizeOf<RootApiWithTimers>() || table.TimerCreateManager == 0 || table.TimerDestroyManager == 0 || table.TimerRegisterDispatch == 0 || table.TimerRegisterScope == 0 || table.TimerTeardownScope == 0 || table.TimerCreateSlot == 0 || table.TimerBindSlot == 0 || table.TimerCloseSlot == 0 || table.TimerScheduleOneShot == 0 || table.TimerScheduleRepeating == 0 || table.TimerCancel == 0 || table.TimerAdvance == 0 || table.TimerPump == 0 || table.TimerDrain == 0) { lease.Dispose(); throw new InvalidOperationException("Native root table is missing timer_* slots."); }
         return new NativeLoaderTimerAbi(lease, D<CreateManagerDelegate>(table.TimerCreateManager), D<DestroyManagerDelegate>(table.TimerDestroyManager), D<RegisterDispatchDelegate>(table.TimerRegisterDispatch), D<RegisterScopeDelegate>(table.TimerRegisterScope), D<TeardownScopeDelegate>(table.TimerTeardownScope), D<CreateSlotDelegate>(table.TimerCreateSlot), D<BindSlotDelegate>(table.TimerBindSlot), D<CloseSlotDelegate>(table.TimerCloseSlot), D<ScheduleOneShotDelegate>(table.TimerScheduleOneShot), D<ScheduleRepeatingDelegate>(table.TimerScheduleRepeating), D<CancelDelegate>(table.TimerCancel), D<AdvanceDelegate>(table.TimerAdvance), D<PumpDelegate>(table.TimerPump), D<DrainDelegate>(table.TimerDrain));
         T D<T>(nint p) where T : Delegate => Marshal.GetDelegateForFunctionPointer<T>(p);
     }

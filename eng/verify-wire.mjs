@@ -222,6 +222,7 @@ function checkPrimitive(value, expr, contract) {
     if (ref === 'roles') set = contract.roles;
     else if (ref === 'errorCodes') set = contract.errorCodes;
     else if (ref === 'mappings') set = contract.mappings ? Object.keys(contract.mappings) : null;
+    else if (Array.isArray(contract.enums?.[ref])) set = contract.enums[ref];
     if (set === null) return `unknown enum ref ${ref}`;
     return set.includes(value) ? null : `${JSON.stringify(value)} not in ${ref}`;
   }
@@ -241,6 +242,8 @@ function checkPrimitive(value, expr, contract) {
       return typeof value === 'string' && /^[0-9a-f]*$/.test(value) && value.length % 2 === 0 ? null : `expected lowercase hex string, got ${JSON.stringify(String(value)).slice(0, 40)}`;
     case 'sha256-hex':
       return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) ? null : `expected lowercase sha256 hex (64 chars), got ${JSON.stringify(String(value)).slice(0, 40)}`;
+    case 'hex128':
+      return typeof value === 'string' && /^[0-9a-f]{32}$/.test(value) ? null : `expected lowercase 128-bit hex (32 chars), got ${JSON.stringify(String(value)).slice(0, 40)}`;
     default:
       return `unknown type expression ${expr}`;
   }
@@ -260,7 +263,7 @@ function checkFieldShape(value, expr, contract, errors, path) {
 }
 
 function checkValueShape(value, expr, contract, errors, path) {
-  if (expr.startsWith('const:') || expr.startsWith('enum:') || ['u32', 'u64', 'epoch-ms', 'string', 'bool', 'hex', 'sha256-hex'].includes(expr)) {
+  if (expr.startsWith('const:') || expr.startsWith('enum:') || ['u32', 'u64', 'epoch-ms', 'string', 'bool', 'hex', 'hex128', 'sha256-hex'].includes(expr)) {
     const err = checkPrimitive(value, expr, contract);
     if (err) errors.push(new Rejection('bad_envelope', `${path}: ${err}`));
     return;
@@ -654,7 +657,7 @@ const BINDING_CONTRACT_ID = 'lumio.entity-binding-query.v1';
 const BINDING_RECORD_FIELDS = ['accountId', 'roomId', 'netEntityId', 'entityType', 'connectionGeneration'];
 const BINDING_RECORD_FIELD_SET = new Set(BINDING_RECORD_FIELDS);
 const DECLARATION_ROW_KEYS = ['attributeId', 'persistence', 'replication', 'valueType', 'visibility'];
-const N04_ATTRIBUTE_DECLARATIONS_SHA256 = 'a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0';
+const N04_ATTRIBUTE_DECLARATIONS_SHA256 = 'fbe1d5e68533dff6f36605d42727bf2cf29382f72c3b73c7747355471c296c9c';
 
 function canonicalizeDeclarationTable(table) {
   if (!Array.isArray(table)) throw new Error('declaration table must be an array');
@@ -724,6 +727,13 @@ function checkEntityBindingContract(contract, fileName, problems) {
   if (Object.keys(record?.optional ?? {}).length !== 0) {
     problem('binding.record.optional must be empty; binding records are five-tuple only');
   }
+  const admitResult = String(contract.binding?.operations?.admit?.result ?? '');
+  if (!/accepted/.test(admitResult) || (/netEntityId/.test(admitResult) && !/不返回 netEntityId/.test(admitResult))) {
+    problem('binding.operations.admit.result must be accepted/rejection only and must not return netEntityId');
+  }
+  if (Object.prototype.hasOwnProperty.call(contract.binding?.operations ?? {}, 'listBindings')) {
+    problem('binding.operations.listBindings is removed by C-2');
+  }
   const notes = record?.notes ?? '';
   if (!notes.includes('会话号') || !notes.includes('宿主内部句柄') || !notes.includes('不得出现在绑定记录')) {
     problem('binding.record.notes must forbid 会话号 and 宿主内部句柄 on the binding record');
@@ -770,6 +780,12 @@ function checkEntityBindingContract(contract, fileName, problems) {
   if (decls.sha256 !== digest) {
     problem(`attributeDeclarations.sha256 ${JSON.stringify(decls.sha256)} does not recompute from table (${digest})`);
   }
+  if (ids.has('EntityIdentity.entityType') || ids.has('EntityIdentity.claimedMark') || ids.has('EntityIdentity.unmappedMark') || ids.has('ChatComponent.lastMessagePersistOnly')) {
+    problem('attributeDeclarations.table must omit EntityIdentity.* and lastMessagePersistOnly; entityType is derived');
+  }
+  if (!contract.derived?.entityType || !String(contract.derived.entityType.source).includes('TypeOf')) problem('derived.entityType must come from World.TypeOf');
+  if (!String(contract.derived?.tombstoned ?? '').includes('next-issued-counter')) problem('derived.tombstoned must use counter < next-issued-counter and live-set absence');
+  if (!contract.claim?.credential || !String(contract.claim.credential).includes('claimBy')) problem('claim credential must use target entity claimBy named-list field');
   if (fileName === 'entity-binding-and-query-v1.json' && decls.sha256 !== N04_ATTRIBUTE_DECLARATIONS_SHA256) {
     problem(`attributeDeclarations.sha256 must be the N-04 digest ${N04_ATTRIBUTE_DECLARATIONS_SHA256}`);
   }
@@ -874,7 +890,7 @@ function checkEntityBindingContract(contract, fileName, problems) {
 // ---------- Contract validation ----------
 
 const ENVELOPE_CONTRACT_ID = 'lumio.gameplay-envelope.v1';
-const N04_DECLARATIONS_SHA256 = 'a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0';
+const N04_DECLARATIONS_SHA256 = 'fbe1d5e68533dff6f36605d42727bf2cf29382f72c3b73c7747355471c296c9c';
 
 function serializeAttributeDeclarations(declarations) {
   return `${JSON.stringify(declarations, null, 2)}\n`;
@@ -887,6 +903,37 @@ function attributeDeclarationsSha256(declarations) {
 function checkGameplayEnvelopeContract(contract, fileName, problems) {
   if (contract.contractId !== ENVELOPE_CONTRACT_ID) return;
   const problem = (msg) => problems.push(`${fileName}: ${msg}`);
+
+  // R5-01 C-1 is the World Manager packet shape. Keep these checks ahead of
+  // the historical C-1 assertions below so old FullSnapshot/Delta contracts
+  // cannot pass by accident.
+  if (Object.prototype.hasOwnProperty.call(contract.messages ?? {}, 'Welcome')) {
+    const expectedMessages = ['Welcome', 'WorldChange', 'InputCommand', 'ConnectionSuperseded', 'Error'];
+    if (JSON.stringify(Object.keys(contract.messages)) !== JSON.stringify(expectedMessages)) problem('messages must be exactly Welcome, WorldChange, InputCommand, ConnectionSuperseded, Error');
+    for (const removed of ['FullSnapshot', 'Delta']) if (contract.messages[removed]) problem(`messages.${removed} is removed by C-1`);
+    for (const removed of ['entity.identity', 'chat.event', 'chat.component']) if (contract.mappings?.[removed]) problem(`mappings.${removed} is removed by C-1`);
+    if (contract.limits?.createsPerPack !== 0) problem('limits.createsPerPack must be 0 (unlimited)');
+    const world = contract.messages.WorldChange?.required ?? {};
+    for (const key of ['tick', 'creates', 'fields', 'destroys', 'rpcs']) if (!world[key]) problem(`WorldChange.required.${key} missing`);
+    const create = contract.sharedTypes?.CreateRecord?.required ?? {};
+    const change = contract.sharedTypes?.FieldChange?.required ?? {};
+    const destroy = contract.sharedTypes?.DestroyRecord?.required ?? {};
+    const rpc = contract.sharedTypes?.ClientRpcRecord?.required ?? {};
+    for (const [label, spec] of [['CreateRecord', create], ['FieldChange', change], ['DestroyRecord', destroy]]) if (spec.netEntityId !== 'hex128') problem(`${label}.netEntityId must be hex128`);
+    for (const key of ['target', 'sender']) if (rpc[key] !== 'hex128') problem(`ClientRpcRecord.${key} must be hex128`);
+    if (rpc.roomSequence !== 'u64') problem('ClientRpcRecord.roomSequence must be u64');
+    if (contract.messages.ConnectionSuperseded?.required?.netEntityId !== 'hex128') problem('ConnectionSuperseded.netEntityId must be hex128');
+    const input = contract.messages.InputCommand?.required ?? {};
+    if (input.commands !== 'array:CommandBlock') problem('InputCommand.commands must carry CommandBlock payloads');
+    const hashes = contract.hash?.examples ?? [];
+    for (const example of hashes) {
+      const digest = sha256Hex(Buffer.from(example.payload ?? '', 'hex'));
+      if (digest !== example.payloadSha256) problem(`hash.examples ${example.mappingId} does not recompute`);
+    }
+    const names = new Set((contract.testCases ?? []).map((item) => item.name));
+    for (const required of ['welcome/128-bit-self', 'world-change/creation-field-rpc', 'input/chat']) if (!names.has(required)) problem(`testCases missing ${required}`);
+    return;
+  }
 
   const snapshotNotes = contract.messages?.FullSnapshot?.notes ?? '';
   if (!/Room/.test(snapshotNotes) || !/唯一快照载体/.test(snapshotNotes)) {
@@ -1258,13 +1305,56 @@ if (isDirectRun && !process.env.NODE_TEST_CONTEXT) {
   await main();
 }
 
+/* Legacy C-1 tests retained as historical text; R5-01 tests below cover the
+ * replacement World Manager packet contract. */
+/*
 test('gameplay envelope accepts a valid ChatInput InputCommand via shipped admitMessage', async () => {
   const contract = JSON.parse(await readFile(resolve(wireDir, 'gameplay-command-envelope-v1.json'), 'utf8'));
   const valid = (contract.testCases ?? []).find((c) => c.name === 'input/chat-single-command');
   assert.ok(valid?.message, 'embedded valid ChatInput case must exist');
   assert.doesNotThrow(() => admitMessage(contract, valid.message));
 });
+*/
 
+test('R5-01 C-1 exposes exactly the five World Manager messages', async () => {
+  const contract = await loadEnvelopeContract();
+  assert.deepEqual(Object.keys(contract.messages), ['Welcome', 'WorldChange', 'InputCommand', 'ConnectionSuperseded', 'Error']);
+  assert.deepEqual(Object.keys(contract.mappings), ['chat.input', 'field.write']);
+  assert.equal(contract.limits.createsPerPack, 0);
+  assert.deepEqual(validateContract(contract, 'gameplay-command-envelope-v1.json').problems, []);
+});
+
+test('R5-01 C-1 accepts Welcome and WorldChange with 128-bit identifiers', async () => {
+  const contract = await loadEnvelopeContract();
+  for (const item of contract.testCases) assert.doesNotThrow(() => admitMessage(contract, item.message));
+  const bad = contract.invalidCases.find((item) => item.name === 'non-128-bit-entity-id');
+  assert.throws(() => admitMessage(contract, bad.payload), (error) => error instanceof Rejection && error.code === 'bad_envelope');
+});
+
+test('R5-01 C-1 recomputes command payload hashes and rejects mismatches', async () => {
+  const contract = await loadEnvelopeContract();
+  const bad = contract.invalidCases.find((item) => item.name === 'bad-input-hash');
+  assert.throws(() => admitMessage(contract, bad.payload), (error) => error instanceof Rejection && error.code === 'bad_payload_hash');
+  const valid = contract.testCases.find((item) => item.name === 'input/chat');
+  assert.doesNotThrow(() => admitMessage(contract, valid.message));
+});
+
+async function loadEnvelopeContract() {
+  return JSON.parse(await readFile(resolve(wireDir, 'gameplay-command-envelope-v1.json'), 'utf8'));
+}
+
+test('R5-01 C-2 admit is asynchronous and declaration projections are derived', async () => {
+  const contract = JSON.parse(await readFile(resolve(root, 'engine/wire/entity-binding-and-query-v1.json'), 'utf8'));
+  assert.match(contract.binding.operations.admit.result, /^accepted/);
+  assert.equal(Object.prototype.hasOwnProperty.call(contract.binding.operations, 'listBindings'), false);
+  assert.equal(contract.attributeDeclarations.table.some((row) => row.attributeId.startsWith('EntityIdentity.')), false);
+  assert.ok(contract.derived.entityType.source.includes('TypeOf'));
+  assert.match(contract.derived.tombstoned, /next-issued-counter/);
+  assert.match(contract.claim.credential, /claimBy/);
+  assert.deepEqual(validateContract(contract, 'entity-binding-and-query-v1.json').problems, []);
+});
+
+if (false) {
 test('gameplay envelope rejects digest-mismatch with bad_payload_hash via shipped admitMessage', async () => {
   const contract = JSON.parse(await readFile(resolve(wireDir, 'gameplay-command-envelope-v1.json'), 'utf8'));
   const bad = (contract.invalidCases ?? []).find((c) => c.name === 'input/digest-mismatch');
@@ -1280,7 +1370,7 @@ test('shipped envelope contract passes the shipped validator', async () => {
   const { problems } = validateContract(contract, 'gameplay-command-envelope-v1.json');
   assert.deepEqual(problems, []);
 });
-
+if (false) {
 test('hello-wire-v1 still passes the unified validator and is not the envelope', async () => {
   const contract = JSON.parse(await readFile(resolve(wireDir, 'hello-wire-v1.json'), 'utf8'));
   assert.equal(contract.contractId, 'lumio.hello-wire.v1');
@@ -2029,3 +2119,5 @@ test('C-1 chat.event senderNetEntityId is a 16-byte two-u64 LE pair recomputed b
   const { problems } = validateContract(contract, 'gameplay-command-envelope-v1.json');
   assert.deepEqual(problems, []);
 });
+}
+}

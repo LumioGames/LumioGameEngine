@@ -678,3 +678,6 @@ var restored = WorldManager.CreateFromSnapshot(snapshotBytes);   // 新世界；
 | 变化钩子 | 生成器给每个 Sync 字段配的 `OnXChanged(old, new, reason)`：默认只有对端改了才响，自己改自己不响 |
 | 接管 | 同一个账号又登进来了：踢掉旧连接（旧客户端退到登录界面），新连接接上同一个实体 |
 | 轻量哈希 / 全量哈希 | 每帧算一小撮字段看有没有歪 / 需要时算全部，用来定位歪在哪 |
+## ADR-060 R5-01 contract projection
+
+The World Manager is the sole packet owner. C-1 uses Welcome, WorldChange, InputCommand, ConnectionSuperseded, and Error; WorldChange carries creates, field changes, destroys, and ClientRpc records in one ordered stream. NetEntityId and connection references are 128-bit values. C-2 admission returns accepted or a rejection only; Welcome delivers the assigned id and generation. Derived entityType comes from World.TypeOf and tombstoned is derived from the issued counter and live set.

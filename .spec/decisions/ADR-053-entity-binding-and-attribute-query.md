@@ -80,3 +80,6 @@ RM-00011（ECS Formal Entity and Chat Vertical Slice）的三张实现卡——R
 - `NetEntityId` 128 位 = 实例 ID（高 64）+ 计数器（低 64），32-hex 小写不变；世界在提交相发号。
 - Admit 新增结局 `account_already_online`（与 `invalid_binding_shape` 严格区分）；正用例 `admit_second_connection_account_already_online`，反用例 `admit_shape_error_is_not_account_already_online`。
 - AttributeId 查询面是生成的薄适配层，玩法只用类型化读，无自有存储。
+## 修订记录（2026-09-04，ADR-060）
+
+The C-2 contract removes listBindings and synchronous netEntityId from admit. The embedded declaration table is the Runtime-generated two-row copy with a recomputed SHA-256; entityType is answered by World.TypeOf and tombstoned is counter/live-set derived. Claim credentials come from the target entity's claimBy named-list field.

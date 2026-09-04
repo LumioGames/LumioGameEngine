@@ -151,3 +151,6 @@ The new Workflow Requirement Room will contain new cards for this slice only; ex
 - The 11 online Requirements are `R-00344` through `R-00354`; they are all assigned to `RM-00011`.
 - The 39 acceptance items were created and read back successfully using the project's active `需求验收` type and its `未提交` initial status.
 - The 23 planned direct Requirement reference edges remain in the local upload checkpoint. The platform `bindRequirementReference` endpoint returned HTTP 500 during two independent attempts, so no non-contract relation API was used and the Room/card writes were kept intact.
+## ADR-060 R5-01 wire and admission update
+
+Reconnect is a fresh login and full handshake. Admission returns only accepted or an explicit rejection; the Runtime-issued 128-bit NetEntityId and connection generation arrive in the server Welcome packet. Chat events are ClientRpc records in WorldChange, never a separate chat.event stream, and reconnect does not replay history. Claim visibility uses the target entity's claimBy named-list field.

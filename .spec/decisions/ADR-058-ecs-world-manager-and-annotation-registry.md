@@ -120,3 +120,6 @@ RM-00011 r3 深审（`reviews/2026-09-03-rm-00011-r3-owner-review.md`）实测 R
 5. **恢复身份**：`CreateFromSnapshot` 后每个 NetEntityId 可达且不变，新建实体不与档内 id 重号；NetEntityId 高 64 位 = 实例 ID。
 6. **客户端同套 ECS**：Client csproj 引用 Runtime ECS，属性袋与手写声明表不存在；创建记录按 EntityType 建实体，探针确认 Awake → PostAttribute → Start；子类型实体 `TypeOf(id).Is<基类>()` 为 true；改名后其他客户端 `OnNameChanged` 收到 `Sync`、被拒的 owner 收到 `Correction`，owner 自己写不触发。
 7. **事件无历史**：连续 N Tick 聊天后 Runtime 常驻内存不随 Tick 增长；重连只收全量快照。
+## 修订记录（2026-09-04，ADR-060）
+
+ADR-060 supersedes the prior wire projection details without changing this ADR's decision or status. C-1 now uses Welcome/WorldChange/InputCommand/ConnectionSuperseded/Error; WorldChange carries creates, field changes, destroys, and ClientRpc records with 128-bit identifiers. Admission identity is delivered by Welcome and chat events are ClientRpc records.

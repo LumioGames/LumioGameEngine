@@ -1,650 +1,72 @@
 {
   "contractId": "lumio.gameplay-envelope.v1",
   "version": 1,
-  "purpose": "RM-00011 ECS 正式实体/聊天纵切的通用玩法命令信封唯一真值：上行 InputCommand 通用承载（多租户 command 映射，chat.input 第一个租户）、下行 FullSnapshot.stateBlocks（Room 路径唯一快照载体）/ Delta.changedBlocks 状态块、顶号 s2c ConnectionSuperseded、Chat 映射三件（chat.input / chat.event / chat.component）与有界输入约束。Server、Runtime（C# MVP 宿主）、Client、Game 与最小 Rust 宿主复跑全部以本文件为字段真值，不得另写一份协议真值；措辞宿主无关。hello-wire-v1（MS-00002）不扩展、不复用其消息集。",
-  "decisionRecord": "ADR-049 (Accepted 2026-09-01, Room Review Rulings D-009 解冻)；typed-body 纪律承 ADR-028/ADR-045，字节编码承 ADR-047 LumioBinV1，摘要构造承 ADR-041。",
-  "transport": {
-    "kind": "websocket",
-    "encoding": "utf8-json-text-frame",
-    "direction": "client-to-server and server-to-client",
-    "session": "已准入的游戏连接（准入与连接绑定见 account-port 与 entity-binding-and-query 契约）；本契约不定义握手，消息只在准入后的会话上合法。",
-    "maxFrameBytes": 65536
-  },
+  "purpose": "Authoritative World Manager packet envelope for entity projection, ClientRpc delivery, and input commands.",
+  "decisionRecord": "ADR-060",
+  "transport": { "kind": "websocket", "encoding": "utf8-json-text-frame", "direction": "client-to-server and server-to-client", "maxFrameBytes": 65536 },
   "roles": ["client", "server"],
+  "enums": { "entityType": ["player", "bot"], "changeReason": ["sync", "correction"] },
   "fieldSemantics": {
-    "messageType": "消息判别字段；接收方遇到未知 messageType 必须以 bad_envelope 拒绝，不得静默丢弃。",
-    "commands": "上行命令块数组；发送者身份不来自消息字段，而来自该连接的公共绑定（AccountId+RoomId+NetEntityId+EntityType+ConnectionGeneration），客户端不能自选发送者实体。",
-    "commandSequence": "本契约不含任何客户端提供的 gameplay 序号 / 帧号 / tick：ChatInput 层客户端只提供文本；传输与会话层定序、去重是协议层职责（Room Review Rulings 2026-09-01 定稿）。",
-    "mappingId": "已注册映射的稳定标识（本文件 mappings 节为唯一注册表）；块按 code-point 严格升序排列，禁止重复。",
-    "payload": "块内体字节的小写 hex；字节为该映射 fieldOrder 声明顺序下的 LumioBinV1 编码（ADR-047：定宽小端整数、u32 前缀字符串、无填充、封闭字段集）。collection=array 时先写 u32 元素个数，再按文档序拼接记录。",
-    "payloadSha256": "payload 解码后原字节的 SHA-256，小写 hex（64 字符）；发送方计算并携带，接收方与校验器独立重算，不一致以 bad_payload_hash 拒绝，且拒绝发生在任何状态解释之前。",
-    "tickId": "权威 tick 计数（u64），服务端盖章；客户端不提供 gameplay tick。",
-    "revision": "权威状态修订号（u64），每次权威提交递增；FullSnapshot 携带当前值，Delta 携带提交后值。",
-    "messageId": "chat.event 的服务端消息号，Room 内单调递增，永不回退、永不复用。",
-    "roomSequence": "世界内严格递增序号（u64），每事件 +1；同 Tick 内按发送者 NetEntityId 排序后分配；接收方检测到回退或重复以 bad_envelope 拒绝。字段名保留。",
-    "appliedTick": "ChatComponent.SetMessage 提交的权威 tick（u64），服务端盖章；客户端不提供。",
-    "reasonCode": "ConnectionSuperseded 的终止原因；本契约本消息恒为 connection_superseded。",
-    "netEntityId": "被顶号连接所绑定的运行时实体（u64）；顶号后新连接继承同一实体。",
-    "newConnectionGeneration": "顶号重绑后的新绑定纪元（u64），严格大于旧连接的 connectionGeneration。"
+    "messageType": "Closed discriminator; unknown values are rejected as bad_envelope.",
+    "netEntityId": "Opaque 128-bit identity encoded as 32 lowercase hex characters (instance u64 plus counter u64).",
+    "connectionGeneration": "Binding generation delivered by Welcome; monotonically increasing u64.",
+    "roomSequence": "Strictly increasing sequence within the world, stamped on ClientRpc records.",
+    "payloadSha256": "Lowercase SHA-256 of the raw LumioBinV1 payload bytes, recomputed before interpretation."
   },
   "mappings": {
     "chat.input": {
-      "kind": "command",
-      "direction": "c2s",
-      "fieldOrder": ["text"],
-      "fields": {
-        "text": { "type": "utf8-string", "maxUtf8Bytes": 512, "violationCode": "chat_text_too_long" }
-      },
-      "dimensions": {
-        "source": "generated-from-field-annotations",
-        "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
-        "persistence": "none",
-        "replication": "none",
-        "visibility": "sender-only"
-      },
-      "notes": "ChatInput 只携带文本。= ChatComponent.SendMessage ServerRpc 的线上形态（ADR-058 §6 §18）。文本 UTF-8 字节数超上限以 chat_text_too_long 拒绝（单一行为：reject，无静默丢弃）。每发送者每权威 tick 至多提交 1 条 chat.input，超出以 chat_rate_exceeded 拒绝。"
-    },
-    "chat.event": {
-      "kind": "event",
-      "direction": "s2c",
-      "delivery": "delta-live-only",
-      "fieldOrder": ["messageId", "roomSequence", "senderNetEntityIdInstanceId", "senderNetEntityIdCounter", "text", "appliedTick"],
-      "fields": {
-        "messageId": { "type": "u64" },
-        "roomSequence": { "type": "u64" },
-        "senderNetEntityIdInstanceId": { "type": "u64" },
-        "senderNetEntityIdCounter": { "type": "u64" },
-        "text": { "type": "utf8-string", "maxUtf8Bytes": 512, "violationCode": "chat_text_too_long" },
-        "appliedTick": { "type": "u64" }
-      },
-      "dimensions": {
-        "source": "generated-from-field-annotations",
-        "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
-        "persistence": "excluded",
-        "replication": "live-delta",
-        "visibility": "room"
-      },
-      "notes": "活跃通知：= ChatComponent.OnChatMessage ClientRpc 的线上形态（ADR-058 §6 §18）；事件 delta-live-only，服务器不保留历史。senderNetEntityId 在本映射编码为 senderNetEntityIdInstanceId（u64 LE，世界实例 ID）后接 senderNetEntityIdCounter（u64 LE，世界内计数器），共 16 字节定宽；与 C-2 identityModel.netEntityId 的 32-hex 小写是同一 128 位值的两种编码（高 64 = instanceId，低 64 = counter）。仅经 Delta.changedBlocks 可靠有序广播；永不进入 FullSnapshot.stateBlocks（重连不回放聊天事件，客户端聊天窗清空重建）。验收以客户端（含 Chromium 页面）实际收到的 Delta.changedBlocks 为准；harness 不得由发送计数合成 eventOrder / appliedTicks / restoredWindow；宿主进程内替客户端维护的窗口不算收到。"
-    },
-    "chat.component": {
-      "kind": "componentState",
-      "direction": "none",
-      "fieldOrder": ["lastMessageText", "lastMessageTick"],
-      "fields": {
-        "lastMessageText": { "type": "utf8-string", "maxUtf8Bytes": 512 },
-        "lastMessageTick": { "type": "u64" }
-      },
-      "dimensions": {
-        "source": "generated-from-field-annotations",
-        "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
-        "persistence": "persistent",
-        "replication": "not-replicated",
-        "visibility": "server-only"
-      },
-      "notes": "ChatComponent 映射声明：三维与字段标注生成物一致（persistent / not-replicated / server-only）。参与既有 ECS 字段属性持久化流（快照/恢复往返归持久化平面），不进客户端属性同步流、不上行下行 wire。本映射不出现在任何 wire 消息的块数组中。"
+      "kind": "command", "direction": "c2s", "fieldOrder": ["text"],
+      "fields": { "text": { "type": "utf8-string", "maxUtf8Bytes": 512, "violationCode": "chat_text_too_long" } },
+      "dimensions": { "source": "generated-from-field-annotations", "sha256": "fbe1d5e68533dff6f36605d42727bf2cf29382f72c3b73c7747355471c296c9c", "persistence": "none", "replication": "none", "visibility": "sender-only" },
+      "notes": "ChatComponent.SendMessage ServerRpc input; payload contains text only."
     },
     "field.write": {
-      "kind": "command",
-      "direction": "c2s",
-      "fieldOrder": ["netEntityId", "componentId", "fieldId", "value"],
+      "kind": "command", "direction": "c2s", "fieldOrder": ["netEntityIdInstanceId", "netEntityIdCounter", "componentId", "fieldId", "value"],
       "fields": {
-        "netEntityId": { "type": "u64" },
-        "componentId": { "type": "utf8-string" },
-        "fieldId": { "type": "utf8-string" },
-        "value": { "type": "utf8-string" }
+        "netEntityIdInstanceId": { "type": "u64" }, "netEntityIdCounter": { "type": "u64" },
+        "componentId": { "type": "utf8-string" }, "fieldId": { "type": "utf8-string" }, "value": { "type": "utf8-string" }
       },
-      "dimensions": {
-        "source": "generated-from-field-annotations",
-        "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
-        "persistence": "none",
-        "replication": "none",
-        "visibility": "sender-only"
-      },
-      "notes": "Authority.Owner 字段上行：发送者身份来自连接绑定，只能写自己实体。value 按声明表 valueType 编码；本切片 Owner 字段是 IdentityComponent.name（utf8-string）。服务器 OnClientWrite 校验失败 → 下一 Delta 携带权威值（权威纠正）。无通用 SetField RPC。"
-    },
-    "entity.identity": {
-      "kind": "state",
-      "direction": "s2c",
-      "collection": "array",
-      "orderBy": "netEntityId",
-      "orderViolationCode": "block_order_violation",
-      "fieldOrder": ["netEntityId", "entityType", "unmappedMark"],
-      "fields": {
-        "netEntityId": { "type": "u64" },
-        "entityType": { "type": "utf8-string", "allowedValues": ["player", "bot"], "violationCode": "undecodable_payload" },
-        "unmappedMark": { "type": "utf8-string" }
-      },
-      "dimensions": {
-        "source": "generated-from-field-annotations",
-        "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
-        "persistence": "ephemeral",
-        "replication": "replicated",
-        "visibility": "room-public"
-      },
-      "notes": "创建记录：每条记录 = entityType + netEntityId + 该观察者可见的全部 Sync 字段当前值（本切片 = EntityIdentity.entityType / kind，entityType 承载 player|bot）。FullSnapshot 与 Delta 用同一种记录，同一条有序流，创建优先于同包内字段变化。payload 为 LumioBinV1 数组（u32 元素个数，随后按文档序拼接记录；记录内部按 fieldOrder，不重排）。记录按 netEntityId 严格升序。entityType 只能是 player 或 bot（utf8-string，不另发明二进制类型）。EntityIdentity.claimedMark 为 claim-scoped，不上本块。有活体时 FullSnapshot.stateBlocks 必须含本块；零活体时省略，不要发 count=0 充数。unmappedMark 无独立字节上限，只受 maxFrameBytes 约束。"
+      "dimensions": { "source": "generated-from-field-annotations", "sha256": "fbe1d5e68533dff6f36605d42727bf2cf29382f72c3b73c7747355471c296c9c", "persistence": "none", "replication": "none", "visibility": "sender-only" },
+      "notes": "Authority.Owner uplink; receiver rejects writes to another entity or server-authoritative fields with unauthorized and emits correction."
     }
-  },
-  "generatedAttributeDeclarations": {
-    "source": "generated-from-field-annotations",
-    "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
-    "artifact": "modules/ecs/generated/attribute-declarations.json",
-    "notes": "N-04 生成声明表的契约内嵌拷贝；mappings.*.dimensions.source/sha256 钉住本表。不得在本仓另提交一份独立声明表。",
-    "declarations": [
-      {
-        "attributeId": "ChatComponent.lastMessagePersistOnly",
-        "persistence": "persistent",
-        "replication": "not-replicated",
-        "valueType": "utf8-string",
-        "visibility": "server-only"
-      },
-      {
-        "attributeId": "ChatComponent.lastMessageText",
-        "persistence": "persistent",
-        "replication": "not-replicated",
-        "valueType": "utf8-string",
-        "visibility": "server-only"
-      },
-      {
-        "attributeId": "ChatComponent.lastMessageTick",
-        "persistence": "persistent",
-        "replication": "not-replicated",
-        "valueType": "u64",
-        "visibility": "server-only"
-      },
-      {
-        "attributeId": "EntityIdentity.claimedMark",
-        "persistence": "ephemeral",
-        "replication": "replicated",
-        "valueType": "utf8-string",
-        "visibility": "claim-scoped"
-      },
-      {
-        "attributeId": "EntityIdentity.entityType",
-        "persistence": "ephemeral",
-        "replication": "replicated",
-        "valueType": "enum:entityType",
-        "visibility": "room-public"
-      },
-      {
-        "attributeId": "EntityIdentity.unmappedMark",
-        "persistence": "ephemeral",
-        "replication": "replicated",
-        "valueType": "utf8-string",
-        "visibility": "room-public"
-      }
-    ]
   },
   "messages": {
-    "InputCommand": {
-      "dir": "c2s",
-      "required": {
-        "messageType": "const:InputCommand",
-        "commands": "array:CommandBlock"
-      },
-      "optional": {},
-      "notes": "命令块 mappingId 必须是 kind=command 的映射，否则以 unknown_command_type 拒绝；commands 可为空数组（等价于本帧无命令，合法）。"
-    },
-    "FullSnapshot": {
-      "dir": "s2c",
-      "required": {
-        "messageType": "const:FullSnapshot",
-        "tickId": "u64",
-        "revision": "u64",
-        "stateBlocks": "array:StateBlock"
-      },
-      "optional": {},
-      "notes": "Room 路径唯一快照载体：重连/首入时客户端只凭本消息的 stateBlocks 重建 ReplicaWorld。ADR-045 五字段体（snapshotId / tickId / sessionRevisionVector / schemaEpoch / mappingSetHash）不是本契约的 FullSnapshot，出现即 bad_envelope。stateBlocks 必填，必须含该 Room 内每个活体实体的房间可见已复制身份（mappingId=entity.identity 普查块）；省略该成员以 full_snapshot_without_state_blocks 拒绝。空数组是『本 Room 无任何房间可见可复制状态』的唯一定义编码，无哨兵值。有活体时必须出现 entity.identity 块；零活体时省略本块，不得以 count=0 冒充有活体。chat.event 是 delta-live-only，出现在此处即非法。EntityIdentity.claimedMark 为 claim-scoped，不上本块。"
-    },
-    "Delta": {
-      "dir": "s2c",
-      "required": {
-        "messageType": "const:Delta",
-        "tickId": "u64",
-        "revision": "u64",
-        "changedBlocks": "array:StateBlock"
-      },
-      "optional": {},
-      "notes": "每权威 tick 广播的变更块；chat.event 活跃事件经本消息可靠有序下发。changedBlocks 必填、可为空数组。"
-    },
-    "Error": {
-      "dir": "s2c",
-      "required": {
-        "messageType": "const:Error",
-        "code": "enum:errorCodes",
-        "detail": "string"
-      },
-      "optional": {
-        "mappingId": "enum:mappings"
-      },
-      "notes": "失败路径统一回执；有界输入拒绝（chat_text_too_long / chat_rate_exceeded）携带 mappingId 指明被拒的命令映射。"
-    },
-    "ConnectionSuperseded": {
-      "dir": "s2c",
-      "required": {
-        "messageType": "const:ConnectionSuperseded",
-        "reasonCode": "const:connection_superseded",
-        "netEntityId": "u64",
-        "newConnectionGeneration": "u64"
-      },
-      "optional": {},
-      "notes": "顶号时发给旧连接的下行通知。旧连接必须先收到本消息，服务器随后再关闭该连接；先关后发以 session_closed 拒绝。reasonCode 恒为 connection_superseded。netEntityId 为被继承实体，newConnectionGeneration 为顶号后的新纪元。"
-    }
+    "Welcome": { "dir": "s2c", "required": { "messageType": "const:Welcome", "instanceId": "u64", "selfNetEntityId": "hex128", "connectionGeneration": "u64" }, "optional": {}, "notes": "Server-originated first packet. selfNetEntityId is 128-bit 32-hex; admission does not return it synchronously." },
+    "WorldChange": { "dir": "s2c", "required": { "messageType": "const:WorldChange", "tick": "u64", "creates": "array:CreateRecord", "fields": "array:FieldChange", "destroys": "array:DestroyRecord", "rpcs": "array:ClientRpcRecord" }, "optional": {}, "notes": "Single ordered World Manager stream. WorldEntity creation is first; creates carry current visible fields, fields carry sync or correction, destroys carry tombstone references, and rpcs carry ClientRpc records." },
+    "InputCommand": { "dir": "c2s", "required": { "messageType": "const:InputCommand", "commands": "array:CommandBlock" }, "optional": {}, "notes": "mappingId is chat.input, field.write, or a generated ServerRpc kind; payload is LumioBinV1 hex plus sha256." },
+    "ConnectionSuperseded": { "dir": "s2c", "required": { "messageType": "const:ConnectionSuperseded", "reasonCode": "const:connection_superseded", "netEntityId": "hex128", "newConnectionGeneration": "u64" }, "optional": {}, "notes": "Old connection receives this notice before close; netEntityId is the inherited 128-bit identity." },
+    "Error": { "dir": "s2c", "required": { "messageType": "const:Error", "code": "enum:errorCodes", "detail": "string" }, "optional": { "mappingId": "enum:mappings" }, "notes": "Explicit protocol rejection." }
   },
   "sharedTypes": {
-    "CommandBlock": {
-      "required": {
-        "mappingId": "string",
-        "payload": "hex",
-        "payloadSha256": "sha256-hex"
-      },
-      "optional": {},
-      "notes": "mappingId 的注册与 kind 检查是语义层规则（unknown_command_type），不在语法层做枚举封闭，保证专属错误码优先于通用 bad_envelope。"
-    },
-    "StateBlock": {
-      "required": {
-        "mappingId": "string",
-        "payload": "hex",
-        "payloadSha256": "sha256-hex"
-      },
-      "optional": {},
-      "notes": "同上：未注册或 kind 不符由语义层以 state_block_kind_mismatch 拒绝。"
-    }
+    "CommandBlock": { "required": { "mappingId": "string", "payload": "hex", "payloadSha256": "sha256-hex" }, "optional": {} },
+    "CreateRecord": { "required": { "entityType": "enum:entityType", "netEntityId": "hex128", "fields": "array:VisibleField" }, "optional": {} },
+    "VisibleField": { "required": { "componentId": "string", "fieldId": "string", "value": "string" }, "optional": {} },
+    "FieldChange": { "required": { "netEntityId": "hex128", "componentId": "string", "fieldId": "string", "value": "string", "reason": "enum:changeReason" }, "optional": {} },
+    "DestroyRecord": { "required": { "netEntityId": "hex128" }, "optional": {} },
+    "ClientRpcRecord": { "required": { "target": "hex128", "componentId": "string", "method": "string", "args": "hex", "messageId": "u64", "roomSequence": "u64", "sender": "hex128", "appliedTick": "u64" }, "optional": {} }
   },
-  "blockRules": {
-    "commandBlockKind": "CommandBlock.mappingId 必须已注册且 kind=command（InputCommand.commands）；未注册或 kind 不符以 unknown_command_type 拒绝。",
-    "stateBlockKind": "FullSnapshot.stateBlocks 的 mappingId 必须已注册且 kind=state；Room 路径活体身份普查租户是 entity.identity。chat.event（kind=event）仅允许出现在 Delta.changedBlocks。",
-    "deltaBlockKind": "Delta.changedBlocks 的 mappingId 必须已注册且 kind ∈ {event, state}。",
-    "ascendingUnique": "同一块数组内 mappingId 按 code-point 严格升序，禁止重复（重复即『哪个块生效』成为实现自由）。"
-  },
-  "boundedInput": {
-    "policy": "reject",
-    "rules": {
-      "chatTextMaxUtf8Bytes": 512,
-      "maxChatInputPerSenderPerTick": 1,
-      "maxCommandsPerEnvelope": 16,
-      "maxBlocksPerEnvelope": 4096
-    },
-    "notes": "有界输入冻结为单一行为 reject：超限/超速显式回执 Error 并指明错误码，不做静默丢弃（保证 100 Bot 发言节奏可被确定性验证，发送方可区分被拒与已收）。"
-  },
-  "errorCodes": [
-    "bad_envelope",
-    "unsupported_contract",
-    "unknown_command_type",
-    "bad_payload_hash",
-    "undecodable_payload",
-    "block_order_violation",
-    "state_block_kind_mismatch",
-    "chat_text_too_long",
-    "chat_rate_exceeded",
-    "queue_full",
-    "session_closed",
-    "runtime_failure",
-    "unauthorized"
-  ],
-  "limits": {
-    "maxFrameBytes": 65536,
-    "ingressQueuePerConnection": 64
-  },
-  "encoding": {
-    "profile": "LumioBinV1 (ADR-047)",
-    "integers": "u32/u64 定宽小端；JSON wire 上 u64 以数字承载，取值 ≤ 2^53-1",
-    "strings": "u32 字节长度前缀 + UTF-8 字节，长度前缀必须等于实际字节数",
-    "struct": "按映射 fieldOrder 声明顺序直接拼接，无填充、无标签",
-    "array": "u32 元素个数前缀，随后按文档序拼接元素；元素内部按 fieldOrder 拼接，无填充、无标签；LumioBinV1 不重排",
-    "digest": "sha256(payload 原字节)，小写 hex；ADR-041 §2 构造"
-  },
-  "hash": {
-    "algorithm": "sha256",
-    "encoding": "lowercase-hex",
-    "input": "payload 解码后的原字节",
-    "examples": [
-      { "mappingId": "chat.input", "body": { "text": "gg" }, "payload": "020000006767", "payloadSha256": "5dbd584f1718b8bcd0dab4abeea83169f4a990defab81a8316ed845798d92dab" },
-      { "mappingId": "chat.event", "body": { "messageId": 1, "roomSequence": 1, "senderNetEntityIdInstanceId": 0, "senderNetEntityIdCounter": 101, "text": "gg", "appliedTick": 7 }, "payload": "01000000000000000100000000000000000000000000000065000000000000000200000067670700000000000000", "payloadSha256": "019c19137fdcc3eadf322f67067c254ef33fc2f81a7123bc89253d9a41d0d179" },
-      { "mappingId": "field.write", "body": { "netEntityId": 101, "componentId": "IdentityComponent", "fieldId": "name", "value": "Alice" }, "payload": "6500000000000000110000004964656e74697479436f6d706f6e656e74040000006e616d6505000000416c696365", "payloadSha256": "93c0b8cacab595fa21b71f166559be20e4aa7837420ae2dbc0edb295e71c4e72" },
-      { "mappingId": "chat.component", "body": { "lastMessageText": "gg", "lastMessageTick": 7 }, "payload": "0200000067670700000000000000", "payloadSha256": "ba9d631032a1ecb5c1b4723b9d9603cf29c8db92736620112cac56b0051d5259" },
-      { "mappingId": "entity.identity", "body": [{ "netEntityId": 101, "entityType": "player", "unmappedMark": "a" }, { "netEntityId": 102, "entityType": "bot", "unmappedMark": "b" }], "payload": "02000000650000000000000006000000706c617965720100000061660000000000000003000000626f740100000062", "payloadSha256": "4ae28198083875a42260bcd2c9493077c1726f351eace497c21c51f136d247b1" }
-    ]
-  },
+  "errorCodes": ["bad_envelope", "unsupported_contract", "unknown_command_type", "bad_payload_hash", "undecodable_payload", "block_order_violation", "chat_text_too_long", "chat_rate_exceeded", "queue_full", "session_closed", "runtime_failure", "unauthorized", "connection_superseded"],
+  "limits": { "maxFrameBytes": 65536, "ingressQueuePerConnection": 64, "createsPerPack": 0 },
+  "boundedInput": { "policy": "reject", "rules": { "chatTextMaxUtf8Bytes": 512, "maxChatInputPerSenderPerTick": 1, "maxCommandsPerEnvelope": 16 } },
+  "encoding": { "profile": "LumioBinV1 (ADR-047)", "integers": "u32/u64 fixed-width little-endian", "strings": "u32 byte length prefix plus UTF-8", "struct": "fieldOrder concatenation without padding", "digest": "sha256(raw payload bytes)" },
+  "hash": { "algorithm": "sha256", "encoding": "lowercase-hex", "examples": [{ "mappingId": "chat.input", "body": { "text": "gg" }, "payload": "020000006767", "payloadSha256": "5dbd584f1718b8bcd0dab4abeea83169f4a990defab81a8316ed845798d92dab" }] },
   "rules": [
-    { "id": "known-message-type", "statement": "messageType 必须是本契约 messages 之一。", "enforcedBy": "validator", "onViolation": "bad_envelope" },
-    { "id": "command-block-known-mapping", "statement": "CommandBlock.mappingId 必须在本文件 mappings 注册。", "enforcedBy": "validator", "onViolation": "unknown_command_type" },
-    { "id": "command-kind-match", "statement": "CommandBlock.mappingId 对应映射 kind=command。", "enforcedBy": "validator", "onViolation": "unknown_command_type" },
-    { "id": "payload-digest-recompute", "statement": "每个块 payloadSha256 必须等于 payload 解码后原字节的 SHA-256；拒绝先于任何状态解释。", "enforcedBy": "validator", "onViolation": "bad_payload_hash" },
-    { "id": "lumio-bin-v1-decodable", "statement": "每个块 payload 必须按其映射 fieldOrder 解为合法 LumioBinV1 字节；解码-重编码必须逐字节一致。", "enforcedBy": "validator", "onViolation": "undecodable_payload" },
-    { "id": "blocks-ascending-unique", "statement": "同一块数组内 mappingId 按 code-point 严格升序且不重复。", "enforcedBy": "validator", "onViolation": "block_order_violation" },
-    { "id": "state-block-kind", "statement": "FullSnapshot.stateBlocks 只允许 kind=state；chat.event 不得出现（重连不回放）。", "enforcedBy": "validator", "onViolation": "state_block_kind_mismatch" },
-    { "id": "delta-block-kind", "statement": "Delta.changedBlocks 只允许 kind ∈ {event, state}。", "enforcedBy": "validator", "onViolation": "state_block_kind_mismatch" },
-    { "id": "chat-text-cap", "statement": "chat.input/chat.event 的 text UTF-8 字节数 ≤ 512。", "enforcedBy": "validator", "onViolation": "chat_text_too_long" },
-    { "id": "chat-rate-per-tick", "statement": "每发送者每权威 tick 至多 1 条 chat.input 提交；超出拒绝。", "enforcedBy": "receiver", "onViolation": "chat_rate_exceeded" },
-    { "id": "chat-room-sequence", "statement": "chat.event.roomSequence 在世界内严格递增；同 Tick 内按发送者 NetEntityId 排序后分配；回退或重复拒绝。", "enforcedBy": "receiver", "onViolation": "bad_envelope" },
-    { "id": "field-write-owner-only", "statement": "field.write 只能写发送者自己实体上的 Authority.Owner 字段；写别人实体或 Server 权威字段以 unauthorized 拒绝，下一 Delta 权威纠正。", "enforcedBy": "receiver", "onViolation": "unauthorized" },
-    { "id": "chat-delta-only", "statement": "chat.event 只经 Delta.changedBlocks 下发，永不进 FullSnapshot.stateBlocks，服务端不持久化聊天历史。", "enforcedBy": "validator", "onViolation": "state_block_kind_mismatch" },
-    { "id": "full-snapshot-requires-state-blocks", "statement": "Room 路径 FullSnapshot 必须携带 stateBlocks；省略该成员非法。空数组仅表示本 Room 无可复制状态。", "enforcedBy": "validator", "onViolation": "bad_envelope" },
-    { "id": "full-snapshot-rejects-adr045-shape", "statement": "ADR-045 五字段体（snapshotId / tickId / sessionRevisionVector / schemaEpoch / mappingSetHash）不是本契约的 FullSnapshot。", "enforcedBy": "validator", "onViolation": "bad_envelope" },
-    { "id": "full-snapshot-live-entity-state-blocks", "statement": "有活体时 stateBlocks 必须含恰好一块 entity.identity（房间可见复制身份普查）；零活体时省略本块。EntityIdentity.claimedMark 不上本块。", "enforcedBy": "receiver", "onViolation": "bad_envelope" },
-    { "id": "entity-identity-type-closed", "statement": "entity.identity.entityType 只能是 player 或 bot。", "enforcedBy": "validator", "onViolation": "undecodable_payload" },
-    { "id": "entity-identity-record-order", "statement": "entity.identity 记录按 netEntityId 严格升序。", "enforcedBy": "validator", "onViolation": "block_order_violation" },
-    { "id": "connection-superseded-before-close", "statement": "顶号时旧连接必须先收到 ConnectionSuperseded，服务器随后再关闭该连接；先关后发非法。", "enforcedBy": "receiver", "onViolation": "session_closed" },
-    { "id": "chat-event-client-observed-delta", "statement": "chat.event 验收以客户端实际收到的 Delta.changedBlocks 为准；harness 不得由发送计数合成 eventOrder / appliedTicks / restoredWindow。", "enforcedBy": "receiver", "onViolation": "bad_envelope" }
+    { "id": "known-message-type", "statement": "messageType is one of the five World Manager messages.", "enforcedBy": "validator", "onViolation": "bad_envelope" },
+    { "id": "payload-digest-recompute", "statement": "Every command payload hash is independently recomputed.", "enforcedBy": "validator", "onViolation": "bad_payload_hash" },
+    { "id": "lumio-bin-v1-decodable", "statement": "Every command payload is canonical LumioBinV1.", "enforcedBy": "validator", "onViolation": "undecodable_payload" },
+    { "id": "world-change-ordered-stream", "statement": "WorldChange creates, fields, destroys and ClientRpc records are one ordered stream with creates first.", "enforcedBy": "receiver", "onViolation": "bad_envelope" }
   ],
   "testCases": [
-    {
-      "name": "input/chat-single-command",
-      "description": "单条合法 chat.input 上行。",
-      "message": {
-        "messageType": "InputCommand",
-        "commands": [
-          { "mappingId": "chat.input", "payload": "020000006767", "payloadSha256": "5dbd584f1718b8bcd0dab4abeea83169f4a990defab81a8316ed845798d92dab" }
-        ]
-      },
-      "expect": "valid"
-    },
-    {
-      "name": "input/field-write-owner-name",
-      "description": "Authority.Owner 字段上行：改自己实体的 IdentityComponent.name。",
-      "message": {
-        "messageType": "InputCommand",
-        "commands": [
-          { "mappingId": "field.write", "payload": "6500000000000000110000004964656e74697479436f6d706f6e656e74040000006e616d6505000000416c696365", "payloadSha256": "93c0b8cacab595fa21b71f166559be20e4aa7837420ae2dbc0edb295e71c4e72" }
-        ]
-      },
-      "expect": "valid"
-    },
-    {
-      "name": "snapshot/empty-state-blocks",
-      "description": "空 stateBlocks 是『本 Room 无任何房间可见可复制状态』的唯一定义编码。",
-      "message": { "messageType": "FullSnapshot", "tickId": 0, "revision": 0, "stateBlocks": [] },
-      "expect": "valid"
-    },
-    {
-      "name": "snapshot/two-live-entities",
-      "description": "两个活体的房间可见身份普查：FullSnapshot.stateBlocks 恰好一块 entity.identity，记录按 netEntityId 升序（101 player / 102 bot）。",
-      "message": {
-        "messageType": "FullSnapshot",
-        "tickId": 7,
-        "revision": 1,
-        "stateBlocks": [
-          { "mappingId": "entity.identity", "payload": "02000000650000000000000006000000706c617965720100000061660000000000000003000000626f740100000062", "payloadSha256": "4ae28198083875a42260bcd2c9493077c1726f351eace497c21c51f136d247b1" }
-        ]
-      },
-      "expect": "valid"
-    },
-    {
-      "name": "delta/chat-event",
-      "description": "单条合法 chat.event 活跃事件经 Delta 下发。",
-      "message": {
-        "messageType": "Delta",
-        "tickId": 7,
-        "revision": 1,
-        "changedBlocks": [
-          { "mappingId": "chat.event", "payload": "01000000000000000100000000000000000000000000000065000000000000000200000067670700000000000000", "payloadSha256": "019c19137fdcc3eadf322f67067c254ef33fc2f81a7123bc89253d9a41d0d179" }
-        ]
-      },
-      "expect": "valid"
-    },
-    {
-      "name": "error/rate-exceeded",
-      "description": "有界输入拒绝回执携带 mappingId。",
-      "message": { "messageType": "Error", "code": "chat_rate_exceeded", "detail": "second chat.input within tick 7", "mappingId": "chat.input" },
-      "expect": "valid"
-    },
-    {
-      "name": "s2c/connection-superseded",
-      "description": "顶号时旧连接先收到 ConnectionSuperseded，服务器再关闭。",
-      "message": { "messageType": "ConnectionSuperseded", "reasonCode": "connection_superseded", "netEntityId": 101, "newConnectionGeneration": 2 },
-      "expect": "valid"
-    }
+    { "name": "welcome/128-bit-self", "message": { "messageType": "Welcome", "instanceId": 7, "selfNetEntityId": "00000000000000010000000000000065", "connectionGeneration": 1 } },
+    { "name": "world-change/creation-field-rpc", "message": { "messageType": "WorldChange", "tick": 1, "creates": [{ "entityType": "player", "netEntityId": "00000000000000010000000000000065", "fields": [{ "componentId": "IdentityComponent", "fieldId": "name", "value": "Alice" }] }], "fields": [], "destroys": [], "rpcs": [{ "target": "00000000000000010000000000000065", "componentId": "ChatComponent", "method": "OnChatMessage", "args": "", "messageId": 1, "roomSequence": 1, "sender": "00000000000000010000000000000065", "appliedTick": 1 }] } },
+    { "name": "input/chat", "message": { "messageType": "InputCommand", "commands": [{ "mappingId": "chat.input", "payload": "020000006767", "payloadSha256": "5dbd584f1718b8bcd0dab4abeea83169f4a990defab81a8316ed845798d92dab" }] } }
   ],
   "invalidCases": [
-    {
-      "name": "input/text-too-long",
-      "violates": "chat-text-cap",
-      "validatorCheck": true,
-      "expectedRejection": "chat_text_too_long",
-      "payload": {
-        "messageType": "InputCommand",
-        "commands": [
-          { "mappingId": "chat.input", "payload": "01020000616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161", "payloadSha256": "d1eab84628167faf8a50a24648fa00b8405e60595ef62a3cadcee5b47737ac2d" }
-        ]
-      }
-    },
-    {
-      "name": "input/digest-mismatch",
-      "violates": "payload-digest-recompute",
-      "validatorCheck": true,
-      "expectedRejection": "bad_payload_hash",
-      "payload": {
-        "messageType": "InputCommand",
-        "commands": [
-          { "mappingId": "chat.input", "payload": "020000006767", "payloadSha256": "0000000000000000000000000000000000000000000000000000000000000000" }
-        ]
-      }
-    },
-    {
-      "name": "input/unknown-command-type",
-      "violates": "command-block-known-mapping",
-      "validatorCheck": true,
-      "expectedRejection": "unknown_command_type",
-      "payload": {
-        "messageType": "InputCommand",
-        "commands": [
-          { "mappingId": "voxel.dig", "payload": "020000006767", "payloadSha256": "5dbd584f1718b8bcd0dab4abeea83169f4a990defab81a8316ed845798d92dab" }
-        ]
-      },
-      "notes": "voxel.dig 仅在 ADR-049 纸面套验，未在本契约 mappings 注册——用它即 unknown。"
-    },
-    {
-      "name": "input/registered-wrong-kind",
-      "violates": "command-kind-match",
-      "validatorCheck": true,
-      "expectedRejection": "unknown_command_type",
-      "payload": {
-        "messageType": "InputCommand",
-        "commands": [
-          { "mappingId": "chat.event", "payload": "01000000000000000100000000000000000000000000000065000000000000000200000067670700000000000000", "payloadSha256": "019c19137fdcc3eadf322f67067c254ef33fc2f81a7123bc89253d9a41d0d179" }
-        ]
-      },
-      "notes": "chat.event 已注册但 kind=event，不是 command——InputCommand 必须以 unknown_command_type 拒绝。"
-    },
-    {
-      "name": "input/duplicate-mapping",
-      "violates": "blocks-ascending-unique",
-      "validatorCheck": true,
-      "expectedRejection": "block_order_violation",
-      "payload": {
-        "messageType": "InputCommand",
-        "commands": [
-          { "mappingId": "chat.input", "payload": "020000006767", "payloadSha256": "5dbd584f1718b8bcd0dab4abeea83169f4a990defab81a8316ed845798d92dab" },
-          { "mappingId": "chat.input", "payload": "020000006767", "payloadSha256": "5dbd584f1718b8bcd0dab4abeea83169f4a990defab81a8316ed845798d92dab" }
-        ]
-      }
-    },
-    {
-      "name": "input/undecodable-payload",
-      "violates": "lumio-bin-v1-decodable",
-      "validatorCheck": true,
-      "expectedRejection": "undecodable_payload",
-      "payload": {
-        "messageType": "InputCommand",
-        "commands": [
-          { "mappingId": "chat.input", "payload": "050000006767", "payloadSha256": "7a3f3d888b69968424a1c1beb881874322312dce18ed71c1ba60bb849994852f" }
-        ]
-      },
-      "notes": "u32 长度前缀声明 5 字节但仅剩 2 字节——LumioBinV1 解不出值，不产生截断读。"
-    },
-    {
-      "name": "snapshot/event-replay",
-      "violates": "state-block-kind",
-      "validatorCheck": true,
-      "expectedRejection": "state_block_kind_mismatch",
-      "payload": {
-        "messageType": "FullSnapshot",
-        "tickId": 7,
-        "revision": 1,
-        "stateBlocks": [
-          { "mappingId": "chat.event", "payload": "01000000000000000100000000000000000000000000000065000000000000000200000067670700000000000000", "payloadSha256": "019c19137fdcc3eadf322f67067c254ef33fc2f81a7123bc89253d9a41d0d179" }
-        ]
-      },
-      "notes": "chat.event 是 delta-live-only——出现在 FullSnapshot 即重连回放，非法。"
-    },
-    {
-      "name": "snapshot/unregistered-binding-mapping-id",
-      "violates": "state-block-kind",
-      "validatorCheck": true,
-      "expectedRejection": "state_block_kind_mismatch",
-      "payload": {
-        "messageType": "FullSnapshot",
-        "tickId": 7,
-        "revision": 1,
-        "stateBlocks": [
-          { "mappingId": "claimed-mark", "payload": "", "payloadSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" },
-          { "mappingId": "mapping-entity-identity-entity-type", "payload": "", "payloadSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
-        ]
-      },
-      "notes": "Binding 风格未登记 mappingId 不得冒充 kind=state 普查块（r1 P1-2 机器闸门）。"
-    },
-    {
-      "name": "snapshot/entity-identity-unsorted-records",
-      "violates": "entity-identity-record-order",
-      "validatorCheck": true,
-      "expectedRejection": "block_order_violation",
-      "payload": {
-        "messageType": "FullSnapshot",
-        "tickId": 7,
-        "revision": 1,
-        "stateBlocks": [
-          { "mappingId": "entity.identity", "payload": "02000000660000000000000003000000626f740100000062650000000000000006000000706c617965720100000061", "payloadSha256": "77ec132763f1b98a81795499e84e99bbd23ecad9c14e89af4e951078030dfabe" }
-        ]
-      },
-      "notes": "entity.identity 记录必须按 netEntityId 严格升序；102 先于 101 即乱序。"
-    },
-    {
-      "name": "snapshot/entity-identity-illegal-entity-type",
-      "violates": "entity-identity-type-closed",
-      "validatorCheck": true,
-      "expectedRejection": "undecodable_payload",
-      "payload": {
-        "messageType": "FullSnapshot",
-        "tickId": 7,
-        "revision": 1,
-        "stateBlocks": [
-          { "mappingId": "entity.identity", "payload": "010000006500000000000000030000006e70630100000061", "payloadSha256": "cff67ab1300f6f4487eb136eef0741c0489ee06ebeacd0892a2ac1fbea903da0" }
-        ]
-      },
-      "notes": "entityType 只能是 player 或 bot；npc 非法，不新增错误码。"
-    },
-    {
-      "name": "delta/component-state-on-wire",
-      "violates": "delta-block-kind",
-      "validatorCheck": true,
-      "expectedRejection": "state_block_kind_mismatch",
-      "payload": {
-        "messageType": "Delta",
-        "tickId": 7,
-        "revision": 2,
-        "changedBlocks": [
-          { "mappingId": "chat.component", "payload": "0200000067670700000000000000", "payloadSha256": "ba9d631032a1ecb5c1b4723b9d9603cf29c8db92736620112cac56b0051d5259" }
-        ]
-      },
-      "notes": "chat.component persist-only、不上 wire。"
-    },
-    {
-      "name": "runtime/chat-rate-second-per-tick",
-      "violates": "chat-rate-per-tick",
-      "validatorCheck": false,
-      "expectedRejection": "chat_rate_exceeded",
-      "payload": {
-        "scenario": "同一发送者在同一权威 tick 内第二条 chat.input 到达提交面",
-        "first": { "messageType": "InputCommand", "commands": [{ "mappingId": "chat.input", "payload": "020000006767", "payloadSha256": "5dbd584f1718b8bcd0dab4abeea83169f4a990defab81a8316ed845798d92dab" }] },
-        "second": { "messageType": "InputCommand", "commands": [{ "mappingId": "chat.input", "payload": "020000006768", "payloadSha256": "54018900cb183f329d2a4d9b30f95b2862a6395410b7528295ffbda09cae1fb0" }] }
-      },
-      "notes": "接收方语义探针：validator 只验证声明完备（错误码存在、规则登记），运行期由 receiver 强制。"
-    },
-    {
-      "name": "runtime/chat-room-sequence-regression",
-      "violates": "chat-room-sequence",
-      "validatorCheck": false,
-      "expectedRejection": "bad_envelope",
-      "payload": {
-        "scenario": "同一 Room 先收到 roomSequence=5 再收到 roomSequence=5 或 4 的 chat.event",
-        "earlier": { "messageType": "Delta", "tickId": 9, "revision": 3, "changedBlocks": [{ "mappingId": "chat.event", "payload": "01000000000000000100000000000000000000000000000065000000000000000200000067670700000000000000", "payloadSha256": "019c19137fdcc3eadf322f67067c254ef33fc2f81a7123bc89253d9a41d0d179" }] }
-      },
-      "notes": "接收方语义探针：严格递增回退即拒绝；validator 只验证声明完备。"
-    },
-    {
-      "name": "full_snapshot_without_state_blocks",
-      "violates": "full-snapshot-requires-state-blocks",
-      "validatorCheck": true,
-      "expectedRejection": "bad_envelope",
-      "payload": {
-        "messageType": "FullSnapshot",
-        "tickId": 0,
-        "revision": 0
-      },
-      "notes": "省略 stateBlocks 成员：空数组才是『无可复制状态』的编码，缺成员非法。"
-    },
-    {
-      "name": "full_snapshot_adr045_shape",
-      "violates": "full-snapshot-rejects-adr045-shape",
-      "validatorCheck": true,
-      "expectedRejection": "bad_envelope",
-      "payload": {
-        "messageType": "FullSnapshot",
-        "snapshotId": "snap-0",
-        "tickId": 0,
-        "sessionRevisionVector": [],
-        "schemaEpoch": 1,
-        "mappingSetHash": "a805f7c841f708981cc82a93047d7b0c8e6bf923f3dba18e179036741a6d2ea7"
-      },
-      "notes": "ADR-045 五字段闭合体不是本契约 Room 路径 FullSnapshot。"
-    },
-    {
-      "name": "runtime/field-write-other-entity",
-      "violates": "field-write-owner-only",
-      "validatorCheck": false,
-      "expectedRejection": "unauthorized",
-      "payload": {
-        "scenario": "连接绑定 netEntityId=101 的发送者提交 field.write 写 netEntityId=102 的 IdentityComponent.name",
-        "message": {
-          "messageType": "InputCommand",
-          "commands": [
-            { "mappingId": "field.write", "payload": "6600000000000000110000004964656e74697479436f6d706f6e656e74040000006e616d6505000000416c696365", "payloadSha256": "0d8a41f8085d040a8f1e251790b66d05b8f755e3c8d51d206ddbd7f7cd2fcd2d" }
-          ]
-        }
-      },
-      "notes": "接收方语义探针：只能写自己实体；validator 只验证声明完备。"
-    },
-    {
-      "name": "runtime/field-write-server-authority",
-      "violates": "field-write-owner-only",
-      "validatorCheck": false,
-      "expectedRejection": "unauthorized",
-      "payload": {
-        "scenario": "连接绑定 netEntityId=101 的发送者提交 field.write 写 Authority.Server 字段 ChatComponent.lastMessageText",
-        "message": {
-          "messageType": "InputCommand",
-          "commands": [
-            { "mappingId": "field.write", "payload": "65000000000000000d00000043686174436f6d706f6e656e740f0000006c6173744d65737361676554657874020000006767", "payloadSha256": "20831e4f837e3557b218af5a7b7a1181d82d3925f468cdd1878e11eadf6e75e7" }
-          ]
-        }
-      },
-      "notes": "接收方语义探针：写 Server 权威字段拒绝并权威纠正；validator 只验证声明完备。"
-    },
-    {
-      "name": "runtime/connection-superseded-close-before-send",
-      "violates": "connection-superseded-before-close",
-      "validatorCheck": false,
-      "expectedRejection": "session_closed",
-      "payload": {
-        "scenario": "顶号时服务器先关闭旧连接再发送 ConnectionSuperseded（先关后发）",
-        "order": ["close", "ConnectionSuperseded"],
-        "notice": { "messageType": "ConnectionSuperseded", "reasonCode": "connection_superseded", "netEntityId": 101, "newConnectionGeneration": 2 }
-      },
-      "notes": "接收方语义探针：旧连接必须先收到通知再被关闭；validator 只验证声明完备。"
-    }
+    { "name": "legacy/full-snapshot-removed", "violates": "known-message-type", "payload": { "messageType": "FullSnapshot", "tickId": 1, "revision": 1, "stateBlocks": [] }, "expectedRejection": "bad_envelope", "validatorCheck": true },
+    { "name": "legacy/delta-removed", "violates": "known-message-type", "payload": { "messageType": "Delta", "tickId": 1, "revision": 1, "changedBlocks": [] }, "expectedRejection": "bad_envelope", "validatorCheck": true },
+    { "name": "legacy/entity-identity-removed", "violates": "known-message-type", "payload": { "messageType": "InputCommand", "commands": [{ "mappingId": "entity.identity", "payload": "", "payloadSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }] }, "expectedRejection": "unknown_command_type", "validatorCheck": true },
+    { "name": "non-128-bit-entity-id", "violates": "world-change-ordered-stream", "payload": { "messageType": "WorldChange", "tick": 1, "creates": [{ "entityType": "player", "netEntityId": "65", "fields": [] }], "fields": [], "destroys": [], "rpcs": [] }, "expectedRejection": "bad_envelope", "validatorCheck": true },
+    { "name": "bad-input-hash", "violates": "payload-digest-recompute", "payload": { "messageType": "InputCommand", "commands": [{ "mappingId": "chat.input", "payload": "020000006767", "payloadSha256": "0000000000000000000000000000000000000000000000000000000000000000" }] }, "expectedRejection": "bad_payload_hash", "validatorCheck": true }
   ],
-  "downstreamConsumption": {
-    "note": "开发态消费方式（Owner 2026-09-01 裁定）：各实现仓以本 JSON 为字段真值手写类型面，配套契约一致性测试；不重建生成链。hello-wire-v1（MS-00002）保持独立不扩展。",
-    "consumers": ["LumioGameRuntime", "LumioServer", "LumioClient", "LumioGame", "LumioNativeCore (最小 Rust 宿主复跑)"]
-  }
+  "downstreamConsumption": { "codecOwner": "Runtime WorldManager only", "hostAndClient": "byte forwarding only" }
 }

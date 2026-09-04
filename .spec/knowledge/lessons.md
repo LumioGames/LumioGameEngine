@@ -244,3 +244,6 @@ metadata:
 - 根因：拆卡按「文件集不重叠」切，把共享的核心对象（世界、FFI 插头）留在了所有卡的范围之外；每个 worker 在自己范围内为了让测试过，各造一份替身。dispatch 规则要求「共同依赖先剥成契约卡」，但拆卡时只把 wire 契约当共同依赖，没把运行时容器当共同依赖。
 - 规避：① 拆卡前列出「所有实现卡都要拿到的运行时对象」（世界、注册表、内核句柄），每一个都先有 Wave 0 契约卡与唯一 owner，实现卡只消费；② 两张卡的验收项若出现同一个动词宾语（「导出 FFI」「注册组件」），拆卡即失败，回蓝图重排；③ 收口审查加一项「同一职责的实例数」盘点（世界数、插头数、声明表数），大于 1 即退回。
 - 来源：`reviews/2026-09-03-rm-00011-r3-owner-review.md` P1-7 / P2-5、`plans/2026-09-02-rm-00011-r3-convergence-blueprint.md` DAG、ADR-057 第 7 / 9 条。
+## ADR-060 lesson (2026-09-04)
+
+Keep one authoritative World Manager wire codec and one generated declaration table. Removing legacy aliases is part of the contract migration: verify both positive packets and negative legacy shapes, recompute embedded SHA-256 values, and make admission asynchronous so Welcome is the sole delivery of Runtime-issued identity.

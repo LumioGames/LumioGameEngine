@@ -83,6 +83,9 @@ public sealed class NativeEngineLease : IDisposable
     public string AbiHash { get; }
     public string BinarySha256 { get; }
 
+    // Timer adapters use the same loaded module owned by this lease.
+    internal nint LibraryHandle => _library;
+
     public void Ping()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

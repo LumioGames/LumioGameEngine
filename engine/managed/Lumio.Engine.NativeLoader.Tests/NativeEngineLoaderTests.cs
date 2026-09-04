@@ -80,4 +80,12 @@ public sealed class NativeEngineLoaderTests
 
         Assert.Equal(Path.Combine("run", "build-id", "build-info.json"), NativeBuildInfo.SidecarPath(nativePath));
     }
+
+    [Fact]
+    public void NativeTimerAdapterUsesTheLeaseModuleHandleWithoutReflection()
+    {
+        var source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Lumio.Engine.NativeLoader", "NativeLoaderTimerAbi.cs"));
+        Assert.DoesNotContain("System.Reflection", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetField(\"_library\"", source, StringComparison.Ordinal);
+    }
 }

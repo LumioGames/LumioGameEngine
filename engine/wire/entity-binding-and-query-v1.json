@@ -69,7 +69,7 @@
       "admit": {
         "caller": "server",
         "request": { "required": { "accountId": "string", "roomId": "string", "entityType": "enum:entityType" }, "optional": {} },
-        "result": "首次准入 ok 并返回 Runtime 发号的 binding.record。该账号已有活跃实体且 Connected=true 时返回 account_already_online，并带现有 netEntityId；宿主走顶号路径（旧连接收 ConnectionSuperseded，Runtime rebind 同一 NetEntityId，connectionGeneration+1）。形状错误仍是 invalid_binding_shape，与本结局严格区分。",
+        "result": "accepted | account_already_online | invalid_binding_shape | bot_namespace_admission_forbidden；仅返回受理或拒绝结果，不返回 netEntityId。connectionGeneration 与 netEntityId 由下一拍 Welcome 交付。",
         "notes": "在线名单只在 Runtime。宿主不得自建账号会话表来裁决顶号。"
       }
     }
@@ -126,16 +126,9 @@
   },
   "attributeDeclarations": {
     "source": "generated-from-field-annotations",
-    "notes": "玩法只用类型化读（Get<T>() / Get<T>(id) / Each<T>()）；本查询面是生成的薄适配层（字符串 AttributeId → 同一世界同一 Sync 字段），无自有存储。",
-    "sha256": "a47e92d663ba8f9726cf8defdacf2f56ebbaf1b93a8be9b7435430fad48bddc0",
+    "notes": "玩法只用类型化读（Get<T>() / Get<T>(id) / Each<T>()）；本查询面是生成的薄适配层（字符串 AttributeId -> 同一世界同一 Sync 字段），无自有存储。Runtime 生成物逐字节嵌入本契约。",
+    "sha256": "fbe1d5e68533dff6f36605d42727bf2cf29382f72c3b73c7747355471c296c9c",
     "table": [
-      {
-        "attributeId": "ChatComponent.lastMessagePersistOnly",
-        "persistence": "persistent",
-        "replication": "not-replicated",
-        "valueType": "utf8-string",
-        "visibility": "server-only"
-      },
       {
         "attributeId": "ChatComponent.lastMessageText",
         "persistence": "persistent",
@@ -149,27 +142,6 @@
         "replication": "not-replicated",
         "valueType": "u64",
         "visibility": "server-only"
-      },
-      {
-        "attributeId": "EntityIdentity.claimedMark",
-        "persistence": "ephemeral",
-        "replication": "replicated",
-        "valueType": "utf8-string",
-        "visibility": "claim-scoped"
-      },
-      {
-        "attributeId": "EntityIdentity.entityType",
-        "persistence": "ephemeral",
-        "replication": "replicated",
-        "valueType": "enum:entityType",
-        "visibility": "room-public"
-      },
-      {
-        "attributeId": "EntityIdentity.unmappedMark",
-        "persistence": "ephemeral",
-        "replication": "replicated",
-        "valueType": "utf8-string",
-        "visibility": "room-public"
       }
     ],
     "structure": {
@@ -193,8 +165,19 @@
       "client-replica 作用域：仅当 replication=replicated 且 visibility 允许（room-public；aoi-scoped 需在 AOI 内；claim-scoped 需持 claim）且属性已实际复制进该 ReplicaWorld 时可读。",
       "visibility=server-only 或 replication=not-replicated 的属性对 client-replica 作用域以 invisible 结局返回；实体本身不可见时同样 invisible。",
       "实体可见但属性可见性类别与调用方不符（如 claim-scoped 未持 claim）以 unauthorized 结局返回。",
-      "EntityIdentity.accountId 不声明为可查属性；查询返回 undeclared_attribute，不得映射为 unauthorized。该字段未打字段标注，不进入生成声明表；只在登录回应中给出。"
+      "EntityIdentity.accountId 不声明为可查属性；查询返回 undeclared_attribute，不得映射为 unauthorized。该字段未打字段标注，不进入生成声明表；只在登录回应中给出。",
+      "派生项：entityType 不作为声明表行，由 World.TypeOf(netEntityId) 回答 player | bot；客户端不得提交或覆盖该值。",
+      "派生项：tombstoned 当计数器小于下一个已发号且该 NetEntityId 不在活体集合时成立；不存墓碑集合，永不解析为替代实体。"
     ]
+  },
+  "derived": {
+    "entityType": { "source": "World.TypeOf(netEntityId)", "values": ["player", "bot"] },
+    "tombstoned": "counter < next-issued-counter && netEntityId not in live entities"
+  },
+  "claim": {
+    "credential": "目标实体上 claimBy 指名的名单字段（例如 Friends）中的成员值",
+    "declaration": "Scope.Claim Sync<T> 必须指定 claimBy 为同一实体上的名单字段",
+    "projection": "只向名单内凭证持有者投影，未持有者返回 unauthorized"
   },
   "outcomes": {
     "non_existent": {

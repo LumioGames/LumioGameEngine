@@ -73,3 +73,6 @@ ADR-056 在 2026-09-03 由 R-00377（N-13）转为 Accepted，依据是六项「
 - 一把尺：Rust acceptance 与 Game oracle 对同一份日志给出相同结论；Server 仓无第二份 oracle。
 - Bot 归属：`Lumio.Client.Bot.Host` 进程内执行的定时与发言代码全部来自 LumioClient 仓；Server 仓无 `DOTNET_STARTUP_HOOKS` 注入。
 - 自驱：不带任何 harness 的 `lumio-entity-chat-replay` 进程，断线后五分钟内内核回调触发 expire（日志有内核事件）。
+## 修订记录（2026-09-04，ADR-060）
+
+The R5-01 contract records the owner ruling: admit returns accepted or rejection only, with Runtime-issued identity and generation delivered by Welcome. Attribute visibility follows generated declarations, TypeOf-derived entityType, counter-derived tombstoned, and claimBy named-list credentials.
