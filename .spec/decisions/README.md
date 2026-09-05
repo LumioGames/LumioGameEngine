@@ -84,6 +84,7 @@
 | [ADR-062](ADR-062-voxel-world-public-contract.md) | 体素公共语义改从 `lumio.voxel-world.v1` 取：三层分层与 Section 改名、规范键元数防呆、32 位 BlockId 与段表、材质类、载荷四编码（含 Delta）、物理查询三态、光照不入载荷；作废 ADR-024/035/036 的 16³-叫-chunk 分层语义 | Draft |
 | [ADR-063](ADR-063-architecture-review-owner-rulings-identity-persist-prediction.md) | 2026-09-05 架构评审 Owner 裁决：世界模型强约束（体素 / 实体两种、GAS 是组件）、客户端三态与销毁原因、占段发号、帧内读写规则与 `tick.md`、共享文件普通字段放开、存档记账一本（`Scope.None`）、预测按 GAS 原文只补包级 `appliedInputSequence`、可见性变化补发 / 失效、验收切片改为炸弹人战斗；修订 ADR-058 / 060 | Draft |
 | [ADR-064](ADR-064-gas-slice-contracts.md) | 炸弹人切片的 GAS 契约：切片 GAS 面（八态准入 + 瞬时 Effect + 整数求值 + 两本账 + 预测）、四组件 `Sync` 声明表、技能激活唯一写法、击杀 = 跨零、预测键 = 输入序号、预测世界整体克隆 + 重放、表现键做差保证连续、对账哈希四元组、表现缓冲走 ClientRpc 记录；取代 ADR-050 / 051 | Draft |
+| [ADR-065](ADR-065-dual-transform-discussion.md) | 双 Transform 持续讨论记录：两个基础组件均归 Runtime、已确认原则与移动设计审阅稿；关联 R-00461 / R-00470，尚未开始实现 | Draft |
 
 旧制度的 `DECISIONS_PENDING` 待决台账已随 `docs/` 一并删除（见 git 历史）；Living Architecture 下未定项直接落 ADR 或任务卡，不再另设台账。
 

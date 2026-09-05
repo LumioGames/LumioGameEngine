@@ -59,7 +59,7 @@ metadata:
 
 `AbilityComponent` / `EffectComponent` / `AttributeComponent` / `TagComponent`。字段一律用 ECS 的框架容器（条目差量是一等公民）。**没有 FxComponent**——表现载荷（长什么样）挂在 Effect 条目上。四组件的字段声明表在 [ADR-064](../../decisions/ADR-064-gas-slice-contracts.md) 第 2 条：技能 / 效果条目是 `SyncList`（`Scope.Owner`，终态即出表、瞬时的同帧折叠成零字节）；属性由玩法**一处声明**（`Attribute 血量 = new(初值: 6)`），生成器展开成「基础账 `[Persist] Sync<long>(Scope.Owner)`（只给绑定者自己——预测世界要用；旁人永远收不到）+ 当前账 `Sync<long>(Scope.Aoi)`」两个字段；表现缓冲**不是字段**，是 `EffectComponent` 上引擎生成的 `[ClientRpc(Scope.Aoi)] OnFx` 记录。
 
-**移动也是一个 Ability**：玩家按方向键 = 放「移动技能」，技能代码算出新的逻辑位置写进 `LogicTransform`（服务器只有 `LogicTransform`；客户端另有只做插帧的 `ModelTransform`，见 [`ecs.md`](ecs.md) M7）。所以移动的预测与对账也归本文 M7，ECS 不另做一套。
+**移动也是一个 Ability**：玩家按方向键 = 放「移动技能」，技能向当前移动控制者提交意图，控制者结合碰撞解算后受控更新 `LogicTransform`。`LogicTransform` 与 `ModelTransform` 都是 Runtime 仓的 ECS 基础组件；服务器只推进逻辑，客户端在原角色上以完整逻辑结果驱动 Model 的插值与纠偏（[ADR-065](../../decisions/ADR-065-dual-transform-discussion.md) D07 / D26 / D29，[移动设计](movement.md)）。移动的预测与对账继续归本文 M7，不另建预测机制。
 
 ### 一帧里 GAS 在哪几格干活
 
@@ -225,6 +225,8 @@ sequenceDiagram
 - **做完的标准**：两个来源的同名 Tag，移除一个后状态仍然生效；层级查询命中所有子标签；客户端用旧 Tag 表连接被明确拒绝且原因可读。
 
 ### M7 预测与投影
+
+> 移动接入补充：[ADR-065](../../decisions/ADR-065-dual-transform-discussion.md) 与 [移动设计](movement.md) 要求位姿及必要运动状态按同一基准恢复，权威应用与必要重放共同成功后才发布 Model 目标。Model 组件本身留在原客户端角色；本节对预测 World 的描述不把纯表现状态纳入逻辑克隆，也不把已有角色按非唯一表现参数合并。
 
 - **干什么**：让客户端按下按键就有反应，猜错了能干净回滚。
 - **能干什么**：① **预测键 = 输入序号**（每条 `InputCommand` 带本连接单调 +1 的 `sequence`；ADR-064 第 7 条把原「帧号」措辞收敛到这里）。不发小票、不建确认表——确认或拒绝随权威帧状态自然到达；包里只多一个数「本观察者的输入已处理到第几号」（C-1″ `appliedInputSequence`，接受或拒绝都推进，ADR-063），客户端据此知道哪些输入还没确认。② **窗口 = 提交点作用域**；回滚 = 客户端「确认世界 + 预测世界」：每包权威状态到达，预测世界从确认世界整体重建 + 确定性重放未确认输入，不做字段级撤销、不对号、不盖预测键。**预测世界只含被预测的域，退多少由预测了多少决定**——第一版 = ECS 实体（位置在内），**体素不进预测世界**、不拍快照；技能进入「逻辑预测」档时同一套重建自然覆盖它。**服务器永不回退**。预测世界的具体形态（客户端一个 `WorldManager` 持确认 + 预测两个 `World`、整体克隆 + 重放、本地临时号、表现层只读预测世界）与表现连续性（表现键做差：同格通过零闪断 / 改格换位 / 被拒消失）在 [ADR-064](../../decisions/ADR-064-gas-slice-contracts.md) 第 8 / 9 条。③ **不可预测清单（冻结）**：Effect 移除、周期跳动、出模拟域的动作（走 outbox）。④ **可预测面**：激活、挂起推进、属性、Tag、表现。⑤ **三档发布模式**（配表声明档位，不是三套机制）：纯权威 / 表现先行（挂 Local 实体做光效）/ 逻辑预测；档位写在技能类型的 `[AbilityType(Prediction = …)]` 上（ADR-064 第 3 条）。
