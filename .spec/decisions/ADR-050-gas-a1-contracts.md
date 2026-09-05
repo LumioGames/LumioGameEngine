@@ -1,6 +1,6 @@
 # ADR-050: GAS A1 Lifecycle, Evaluation and Effect Contracts
 
-- **Status**: Draft
+- **Status**: Superseded（由 [ADR-064](ADR-064-gas-slice-contracts.md) 取代，2026-09-05；正文不改写，仍成立的技术结论已由 ADR-064 逐条沿用）
 - **Owner**: `LumioGameEngineArchitecture` (contract), `LumioGameRuntime` (lifecycle consumer)
 - **Baseline**: `LGE-V1.4-2026-08-27`
 - **Relation**: Refines [ADR-008](ADR-008-gas-state.md) and [ADR-031](ADR-031-gas-lifecycle.md)
