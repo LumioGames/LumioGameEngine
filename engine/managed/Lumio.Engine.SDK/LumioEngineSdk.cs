@@ -20,5 +20,6 @@ public sealed class LumioEngineLease : IDisposable
     public string BinarySha256 => _inner.BinarySha256;
 
     public void Ping() => _inner.Ping();
+    public NativeVoxelWorld CreateVoxelWorld(nint world) => _inner.CreateVoxelWorld(world);
     public void Dispose() => _inner.Dispose();
 }

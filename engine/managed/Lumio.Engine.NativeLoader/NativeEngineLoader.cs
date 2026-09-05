@@ -59,11 +59,12 @@ public sealed class NativeEngineLease : IDisposable
 {
     private readonly nint _library;
     private readonly nint _ping;
+    private readonly NativeEngineLoader.RootApi _api;
     private bool _disposed;
 
     internal NativeEngineLease(
         nint library,
-        nint _,
+        NativeEngineLoader.RootApi api,
         string nativePath,
         string buildId,
         string abiHash,
@@ -71,6 +72,7 @@ public sealed class NativeEngineLease : IDisposable
         nint ping)
     {
         _library = library;
+        _api = api;
         _ping = ping;
         NativePath = nativePath;
         BuildId = buildId;
@@ -82,6 +84,16 @@ public sealed class NativeEngineLease : IDisposable
     public string BuildId { get; }
     public string AbiHash { get; }
     public string BinarySha256 { get; }
+
+    public Lumio.Engine.SDK.NativeVoxelWorld CreateVoxelWorld(nint world)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentOutOfRangeException.ThrowIfEqual(world, 0);
+        return new Lumio.Engine.SDK.NativeVoxelWorld(this, world, _api);
+    }
+
+    internal void ThrowIfDisposed()
+        => ObjectDisposedException.ThrowIf(_disposed, this);
 
     public void Ping()
     {
@@ -113,7 +125,10 @@ public sealed class NativeEngineLease : IDisposable
         }
 
         _disposed = true;
-        NativeLibrary.Free(_library);
+        if (_library != 0)
+        {
+            NativeLibrary.Free(_library);
+        }
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -130,11 +145,50 @@ public static class NativeEngineLoader
 
     /// <summary>
     /// 根 API 表的托管镜像（engine/abi/native-abi.json 的 root.fields 是唯一真值）。
-    /// 只追加不插入；struct_size 按「≥ 托管布局」协商，字段偏移由
-    /// RootApiLayoutTests 按名字锁定。
+    /// 只追加不插入；旧调用方可按 struct_size 使用固定前缀，新调用方按完整布局访问
+    /// 追加槽位。字段偏移由 RootApiLayoutTests 按名字锁定。
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal struct RootApi
+    {
+        public uint AbiVersion;
+        public uint StructSize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
+        public byte[]? AbiHash;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+        public byte[]? BuildId;
+        public nint Ping;
+        public nint CreateClrHost;
+        public nint ClrHostCall;
+        public nint DestroyClrHost;
+        public nint TimerCreateManager;
+        public nint TimerDestroyManager;
+        public nint TimerRegisterDispatch;
+        public nint TimerRegisterScope;
+        public nint TimerTeardownScope;
+        public nint TimerCreateSlot;
+        public nint TimerBindSlot;
+        public nint TimerCloseSlot;
+        public nint TimerScheduleOneShot;
+        public nint TimerScheduleRepeating;
+        public nint TimerCancel;
+        public nint TimerAdvance;
+        public nint TimerPump;
+        public nint TimerDrain;
+        public nint BlockReadCell;
+        public nint BlockReadBox;
+        public nint BlockReadColumn;
+        public nint BlockWritePrepare;
+        public nint BlockWriteCommit;
+        public nint BlockWriteAbort;
+        public nint SectionRevisionQuery;
+        public nint ResidencyPinDeclare;
+        public nint ResidencyPinRelease;
+        public nint ResidencyPinStatus;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RootApiPrefix
     {
         public uint AbiVersion;
         public uint StructSize;
@@ -183,18 +237,32 @@ public static class NativeEngineLoader
                     "Native engine entry returned a null API table.");
             }
 
-            var api = Marshal.PtrToStructure<RootApi>(apiAddress);
-            if (api.AbiVersion != AbiVersion
-                || api.StructSize < Marshal.SizeOf<RootApi>()
-                || api.Ping == 0
-                || api.CreateClrHost == 0
-                || api.ClrHostCall == 0
-                || api.DestroyClrHost == 0)
+            var prefix = Marshal.PtrToStructure<RootApiPrefix>(apiAddress);
+            if (prefix.AbiVersion != AbiVersion
+                || prefix.StructSize < Marshal.SizeOf<RootApiPrefix>()
+                || prefix.Ping == 0
+                || prefix.CreateClrHost == 0
+                || prefix.ClrHostCall == 0
+                || prefix.DestroyClrHost == 0)
             {
                 throw new NativeEngineLoadException(
                     NativeEngineLoadFailure.InvalidNativeImage,
                     "Native engine API table has an invalid version, size, ping, or CLR host slot.");
             }
+
+            var api = prefix.StructSize >= Marshal.SizeOf<RootApi>()
+                ? Marshal.PtrToStructure<RootApi>(apiAddress)
+                : new RootApi
+                {
+                    AbiVersion = prefix.AbiVersion,
+                    StructSize = prefix.StructSize,
+                    AbiHash = prefix.AbiHash,
+                    BuildId = prefix.BuildId,
+                    Ping = prefix.Ping,
+                    CreateClrHost = prefix.CreateClrHost,
+                    ClrHostCall = prefix.ClrHostCall,
+                    DestroyClrHost = prefix.DestroyClrHost,
+                };
 
             var abiHash = Convert.ToHexString(api.AbiHash ?? Array.Empty<byte>()).ToLowerInvariant();
             var buildId = Convert.ToHexString(api.BuildId ?? Array.Empty<byte>()).ToLowerInvariant();
@@ -212,7 +280,7 @@ public static class NativeEngineLoader
                     $"Native engine BuildId {buildId} does not match {expectedBuildId}.");
             }
 
-            return new NativeEngineLease(library, apiAddress, nativePath, buildId, abiHash, binarySha256, api.Ping);
+            return new NativeEngineLease(library, api, nativePath, buildId, abiHash, binarySha256, api.Ping);
         }
         catch (NativeEngineLoadException)
         {
