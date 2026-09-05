@@ -69,8 +69,8 @@
 | [ADR-047](ADR-047-lumio-bin-canonical-profile.md) | LumioBinV1 二进制 canonical profile（定宽小端、u32 长度前缀、声明序无填充、Golden 与拒绝向量、snapshot checksum B 档） | Historical · Draft |
 | [ADR-048](ADR-048-generated-consumable-surface.md) | Generated 面可消费化（八类闭合契约类型本体、可执行 Protocol/Permission 门、netstandard2.1;net8.0 双目标、capability 常量三形态） | Historical · Draft |
 | [ADR-049](ADR-049-replication-state-payload-and-input-command.md) | Replication 状态载荷与 InputCommand 承载（开发态 wire 契约 `gameplay-command-envelope-v1`：InputCommand / stateBlocks / changedBlocks、LumioBinV1、Chat 租户；非 V1.5 基线事件） | Accepted |
-| [ADR-050](ADR-050-gas-a1-contracts.md) | GAS A1 lifecycle admission, deterministic evaluation and same-Tick Effect events | Draft |
-| [ADR-051](ADR-051-gas-a2-contracts.md) | GAS A2 ECS components, Tag handshake, replication visibility and frame prediction | Draft |
+| [ADR-050](ADR-050-gas-a1-contracts.md) | GAS A1 lifecycle admission, deterministic evaluation and same-Tick Effect events | Superseded → ADR-064 |
+| [ADR-051](ADR-051-gas-a2-contracts.md) | GAS A2 ECS components, Tag handshake, replication visibility and frame prediction | Superseded → ADR-064 |
 | [ADR-052](ADR-052-ms00002-hello-wire-and-clr-host-abi.md) | MS-00002 开发态 Hello wire 契约与 CLR 装载 ABI | Accepted |
 | [ADR-053](ADR-053-entity-binding-and-attribute-query.md) | 连接绑定五元组与 NetEntityId Attribute Query（开发态 `engine/wire/entity-binding-and-query-v1.json`） | Accepted |
 | [ADR-054](ADR-054-account-server-topology-and-port.md) | Account Server 第三服务拓扑与账号/准入端口（开发态 `engine/wire/account-port-v1.json`） | Accepted |
@@ -83,6 +83,7 @@
 | [ADR-061](ADR-061-lumioplatform-repository-and-account-authority.md) | LumioPlatform 第八实现仓与账号权威归属：账号服迁入平台、一库两端口（WS 契约不改 + HTTP `platform-port-v1`）、PostgreSQL 持久真值、AccountWorld 保留、注册策略 profile、launch 端口、`LumioServer/account-server/` 退役；部分取代 ADR-054 | Draft |
 | [ADR-062](ADR-062-voxel-world-public-contract.md) | 体素公共语义改从 `lumio.voxel-world.v1` 取：三层分层与 Section 改名、规范键元数防呆、32 位 BlockId 与段表、材质类、载荷四编码（含 Delta）、物理查询三态、光照不入载荷；作废 ADR-024/035/036 的 16³-叫-chunk 分层语义 | Draft |
 | [ADR-063](ADR-063-architecture-review-owner-rulings-identity-persist-prediction.md) | 2026-09-05 架构评审 Owner 裁决：世界模型强约束（体素 / 实体两种、GAS 是组件）、客户端三态与销毁原因、占段发号、帧内读写规则与 `tick.md`、共享文件普通字段放开、存档记账一本（`Scope.None`）、预测按 GAS 原文只补包级 `appliedInputSequence`、可见性变化补发 / 失效、验收切片改为炸弹人战斗；修订 ADR-058 / 060 | Draft |
+| [ADR-064](ADR-064-gas-slice-contracts.md) | 炸弹人切片的 GAS 契约：切片 GAS 面（八态准入 + 瞬时 Effect + 整数求值 + 两本账 + 预测）、四组件 `Sync` 声明表、技能激活唯一写法、击杀 = 跨零、预测键 = 输入序号、预测世界整体克隆 + 重放、表现键做差保证连续、对账哈希四元组、表现缓冲走 ClientRpc 记录；取代 ADR-050 / 051 | Draft |
 
 旧制度的 `DECISIONS_PENDING` 待决台账已随 `docs/` 一并删除（见 git 历史）；Living Architecture 下未定项直接落 ADR 或任务卡，不再另设台账。
 
