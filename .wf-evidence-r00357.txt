@@ -1,0 +1,40 @@
+spec-lint: 1 处不一致
+
+  ✗ .spec\decisions\ADR-054-account-server-topology-and-port.md: 未登记进 decisions/README.md 索引
+spec-lint exit=1
+ABI_VERSION=1
+ENTRY_SYMBOL=lumio_engine_get_api_v1
+DEFINITION_SHA256=1dfc86dad1ebbd8d6196d16946a9eb8542e951c83fa5e6163f696abee831fb8e
+generate-abi exit=0 (zero-diff verified separately by git status)
+CONTRACT_ID=lumio.hello-wire.v1
+MESSAGES=8
+ERROR_CODES=12
+HELLO_WIRE_OK
+✔ contract file loads and validates (3.7726ms)
+✔ valid InputCommand passes validation (1.036ms)
+✔ InputCommand missing payloadSha256 is rejected (0.4748ms)
+✔ unknown messageType maps to unknown_mapping (0.4072ms)
+✔ unknown role is rejected (0.479ms)
+✔ Delta with structurally valid hex but mismatched payload hash stays shape-valid (hash equality is a consumer check) (0.4822ms)
+✔ contract shape rejects mutated const field (red probe) (0.7763ms)
+✔ contract shape rejects broken hash example (red probe) (0.5458ms)
+✔ contract shape rejects unknown shared type reference (red probe) (0.5831ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.7068
+verify-hello-wire exit=0
+contract: engine/wire/account-port-v1.json
+errorCodes: 14, errorCodeSemantics: 14
+testCases: 7, invalidCases: 11
+SELF-CHECK OK
+selfcheck exit=0
+PROBE: 3 detection(s) expected >0
+  DETECTED: errorCodeSemantics key not in errorCodes: bot_tool_credential_expired
+  DETECTED: operations.login_or_register.failureCodes unknown code: bot_tool_credential_expired
+  DETECTED: invalidCase bot_tool_credential_expired expectedRejection not in errorCodes: bot_tool_credential_expired
+probe exit=0
