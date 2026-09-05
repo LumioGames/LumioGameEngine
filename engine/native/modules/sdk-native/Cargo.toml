@@ -10,6 +10,9 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 [dependencies]
 lumio-kernel = { path = "../../../../../LumioNativeCore/crates/lumio-kernel" }
 lumio-voxel-world = { path = "../../../../../LumioVoxelEngine/crates/lumio-voxel-world" }
+lumio-voxel-domain = { path = "../../../../../LumioVoxelEngine/crates/lumio-voxel-domain" }
+lumio-voxel-ops = { path = "../../../../../LumioVoxelEngine/crates/lumio-voxel-ops" }
+lumio-voxel-contracts = { path = "../../../../../LumioVoxelEngine/crates/lumio-voxel-contracts" }
 # CoreCLR 装载链（MS-00002 Wave 2）：根表三槽直接转发到该 crate 的 ABI 实现，
 # 全链只有这一套 CLR Loader/ABI。
 lumio-clr-host = { path = "../clr-host" }

@@ -2,6 +2,35 @@ use std::ffi::{c_char, c_void};
 
 mod abi_generated;
 mod timer;
+mod voxel;
+
+// Keep generated ABI constants and the append-only root-slot layout live in the
+// compile-time surface, so drift is a build failure rather than dead generated code.
+const _: () = {
+    assert!(
+        abi_generated::VOXEL_CELL_OFFSET_Y_STRIDE
+            == lumio_voxel_contracts::voxel_world::CELL_OFFSET_Y_STRIDE as u32
+    );
+    assert!(
+        abi_generated::VOXEL_CELL_OFFSET_Z_STRIDE
+            == lumio_voxel_contracts::voxel_world::CELL_OFFSET_Z_STRIDE as u32
+    );
+    assert!(
+        abi_generated::VOXEL_CELL_OFFSET_X_STRIDE
+            == lumio_voxel_contracts::voxel_world::CELL_OFFSET_X_STRIDE as u32
+    );
+};
+
+const _: usize = std::mem::size_of::<abi_generated::VoxelRootSlots>();
+
+pub use abi_generated::{
+    VoxelBlockReadCellResult, VoxelBlockReadResult, VoxelBlockWriteEntry, VoxelBoxRequest,
+    VoxelColumnRequest, VoxelOverlapHit, VoxelOverlapRequest, VoxelOverlapResult, VoxelPinStatus,
+    VoxelPresence, VoxelQueryResolution, VoxelRaycastRequest, VoxelRaycastResult, VoxelSectionKey,
+    VoxelSectionRevisionResult, VoxelSectionSegment, VoxelSweepRequest, VoxelSweepResult,
+    VoxelWorldCoordinate, VoxelWorldPoint, VoxelWriteReceipt,
+};
+pub use voxel::NativeVoxelProvider;
 
 pub const SDK_ENTRY_SYMBOL: &str = abi_generated::ENTRY_SYMBOL;
 pub const SDK_ABI_DEFINITION_SHA256: &str = abi_generated::DEFINITION_SHA256;
@@ -88,9 +117,22 @@ pub struct LumioEngineRootApiV1 {
     pub timer_advance: Option<unsafe extern "C" fn(*mut c_void, u64) -> i32>,
     pub timer_pump: Option<unsafe extern "C" fn(*mut c_void, u64) -> i32>,
     pub timer_drain: Option<unsafe extern "C" fn(*mut c_void, *mut c_void, u32, *mut u32) -> i32>,
+    pub block_read_cell: Option<abi_generated::BlockReadCellFn>,
+    pub block_read_box: Option<abi_generated::BlockReadBatchFn>,
+    pub block_read_column: Option<abi_generated::BlockReadBatchFn>,
+    pub block_write_prepare: Option<abi_generated::BlockWritePrepareFn>,
+    pub block_write_commit: Option<abi_generated::BlockWriteCommitFn>,
+    pub block_write_abort: Option<abi_generated::BlockWriteAbortFn>,
+    pub section_revision_query: Option<abi_generated::SectionRevisionQueryFn>,
+    pub residency_pin_declare: Option<abi_generated::ResidencyPinDeclareFn>,
+    pub residency_pin_release: Option<abi_generated::ResidencyPinReleaseFn>,
+    pub residency_pin_status: Option<abi_generated::ResidencyPinStatusFn>,
+    pub raycast: Option<abi_generated::RaycastFn>,
+    pub sweep: Option<abi_generated::SweepFn>,
+    pub overlap: Option<abi_generated::OverlapFn>,
 }
 
-const _: () = assert!(std::mem::size_of::<LumioEngineRootApiV1>() >= 200);
+const _: () = assert!(std::mem::size_of::<LumioEngineRootApiV1>() == 304);
 
 const DEFAULT_ABI_HASH: &str = abi_generated::DEFINITION_SHA256;
 const DEFAULT_BUILD_ID: &str = "2222222222222222222222222222222222222222222222222222222222222222";
@@ -165,6 +207,19 @@ static ROOT_API: LumioEngineRootApiV1 = LumioEngineRootApiV1 {
     timer_advance: Some(timer::timer_advance),
     timer_pump: Some(timer::timer_pump),
     timer_drain: Some(timer::timer_drain),
+    block_read_cell: Some(voxel::block_read_cell),
+    block_read_box: Some(voxel::block_read_box),
+    block_read_column: Some(voxel::block_read_column),
+    block_write_prepare: Some(voxel::block_write_prepare),
+    block_write_commit: Some(voxel::block_write_commit),
+    block_write_abort: Some(voxel::block_write_abort),
+    section_revision_query: Some(voxel::section_revision_query),
+    residency_pin_declare: Some(voxel::residency_pin_declare),
+    residency_pin_release: Some(voxel::residency_pin_release),
+    residency_pin_status: Some(voxel::residency_pin_status),
+    raycast: None,
+    sweep: None,
+    overlap: None,
 };
 
 /// The only Native SDK symbol. All other functions are reached through this table.
