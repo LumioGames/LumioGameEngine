@@ -48,3 +48,4 @@ metadata:
 ---
 
 新增 / 修改 / 维护知识文档(放哪、frontmatter、同步本导航)→ 用 `spec-steward` 技能;决策记录(唯一落点)→ [`../decisions/`](../decisions/README.md)。
+| [`features/runtime-manager-query-expiry.md`](features/runtime-manager-query-expiry.md) | Runtime owner-thread expiry, binding resolution, and attribute query controls for the R5 host bridge |

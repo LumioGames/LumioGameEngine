@@ -812,6 +812,99 @@ function checkEntityBindingContract(contract, fileName, problems) {
   }
 
   if (fileName === 'entity-binding-and-query-v1.json') {
+    const ownerControls = contract.ownerThreadControls;
+    if (!ownerControls || typeof ownerControls !== 'object' || Array.isArray(ownerControls)) {
+      problem('ownerThreadControls missing');
+    } else {
+      const expectedRequests = {
+        expire: { type: 'ExpireEntityMessage', required: ['requestId', 'netEntityId'], optional: ['connection'] },
+        resolve: { type: 'ResolveBindingMessage', required: ['requestId', 'roomId', 'netEntityId'], optional: ['connectionGeneration', 'connection'] },
+        attribute: {
+          type: 'AttributeQueryMessage',
+          required: ['requestId', 'callerScope', 'roomId', 'netEntityId', 'attributeId'],
+          optional: ['connectionGeneration', 'connection'],
+        },
+      };
+      if (ownerControls.transport !== 'in-process') problem('ownerThreadControls.transport must be in-process');
+      if (ownerControls.messageBaseType !== 'WorldMessage') problem('ownerThreadControls.messageBaseType must be WorldMessage');
+      if (ownerControls.entryPoint !== 'WorldManager.Enqueue') problem('ownerThreadControls.entryPoint must be WorldManager.Enqueue');
+      if (ownerControls.execution !== 'owner-thread-during-Tick') problem('ownerThreadControls.execution must be owner-thread-during-Tick');
+      const requests = ownerControls.requests;
+      if (!requests || typeof requests !== 'object' || Array.isArray(requests)) {
+        problem('ownerThreadControls.requests missing');
+      } else {
+        if (JSON.stringify(Object.keys(requests)) !== JSON.stringify(Object.keys(expectedRequests))) {
+          problem('ownerThreadControls.requests must be exactly expire, resolve, attribute');
+        }
+        for (const [name, expected] of Object.entries(expectedRequests)) {
+          const request = requests[name];
+          if (!request || typeof request !== 'object' || Array.isArray(request)) {
+            problem(`ownerThreadControls.requests.${name} missing`);
+            continue;
+          }
+          if (request.type !== expected.type) problem(`ownerThreadControls.requests.${name}.type must be ${expected.type}`);
+          if (JSON.stringify(request.required) !== JSON.stringify(expected.required)) {
+            problem(`ownerThreadControls.requests.${name}.required must be exactly ${expected.required.join(', ')}`);
+          }
+          if (JSON.stringify(request.optional) !== JSON.stringify(expected.optional)) {
+            problem(`ownerThreadControls.requests.${name}.optional must be exactly ${expected.optional.join(', ')}`);
+          }
+          if (!request.fields || typeof request.fields !== 'object' || Array.isArray(request.fields)) {
+            problem(`ownerThreadControls.requests.${name}.fields missing`);
+          } else if (Object.keys(request.fields).some((field) => !expected.required.includes(field) && !expected.optional.includes(field))) {
+            problem(`ownerThreadControls.requests.${name}.fields contains an undeclared field`);
+          } else if ([...expected.required, ...expected.optional].some((field) => !Object.prototype.hasOwnProperty.call(request.fields, field))) {
+            problem(`ownerThreadControls.requests.${name}.fields must cover required and optional fields`);
+          }
+        }
+      }
+      const results = ownerControls.results;
+      if (!results || typeof results !== 'object' || Array.isArray(results)) {
+        problem('ownerThreadControls.results missing');
+      } else {
+        if (results.transport !== 'drain.queries') problem('ownerThreadControls.results.transport must be drain.queries');
+        if (results.internal !== true) problem('ownerThreadControls.results.internal must be true');
+        const records = results.records;
+        if (!records || typeof records !== 'object' || Array.isArray(records)) {
+          problem('ownerThreadControls.results.records missing');
+        } else {
+          const expectedNames = ['expire', 'resolve', 'attribute'];
+          if (JSON.stringify(Object.keys(records)) !== JSON.stringify(expectedNames)) {
+            problem('ownerThreadControls.results.records must be exactly expire, resolve, attribute');
+          }
+          const expectedTypes = {
+            expire: 'ExpireEntityResult',
+            resolve: 'ResolveBindingResult',
+            attribute: 'AttributeQueryResult',
+          };
+          const expectedOutcomes = {
+            expire: ['accepted', 'tombstoned', 'non_existent', 'request_error'],
+            resolve: ['ok', 'non_existent', 'stale_generation', 'invisible', 'unauthorized', 'tombstoned', 'request_error'],
+            attribute: ['ok', 'non_existent', 'stale_generation', 'invisible', 'unauthorized', 'tombstoned', 'request_error'],
+          };
+          for (const name of expectedNames) {
+            const record = records[name];
+            if (!record || typeof record !== 'object' || Array.isArray(record)) {
+              problem(`ownerThreadControls.results.records.${name} missing`);
+              continue;
+            }
+            if (record.type !== expectedTypes[name]) problem(`ownerThreadControls.results.records.${name}.type must be ${expectedTypes[name]}`);
+            if (JSON.stringify(record.required) !== JSON.stringify(['requestId', 'outcome'])) {
+              problem(`ownerThreadControls.results.records.${name}.required must be exactly requestId, outcome`);
+            }
+            if (JSON.stringify(record.outcomes) !== JSON.stringify(expectedOutcomes[name])) {
+              problem(`ownerThreadControls.results.records.${name}.outcomes must preserve the A2 outcome set`);
+            }
+          }
+        }
+      }
+      if (JSON.stringify(ownerControls.hostEntryOperations) !== JSON.stringify(['boot', 'enqueue', 'tick', 'drain', 'snapshot', 'restore'])) {
+        problem('ownerThreadControls.hostEntryOperations must be exactly the six HostEntry operations');
+      }
+      if (JSON.stringify(ownerControls.c1MessageTypes) !== JSON.stringify(['Welcome', 'WorldChange', 'InputCommand', 'ConnectionSuperseded', 'Error'])) {
+        problem('ownerThreadControls.c1MessageTypes must preserve the frozen C-1 message set');
+      }
+    }
     const roomId = contract.identityModel?.roomId ?? '';
     if (!roomId.includes('宿主路由键') || !roomId.includes('World Manager') || !roomId.includes('GameWorld')) {
       problem('identityModel.roomId must describe the host routing key (one process / one World Manager / one GameWorld)');
@@ -1949,6 +2042,69 @@ test('C-2 roomId is the host routing key; binding record is IdentityComponent pl
   assert.ok(contract.binding.operations.admit, 'binding.operations.admit missing');
   const { problems } = validateContract(contract, 'entity-binding-and-query-v1.json');
   assert.deepEqual(problems, []);
+});
+
+test('A2 owner-thread controls declare typed requests, internal drain queries, and frozen bridge boundaries', async () => {
+  const contract = await loadBindingContract();
+  const controls = contract.ownerThreadControls;
+  assert.ok(controls, 'ownerThreadControls missing');
+  assert.equal(controls.transport, 'in-process');
+  assert.equal(controls.messageBaseType, 'WorldMessage');
+  assert.equal(controls.entryPoint, 'WorldManager.Enqueue');
+  assert.equal(controls.execution, 'owner-thread-during-Tick');
+  assert.deepEqual(Object.keys(controls.requests), ['expire', 'resolve', 'attribute']);
+  assert.deepEqual(controls.requests.expire, {
+    type: 'ExpireEntityMessage',
+    required: ['requestId', 'netEntityId'],
+    optional: ['connection'],
+    fields: { requestId: 'string', netEntityId: 'net-entity-id', connection: 'opaque-connection-ref' },
+  });
+  assert.deepEqual(controls.requests.resolve, {
+    type: 'ResolveBindingMessage',
+    required: ['requestId', 'roomId', 'netEntityId'],
+    optional: ['connectionGeneration', 'connection'],
+    fields: {
+      requestId: 'string', roomId: 'string', netEntityId: 'net-entity-id',
+      connectionGeneration: 'u64', connection: 'opaque-connection-ref',
+    },
+  });
+  assert.deepEqual(controls.requests.attribute, {
+    type: 'AttributeQueryMessage',
+    required: ['requestId', 'callerScope', 'roomId', 'netEntityId', 'attributeId'],
+    optional: ['connectionGeneration', 'connection'],
+    fields: {
+      requestId: 'string', callerScope: 'enum:server-authoritative|client-replica', roomId: 'string',
+      netEntityId: 'net-entity-id', attributeId: 'attribute-id', connectionGeneration: 'u64',
+      connection: 'opaque-connection-ref',
+    },
+  });
+  assert.equal(controls.results.transport, 'drain.queries');
+  assert.equal(controls.results.internal, true);
+  assert.deepEqual(Object.keys(controls.results.records), ['expire', 'resolve', 'attribute']);
+  assert.deepEqual(controls.results.records.expire.required, ['requestId', 'outcome']);
+  assert.deepEqual(controls.results.records.resolve.required, ['requestId', 'outcome']);
+  assert.deepEqual(controls.results.records.attribute.required, ['requestId', 'outcome']);
+  assert.deepEqual(controls.hostEntryOperations, ['boot', 'enqueue', 'tick', 'drain', 'snapshot', 'restore']);
+  assert.deepEqual(controls.c1MessageTypes, ['Welcome', 'WorldChange', 'InputCommand', 'ConnectionSuperseded', 'Error']);
+  assert.deepEqual(validateContract(contract, 'entity-binding-and-query-v1.json').problems, []);
+});
+
+test('A2 validator rejects open-ended controls, synchronous results, and bridge expansion', async () => {
+  const contract = await loadBindingContract();
+  const mutations = [
+    ['extra request', (value) => { value.requests.extra = { type: 'Unexpected', required: [], optional: [], fields: {} }; }, 'requests must be exactly'],
+    ['missing request field', (value) => { delete value.requests.resolve.fields.roomId; }, 'fields must cover required and optional fields'],
+    ['external result transport', (value) => { value.results.transport = 'websocket'; }, 'results.transport must be drain.queries'],
+    ['seventh host operation', (value) => { value.hostEntryOperations.push('expire'); }, 'must be exactly the six HostEntry operations'],
+    ['new C-1 frame', (value) => { value.c1MessageTypes.push('QueryResult'); }, 'must preserve the frozen C-1 message set'],
+    ['missing request error outcome', (value) => { value.results.records.attribute.outcomes = ['ok']; }, 'outcomes must preserve the A2 outcome set'],
+  ];
+  for (const [label, mutate, expected] of mutations) {
+    const mutated = JSON.parse(JSON.stringify(contract));
+    mutate(mutated.ownerThreadControls);
+    const { problems } = validateContract(mutated, 'entity-binding-and-query-v1.json');
+    assert.ok(problems.some((problem) => problem.includes(expected)), `${label} was accepted: ${problems.join('; ')}`);
+  }
 });
 
 test('C-1 roomSequence is the in-world sequence; entity.identity is a creation record', async () => {

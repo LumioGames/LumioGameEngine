@@ -1,6 +1,102 @@
 {
   "contractId": "lumio.entity-binding-query.v1",
   "version": 1,
+  "ownerThreadControls": {
+    "transport": "in-process",
+    "messageBaseType": "WorldMessage",
+    "entryPoint": "WorldManager.Enqueue",
+    "execution": "owner-thread-during-Tick",
+    "requests": {
+      "expire": {
+        "type": "ExpireEntityMessage",
+        "required": ["requestId", "netEntityId"],
+        "optional": ["connection"],
+        "fields": {
+          "requestId": "string",
+          "netEntityId": "net-entity-id",
+          "connection": "opaque-connection-ref"
+        }
+      },
+      "resolve": {
+        "type": "ResolveBindingMessage",
+        "required": ["requestId", "roomId", "netEntityId"],
+        "optional": ["connectionGeneration", "connection"],
+        "fields": {
+          "requestId": "string",
+          "roomId": "string",
+          "netEntityId": "net-entity-id",
+          "connectionGeneration": "u64",
+          "connection": "opaque-connection-ref"
+        }
+      },
+      "attribute": {
+        "type": "AttributeQueryMessage",
+        "required": ["requestId", "callerScope", "roomId", "netEntityId", "attributeId"],
+        "optional": ["connectionGeneration", "connection"],
+        "fields": {
+          "requestId": "string",
+          "callerScope": "enum:server-authoritative|client-replica",
+          "roomId": "string",
+          "netEntityId": "net-entity-id",
+          "attributeId": "attribute-id",
+          "connectionGeneration": "u64",
+          "connection": "opaque-connection-ref"
+        }
+      }
+    },
+    "results": {
+      "transport": "drain.queries",
+      "internal": true,
+      "records": {
+        "expire": {
+          "type": "ExpireEntityResult",
+          "required": ["requestId", "outcome"],
+          "optional": ["code", "detail"],
+          "outcomes": ["accepted", "tombstoned", "non_existent", "request_error"],
+          "fields": {
+            "requestId": "string",
+            "outcome": "enum:accepted|tombstoned|non_existent|request_error",
+            "code": "enum:requestErrorCodes",
+            "detail": "string"
+          }
+        },
+        "resolve": {
+          "type": "ResolveBindingResult",
+          "required": ["requestId", "outcome"],
+          "optional": ["binding", "observedRevision", "code", "detail"],
+          "outcomes": ["ok", "non_existent", "stale_generation", "invisible", "unauthorized", "tombstoned", "request_error"],
+          "fields": {
+            "requestId": "string",
+            "outcome": "enum:ok|outcomeCodes|request_error",
+            "binding": "binding.record",
+            "observedRevision": "u64",
+            "code": "enum:requestErrorCodes",
+            "detail": "string"
+          }
+        },
+        "attribute": {
+          "type": "AttributeQueryResult",
+          "required": ["requestId", "outcome"],
+          "optional": ["netEntityId", "roomId", "attributeId", "value", "observedRevision", "observedTick", "code", "detail"],
+          "outcomes": ["ok", "non_existent", "stale_generation", "invisible", "unauthorized", "tombstoned", "request_error"],
+          "fields": {
+            "requestId": "string",
+            "outcome": "enum:ok|outcomeCodes|request_error",
+            "netEntityId": "net-entity-id",
+            "roomId": "string",
+            "attributeId": "attribute-id",
+            "value": "declared-type",
+            "observedRevision": "u64",
+            "observedTick": "u64",
+            "code": "enum:requestErrorCodes",
+            "detail": "string"
+          }
+        }
+      }
+    },
+    "hostEntryOperations": ["boot", "enqueue", "tick", "drain", "snapshot", "restore"],
+    "c1MessageTypes": ["Welcome", "WorldChange", "InputCommand", "ConnectionSuperseded", "Error"]
+  },
   "purpose": "RM-00011 ECS Formal Entity and Chat Vertical Slice 的连接绑定与 ECS Attribute Query 公共契约：绑定五元组、客户端自查与服务端解析、AttributeId 寻址的受控查询面、五结局失败矩阵与每属性声明三维。LumioGameRuntime（R-00347）、LumioClient（R-00349）、LumioServer（R-00350）的绑定与查询实现全部以本文件为唯一真值，不得另写一份语义真值。契约措辞宿主无关（当前 C# MVP 宿主，后续最小 Rust 宿主复跑同一语义）。",
   "scope": {
     "includes": [
