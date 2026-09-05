@@ -87,6 +87,16 @@ public sealed class NativeEngineLease : IDisposable
 
     internal NativeEngineLoader.RootApi Api => _api;
 
+    public Lumio.Engine.SDK.NativeVoxelWorld CreateVoxelWorld(nint world)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentOutOfRangeException.ThrowIfEqual(world, 0);
+        return new Lumio.Engine.SDK.NativeVoxelWorld(this, world, _api);
+    }
+
+    internal void ThrowIfDisposed()
+        => ObjectDisposedException.ThrowIf(_disposed, this);
+
     public void Ping()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -117,7 +127,10 @@ public sealed class NativeEngineLease : IDisposable
         }
 
         _disposed = true;
-        NativeLibrary.Free(_library);
+        if (_library != 0)
+        {
+            NativeLibrary.Free(_library);
+        }
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -164,6 +177,34 @@ public static class NativeEngineLoader
         public nint TimerAdvance;
         public nint TimerPump;
         public nint TimerDrain;
+        public nint BlockReadCell;
+        public nint BlockReadBox;
+        public nint BlockReadColumn;
+        public nint BlockWritePrepare;
+        public nint BlockWriteCommit;
+        public nint BlockWriteAbort;
+        public nint SectionRevisionQuery;
+        public nint ResidencyPinDeclare;
+        public nint ResidencyPinRelease;
+        public nint ResidencyPinStatus;
+        public nint Raycast;
+        public nint Sweep;
+        public nint Overlap;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RootApiPrefix
+    {
+        public uint AbiVersion;
+        public uint StructSize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
+        public byte[]? AbiHash;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+        public byte[]? BuildId;
+        public nint Ping;
+        public nint CreateClrHost;
+        public nint ClrHostCall;
+        public nint DestroyClrHost;
     }
 
     internal static void ValidateTimerSlots(in RootApi api)
@@ -223,18 +264,32 @@ public static class NativeEngineLoader
                     "Native engine entry returned a null API table.");
             }
 
-            var api = Marshal.PtrToStructure<RootApi>(apiAddress);
-            if (api.AbiVersion != AbiVersion
-                || api.StructSize < Marshal.SizeOf<RootApi>()
-                || api.Ping == 0
-                || api.CreateClrHost == 0
-                || api.ClrHostCall == 0
-                || api.DestroyClrHost == 0)
+            var prefix = Marshal.PtrToStructure<RootApiPrefix>(apiAddress);
+            if (prefix.AbiVersion != AbiVersion
+                || prefix.StructSize < Marshal.SizeOf<RootApiPrefix>()
+                || prefix.Ping == 0
+                || prefix.CreateClrHost == 0
+                || prefix.ClrHostCall == 0
+                || prefix.DestroyClrHost == 0)
             {
                 throw new NativeEngineLoadException(
                     NativeEngineLoadFailure.InvalidNativeImage,
                     "Native engine API table has an invalid version, size, ping, or CLR host slot.");
             }
+
+            var api = prefix.StructSize >= Marshal.SizeOf<RootApi>()
+                ? Marshal.PtrToStructure<RootApi>(apiAddress)
+                : new RootApi
+                {
+                    AbiVersion = prefix.AbiVersion,
+                    StructSize = prefix.StructSize,
+                    AbiHash = prefix.AbiHash,
+                    BuildId = prefix.BuildId,
+                    Ping = prefix.Ping,
+                    CreateClrHost = prefix.CreateClrHost,
+                    ClrHostCall = prefix.ClrHostCall,
+                    DestroyClrHost = prefix.DestroyClrHost,
+                };
 
             var abiHash = Convert.ToHexString(api.AbiHash ?? Array.Empty<byte>()).ToLowerInvariant();
             var buildId = Convert.ToHexString(api.BuildId ?? Array.Empty<byte>()).ToLowerInvariant();
