@@ -73,6 +73,11 @@ maps rejected outcomes to a Runtime `ErrorMessage` addressed to the supplied
 connection. Host transport only forwards encoded outbox bytes and does not
 reinterpret the result.
 
+After the Host authenticates the account or Bot tool credential, both `player`
+and `bot` are valid admission classifications. Runtime trusts that authenticated
+classification and creates the matching entity template; any other value is an
+invalid binding shape.
+
 ## Tests
 
 - ECS tests verify all three control messages are `WorldMessage` values, are

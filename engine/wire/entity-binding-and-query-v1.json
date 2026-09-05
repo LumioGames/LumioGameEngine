@@ -201,8 +201,8 @@
       "admit": {
         "caller": "server",
         "request": { "required": { "accountId": "string", "roomId": "string", "entityType": "enum:entityType" }, "optional": {} },
-        "result": "accepted | account_already_online | invalid_binding_shape | bot_namespace_admission_forbidden；仅返回受理或拒绝结果，不返回 netEntityId。connectionGeneration 与 netEntityId 由下一拍 Welcome 交付。",
-        "notes": "在线名单只在 Runtime。宿主不得自建账号会话表来裁决顶号。"
+        "result": "accepted | account_already_online | invalid_binding_shape；仅返回受理或拒绝结果，不返回 netEntityId。connectionGeneration 与 netEntityId 由下一拍 Welcome 交付。",
+        "notes": "在线名单只在 Runtime。宿主完成账号与 Bot 工具凭据认证后提交 player | bot 分类，Runtime 接受两类并据此创建对应实体；宿主不得自建账号会话表来裁决顶号。"
       }
     }
   },

@@ -1260,6 +1260,7 @@ async function loadEnvelopeContract() {
 test('R5-01 C-2 admit is asynchronous and declaration projections are derived', async () => {
   const contract = JSON.parse(await readFile(resolve(root, 'engine/wire/entity-binding-and-query-v1.json'), 'utf8'));
   assert.match(contract.binding.operations.admit.result, /^accepted/);
+  assert.doesNotMatch(contract.binding.operations.admit.result, /bot_namespace_admission_forbidden/);
   assert.equal(Object.prototype.hasOwnProperty.call(contract.binding.operations, 'listBindings'), false);
   assert.equal(contract.attributeDeclarations.table.some((row) => row.attributeId.startsWith('EntityIdentity.')), false);
   assert.ok(contract.derived.entityType.source.includes('TypeOf'));
