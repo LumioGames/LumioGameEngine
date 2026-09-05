@@ -1,6 +1,6 @@
 ---
 name: runtime-manager-query-expiry
-description: Runtime owner-thread expiry, binding resolution, and attribute query controls for the R5 host bridge
+description: Runtime owner-thread expiry, binding resolution, and attribute query controls for the R5 host bridge (ADR-063)
 metadata:
   type: doc
   status: 实施中
@@ -10,7 +10,7 @@ metadata:
 
 ## Purpose
 
-R5 needs authoritative expiry and C-2 query behavior without opening another
+ADR-063 records the A2 decision. R5 needs authoritative expiry and C-2 query behavior without opening another
 HostEntry operation or maintaining a second Server-side authority. Runtime
 owns the world, binding query, and owner-thread ordering.
 

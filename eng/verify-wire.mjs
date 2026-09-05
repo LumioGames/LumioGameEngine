@@ -872,15 +872,152 @@ function checkEntityBindingContract(contract, fileName, problems) {
           if (JSON.stringify(Object.keys(records)) !== JSON.stringify(expectedNames)) {
             problem('ownerThreadControls.results.records must be exactly expire, resolve, attribute');
           }
-          const expectedTypes = {
-            expire: 'ExpireEntityResult',
-            resolve: 'ResolveBindingResult',
-            attribute: 'AttributeQueryResult',
+          const expectedResults = {
+            expire: {
+              type: 'ExpireEntityResult',
+              required: ['requestId', 'outcome'],
+              optional: ['code', 'detail'],
+              outcomes: ['accepted', 'tombstoned', 'non_existent', 'request_error'],
+              fields: {
+                requestId: 'string',
+                outcome: 'enum:accepted|tombstoned|non_existent|request_error',
+                code: 'enum:requestErrorCodes',
+                detail: 'string',
+              },
+              outcomeShapes: {
+                accepted: { required: ['requestId', 'outcome'], optional: [] },
+                tombstoned: { required: ['requestId', 'outcome'], optional: [] },
+                non_existent: { required: ['requestId', 'outcome'], optional: [] },
+                request_error: { required: ['requestId', 'outcome', 'code', 'detail'], optional: [] },
+              },
+            },
+            resolve: {
+              type: 'ResolveBindingResult',
+              required: ['requestId', 'outcome'],
+              optional: ['binding', 'observedRevision', 'code', 'detail'],
+              outcomes: ['ok', 'non_existent', 'stale_generation', 'invisible', 'unauthorized', 'tombstoned', 'request_error'],
+              fields: {
+                requestId: 'string',
+                outcome: 'enum:ok|outcomeCodes|request_error',
+                binding: 'binding.record',
+                observedRevision: 'u64',
+                code: 'enum:requestErrorCodes',
+                detail: 'string',
+              },
+              outcomeShapes: {
+                ok: { required: ['requestId', 'outcome', 'binding', 'observedRevision'], optional: [] },
+                non_existent: { required: ['requestId', 'outcome'], optional: [] },
+                stale_generation: { required: ['requestId', 'outcome'], optional: [] },
+                invisible: { required: ['requestId', 'outcome'], optional: [] },
+                unauthorized: { required: ['requestId', 'outcome'], optional: [] },
+                tombstoned: { required: ['requestId', 'outcome'], optional: [] },
+                request_error: { required: ['requestId', 'outcome', 'code', 'detail'], optional: [] },
+              },
+            },
+            attribute: {
+              type: 'AttributeQueryResult',
+              required: ['requestId', 'outcome'],
+              optional: ['netEntityId', 'roomId', 'attributeId', 'value', 'observedRevision', 'observedTick', 'code', 'detail'],
+              outcomes: ['ok', 'non_existent', 'stale_generation', 'invisible', 'unauthorized', 'tombstoned', 'request_error'],
+              fields: {
+                requestId: 'string',
+                outcome: 'enum:ok|outcomeCodes|request_error',
+                netEntityId: 'net-entity-id',
+                roomId: 'string',
+                attributeId: 'attribute-id',
+                value: 'declared-type',
+                observedRevision: 'u64',
+                observedTick: 'u64',
+                code: 'enum:requestErrorCodes',
+                detail: 'string',
+              },
+              outcomeShapes: {
+                ok: {
+                  required: ['requestId', 'outcome', 'netEntityId', 'roomId', 'attributeId', 'value', 'observedRevision', 'observedTick'],
+                  optional: [],
+                },
+                non_existent: { required: ['requestId', 'outcome'], optional: [] },
+                stale_generation: { required: ['requestId', 'outcome'], optional: [] },
+                invisible: { required: ['requestId', 'outcome'], optional: [] },
+                unauthorized: { required: ['requestId', 'outcome'], optional: [] },
+                tombstoned: { required: ['requestId', 'outcome'], optional: [] },
+                request_error: { required: ['requestId', 'outcome', 'code', 'detail'], optional: [] },
+              },
+            },
           };
-          const expectedOutcomes = {
-            expire: ['accepted', 'tombstoned', 'non_existent', 'request_error'],
-            resolve: ['ok', 'non_existent', 'stale_generation', 'invisible', 'unauthorized', 'tombstoned', 'request_error'],
-            attribute: ['ok', 'non_existent', 'stale_generation', 'invisible', 'unauthorized', 'tombstoned', 'request_error'],
+          const validateResultList = (actual, expected, path, label) => {
+            if (!Array.isArray(actual)) {
+              problem(`${path}.${label} must be an array`);
+              return false;
+            }
+            if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+              problem(`${path}.${label} must be exactly ${expected.join(', ') || '(none)'}`);
+              return false;
+            }
+            return true;
+          };
+          const validateResultFields = (record, expected, path) => {
+            const requiredOk = validateResultList(record.required, expected.required, path, 'required');
+            const optionalOk = validateResultList(record.optional, expected.optional, path, 'optional');
+            const required = Array.isArray(record.required) ? record.required : [];
+            const optional = Array.isArray(record.optional) ? record.optional : [];
+            if (new Set(required).size !== required.length) problem(`${path}.required must not contain duplicates`);
+            if (new Set(optional).size !== optional.length) problem(`${path}.optional must not contain duplicates`);
+            if (required.some((field) => optional.includes(field))) problem(`${path}.required and optional must be disjoint`);
+            const fields = record.fields;
+            if (!fields || typeof fields !== 'object' || Array.isArray(fields)) {
+              problem(`${path}.fields missing`);
+              return;
+            }
+            const declared = Object.keys(fields);
+            const expectedDeclared = [...expected.required, ...expected.optional];
+            for (const field of declared) {
+              if (!expectedDeclared.includes(field)) problem(`${path}.fields contains an undeclared field`);
+              if (!required.includes(field) && !optional.includes(field)) problem(`${path}.fields.${field} is outside required/optional closure`);
+            }
+            for (const field of expectedDeclared) {
+              if (!Object.prototype.hasOwnProperty.call(fields, field)) problem(`${path}.fields must cover required and optional fields`);
+            }
+            if (JSON.stringify(declared) !== JSON.stringify(expectedDeclared)) {
+              problem(`${path}.fields must declare exactly ${expectedDeclared.join(', ')}`);
+            }
+            for (const [field, expectedType] of Object.entries(expected.fields)) {
+              if (fields[field] !== expectedType) problem(`${path}.fields.${field} must be ${expectedType}`);
+            }
+            if (!requiredOk || !optionalOk) return;
+          };
+          const validateOutcomeShapes = (record, expected, path) => {
+            const shapes = record.outcomeShapes;
+            if (!shapes || typeof shapes !== 'object' || Array.isArray(shapes)) {
+              problem(`${path}.outcomeShapes missing`);
+              return;
+            }
+            if (JSON.stringify(Object.keys(shapes)) !== JSON.stringify(expected.outcomes)) {
+              problem(`${path}.outcomeShapes must be exactly the declared outcomes`);
+            }
+            const declared = new Set([...(Array.isArray(record.required) ? record.required : []), ...(Array.isArray(record.optional) ? record.optional : [])]);
+            for (const outcome of expected.outcomes) {
+              const shape = shapes[outcome];
+              const shapePath = `${path}.outcomeShapes.${outcome}`;
+              if (!shape || typeof shape !== 'object' || Array.isArray(shape)) {
+                problem(`${shapePath} missing`);
+                continue;
+              }
+              const required = validateResultList(shape.required, expected.outcomeShapes[outcome].required, shapePath, 'required');
+              const optional = validateResultList(shape.optional, expected.outcomeShapes[outcome].optional, shapePath, 'optional');
+              const shapeRequired = Array.isArray(shape.required) ? shape.required : [];
+              const shapeOptional = Array.isArray(shape.optional) ? shape.optional : [];
+              if (new Set(shapeRequired).size !== shapeRequired.length || new Set(shapeOptional).size !== shapeOptional.length) {
+                problem(`${shapePath} required/optional must not contain duplicates`);
+              }
+              if (shapeRequired.some((field) => shapeOptional.includes(field))) {
+                problem(`${shapePath} required and optional must be disjoint`);
+              }
+              for (const field of [...shapeRequired, ...shapeOptional]) {
+                if (!declared.has(field)) problem(`${shapePath} contains an undeclared result field ${field}`);
+              }
+              if (!required || !optional) continue;
+            }
           };
           for (const name of expectedNames) {
             const record = records[name];
@@ -888,13 +1025,14 @@ function checkEntityBindingContract(contract, fileName, problems) {
               problem(`ownerThreadControls.results.records.${name} missing`);
               continue;
             }
-            if (record.type !== expectedTypes[name]) problem(`ownerThreadControls.results.records.${name}.type must be ${expectedTypes[name]}`);
-            if (JSON.stringify(record.required) !== JSON.stringify(['requestId', 'outcome'])) {
-              problem(`ownerThreadControls.results.records.${name}.required must be exactly requestId, outcome`);
+            const expected = expectedResults[name];
+            const path = `ownerThreadControls.results.records.${name}`;
+            if (record.type !== expected.type) problem(`${path}.type must be ${expected.type}`);
+            if (!Array.isArray(record.outcomes) || JSON.stringify(record.outcomes) !== JSON.stringify(expected.outcomes)) {
+              problem(`${path}.outcomes must preserve the A2 outcome set`);
             }
-            if (JSON.stringify(record.outcomes) !== JSON.stringify(expectedOutcomes[name])) {
-              problem(`ownerThreadControls.results.records.${name}.outcomes must preserve the A2 outcome set`);
-            }
+            validateResultFields(record, expected, path);
+            validateOutcomeShapes(record, expected, path);
           }
         }
       }
@@ -2098,6 +2236,9 @@ test('A2 validator rejects open-ended controls, synchronous results, and bridge 
     ['seventh host operation', (value) => { value.hostEntryOperations.push('expire'); }, 'must be exactly the six HostEntry operations'],
     ['new C-1 frame', (value) => { value.c1MessageTypes.push('QueryResult'); }, 'must preserve the frozen C-1 message set'],
     ['missing request error outcome', (value) => { value.results.records.attribute.outcomes = ['ok']; }, 'outcomes must preserve the A2 outcome set'],
+    ['undeclared result field', (value) => { value.results.records.expire.fields.extra = 'string'; }, 'fields contains an undeclared field'],
+    ['wrong result field type', (value) => { value.results.records.resolve.fields.binding = 'string'; }, 'fields.binding must be binding.record'],
+    ['wrong result outcome shape', (value) => { value.results.records.attribute.outcomeShapes.ok.required.pop(); }, 'outcomeShapes.ok.required must be exactly'],
   ];
   for (const [label, mutate, expected] of mutations) {
     const mutated = JSON.parse(JSON.stringify(contract));

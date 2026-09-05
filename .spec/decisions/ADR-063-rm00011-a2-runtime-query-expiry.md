@@ -1,4 +1,4 @@
-# ADR-061-A2: RM-00011 Runtime Owner-Thread Query and Expiry Controls
+# ADR-063: RM-00011 Runtime Owner-Thread Query and Expiry Controls
 
 - **Status**: Draft
 Date: 2026-09-05
@@ -37,6 +37,14 @@ Their corresponding internal result records are `expire`, `resolve`, and
 `attribute` in `drain.queries`. `requestId` is only a transient correlation
 token; it is not a game identity and is not persisted. Optional connection
 generation values are unsigned and are checked by Runtime.
+
+Each result record has a closed `fields` map whose keys are exactly the union
+of its `required` and `optional` lists, with field type expressions fixed by the
+contract. `outcomeShapes` closes the result union: terminal and C-2 failure
+outcomes carry only `requestId` and `outcome`; `request_error` additionally
+requires `code` and `detail`; resolve `ok` additionally requires `binding` and
+`observedRevision`; attribute `ok` additionally requires the returned identity,
+value, observed revision, and observed tick.
 
 ## Failure Semantics
 

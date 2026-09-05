@@ -53,6 +53,12 @@
           "required": ["requestId", "outcome"],
           "optional": ["code", "detail"],
           "outcomes": ["accepted", "tombstoned", "non_existent", "request_error"],
+          "outcomeShapes": {
+            "accepted": { "required": ["requestId", "outcome"], "optional": [] },
+            "tombstoned": { "required": ["requestId", "outcome"], "optional": [] },
+            "non_existent": { "required": ["requestId", "outcome"], "optional": [] },
+            "request_error": { "required": ["requestId", "outcome", "code", "detail"], "optional": [] }
+          },
           "fields": {
             "requestId": "string",
             "outcome": "enum:accepted|tombstoned|non_existent|request_error",
@@ -65,6 +71,15 @@
           "required": ["requestId", "outcome"],
           "optional": ["binding", "observedRevision", "code", "detail"],
           "outcomes": ["ok", "non_existent", "stale_generation", "invisible", "unauthorized", "tombstoned", "request_error"],
+          "outcomeShapes": {
+            "ok": { "required": ["requestId", "outcome", "binding", "observedRevision"], "optional": [] },
+            "non_existent": { "required": ["requestId", "outcome"], "optional": [] },
+            "stale_generation": { "required": ["requestId", "outcome"], "optional": [] },
+            "invisible": { "required": ["requestId", "outcome"], "optional": [] },
+            "unauthorized": { "required": ["requestId", "outcome"], "optional": [] },
+            "tombstoned": { "required": ["requestId", "outcome"], "optional": [] },
+            "request_error": { "required": ["requestId", "outcome", "code", "detail"], "optional": [] }
+          },
           "fields": {
             "requestId": "string",
             "outcome": "enum:ok|outcomeCodes|request_error",
@@ -79,6 +94,18 @@
           "required": ["requestId", "outcome"],
           "optional": ["netEntityId", "roomId", "attributeId", "value", "observedRevision", "observedTick", "code", "detail"],
           "outcomes": ["ok", "non_existent", "stale_generation", "invisible", "unauthorized", "tombstoned", "request_error"],
+          "outcomeShapes": {
+            "ok": {
+              "required": ["requestId", "outcome", "netEntityId", "roomId", "attributeId", "value", "observedRevision", "observedTick"],
+              "optional": []
+            },
+            "non_existent": { "required": ["requestId", "outcome"], "optional": [] },
+            "stale_generation": { "required": ["requestId", "outcome"], "optional": [] },
+            "invisible": { "required": ["requestId", "outcome"], "optional": [] },
+            "unauthorized": { "required": ["requestId", "outcome"], "optional": [] },
+            "tombstoned": { "required": ["requestId", "outcome"], "optional": [] },
+            "request_error": { "required": ["requestId", "outcome", "code", "detail"], "optional": [] }
+          },
           "fields": {
             "requestId": "string",
             "outcome": "enum:ok|outcomeCodes|request_error",
