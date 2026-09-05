@@ -106,3 +106,4 @@
 | [0010](nativecore/0010-root-abi-runtime-unfrozen-semantics-seams.md) | Root ABI 运行时对「上游未冻结」语义保持缺位，只做不透明相等校验 | 生效 |
 
 > `0005` 及原仓若干编号未随迁移进入本仓（原目录即无该文件）；曾指向 `0005-linux-same-object-loader.md` 的历史引用已随 `engine/native/` 内第二套框架副本一并删除，编号空洞保留，需要时按新决策补号，不回填旧号。
+| [ADR-063](ADR-063-rm00011-a2-runtime-query-expiry.md) | RM-00011 A2 Runtime owner-thread expiry, binding resolution, and attribute query controls | Draft |
