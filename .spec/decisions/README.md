@@ -82,6 +82,7 @@
 | [ADR-060](ADR-060-rm00011-r5-owner-rulings-pack-wire-and-observer-projection.md) | RM-00011 r5 Owner 裁决：World Manager 包上网线（C-1″ 一份 codec）、按观察者投影（ObserverComponent、先全量后增量、Scope 裁剪、出视野即删、墓碑推导）、admit 不同步回 id、声明表只从组件生成、模板内联存储做到底、删旧世界；彻底清理不留兼容 | Draft |
 | [ADR-061](ADR-061-lumioplatform-repository-and-account-authority.md) | LumioPlatform 第八实现仓与账号权威归属：账号服迁入平台、一库两端口（WS 契约不改 + HTTP `platform-port-v1`）、PostgreSQL 持久真值、AccountWorld 保留、注册策略 profile、launch 端口、`LumioServer/account-server/` 退役；部分取代 ADR-054 | Draft |
 | [ADR-062](ADR-062-voxel-world-public-contract.md) | 体素公共语义改从 `lumio.voxel-world.v1` 取：三层分层与 Section 改名、规范键元数防呆、32 位 BlockId 与段表、材质类、载荷四编码（含 Delta）、物理查询三态、光照不入载荷；作废 ADR-024/035/036 的 16³-叫-chunk 分层语义 | Draft |
+| [ADR-063](ADR-063-architecture-review-owner-rulings-identity-persist-prediction.md) | 2026-09-05 架构评审 Owner 裁决：世界模型强约束（体素 / 实体两种、GAS 是组件）、客户端三态与销毁原因、占段发号、帧内读写规则与 `tick.md`、共享文件普通字段放开、存档记账一本（`Scope.None`）、预测按 GAS 原文只补包级 `appliedInputSequence`、可见性变化补发 / 失效、验收切片改为炸弹人战斗；修订 ADR-058 / 060 | Draft |
 
 旧制度的 `DECISIONS_PENDING` 待决台账已随 `docs/` 一并删除（见 git 历史）；Living Architecture 下未定项直接落 ADR 或任务卡，不再另设台账。
 

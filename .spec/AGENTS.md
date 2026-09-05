@@ -12,6 +12,7 @@
 - 当前主线是预上线 Living Architecture；本仓同时拥有 SDK 组装、Native 聚合、共享 Loader 和架构说明。
 - 开发态公共语义变更先在唯一 ABI/API 定义和可运行 Host 中验证；不要求 Baseline、八仓镜像或全量 Fixture。
 - 全仓文档只有一个根 `.spec/`：设计现状落 `knowledge/features/`（活文档，文件名不带日期），计划落 `plans/`、审查与裁决流水落 `reviews/`（某天的记录，文件名带日期前缀），决策落 `decisions/`，在途任务落 `tasks/`。`docs/` 已废止，唯一例外是仓根 `docs/adr/` 作为 `.spec/decisions` 的 git mode 120000 镜像（spec-lint 8b）。
+- **世界模型强约束**（世界只有体素与实体两种；GAS 是实体上的组件）在 [`rules/system.md`](rules/system.md)「世界模型」一节，每次 init 强制载入；任何设计与需求先过它。
 - 开工前先读 [`repository-architecture.md`](knowledge/standards/repository-architecture.md)；规范入口见根 [`README.md`](../README.md)，决策入口见 [`decisions/README.md`](decisions/README.md)。
 
 ## 调度核心

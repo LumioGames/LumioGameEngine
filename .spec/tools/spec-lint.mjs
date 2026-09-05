@@ -26,6 +26,11 @@
  * 8c. ADR 状态枚举:decisions/ 下每条 ADR 前 12 行内必须有状态行,取值只能是
  *     Historical / Draft / Accepted / Reserved / Superseded / 生效 / 废止
  *     (写法两收:`- **Status**: X` 或 `- 状态：X`;nativecore/ 子命名空间用中文写法)。
+ * 8d. Draft ADR 兼容影响回指:decisions/ 根目录下状态为 Draft 的 ADR,其「## 兼容影响」段点名的
+ *     knowledge/features|standards 文档(全路径,或反引号裸名如 `gas.md`)必须存在且正文含该 ADR 编号(否则 = ADR 落了、文档没改,
+ *     worker 拿到的还是旧规矩;ADR-060 列的 ecs.md 改写拖到 R5-01 就是先例)。写法约定:
+ *     兼容影响只点名**改了**的文档,「不动」的不要写文件名(写了同样要求回指);校验是单向的,
+ *     「改了但没点名」靠 reviewer。
  *  9. 任务卡 frontmatter:.spec/tasks/ 根目录每张卡(README 除外)必须有 frontmatter,
  *     且只允许 status 字段,枚举 pending / in_progress / completed(契约见 tasks/README.md);
  *     子目录不校验。
@@ -151,6 +156,35 @@ if (existsSync(decisionsDir)) {
     : new Set()
   for (const file of walk(decisionsDir, (p) => p.endsWith('.md') && basename(p) !== 'README.md')) {
     if (!adrLinks.has(file)) err(file, '未登记进 decisions/README.md 索引')
+  }
+}
+
+// ── 8d. Draft ADR 兼容影响 → 被点名的知识文档必须回指该 ADR ──────────────
+if (existsSync(decisionsDir)) {
+  for (const file of walk(decisionsDir, (p) => p.endsWith('.md') && basename(p) !== 'README.md')) {
+    if (relative(decisionsDir, file).includes(sep)) continue // nativecore/ 子命名空间不校验
+    const adrId = basename(file).match(/^(ADR-\d{3})/)?.[1]
+    if (!adrId) continue
+    const text = readFileSync(file, 'utf8')
+    const head = text.split('\n').slice(0, 12).join('\n')
+    if (!/^(?:- \*\*Status\*\*:|状态：)\s*Draft/m.test(head)) continue
+    const section = text.match(/^## 兼容影响[^\n]*\n([\s\S]*?)(?=^## |(?![\s\S]))/m)?.[1]
+    if (!section) continue // 没有该段的旧 Draft(ADR-050 / 051)不在本项校验范围
+    // 全路径点名严格校验;反引号里的裸名(`gas.md`)按 features → standards → knowledge 根解析,解析不到的裸名视为非知识文档(ADR / 计划)忽略
+    const targets = new Map()
+    for (const m of section.matchAll(/knowledge\/(?:features|standards)\/[\w.-]+\.md/g)) targets.set(m[0], { target: join(SPEC, m[0]), strict: true })
+    for (const m of section.matchAll(/`([\w-]+\.md)`/g)) {
+      const bare = m[1]
+      if (bare === 'README.md') continue
+      const hit = ['features', 'standards', ''].map((d) => join(knowledgeDir, d, bare)).find((p) => existsSync(p))
+      if (hit && !targets.has(relative(SPEC, hit))) targets.set(relative(SPEC, hit), { target: hit, strict: false })
+    }
+    for (const [rel, { target, strict }] of targets) {
+      if (!existsSync(target)) { if (strict) err(file, `兼容影响点名的文档不存在:${rel}`); continue }
+      if (!readFileSync(target, 'utf8').includes(adrId)) {
+        err(target, `被 ${adrId}「兼容影响」点名,但正文未回指 ${adrId}(ADR 落了、文档没改)`)
+      }
+    }
   }
 }
 

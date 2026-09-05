@@ -13,7 +13,7 @@ metadata:
 
 ## 分支策略
 
-- `main` 是发布给八个实现仓库的架构基线；Architecture Policy 在 `push` 与 `pull_request` 到 `main` 时执行。
+- `main` 是发布给八个实现仓库（第八仓自 [ADR-061](../../decisions/ADR-061-lumioplatform-repository-and-account-authority.md) 起）的架构基线；Architecture Policy 在 `push` 与 `pull_request` 到 `main` 时执行。
 - 架构与公共契约改动使用短生命周期分支并经 PR 合入 `main`；push/PR 等对外发布动作仍受 [`rules/system.md`](../../rules/system.md) 的确认要求约束。
 - 多文件契约变更按 ADR -> Schema/ID -> 正向/失败 Fixture -> README/基线 -> 实现仓镜像组织，不允许只改镜像或只改生成结果。
 

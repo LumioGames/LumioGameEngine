@@ -120,3 +120,12 @@ RM-00011 r3 深审（`reviews/2026-09-03-rm-00011-r3-owner-review.md`）实测 R
 5. **恢复身份**：`CreateFromSnapshot` 后每个 NetEntityId 可达且不变，新建实体不与档内 id 重号；NetEntityId 高 64 位 = 实例 ID。
 6. **客户端同套 ECS**：Client csproj 引用 Runtime ECS，属性袋与手写声明表不存在；创建记录按 EntityType 建实体，探针确认 Awake → PostAttribute → Start；子类型实体 `TypeOf(id).Is<基类>()` 为 true；改名后其他客户端 `OnNameChanged` 收到 `Sync`、被拒的 owner 收到 `Correction`，owner 自己写不触发。
 7. **事件无历史**：连续 N Tick 聊天后 Runtime 常驻内存不随 Tick 增长；重连只收全量快照。
+
+## 修订记录（2026-09-05，ADR-063）
+
+以下各条的措辞由 [ADR-063](ADR-063-architecture-review-owner-rulings-identity-persist-prediction.md) 修订，本文正文不改写：
+
+- 第 1 条「未标注的普通字段 = 什么都不做」保留；但 `[Persist]` 不再可打在普通字段上——要存档的字段一律 `Sync<T>`，不上网写 `Scope.None`（ADR-063 第 6 条）。
+- 第 5 条「共享文件里只许 Sync 字段」放开：共享文件允许不上网的普通字段；lint 改查「共享普通字段是否只在 `.Server.cs` 或只在 `.Client.cs` 被赋值」（ADR-063 第 5 条）。
+- 第 7 条「脏记账 = `Sync<T>`」保留，且成为唯一记账：复制与存档两条投影读同一本账，「没人看不记账」改为「没人看不打包」（ADR-063 第 6 条）。
+- 第 14 条「`[Persist] AccountId`（Server.cs）」与第 15 条「私有字段 = 不是 `Sync<T>` 的普通字段…存档打 `[Persist]`」：普通字段不再可打 `[Persist]`；`AccountId` 等只存档不上网的字段写成 `[Persist] Sync<…>(Scope.None)`，仍放 `.Server.cs`（ADR-063 第 6 条）。
