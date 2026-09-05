@@ -60,7 +60,10 @@ public sealed class NativeEngineLease : IDisposable
     private readonly nint _library;
     private readonly nint _ping;
     private readonly NativeEngineLoader.RootApi _api;
+    private readonly object _gate = new();
+    private int _activeNativeTokens;
     private bool _disposed;
+    private bool _libraryReleased;
 
     internal NativeEngineLease(
         nint library,
@@ -87,6 +90,17 @@ public sealed class NativeEngineLease : IDisposable
 
     internal NativeEngineLoader.RootApi Api => _api;
 
+    internal int ActiveNativeTokenCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _activeNativeTokens;
+            }
+        }
+    }
+
     public Lumio.Engine.SDK.NativeVoxelWorld CreateVoxelWorld(nint world)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -95,7 +109,39 @@ public sealed class NativeEngineLease : IDisposable
     }
 
     internal void ThrowIfDisposed()
-        => ObjectDisposedException.ThrowIf(_disposed, this);
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+        }
+    }
+
+    internal void RetainNativeToken()
+    {
+        lock (_gate)
+        {
+            if (_disposed || _libraryReleased)
+            {
+                throw new ObjectDisposedException(nameof(NativeEngineLease));
+            }
+
+            _activeNativeTokens++;
+        }
+    }
+
+    internal void ReleaseNativeToken()
+    {
+        lock (_gate)
+        {
+            if (_activeNativeTokens == 0)
+            {
+                return;
+            }
+
+            _activeNativeTokens--;
+            ReleaseLibraryIfReady();
+        }
+    }
 
     public void Ping()
     {
@@ -121,12 +167,26 @@ public sealed class NativeEngineLease : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            ReleaseLibraryIfReady();
+        }
+    }
+
+    private void ReleaseLibraryIfReady()
+    {
+        if (!_disposed || _activeNativeTokens != 0 || _libraryReleased)
         {
             return;
         }
 
-        _disposed = true;
+        _libraryReleased = true;
         if (_library != 0)
         {
             NativeLibrary.Free(_library);

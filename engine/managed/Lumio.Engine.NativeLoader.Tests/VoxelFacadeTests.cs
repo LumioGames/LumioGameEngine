@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using Sdk = Lumio.Engine.SDK;
 using Xunit;
 
@@ -9,9 +10,13 @@ public sealed class VoxelFacadeTests
     private static readonly Sdk.VoxelReadCellFn ReadCell = ReadCellImpl;
     private static readonly Sdk.VoxelReadBatchFn ReadBatch = ReadBatchImpl;
     private static readonly Sdk.VoxelPrepareFn Prepare = PrepareImpl;
+    private static readonly Sdk.VoxelPrepareFn PrepareWaitsForLeaseDispose = PrepareWaitsForLeaseDisposeImpl;
     private static readonly Sdk.VoxelCommitFn Commit = CommitImpl;
     private static readonly Sdk.VoxelAbortFn Abort = AbortImpl;
     private static readonly Sdk.VoxelRevisionFn Revision = RevisionImpl;
+    private static int AbortCalls;
+    private static ManualResetEventSlim? PrepareEntered;
+    private static ManualResetEventSlim? LeaseDisposed;
 
     [Fact]
     public void CellReadPreservesPendingPresenceWithoutInventingAir()
@@ -76,6 +81,106 @@ public sealed class VoxelFacadeTests
     }
 
     [Fact]
+    public void LateTokenDisposeAbortsAfterLeaseDisposeAndReleasesLeaseReference()
+    {
+        AbortCalls = 0;
+        var lease = CreateLease(CreateApi(
+            blockWritePrepare: Pointer(Prepare),
+            blockWriteAbort: Pointer(Abort)));
+        var world = lease.CreateVoxelWorld((nint)0x1240);
+        var token = world.PrepareWrite(43, Array.Empty<Sdk.VoxelBlockWriteEntry>());
+
+        lease.Dispose();
+
+        token.Dispose();
+        token.Dispose();
+
+        Assert.True(token.IsCompleted);
+        Assert.Equal(1, AbortCalls);
+        Assert.Equal(0, lease.ActiveNativeTokenCount);
+    }
+
+    [Fact]
+    public async Task PrepareRetainsLeaseBeforeConcurrentDisposeCanUnloadNativeLibrary()
+    {
+        AbortCalls = 0;
+        using var prepareEntered = new ManualResetEventSlim(false);
+        using var leaseDisposed = new ManualResetEventSlim(false);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        PrepareEntered = prepareEntered;
+        LeaseDisposed = leaseDisposed;
+        NativeEngineLease? lease = null;
+        try
+        {
+            lease = CreateLease(CreateApi(
+                blockWritePrepare: Pointer(PrepareWaitsForLeaseDispose),
+                blockWriteAbort: Pointer(Abort)));
+            var world = lease.CreateVoxelWorld((nint)0x1244);
+            var prepareTask = Task.Run(
+                () => world.PrepareWrite(46, Array.Empty<Sdk.VoxelBlockWriteEntry>()),
+                cancellationToken);
+
+            Assert.True(prepareEntered.Wait(TimeSpan.FromSeconds(5), cancellationToken));
+            var disposeTask = Task.Run(
+                () =>
+                {
+                    lease.Dispose();
+                    leaseDisposed.Set();
+                },
+                cancellationToken);
+            Assert.True(leaseDisposed.Wait(TimeSpan.FromSeconds(5), cancellationToken));
+            await disposeTask;
+
+            using var token = await prepareTask;
+            Assert.False(token.IsCompleted);
+            Assert.Equal(1, lease.ActiveNativeTokenCount);
+            token.Dispose();
+            Assert.Equal(1, AbortCalls);
+            Assert.Equal(0, lease.ActiveNativeTokenCount);
+            Assert.True(disposeTask.IsCompletedSuccessfully);
+        }
+        finally
+        {
+            PrepareEntered = null;
+            LeaseDisposed = null;
+            lease?.Dispose();
+        }
+    }
+
+    [Fact]
+    public void ForgottenTokenIsAbortedBySafeHandleFinalization()
+    {
+        AbortCalls = 0;
+        var weakToken = CreateForgottenToken();
+        for (var attempt = 0; attempt < 20 && weakToken.IsAlive; attempt++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            Thread.Sleep(10);
+        }
+
+        Assert.False(weakToken.IsAlive);
+        Assert.Equal(1, AbortCalls);
+    }
+
+    [Fact]
+    public void TokenCannotCrossVoxelWorldOwnershipBoundary()
+    {
+        AbortCalls = 0;
+        using var lease = CreateLease(CreateApi(
+            blockWritePrepare: Pointer(Prepare),
+            blockWriteAbort: Pointer(Abort)));
+        var first = lease.CreateVoxelWorld((nint)0x1241);
+        var second = lease.CreateVoxelWorld((nint)0x1242);
+        using var token = first.PrepareWrite(44, Array.Empty<Sdk.VoxelBlockWriteEntry>());
+
+        Assert.Throws<ArgumentException>(() => second.Abort(token));
+        Assert.False(token.IsCompleted);
+        Assert.Equal(1, lease.ActiveNativeTokenCount);
+    }
+
+    [Fact]
     public void SectionRevisionQueryPreservesNativePresenceAndRevision()
     {
         var api = CreateApi();
@@ -96,6 +201,18 @@ public sealed class VoxelFacadeTests
             Assert.True(Sdk.VoxelErrorCodeMap.TryMap(status, out var code), $"status {status}");
             Assert.Equal(status, Sdk.VoxelErrorCodeMap.ToStatus(code));
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateForgottenToken()
+    {
+        var lease = CreateLease(CreateApi(
+            blockWritePrepare: Pointer(Prepare),
+            blockWriteAbort: Pointer(Abort)));
+        var world = lease.CreateVoxelWorld((nint)0x1243);
+        var token = world.PrepareWrite(45, Array.Empty<Sdk.VoxelBlockWriteEntry>());
+        lease.Dispose();
+        return new WeakReference(token);
     }
 
     private static NativeEngineLease CreateLease(NativeEngineLoader.RootApi api)
@@ -180,6 +297,18 @@ public sealed class VoxelFacadeTests
         return 0;
     }
 
+    private static int PrepareWaitsForLeaseDisposeImpl(nint _, ulong __, nint ___, uint ____, out nint token)
+    {
+        token = (nint)0x9a;
+        PrepareEntered?.Set();
+        if (LeaseDisposed is null || !LeaseDisposed.Wait(TimeSpan.FromSeconds(5)))
+        {
+            throw new TimeoutException("The lease was not disposed while native prepare was in flight.");
+        }
+
+        return 0;
+    }
+
     private static int CommitImpl(nint _, nint __, nint receipts, uint capacity, nint count)
     {
         Marshal.WriteInt32(count, 1);
@@ -196,7 +325,11 @@ public sealed class VoxelFacadeTests
         return 0;
     }
 
-    private static int AbortImpl(nint _, nint __) => 0;
+    private static int AbortImpl(nint _, nint __)
+    {
+        Interlocked.Increment(ref AbortCalls);
+        return 0;
+    }
 
     private static int RevisionImpl(nint _, nint __, nint result)
     {

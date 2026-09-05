@@ -470,6 +470,119 @@ fn residency_slots_route_to_the_paired_pin_manager() {
 }
 
 #[test]
+fn ready_pin_rejects_later_pending_and_unavailable_abi_reads() {
+    let mut provider = NativeVoxelProvider::new();
+    provider.seed_ready_section(VoxelSectionKey::new(0, 0, 0), 12, 1);
+    let mut table = std::ptr::null();
+    assert_eq!(
+        unsafe { lumio_engine_get_api_v1(1, &mut table) },
+        LumioStatus::Success as i32
+    );
+    let table = unsafe { &*table };
+    let key = VoxelSectionKey::new(0, 0, 0);
+    let mut pin = std::ptr::null_mut();
+    assert_eq!(
+        unsafe {
+            (table.residency_pin_declare.unwrap())(provider.as_opaque_ptr(), &key, 1, 1, &mut pin)
+        },
+        LumioStatus::Success as i32
+    );
+
+    let coordinate = VoxelWorldCoordinate::new(0, 1, 0);
+    let mut cell = VoxelBlockReadCellResult::default();
+    provider.seed_pending_section(key, 13);
+    assert_eq!(
+        unsafe {
+            (table.block_read_cell.unwrap())(provider.as_opaque_ptr(), &coordinate, &mut cell)
+        },
+        1048
+    );
+
+    let request = VoxelBoxRequest::new(coordinate, coordinate);
+    let mut cells = [VoxelBlockReadResult::default(); 1];
+    let mut cell_count = 0;
+    let mut segments = [Default::default(); 1];
+    let mut segment_count = 0;
+    let mut truncated = 0;
+    assert_eq!(
+        unsafe {
+            (table.block_read_box.unwrap())(
+                provider.as_opaque_ptr(),
+                (&request as *const VoxelBoxRequest).cast(),
+                cells.as_mut_ptr(),
+                1,
+                &mut cell_count,
+                segments.as_mut_ptr(),
+                1,
+                &mut segment_count,
+                &mut truncated,
+            )
+        },
+        1048
+    );
+
+    provider.seed_unavailable_section(key, 14);
+    assert_eq!(
+        unsafe {
+            (table.block_read_cell.unwrap())(provider.as_opaque_ptr(), &coordinate, &mut cell)
+        },
+        1048
+    );
+    assert_eq!(
+        unsafe { (table.residency_pin_release.unwrap())(provider.as_opaque_ptr(), pin) },
+        LumioStatus::Success as i32
+    );
+}
+
+#[test]
+fn pending_pin_remains_explicit_before_ready() {
+    let mut provider = NativeVoxelProvider::new();
+    let key = VoxelSectionKey::new(0, 0, 0);
+    provider.seed_pending_section(key, 12);
+    let mut table = std::ptr::null();
+    assert_eq!(
+        unsafe { lumio_engine_get_api_v1(1, &mut table) },
+        LumioStatus::Success as i32
+    );
+    let table = unsafe { &*table };
+    let mut pin = std::ptr::null_mut();
+    assert_eq!(
+        unsafe {
+            (table.residency_pin_declare.unwrap())(provider.as_opaque_ptr(), &key, 1, 1, &mut pin)
+        },
+        LumioStatus::Success as i32
+    );
+    let mut pin_status = lumio_engine_native::VoxelPinStatus {
+        ready: 1,
+        _reserved: [0; 7],
+        section_count: 0,
+        ready_section_count: 1,
+    };
+    assert_eq!(
+        unsafe {
+            (table.residency_pin_status.unwrap())(provider.as_opaque_ptr(), pin, &mut pin_status)
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(pin_status.ready, 0);
+
+    let coordinate = VoxelWorldCoordinate::new(0, 1, 0);
+    let mut result = VoxelBlockReadCellResult::default();
+    assert_eq!(
+        unsafe {
+            (table.block_read_cell.unwrap())(provider.as_opaque_ptr(), &coordinate, &mut result)
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(result.presence, VoxelPresence::Pending);
+    assert_eq!(result.has_block_id, 0);
+    assert_eq!(
+        unsafe { (table.residency_pin_release.unwrap())(provider.as_opaque_ptr(), pin) },
+        LumioStatus::Success as i32
+    );
+}
+
+#[test]
 fn block_write_abort_releases_the_paired_mutation_reservation() {
     let mut provider = NativeVoxelProvider::new();
     provider.seed_ready_section(VoxelSectionKey::new(0, 0, 0), 12, 1);

@@ -90,7 +90,6 @@ pub struct NativeVoxelProvider {
     sections: BTreeMap<SectionKey, SectionState>,
     prepared: BTreeMap<usize, Box<PreparedToken>>,
     transactions: BTreeMap<u64, usize>,
-    pins: RegionPinManager,
     pin_tokens: BTreeMap<usize, Box<PinToken>>,
     next_query_id: u64,
 }
@@ -117,6 +116,10 @@ impl NativeVoxelProvider {
             snapshot,
         )
         .expect("approved paired VoxelEngine snapshot must create a world");
+        world.set_region_pin_manager(RegionPinManager::from_budget(PinBudget::new(
+            usize::MAX,
+            usize::MAX,
+        )));
         drive_lifecycle(&mut world);
         Self {
             world,
@@ -124,7 +127,6 @@ impl NativeVoxelProvider {
             sections: BTreeMap::new(),
             prepared: BTreeMap::new(),
             transactions: BTreeMap::new(),
-            pins: RegionPinManager::from_budget(PinBudget::new(usize::MAX, usize::MAX)),
             pin_tokens: BTreeMap::new(),
             next_query_id: 1,
         }
@@ -183,8 +185,24 @@ impl NativeVoxelProvider {
         let key = SectionKey::from_abi(key).expect("seed key must be canonical");
         self.sections.insert(key, state);
         self.rebuild_block_world();
-        self.publish_section(key)
-            .expect("seed publication through paired VoxelEngine must succeed");
+        // The seed helpers also model a residency update that may be rejected by the
+        // world publication transition (for example Ready -> Pending after a pin is
+        // ready). Keep the caller-buffer source at the attempted state so the ABI
+        // guard proves that such a stale/missing result is rejected rather than leaked.
+        if let Err(error) = self.publish_section(key) {
+            let attempted_missing = self.sections.get(&key).is_some_and(|state| {
+                matches!(
+                    state.presence,
+                    VoxelPresence::Pending | VoxelPresence::Unavailable
+                )
+            }) && self
+                .world
+                .region_pin_manager()
+                .is_some_and(|manager| manager.validate_presence(&key.id(), "Pending").is_err());
+            if !attempted_missing {
+                panic!("seed publication through paired VoxelEngine must succeed: {error}");
+            }
+        }
     }
 
     fn rebuild_block_world(&mut self) {
@@ -258,17 +276,26 @@ impl NativeVoxelProvider {
         coordinate: VoxelWorldCoordinate,
     ) -> Result<VoxelBlockReadResult, &'static str> {
         let mut block_id = None;
-        let result = self
-            .block_world
-            .read_cell_into(
+        let result = if let Some(manager) = self.world.region_pin_manager() {
+            self.block_world.read_cell_into_with_presence_guard(
+                coordinate.x,
+                i64::from(coordinate.y),
+                coordinate.z,
+                &mut block_id,
+                manager,
+            )
+        } else {
+            self.block_world.read_cell_into(
                 coordinate.x,
                 i64::from(coordinate.y),
                 coordinate.z,
                 &mut block_id,
             )
-            .map_err(|error| error.error_id())?;
+        }
+        .map_err(|error| error.error_id())?;
+        let presence = parse_presence(result.presence())?;
         Ok(VoxelBlockReadResult {
-            presence: parse_presence(result.presence())?,
+            presence,
             has_block_id: u8::from(block_id.is_some()),
             _reserved: [0; 3],
             block_id: block_id.map_or(0, BlockId::raw),
@@ -746,6 +773,18 @@ unsafe fn batch_read(
         if let Err(error) = provider.ensure_world_query_range(min, max) {
             return status_for_error(error);
         }
+        // Validate the complete immutable source before invoking callbacks so a rejected
+        // ready-pin read cannot expose a partial caller-buffer result.
+        if let Some(manager) = provider.world.region_pin_manager() {
+            let guarded = provider.block_world.read_box_with_presence_guard(
+                (min.x, i64::from(min.y), min.z),
+                (max.x, i64::from(max.y), max.z),
+                manager,
+            );
+            if let Err(error) = guarded {
+                return status_for_error(error.error_id());
+            }
+        }
 
         let cell_limit = cell_capacity as usize;
         let segment_limit = segment_capacity as usize;
@@ -1219,17 +1258,32 @@ pub unsafe extern "C" fn residency_pin_declare(
             Ok(ids) => ids,
             Err(error) => return status_for_error(error),
         };
-        let id = match provider
-            .pins
+        let ready = {
+            let view = provider.world.publication_authority().capture();
+            ids.iter().all(|section_id| {
+                view.directory()
+                    .lookup(section_id)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|slot| slot.presence() == "Ready")
+            })
+        };
+        let manager = match provider.world.region_pin_manager_mut() {
+            Some(manager) => manager,
+            None => return LumioStatus::InvalidArgument as i32,
+        };
+        let id = match manager
             .declare_pin_with_budget(ids, PinBudget::new(budget as usize, budget as usize))
         {
             Ok(id) => id,
             Err(error) => return status_for_error(error.error_id()),
         };
+        if ready {
+            let _ = manager.mark_ready(id);
+        }
         let mut token = Box::new(PinToken { id });
         let address = (&mut *token) as *mut PinToken as usize;
         provider.pin_tokens.insert(address, token);
-        let _ = provider.pins.mark_ready_from_world(id, &provider.world);
         unsafe { out_pin.write(address as *mut c_void) };
         LumioStatus::Success as i32
     })
@@ -1249,7 +1303,11 @@ pub unsafe extern "C" fn residency_pin_release(world: *mut c_void, pin: *mut c_v
             Some(token) => token.id,
             None => return LumioStatus::InvalidArgument as i32,
         };
-        match provider.pins.release_pin(id) {
+        let manager = match provider.world.region_pin_manager_mut() {
+            Some(manager) => manager,
+            None => return LumioStatus::InvalidArgument as i32,
+        };
+        match manager.release_pin(id) {
             Ok(()) => {
                 provider.pin_tokens.remove(&address);
                 LumioStatus::Success as i32
@@ -1276,12 +1334,15 @@ pub unsafe extern "C" fn residency_pin_status(
             Some(token) => token.id,
             None => return LumioStatus::InvalidArgument as i32,
         };
-        let status = match provider.pins.status(id) {
+        let manager = match provider.world.region_pin_manager() {
+            Some(manager) => manager,
+            None => return LumioStatus::InvalidArgument as i32,
+        };
+        let status = match manager.status(id) {
             Ok(status) => status,
             Err(error) => return status_for_error(error.error_id()),
         };
-        let ready_count = provider
-            .pins
+        let ready_count = manager
             .sections(id)
             .map(|sections| {
                 sections

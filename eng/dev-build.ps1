@@ -44,10 +44,43 @@ $buildId = $sourceSha256.Substring(0, 32)
 $abiPath = Join-Path $root 'engine\abi\native-abi.json'
 $abiSha256 = (Get-FileHash -LiteralPath $abiPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $targetDir = Join-Path $root '.build\native-target'
+$workspaceDir = Join-Path $root '.build\native-workspace'
 $env:LUMIO_BUILD_ID = $buildId
 $env:LUMIO_ABI_HASH = $abiSha256
 
-$cargoArgs = @('--manifest-path', (Join-Path $root 'engine\native\Cargo.toml'), '-p', 'lumio-engine-native', '--target-dir', $targetDir)
+# sdk-native's checked-in manifest is intentionally repository-relative because it
+# is consumed by the architecture checkout. Build in an ephemeral workspace so
+# caller-supplied dependency roots are authoritative without rewriting either
+# repository's source contracts.
+if (Test-Path -LiteralPath $workspaceDir) {
+    Remove-Item -LiteralPath $workspaceDir -Recurse -Force
+}
+New-Item -ItemType Directory -Force -Path $workspaceDir | Out-Null
+$nativeSourceRoot = Join-Path $root 'engine\native'
+$excludedWorkspacePath = '\\(target|\.git|\.build|\.run)(\\|$)'
+Get-ChildItem -LiteralPath $nativeSourceRoot -Recurse -File |
+    Where-Object { $_.FullName -notmatch $excludedWorkspacePath } |
+    ForEach-Object {
+        $relative = $_.FullName.Substring($nativeSourceRoot.Length + 1)
+        $destination = Join-Path $workspaceDir $relative
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+        Copy-Item -LiteralPath $_.FullName -Destination $destination -Force
+    }
+
+$sdkManifest = Join-Path $workspaceDir 'modules\sdk-native\Cargo.toml'
+$utf8 = [System.Text.UTF8Encoding]::new($false)
+$sdkManifestText = [System.IO.File]::ReadAllText($sdkManifest, $utf8)
+$nativeCoreCargoRoot = $nativeCoreRoot.Replace('\', '/')
+$voxelCargoRoot = $voxelRoot.Replace('\', '/')
+$sdkManifestText = $sdkManifestText -replace 'lumio-kernel = \{ path = "[^"]+" \}', ('lumio-kernel = { path = "' + $nativeCoreCargoRoot + '/crates/lumio-kernel" }')
+$sdkManifestText = $sdkManifestText -replace 'lumio-voxel-world = \{ path = "[^"]+" \}', ('lumio-voxel-world = { path = "' + $voxelCargoRoot + '/crates/lumio-voxel-world" }')
+$sdkManifestText = $sdkManifestText -replace 'lumio-voxel-domain = \{ path = "[^"]+" \}', ('lumio-voxel-domain = { path = "' + $voxelCargoRoot + '/crates/lumio-voxel-domain" }')
+$sdkManifestText = $sdkManifestText -replace 'lumio-voxel-ops = \{ path = "[^"]+" \}', ('lumio-voxel-ops = { path = "' + $voxelCargoRoot + '/crates/lumio-voxel-ops" }')
+$sdkManifestText = $sdkManifestText -replace 'lumio-voxel-contracts = \{ path = "[^"]+" \}', ('lumio-voxel-contracts = { path = "' + $voxelCargoRoot + '/crates/lumio-voxel-contracts" }')
+$sdkManifestText = $sdkManifestText -replace 'lumio-timer = \{ path = "[^"]+" \}', ('lumio-timer = { path = "' + $nativeCoreCargoRoot + '/crates/lumio-timer" }')
+[System.IO.File]::WriteAllText($sdkManifest, $sdkManifestText, $utf8)
+
+$cargoArgs = @('--manifest-path', (Join-Path $workspaceDir 'Cargo.toml'), '-p', 'lumio-engine-native', '--target-dir', $targetDir)
 if ($Configuration -eq 'release') {
     $cargoArgs += '--release'
 }

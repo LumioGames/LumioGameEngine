@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using Native = Lumio.Engine.NativeLoader;
 
 namespace Lumio.Engine.SDK;
@@ -208,35 +209,155 @@ public sealed class VoxelNativeException : Exception
             : $"Voxel operation '{operation}' failed with native status {status}.";
 }
 
+internal sealed class VoxelWriteTokenHandle : SafeHandleZeroOrMinusOneIsInvalid
+{
+    private readonly Native.NativeEngineLease _lease;
+    private readonly nint _world;
+    private readonly VoxelAbortFn _abort;
+    private int _leaseReferenceReleased;
+
+    internal VoxelWriteTokenHandle(
+        Native.NativeEngineLease lease,
+        nint world,
+        nint token,
+        VoxelAbortFn abort,
+        bool leaseReferenceAlreadyRetained)
+        : base(ownsHandle: true)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        ArgumentNullException.ThrowIfNull(abort);
+        if (token == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(token));
+        }
+
+        _lease = lease;
+        _world = world;
+        _abort = abort;
+        if (!leaseReferenceAlreadyRetained)
+        {
+            _lease.RetainNativeToken();
+        }
+
+        SetHandle(token);
+    }
+
+    internal nint Token
+        => IsInvalid
+            ? throw new ObjectDisposedException(nameof(VoxelWriteToken))
+            : DangerousGetHandle();
+
+    internal void MarkCompleted()
+    {
+        lock (this)
+        {
+            if (IsClosed)
+            {
+                return;
+            }
+
+            SetHandleAsInvalid();
+            ReleaseLeaseReference();
+        }
+    }
+
+    internal int Abort()
+    {
+        lock (this)
+        {
+            if (IsInvalid)
+            {
+                throw new ObjectDisposedException(nameof(VoxelWriteToken));
+            }
+
+            var status = _abort(_world, handle);
+            if (status == 0)
+            {
+                SetHandleAsInvalid();
+                ReleaseLeaseReference();
+            }
+
+            return status;
+        }
+    }
+
+    protected override bool ReleaseHandle()
+    {
+        nint token;
+        lock (this)
+        {
+            token = IsInvalid ? 0 : handle;
+            handle = 0;
+        }
+
+        try
+        {
+            // SafeHandle cleanup must not be blocked by a disposed managed lease.
+            // The lease keeps the native image mapped until this callback returns.
+            if (token != 0)
+            {
+                _abort(_world, token);
+            }
+        }
+        catch
+        {
+            // A finalizer cannot propagate native cleanup failures. The native token
+            // is consumed by the abort attempt and the lease reference is released.
+        }
+        finally
+        {
+            ReleaseLeaseReference();
+        }
+
+        return true;
+    }
+
+    private void ReleaseLeaseReference()
+    {
+        if (Interlocked.Exchange(ref _leaseReferenceReleased, 1) == 0)
+        {
+            _lease.ReleaseNativeToken();
+        }
+    }
+}
+
 public sealed class VoxelWriteToken : IDisposable
 {
     private readonly NativeVoxelWorld _owner;
-    private nint _handle;
+    private readonly VoxelWriteTokenHandle _handle;
 
-    internal VoxelWriteToken(NativeVoxelWorld owner, nint handle)
+    internal VoxelWriteToken(
+        NativeVoxelWorld owner,
+        Native.NativeEngineLease lease,
+        nint world,
+        nint token,
+        VoxelAbortFn abort,
+        bool leaseReferenceAlreadyRetained)
     {
         _owner = owner;
-        _handle = handle;
+        _handle = new VoxelWriteTokenHandle(lease, world, token, abort, leaseReferenceAlreadyRetained);
     }
 
-    public bool IsCompleted => _handle == 0;
+    public bool IsCompleted => _handle.IsClosed;
 
     internal nint Handle
-        => _handle == 0 ? throw new ObjectDisposedException(nameof(VoxelWriteToken)) : _handle;
+        => _handle.Token;
 
-    internal void MarkCompleted() => _handle = 0;
+    internal void MarkCompleted() => _handle.MarkCompleted();
+
+    internal void Abort()
+    {
+        var status = _handle.Abort();
+        if (status != 0)
+        {
+            throw new VoxelNativeException(status, nameof(NativeVoxelWorld.Abort));
+        }
+    }
 
     internal bool IsOwnedBy(NativeVoxelWorld owner) => ReferenceEquals(_owner, owner);
 
     public void Dispose()
-    {
-        if (_handle == 0)
-        {
-            return;
-        }
-
-        _owner.Abort(this);
-    }
+        => _handle.Dispose();
 }
 
 public sealed class NativeVoxelWorld
@@ -364,14 +485,55 @@ public sealed class NativeVoxelWorld
             }
 
             var prepare = GetDelegate<VoxelPrepareFn>(_api.BlockWritePrepare, nameof(_api.BlockWritePrepare));
-            var status = prepare(_world, transactionId, entryPtr, checked((uint)entries.Length), out var token);
-            ThrowIfFailed(status, nameof(PrepareWrite));
-            if (token == 0)
+            var abort = GetDelegate<VoxelAbortFn>(_api.BlockWriteAbort, nameof(_api.BlockWriteAbort));
+            // Hold the image through native prepare and token-handle construction.
+            // Disposal may mark the lease closed, but cannot unload while retained.
+            _lease.RetainNativeToken();
+            var leaseReferenceTransferred = false;
+            nint token = 0;
+            try
             {
-                throw new InvalidOperationException("Native voxel prepare returned a null token.");
-            }
+                var status = prepare(_world, transactionId, entryPtr, checked((uint)entries.Length), out token);
+                ThrowIfFailed(status, nameof(PrepareWrite));
+                if (token == 0)
+                {
+                    throw new InvalidOperationException("Native voxel prepare returned a null token.");
+                }
 
-            return new VoxelWriteToken(this, token);
+                var writeToken = new VoxelWriteToken(
+                    this,
+                    _lease,
+                    _world,
+                    token,
+                    abort,
+                    leaseReferenceAlreadyRetained: true);
+                leaseReferenceTransferred = true;
+                return writeToken;
+            }
+            catch
+            {
+                if (token != 0)
+                {
+                    try
+                    {
+                        abort(_world, token);
+                    }
+                    catch
+                    {
+                        // Preserve the prepare/constructor failure while making the
+                        // best effort to consume a token that never reached a handle.
+                    }
+                }
+
+                throw;
+            }
+            finally
+            {
+                if (!leaseReferenceTransferred)
+                {
+                    _lease.ReleaseNativeToken();
+                }
+            }
         }
         finally
         {
@@ -431,10 +593,7 @@ public sealed class NativeVoxelWorld
             throw new ArgumentException("The write token belongs to a different voxel world.", nameof(token));
         }
 
-        _lease.ThrowIfDisposed();
-        var abort = GetDelegate<VoxelAbortFn>(_api.BlockWriteAbort, nameof(_api.BlockWriteAbort));
-        ThrowIfFailed(abort(_world, token.Handle), nameof(Abort));
-        token.MarkCompleted();
+        token.Abort();
     }
 
     public VoxelSectionRevisionResult QuerySectionRevision(VoxelSectionKey sectionKey)

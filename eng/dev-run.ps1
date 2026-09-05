@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$KeepRunning
+    [switch]$KeepRunning,
+    [string]$VoxelRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -80,9 +81,17 @@ if ($tomlText -notmatch 'lumio-entity-chat-replay') {
     throw 'BLOCKED: LumioServerRoot does not declare bin lumio-entity-chat-replay.'
 }
 
-$buildOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'dev-build.ps1')
-if ($LASTEXITCODE -ne 0) {
-    throw "dev-build.ps1 failed with exit code $LASTEXITCODE"
+$buildArgs = @()
+if (-not [string]::IsNullOrWhiteSpace($VoxelRoot)) {
+    $buildArgs += @('-VoxelRoot', $VoxelRoot)
+}
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+$buildOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'dev-build.ps1') @buildArgs 2>&1
+$buildExitCode = $LASTEXITCODE
+$ErrorActionPreference = $previousErrorActionPreference
+if ($buildExitCode -ne 0) {
+    throw "dev-build.ps1 failed with exit code $buildExitCode"
 }
 $buildLine = $buildOutput | Where-Object { $_ -like 'NATIVE_PATH=*' } | Select-Object -Last 1
 $nativePath = $buildLine.Substring('NATIVE_PATH='.Length)
