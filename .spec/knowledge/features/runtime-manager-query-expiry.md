@@ -1,12 +1,12 @@
 ---
 name: runtime-manager-query-expiry
-description: Runtime owner-thread expiry, binding resolution, and attribute query controls for the R5 host bridge
+description: Runtime owner-thread expiry, binding resolution, and attribute query controls for the R5 host bridge (ADR-063)
 metadata:
   type: doc
   status: 实施中
 ---
 
-# Runtime Manager Query and Expiry
+# Runtime Manager Query and Expiry (ADR-063)
 
 ## Purpose
 

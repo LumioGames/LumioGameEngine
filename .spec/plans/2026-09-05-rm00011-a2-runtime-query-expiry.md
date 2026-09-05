@@ -33,7 +33,7 @@ metadata:
 **Files:**
 - Modify: `engine/wire/entity-binding-and-query-v1.json`
 - Modify: `.spec/decisions/README.md`
-- Add: `.spec/decisions/ADR-061-rm00011-a2-runtime-query-expiry.md`
+- Add: `.spec/decisions/ADR-063-rm00011-a2-runtime-query-expiry.md`
 - Modify: `.spec/knowledge/README.md`
 - Modify: `.spec/knowledge/features/runtime-manager-controls.md`
 - Add: `.spec/knowledge/features/runtime-manager-query-expiry.md`

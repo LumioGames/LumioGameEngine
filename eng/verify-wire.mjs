@@ -865,6 +865,109 @@ function checkEntityBindingContract(contract, fileName, problems) {
       if (controls.connectionRouting !== 'adapter-callback') problem('runtimeManagerControls.connectionRouting must be adapter-callback');
       if (controls.persistence !== 'none') problem('runtimeManagerControls.persistence must be none');
     }
+    const ownerControls = contract.ownerThreadControls;
+    if (!ownerControls || typeof ownerControls !== 'object' || Array.isArray(ownerControls)) {
+      problem('ownerThreadControls missing');
+    } else {
+      const expectedRequests = {
+        expire: { type: 'ExpireEntityMessage', required: ['requestId', 'netEntityId'], optional: ['connection'] },
+        resolve: { type: 'ResolveBindingMessage', required: ['requestId', 'roomId', 'netEntityId'], optional: ['connectionGeneration', 'connection'] },
+        attribute: { type: 'AttributeQueryMessage', required: ['requestId', 'callerScope', 'roomId', 'netEntityId', 'attributeId'], optional: ['connectionGeneration', 'connection'] },
+      };
+      if (ownerControls.transport !== 'in-process') problem('ownerThreadControls.transport must be in-process');
+      if (ownerControls.messageBaseType !== 'WorldMessage') problem('ownerThreadControls.messageBaseType must be WorldMessage');
+      if (ownerControls.entryPoint !== 'WorldManager.Enqueue') problem('ownerThreadControls.entryPoint must be WorldManager.Enqueue');
+      if (ownerControls.execution !== 'owner-thread-during-Tick') problem('ownerThreadControls.execution must be owner-thread-during-Tick');
+      const requests = ownerControls.requests;
+      if (!requests || typeof requests !== 'object' || Array.isArray(requests)) {
+        problem('ownerThreadControls.requests missing');
+      } else {
+        if (JSON.stringify(Object.keys(requests)) !== JSON.stringify(Object.keys(expectedRequests))) problem('ownerThreadControls.requests must be exactly expire, resolve, attribute');
+        for (const [name, expected] of Object.entries(expectedRequests)) {
+          const request = requests[name];
+          const path = `ownerThreadControls.requests.${name}`;
+          if (!request || typeof request !== 'object' || Array.isArray(request)) { problem(`${path} missing`); continue; }
+          if (request.type !== expected.type) problem(`${path}.type must be ${expected.type}`);
+          if (JSON.stringify(request.required) !== JSON.stringify(expected.required)) problem(`${path}.required must be exactly ${expected.required.join(', ')}`);
+          if (JSON.stringify(request.optional) !== JSON.stringify(expected.optional)) problem(`${path}.optional must be exactly ${expected.optional.join(', ')}`);
+          const declared = request.fields;
+          if (!declared || typeof declared !== 'object' || Array.isArray(declared)) { problem(`${path}.fields missing`); continue; }
+          const expectedFields = [...expected.required, ...expected.optional];
+          if (JSON.stringify(Object.keys(declared)) !== JSON.stringify(expectedFields)) problem(`${path}.fields must cover required and optional fields`);
+          for (const field of Object.keys(declared)) if (!expectedFields.includes(field)) problem(`${path}.fields contains an undeclared field`);
+        }
+      }
+      const expectedResults = {
+        expire: {
+          type: 'ExpireEntityResult', required: ['requestId', 'outcome'], optional: ['code', 'detail'],
+          outcomes: ['accepted', 'tombstoned', 'non_existent', 'request_error'],
+          fields: { requestId: 'string', outcome: 'enum:accepted|tombstoned|non_existent|request_error', code: 'enum:requestErrorCodes', detail: 'string' },
+          shapes: { accepted: ['requestId', 'outcome'], tombstoned: ['requestId', 'outcome'], non_existent: ['requestId', 'outcome'], request_error: ['requestId', 'outcome', 'code', 'detail'] },
+        },
+        resolve: {
+          type: 'ResolveBindingResult', required: ['requestId', 'outcome'], optional: ['binding', 'observedRevision', 'code', 'detail'],
+          outcomes: ['ok', 'non_existent', 'stale_generation', 'invisible', 'unauthorized', 'tombstoned', 'request_error'],
+          fields: { requestId: 'string', outcome: 'enum:ok|outcomeCodes|request_error', binding: 'binding.record', observedRevision: 'u64', code: 'enum:requestErrorCodes', detail: 'string' },
+          shapes: { ok: ['requestId', 'outcome', 'binding', 'observedRevision'], non_existent: ['requestId', 'outcome'], stale_generation: ['requestId', 'outcome'], invisible: ['requestId', 'outcome'], unauthorized: ['requestId', 'outcome'], tombstoned: ['requestId', 'outcome'], request_error: ['requestId', 'outcome', 'code', 'detail'] },
+        },
+        attribute: {
+          type: 'AttributeQueryResult', required: ['requestId', 'outcome'], optional: ['netEntityId', 'roomId', 'attributeId', 'value', 'observedRevision', 'observedTick', 'code', 'detail'],
+          outcomes: ['ok', 'non_existent', 'stale_generation', 'invisible', 'unauthorized', 'tombstoned', 'request_error'],
+          fields: { requestId: 'string', outcome: 'enum:ok|outcomeCodes|request_error', netEntityId: 'net-entity-id', roomId: 'string', attributeId: 'attribute-id', value: 'declared-type', observedRevision: 'u64', observedTick: 'u64', code: 'enum:requestErrorCodes', detail: 'string' },
+          shapes: { ok: ['requestId', 'outcome', 'netEntityId', 'roomId', 'attributeId', 'value', 'observedRevision', 'observedTick'], non_existent: ['requestId', 'outcome'], stale_generation: ['requestId', 'outcome'], invisible: ['requestId', 'outcome'], unauthorized: ['requestId', 'outcome'], tombstoned: ['requestId', 'outcome'], request_error: ['requestId', 'outcome', 'code', 'detail'] },
+        },
+      };
+      const resultList = (actual, expected, path, name) => {
+        if (!Array.isArray(actual) || JSON.stringify(actual) !== JSON.stringify(expected)) { problem(`${path}.${name} must be exactly ${expected.join(', ') || '(none)'}`); return false; }
+        return true;
+      };
+      const records = ownerControls.results?.records;
+      if (!ownerControls.results || typeof ownerControls.results !== 'object' || Array.isArray(ownerControls.results)) problem('ownerThreadControls.results missing');
+      else {
+        if (ownerControls.results.transport !== 'drain.queries') problem('ownerThreadControls.results.transport must be drain.queries');
+        if (ownerControls.results.internal !== true) problem('ownerThreadControls.results.internal must be true');
+        if (!records || typeof records !== 'object' || Array.isArray(records)) problem('ownerThreadControls.results.records missing');
+        else {
+          const names = Object.keys(expectedResults);
+          if (JSON.stringify(Object.keys(records)) !== JSON.stringify(names)) problem('ownerThreadControls.results.records must be exactly expire, resolve, attribute');
+          for (const name of names) {
+            const expected = expectedResults[name];
+            const record = records[name];
+            const path = `ownerThreadControls.results.records.${name}`;
+            if (!record || typeof record !== 'object' || Array.isArray(record)) { problem(`${path} missing`); continue; }
+            if (record.type !== expected.type) problem(`${path}.type must be ${expected.type}`);
+            resultList(record.required, expected.required, path, 'required');
+            resultList(record.optional, expected.optional, path, 'optional');
+            resultList(record.outcomes, expected.outcomes, path, 'outcomes');
+            const expectedFields = [...expected.required, ...expected.optional];
+            if (!record.fields || typeof record.fields !== 'object' || Array.isArray(record.fields)) problem(`${path}.fields missing`);
+            else {
+              if (JSON.stringify(Object.keys(record.fields)) !== JSON.stringify(expectedFields)) problem(`${path}.fields must declare exactly ${expectedFields.join(', ')}`);
+              for (const field of Object.keys(record.fields)) if (!expectedFields.includes(field)) problem(`${path}.fields contains an undeclared field`);
+              for (const [field, type] of Object.entries(expected.fields)) if (record.fields[field] !== type) problem(`${path}.fields.${field} must be ${type}`);
+            }
+            const shapes = record.outcomeShapes;
+            if (!shapes || typeof shapes !== 'object' || Array.isArray(shapes)) problem(`${path}.outcomeShapes missing`);
+            else {
+              if (JSON.stringify(Object.keys(shapes)) !== JSON.stringify(expected.outcomes)) problem(`${path}.outcomeShapes must be exactly the declared outcomes`);
+              for (const outcome of expected.outcomes) {
+                const shape = shapes[outcome];
+                const shapePath = `${path}.outcomeShapes.${outcome}`;
+                if (!shape || typeof shape !== 'object' || Array.isArray(shape)) { problem(`${shapePath} missing`); continue; }
+                resultList(shape.required, expected.shapes[outcome], shapePath, 'required');
+                resultList(shape.optional, [], shapePath, 'optional');
+                if (Object.keys(shape).some((key) => !['required', 'optional'].includes(key))) problem(`${shapePath} contains an undeclared field`);
+                const shapeFields = [...(Array.isArray(shape.required) ? shape.required : []), ...(Array.isArray(shape.optional) ? shape.optional : [])];
+                if (new Set(shapeFields).size !== shapeFields.length) problem(`${shapePath} required/optional must not contain duplicates`);
+                if (shapeFields.some((field) => !expectedFields.includes(field))) problem(`${shapePath} contains an undeclared result field`);
+              }
+            }
+          }
+        }
+      }
+      if (JSON.stringify(ownerControls.hostEntryOperations) !== JSON.stringify(['boot', 'enqueue', 'tick', 'drain', 'snapshot', 'restore'])) problem('ownerThreadControls.hostEntryOperations must be exactly the six HostEntry operations');
+      if (JSON.stringify(ownerControls.c1MessageTypes) !== JSON.stringify(['Welcome', 'WorldChange', 'InputCommand', 'ConnectionSuperseded', 'Error'])) problem('ownerThreadControls.c1MessageTypes must preserve the frozen C-1 message set');
+    }
     const roomId = contract.identityModel?.roomId ?? '';
     if (!roomId.includes('宿主路由键') || !roomId.includes('World Manager') || !roomId.includes('GameWorld')) {
       problem('identityModel.roomId must describe the host routing key (one process / one World Manager / one GameWorld)');
@@ -1633,4 +1736,47 @@ test('C-2 roomId is the host routing key; binding record is IdentityComponent pl
   assert.ok(contract.binding.operations.admit, 'binding.operations.admit missing');
   const { problems } = validateContract(contract, 'entity-binding-and-query-v1.json');
   assert.deepEqual(problems, []);
+});
+
+test('A2 owner-thread controls declare typed requests, internal drain queries, and frozen bridge boundaries', async () => {
+  const contract = await loadBindingContract();
+  const controls = contract.ownerThreadControls;
+  assert.equal(controls.transport, 'in-process');
+  assert.equal(controls.messageBaseType, 'WorldMessage');
+  assert.equal(controls.entryPoint, 'WorldManager.Enqueue');
+  assert.equal(controls.execution, 'owner-thread-during-Tick');
+  assert.deepEqual(Object.keys(controls.requests), ['expire', 'resolve', 'attribute']);
+  assert.deepEqual(controls.requests.expire, {
+    type: 'ExpireEntityMessage',
+    required: ['requestId', 'netEntityId'],
+    optional: ['connection'],
+    fields: { requestId: 'string', netEntityId: 'net-entity-id', connection: 'opaque-connection-ref' },
+  });
+  assert.deepEqual(controls.requests.resolve.required, ['requestId', 'roomId', 'netEntityId']);
+  assert.deepEqual(controls.requests.attribute.required, ['requestId', 'callerScope', 'roomId', 'netEntityId', 'attributeId']);
+  assert.equal(controls.results.transport, 'drain.queries');
+  assert.equal(controls.results.internal, true);
+  assert.deepEqual(controls.results.records.expire.outcomeShapes.request_error.required, ['requestId', 'outcome', 'code', 'detail']);
+  assert.deepEqual(controls.results.records.resolve.outcomeShapes.ok.required, ['requestId', 'outcome', 'binding', 'observedRevision']);
+  assert.deepEqual(controls.results.records.attribute.outcomeShapes.ok.required, ['requestId', 'outcome', 'netEntityId', 'roomId', 'attributeId', 'value', 'observedRevision', 'observedTick']);
+  assert.deepEqual(controls.hostEntryOperations, ['boot', 'enqueue', 'tick', 'drain', 'snapshot', 'restore']);
+  assert.deepEqual(controls.c1MessageTypes, ['Welcome', 'WorldChange', 'InputCommand', 'ConnectionSuperseded', 'Error']);
+  assert.deepEqual(validateContract(contract, 'entity-binding-and-query-v1.json').problems, []);
+});
+
+test('A2 validator rejects undeclared result fields, wrong types, and open bridge expansions', async () => {
+  const contract = await loadBindingContract();
+  const mutations = [
+    ['undeclared result field', (value) => { value.results.records.expire.fields.extra = 'string'; }, 'fields must declare exactly'],
+    ['wrong result field type', (value) => { value.results.records.resolve.fields.binding = 'string'; }, 'fields.binding must be binding.record'],
+    ['wrong result outcome shape', (value) => { value.results.records.attribute.outcomeShapes.ok.required.pop(); }, 'outcomeShapes.ok.required must be exactly'],
+    ['seventh host operation', (value) => { value.hostEntryOperations.push('expire'); }, 'must be exactly the six HostEntry operations'],
+    ['new C-1 frame', (value) => { value.c1MessageTypes.push('QueryResult'); }, 'must preserve the frozen C-1 message set'],
+  ];
+  for (const [label, mutate, expected] of mutations) {
+    const mutated = JSON.parse(JSON.stringify(contract));
+    mutate(mutated.ownerThreadControls);
+    const { problems } = validateContract(mutated, 'entity-binding-and-query-v1.json');
+    assert.ok(problems.some((problem) => problem.includes(expected)), `${label} was accepted: ${problems.join('; ')}`);
+  }
 });

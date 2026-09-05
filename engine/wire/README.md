@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | [`hello-wire-v1.json`](hello-wire-v1.json) | `lumio.hello-wire.v1` | MS-00002 Hello World 最小 WebSocket 契约 | `node eng/verify-hello-wire.mjs` 与 `node --test eng/verify-hello-wire.mjs` 仍有效且必须继续通过 |
 | [`gameplay-command-envelope-v1.json`](gameplay-command-envelope-v1.json) | `lumio.gameplay-envelope.v1` | RM-00011 C-1 通用玩法命令信封 + Chat 映射（ADR-049） | 由 `eng/verify-wire.mjs` 执行内嵌正反例 |
-| [`entity-binding-and-query-v1.json`](entity-binding-and-query-v1.json) | `lumio.entity-binding-query.v1` | RM-00011 C-2 连接绑定与 Attribute Query（ADR-053） | 由 `eng/verify-wire.mjs` 做结构/码表/声明级用例 |
+| [`entity-binding-and-query-v1.json`](entity-binding-and-query-v1.json) | `lumio.entity-binding-query.v1` | RM-00011 C-2 连接绑定与 Attribute Query（ADR-053、ADR-063 owner-thread controls） | 由 `eng/verify-wire.mjs` 做结构/码表/声明级用例 |
 | [`account-port-v1.json`](account-port-v1.json) | `lumio.account-port.v1` | RM-00011 C-3 Account Port / Bot 凭证 / 顶号（ADR-054） | 由 `eng/verify-wire.mjs` 做结构/码表/声明级用例 |
 | [`native-timer-abi-v1.json`](native-timer-abi-v1.json) | `lumio.native-timer-abi.v1` | RM-00011 C-4 Native Timer ABI 与双层定时（ADR-055） | 由 `eng/verify-wire.mjs` 做结构/码表/声明级用例 |
 
