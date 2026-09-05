@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-064-gas-slice-contracts.md

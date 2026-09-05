@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-062-voxel-world-public-contract.md

@@ -55,9 +55,10 @@ LumioGame
 | `LumioNativeCore` | Domain-agnostic Rust kernel, handles, errors, capabilities, memory, jobs | Voxel, ECS, gameplay, networking, hosts |
 | `LumioVoxelEngine` | VoxelWorld, chunks, revisions, mutations, streaming, snapshots | Gameplay permissions, sockets, session and host lifecycle |
 | `LumioGameRuntime` | ECS, tick, coordinator, replication, GAS, persistence, config | Processes, sockets, gameplay content, voxel internals |
-| `LumioServer` | Server host, networking, session, world slots, CoreCLR hosting | Runtime semantics, native aggregation, gameplay rules |
+| `LumioServer` | Server host, networking, session, world slots, CoreCLR hosting, `verify_admission` | Runtime semantics, native aggregation, gameplay rules, accounts |
 | `LumioClient` | Client connection, replica, prediction, Unity/HybridCLR adapter, headless bot | Server authority, native aggregation, gameplay content |
 | `LumioGame` | Gameplay, mapping, config, content, scenarios, Server/Client composition | Generic ABI, runtime/host lifecycle, voxel internals |
+| `LumioPlatform` | Single account authority, game lobby and launch port, static game-page hosting, feedback, operations console, analytics | Engine internals, Game Server verification and room simulation, game-page protocol logic |
 
 Full topology, ownership boundaries, and decision records live in [`.spec/knowledge/features/architecture.md`](.spec/knowledge/features/architecture.md) and [`.spec/decisions/`](.spec/decisions/README.md).
 

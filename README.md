@@ -55,9 +55,10 @@ LumioGame
 | `LumioNativeCore` | 领域无关 Rust Kernel、Handle、Error、Capability、内存与 Job | Voxel、ECS、Gameplay、网络与 Host |
 | `LumioVoxelEngine` | VoxelWorld、Chunk、Revision、Mutation、Streaming、Snapshot | Gameplay 权限、Socket、Session 与 Host 生命周期 |
 | `LumioGameRuntime` | ECS、Tick、Coordinator、Replication、GAS、Persistence、Config | 进程、Socket、玩法内容与 Voxel 内部 |
-| `LumioServer` | Server Host、网络、Session、WorldSlot、CoreCLR Hosting | Runtime 语义、Native 聚合与玩法规则 |
+| `LumioServer` | Server Host、网络、Session、WorldSlot、CoreCLR Hosting、`verify_admission` 验票 | Runtime 语义、Native 聚合、玩法规则与账号 |
 | `LumioClient` | Client Connection、Replica、Prediction、Unity/HybridCLR Adapter、Headless Bot | Server 权威、Native 聚合与玩法内容 |
 | `LumioGame` | Gameplay、Mapping、配置、内容、Scenario、Server/Client 组合 | 通用 ABI、Runtime/Host 生命周期与 Voxel 内部 |
+| `LumioPlatform` | 唯一账号权威、游戏大厅与 launch 端口、静态游戏页托管、反馈、运营后台、埋点 | 引擎内部语义、Game Server 验票与房间模拟、游戏页协议逻辑 |
 
 完整拓扑、职责边界与决策记录见 [`.spec/knowledge/features/architecture.md`](.spec/knowledge/features/architecture.md) 与 [`.spec/decisions/`](.spec/decisions/README.md)。
 

@@ -33,7 +33,7 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 
 ### Account Server
 
-- One central Account Server owns account identity and account profile data.
+- One central Account Server owns account identity and account profile data. Since ADR-061 it lives inside `LumioPlatform` (the account domain plus the `/account` WebSocket port and the HTTP platform port in one process, PostgreSQL as the durable store); the port semantics below are unchanged.
 - `AccountId` is the stable persistent business identity.
 - `AccountEntity` is the Account Server's long-lived ECS account object. Login loads or creates it; logout ends only the session.
 - Login-or-register accepts a username and password. If the username is absent, the Account Server creates the account and its AccountEntity during the request. An existing username with a wrong password is rejected and never overwritten.
@@ -59,6 +59,7 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 - Attribute queries use generated stable `AttributeId` values, not SQL, arbitrary property names or direct storage access.
 - Each Attribute independently declares persistence, replication and visibility. Clients can query only replicated and visible fields; server-only and persist-only fields are not exposed.
 - Query results include observed revision/Tick and explicit non-existent, stale, invisible or unauthorized outcomes. Tombstoned references never resolve to a replacement entity.
+- Tombstone derivation exists only on the server. A client holds three states per id: has a replica / no replica and the server has not said (unknown) / received a destroy record with reason `terminated`. A missing replica is never "dead"; a destroy record with reason `left_aoi` leaves the id "unknown" (ADR-063).
 
 ## 3. Chat Behavior
 
@@ -90,7 +91,7 @@ The main acceptance case contains 101 Game ECS Entities: 100 Bot clients plus on
 - On disconnect, the server keeps the Game Entity and continues normal Room simulation. Only that account's input is rejected.
 - The disconnected entity remains Room-visible with an explicit disconnected state until the retention deadline.
 - The retention window is five minutes measured by the process-local monotonic Host clock; the logical Tick is recorded for audit but does not define expiry.
-- Reconnect is a fresh login and full handshake. During the five-minute window it rebinds the retained server entity A; it does not create a second Game Entity.
+- Reconnect is a fresh login and full handshake that re-runs the complete login → admission → enter sequence (ADR-060 #8). During the five-minute window it rebinds the retained server entity A; it does not create a second Game Entity.
 - The reconnecting client discards its old client World, receives a complete authoritative snapshot, rebuilds the new client World, clears its local chat window and then re-enables input.
 - The server does not roll back or rebuild the Room, and no Chat event history is replayed to the reconnecting client.
 - After expiry, A is destroyed and tombstoned according to the entity-identity contract. A later login creates a new runtime entity B while retaining the same AccountId.
@@ -110,13 +111,14 @@ Evidence is logs only: structured server logs plus structured client logs, store
 2. **Bot launch**: a Bot tool loops `Bot01` through `Bot100`, logs each account in, obtains admission credentials and enters the same Room. The server creates exactly 100 BotEntity instances.
 3. **Browser admission**: a normal Browser account logs in through Account Server and enters the same Room. The server creates exactly one PlayerEntity, bringing the Room total to 101 Game ECS Entities.
 4. **Binding and self lookup**: every admitted connection resolves one current NetEntityId; the server can resolve each NetEntityId back to the matching authoritative entity and AccountId binding.
-5. **Attribute query**: server and client query declared attributes by NetEntityId; unauthorized, invisible, stale and tombstoned references return explicit failures and never alias another entity.
+5. **Attribute query**: server and client query declared attributes by NetEntityId; unauthorized, invisible, stale and tombstoned references return explicit failures and never alias another entity. The claim-visibility ("credential required to see") part is deferred per ADR-060 #10.
 6. **Chat path**: a Bot or Browser sends only text; the next authoritative Tick updates that sender's ChatComponent, emits one ordered event, and all permitted Room clients display it.
 7. **Chat persistence boundary**: Snapshot/Restore retains each entity's last message text and logical Tick/Frame, while no Chat history or client chat-window contents are restored.
 8. **Reconnect**: disconnect one client, reject its input while the Room continues, reconnect within five minutes, rebuild only that client's client World from a full snapshot, clear its chat window and rebind the original Entity A.
 9. **Expiry**: let the monotonic retention deadline pass, verify A is destroyed/tombstoned, then log in again and verify a new Entity B with the same AccountId and a different NetEntityId.
 10. **Isolation**: deferred to the multi-room phase per ADR-058 §11 (a second Game instance = a second server process). Not verified in this round.
 11. **Scale and determinism**: capture evidence for 101 Game Entities, reliable ordered Chat delivery, fixed-Tick application, reconnect/expiry transitions; two identical runs must have bitwise-equal `eventOrder` and `appliedTicks`.
+12. **Leaving view is not death** (ADR-063): with the visibility boundary narrowed for the test, an entity leaving one client's view produces a destroy record with reason `left_aoi`; that client answers "unknown" for the id, not "tombstoned"; only a `terminated` destroy record yields "terminated". The client source contains no max-id tombstone derivation.
 
 ## 7. Requirement Tracks for the New Room
 

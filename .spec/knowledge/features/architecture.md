@@ -12,9 +12,10 @@ metadata:
 
 ## 1. 产品拓扑
 
-`LumioGame` 是最终产品组合根，包含 Server、Client 和玩法内容。Server 与 Client 都消费同一个 `LumioEngineSDK`；SDK 由本仓组装，吸收原 `LumioCoreEngine` 的聚合职责。
+`LumioGame` 是最终产品组合根，包含 Server、Client 和玩法内容。Server 与 Client 都消费同一个 `LumioEngineSDK`；SDK 由本仓组装，吸收原 `LumioCoreEngine` 的聚合职责。`LumioPlatform` 是对外入口与唯一账号权威（ADR-061）：它不消费 SDK，只经 `engine/wire` 契约与 Server / Client 接缝。
 
 ```text
+LumioPlatform ──(account-port / platform-port 契约)──> 浏览器游戏页 · Game Server 验票
 LumioGame
 ├── LumioServer ──┐
 ├── LumioClient ──┴──> LumioEngineSDK
@@ -23,7 +24,13 @@ LumioGame
                        └── LumioVoxelEngine ──┴──> LumioNativeCore
 ```
 
-箭头表示编译或运行时消费方向；产品包含关系由 `LumioGame` 维护，Server/Client 不进入 SDK 内部实现。
+箭头表示编译或运行时消费方向；产品包含关系由 `LumioGame` 维护，Server/Client 不进入 SDK 内部实现；Platform 与 Server 之间只有签名凭证与公钥，没有源码依赖。
+
+### 1.1 世界模型（强约束）
+
+权威在 [`rules/system.md`](../../rules/system.md)「世界模型」一节，每次 Agent 初始化强制载入，本文只指回：世界里只有**体素**与**实体**两种东西；静态不动的是体素，需要服务器逻辑的是实体（要同步的即 CS 实体），只有客户端表现的是 Local Entity；GAS 是实体上的一个组件，预测 / 预表现 / 回滚一律经它，GAS 可以创建实体。既不动又有逻辑的东西（箱子）按 [`voxel.md`](voxel.md) M6a 拆成「格子 = 体素、数据 = 实体」两半，一条稀疏引用相连。出现第三种东西 = 架构变更，先开 ADR（裁决记录：[ADR-063](../../decisions/ADR-063-architecture-review-owner-rulings-identity-persist-prediction.md) 第 1 条）。
+
+**四问判断口诀（按这个顺序问，顺序不能换）**：① 服务器需要知道它吗？不需要、只有画面（特效、UI 假人）→ Local Entity。② 需要，而且它会动或有自己的生命周期（角色、炸弹、掉落物）→ CS 实体。③ 需要，但它静态不动、没有自己的逻辑（石头、地块）→ 体素。④ 都不是 → 停下开 ADR。既不动又有逻辑的（箱子）走 ② + ③ 两半拆分。
 
 ## 2. 仓库职责
 
@@ -31,11 +38,14 @@ LumioGame
 | --- | --- | --- |
 | `LumioGameEngine`（本仓） | SDK 组装、Native 聚合、ABI/Binding、共享 Loader、开发启动器、集成验证和 SDK 产物 | 具体玩法、Server/Client Host 业务、Voxel 领域算法 |
 | `LumioNativeCore` | 领域无关 Rust Kernel、Handle、Error、Capability、内存、Job 和空间基础 | Voxel、ECS、Gameplay、网络和 Host |
-| `LumioVoxelEngine` | VoxelWorld、Chunk、Revision、Mutation、Streaming、Snapshot 和 Voxel Migration | Gameplay 权限、Socket、Session 和 Host 生命周期 |
-| `LumioGameRuntime` | ECS、Tick、Coordinator、Replication、GAS、Persistence、Config 和 Determinism | 进程、Socket、玩法内容和 Voxel 内部 |
-| `LumioServer` | Server Host、网络、Session、WorldSlot、CoreCLR Hosting、维护和升级编排 | Runtime 语义、Native 聚合和玩法规则 |
-| `LumioClient` | Client Connection、Replica、Prediction、Unity/HybridCLR Adapter 和 Headless Bot | Server 权威、Native 聚合和玩法内容 |
+| `LumioVoxelEngine` | VoxelWorld、**Section**（数据载体与最小同步单位）、Chunk（存档打包与按列计算的容器）、Block 编码与官方方块目录、Revision、批量读、Mutation、Streaming、Snapshot、Voxel Migration，以及体素派生计算（光照、网格数据、空间与碰撞检测） | Gameplay 权限、Socket、Session、Host 生命周期，以及渲染提交与材质 |
+| `LumioGameRuntime` | ECS（含 LogicTransform / ModelTransform 基础组件）、Tick、Coordinator、Replication、GAS、Persistence、Config 和 Determinism | 进程、Socket、渲染器资源、玩法内容和 Voxel 内部 |
+| `LumioServer` | Server Host、网络、Session、WorldSlot、CoreCLR Hosting、维护和升级编排、`verify_admission` 离线验票 | Runtime 语义、Native 聚合、玩法规则和账号（账号服已迁入 `LumioPlatform`，ADR-061） |
+| `LumioClient` | Client Connection、Replica、Prediction、Runtime ModelTransform 的宿主 / 渲染适配、Unity/HybridCLR Adapter 和 Headless Bot | Server 权威、Runtime 基础组件定义、Native 聚合和玩法内容 |
 | `LumioGame` | Gameplay、Mapping、配置、内容、Scenario、Migration，以及 Server/Client 组合 | 通用 ABI、Runtime/Host 生命周期和 Voxel 内部 |
+| `LumioPlatform` | 唯一账号权威（注册 / 登录 / 口令哈希 / 准入凭证签发 / Bot 命名空间设防）、游戏目录与大厅、launch 端口与房间分配器接口、静态游戏页托管、反馈、运营后台、埋点、平台数据库 | 引擎内部语义、Game Server 验票与房间模拟、游戏页协议逻辑、集成验收尺子 |
+
+双 Transform 的仓库归属由 [ADR-065](../../decisions/ADR-065-dual-transform-discussion.md) D29 明确：两个组件都在 Runtime，Model 的客户端运行属性不改变源码归属。移动、稳定样本与平滑接入的工程方案见 [movement.md](movement.md) 设计审阅稿；不据此宣告实现或 wire 已完成。
 
 `LumioCoreEngine` 不再是独立职责或依赖节点；其实现迁入本仓 `engine/native/`。
 
@@ -65,7 +75,7 @@ NativeCore 和 VoxelEngine 不导出自己的根符号；SDK 聚合层负责把�
 
 ### 3.3 Wire 协议
 
-Browser/Bot 与 Server 之间的 WebSocket 消息是 wire 协议，不是 ABI。开发态里程碑（MS-00002 Hello World）的最小 wire 契约唯一真值是 [`engine/wire/hello-wire-v1.json`](../../../engine/wire/hello-wire-v1.json)：消息形状、字段语义（sender/sequence/revision/payloadSha256/latency）、失败错误码、进程 readiness/shutdown 边界与审计事件词表。消费方（Rust Server、C# Runtime、Browser、Bot、集成验收）不得另写一份协议真值；校验入口 `node eng/verify-hello-wire.mjs`。
+Browser/Bot 与 Server 之间的 WebSocket 消息是 wire 协议，不是 ABI。账号端口（`account-port-v1.json`）与平台 HTTP 端口（`platform-port-v1.json`，含 launch）同属 wire 契约，唯一实现在 `LumioPlatform`（ADR-061）。开发态里程碑（MS-00002 Hello World）的最小 wire 契约唯一真值是 [`engine/wire/hello-wire-v1.json`](../../../engine/wire/hello-wire-v1.json)：消息形状、字段语义（sender/sequence/revision/payloadSha256/latency）、失败错误码、进程 readiness/shutdown 边界与审计事件词表。消费方（Rust Server、C# Runtime、Browser、Bot、集成验收）不得另写一份协议真值；校验入口 `node eng/verify-hello-wire.mjs`。
 
 ## 4. 开发期构建与最新代码证明
 

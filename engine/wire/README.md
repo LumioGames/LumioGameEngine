@@ -11,6 +11,8 @@
 | [`entity-binding-and-query-v1.json`](entity-binding-and-query-v1.json) | `lumio.entity-binding-query.v1` | RM-00011 C-2 连接绑定与 Attribute Query（ADR-053、ADR-063 owner-thread controls） | 由 `eng/verify-wire.mjs` 做结构/码表/声明级用例 |
 | [`account-port-v1.json`](account-port-v1.json) | `lumio.account-port.v1` | RM-00011 C-3 Account Port / Bot 凭证 / 顶号（ADR-054） | 由 `eng/verify-wire.mjs` 做结构/码表/声明级用例 |
 | [`native-timer-abi-v1.json`](native-timer-abi-v1.json) | `lumio.native-timer-abi.v1` | RM-00011 C-4 Native Timer ABI 与双层定时（ADR-055） | 由 `eng/verify-wire.mjs` 做结构/码表/声明级用例 |
+| [`platform-port-v1.json`](platform-port-v1.json) | `lumio.platform-port.v1` | LumioPlatform HTTP 端口：邮箱注册 / 登录 / 会话 / 头像 / launch（ADR-061）；`account-port-v1.json` 的归属与 `registrationProfile` 同由 ADR-061 修订 | 由 `eng/verify-wire.mjs` 做结构/码表/声明级用例 |
+| [`voxel-world-v1.json`](voxel-world-v1.json) | `lumio.voxel-world.v1` | 体素世界三层分层与命名、Section/Chunk 规范键、BlockId 位段、Section 页三态信封、改动层派发与零字节短票、驻留回执，以及光照不入载荷的边界；设计见 [`.spec/knowledge/features/voxel.md`](../../.spec/knowledge/features/voxel.md) | 由 `eng/verify-wire.mjs` 做结构/码表/声明级用例 |
 
 hello-wire 仍是 Hello World 消息形状、字段语义、进程边界与审计词表的唯一真值。消费方不得在实现仓另写一份协议真值。本目录契约是开发态最小契约，不是 Baseline；进入正式硬化阶段时再按治理顺序升级为版本化公共合同。
 
