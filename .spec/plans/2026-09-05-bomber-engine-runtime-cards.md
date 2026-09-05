@@ -413,6 +413,8 @@ ADR-064 Fixture 3 / 4 / 5 / 11（`[Persist]` 打当前账、`FxComponent` → �
 
 `workflow-plan: bomber-engine/CL-1`
 
+> **正文唯一源已迁移**：Owner 2026-09-05 追加「预研分手机浏览器与 Chrome 浏览器两种」，完整提示词（两轨调研问题、现状事实表、探针工程约束、报告体例、验收）见 [`2026-09-05-cl-1-runtime-wasm-spike-prompt.md`](2026-09-05-cl-1-runtime-wasm-spike-prompt.md)。派活与 Workflow 回写以该文件为准；下文只保留元数据与在 DAG 里的位置，两处不一致以该文件为准。
+
 ## 任务元数据
 - 目标仓库：`LumioClient`
 - 责任角色：客户端平台工程师（调研，不交实现）
