@@ -13,7 +13,7 @@ metadata:
 - 本仓是 `LumioEngineSDK` 的组装根，吸收原 `LumioCoreEngine`，并维护当前 Living 架构说明。
 - 规范正文是 [`architecture.md`](../features/architecture.md)，公共决策入口是 [`.spec/decisions/`](../../decisions/README.md)。
 - `engine/abi/native-abi.json`、`eng/generate-abi.mjs`、`engine/native/modules/sdk-native` 与共享 C# Loader 组成开发态接口闭环。
-- NativeCore、VoxelEngine 和 GameRuntime 是 SDK provider；Server、Client 和 Game 是 SDK consumer/Host。
+- NativeCore、VoxelEngine 和 GameRuntime 是 SDK provider；Server、Client 和 Game 是 SDK consumer/Host；Platform 不消费 SDK，只消费 `engine/wire` 契约（账号端口、平台端口），是账号权威与对外入口（ADR-061）。
 
 ## 变更顺序
 

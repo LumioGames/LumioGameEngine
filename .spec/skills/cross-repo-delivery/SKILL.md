@@ -1,6 +1,6 @@
 ---
 name: cross-repo-delivery
-description: 架构仓主会话向七个实现仓提需求、按 wave 派活、核验交回物、做阶段聚合验收时使用;实现仓上报公共契约缺口需要回路处理时也用。
+description: 架构仓主会话向八个实现仓提需求、按 wave 派活、核验交回物、做阶段聚合验收时使用;实现仓上报公共契约缺口需要回路处理时也用。
 ---
 
 # Cross-Repo Delivery（跨仓需求驱动交付）
@@ -10,7 +10,7 @@ description: 架构仓主会话向七个实现仓提需求、按 wave 派活、�
 ## 前置条件
 
 - Workflow Agent 插件已安装（`workflow-setup` / `workflow-planning` / `workflow-ops` 技能可用），本仓 `.workflow` 已绑定 lumiogamesengine 项目，凭证经环境变量解析可用（未绑定先走 `workflow-setup`）。
-- 七个实现仓在本机 `~/LumioGames/<仓名>`，各仓 `repository-policy` CI 可用。
+- 八个实现仓（LumioNativeCore、LumioVoxelEngine、LumioGameRuntime、LumioServer、LumioClient、LumioGame、LumioConfig、LumioPlatform）在本机 `~/LumioGames/<仓名>`，各仓 `repository-policy` CI 可用。
 
 ## 角色与真值
 
@@ -22,7 +22,7 @@ description: 架构仓主会话向七个实现仓提需求、按 wave 派活、�
 
 | 字段 | 口径 |
 |------|------|
-| module | 目标仓库名（LumioNativeCore 等七仓之一；集成卡归验证平面所在仓） |
+| module | 目标仓库名（LumioNativeCore 等八仓之一；集成卡归验证平面所在仓） |
 | 标题 | `[仓库名] 成果描述`，与 module 一致 |
 | 正文 | 自包含 Agent 提示词（不依赖原对话）+ 结构化验收项 |
 | BaselineId | 卡片开发所基于的架构基线（如 `LGE-V1.4-2026-08-27`），正文首行声明 |

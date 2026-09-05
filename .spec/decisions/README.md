@@ -4,7 +4,7 @@
 
 本目录分两段历史，读之前先认这条线：
 
-- **ADR-001 ~ ADR-048（`Historical`）**——全部产生于 2026-08-31 之前的「架构源 + Baseline 门禁 + 七仓镜像」旧制度，其赖以成立的 `schemas/` / `fixtures/` / `ids/` / `packages/` 与 Baseline 校验链已随制度废止一并删除（见 git 历史）。它们的**技术结论仍可被新 ADR 引用**，但「`Accepted` 后不可改写」的约束随旧制度一并失效：允许就地修正失效的引用路径，不必为一处路径新增一号。状态列写作 `Historical · <原状态>`，原状态保留可读。
+- **ADR-001 ~ ADR-048（`Historical`）**——全部产生于 2026-08-31 之前的「架构源 + Baseline 门禁 + 八仓镜像」旧制度，其赖以成立的 `schemas/` / `fixtures/` / `ids/` / `packages/` 与 Baseline 校验链已随制度废止一并删除（见 git 历史）。它们的**技术结论仍可被新 ADR 引用**，但「`Accepted` 后不可改写」的约束随旧制度一并失效：允许就地修正失效的引用路径，不必为一处路径新增一号。状态列写作 `Historical · <原状态>`，原状态保留可读。
 - **ADR-049 起（在册）**——Living Architecture 制度下的决策。ADR-049 于 2026-09-01 在新制度下重新 `Accepted`（明确为 pre-launch wire 契约、非 baseline event），因此不属旧制度、不打 `Historical`。此段的 `Accepted` 不可改写规则正常生效。
 
 `ADR-015` 保持 `Reserved`（Mod 是 P2）。NativeCore 内部实现决策在 [`nativecore/`](nativecore/README.md) 子命名空间，另起一套 `000N` 编号，与本表互不占号。
@@ -13,7 +13,7 @@
 
 - 一个决策一个 `ADR-NNN-<slug>.md`，沿用现有三位编号并递增；无 frontmatter。
 - 正文必须包含背景、决策、替代方案、接口/Schema、失败语义、兼容影响、迁移方案和验证 Fixture。
-- 跨边界语义变化同步更新 [`knowledge/features/architecture.md`](../knowledge/features/architecture.md) 与受影响的接口定义（`engine/abi/`、`engine/wire/`）；Living Architecture 不再维护 BaselineId、Schema/Fixture 全量门与七仓镜像。
+- 跨边界语义变化同步更新 [`knowledge/features/architecture.md`](../knowledge/features/architecture.md) 与受影响的接口定义（`engine/abi/`、`engine/wire/`）；Living Architecture 不再维护 BaselineId、Schema/Fixture 全量门与八仓镜像。
 - ADR-049 起，`Accepted`/`Superseded` 历史不改写；取代时新增 ADR，并在旧 ADR 状态与本索引中记录关系。`Historical` 段不受此约束（见上）。
 
 ## 索引
@@ -69,8 +69,8 @@
 | [ADR-047](ADR-047-lumio-bin-canonical-profile.md) | LumioBinV1 二进制 canonical profile（定宽小端、u32 长度前缀、声明序无填充、Golden 与拒绝向量、snapshot checksum B 档） | Historical · Draft |
 | [ADR-048](ADR-048-generated-consumable-surface.md) | Generated 面可消费化（八类闭合契约类型本体、可执行 Protocol/Permission 门、netstandard2.1;net8.0 双目标、capability 常量三形态） | Historical · Draft |
 | [ADR-049](ADR-049-replication-state-payload-and-input-command.md) | Replication 状态载荷与 InputCommand 承载（开发态 wire 契约 `gameplay-command-envelope-v1`：InputCommand / stateBlocks / changedBlocks、LumioBinV1、Chat 租户；非 V1.5 基线事件） | Accepted |
-| [ADR-050](ADR-050-gas-a1-contracts.md) | GAS A1 lifecycle admission, deterministic evaluation and same-Tick Effect events | Draft |
-| [ADR-051](ADR-051-gas-a2-contracts.md) | GAS A2 ECS components, Tag handshake, replication visibility and frame prediction | Draft |
+| [ADR-050](ADR-050-gas-a1-contracts.md) | GAS A1 lifecycle admission, deterministic evaluation and same-Tick Effect events | Superseded → ADR-064 |
+| [ADR-051](ADR-051-gas-a2-contracts.md) | GAS A2 ECS components, Tag handshake, replication visibility and frame prediction | Superseded → ADR-064 |
 | [ADR-052](ADR-052-ms00002-hello-wire-and-clr-host-abi.md) | MS-00002 开发态 Hello wire 契约与 CLR 装载 ABI | Accepted |
 | [ADR-053](ADR-053-entity-binding-and-attribute-query.md) | 连接绑定五元组与 NetEntityId Attribute Query（开发态 `engine/wire/entity-binding-and-query-v1.json`） | Accepted |
 | [ADR-054](ADR-054-account-server-topology-and-port.md) | Account Server 第三服务拓扑与账号/准入端口（开发态 `engine/wire/account-port-v1.json`） | Accepted |
@@ -81,6 +81,11 @@
 | [ADR-059](ADR-059-lumiocoreengine-repository-retirement.md) | LumioCoreEngine 仓库退役与 Owner 指针归属（远端删除、旧 ADR Owner 前向重定向、生成物 URL 经生成源更新） | Accepted |
 | [ADR-060](ADR-060-rm00011-r5-owner-rulings-pack-wire-and-observer-projection.md) | RM-00011 r5 Owner 裁决：World Manager 包上网线（C-1″ 一份 codec）、按观察者投影（ObserverComponent、先全量后增量、Scope 裁剪、出视野即删、墓碑推导）、admit 不同步回 id、声明表只从组件生成、模板内联存储做到底、删旧世界；彻底清理不留兼容 | Draft |
 | [ADR-063](ADR-063-rm00011-a2-runtime-query-expiry.md) | RM-00011 A2 Runtime owner-thread expiry, binding resolution, and attribute query controls | Draft |
+| [ADR-061](ADR-061-lumioplatform-repository-and-account-authority.md) | LumioPlatform 第八实现仓与账号权威归属：账号服迁入平台、一库两端口（WS 契约不改 + HTTP `platform-port-v1`）、PostgreSQL 持久真值、AccountWorld 保留、注册策略 profile、launch 端口、`LumioServer/account-server/` 退役；部分取代 ADR-054 | Draft |
+| [ADR-062](ADR-062-voxel-world-public-contract.md) | 体素公共语义改从 `lumio.voxel-world.v1` 取：三层分层与 Section 改名、规范键元数防呆、32 位 BlockId 与段表、材质类、载荷四编码（含 Delta）、物理查询三态、光照不入载荷；作废 ADR-024/035/036 的 16³-叫-chunk 分层语义 | Draft |
+| [ADR-063](ADR-063-architecture-review-owner-rulings-identity-persist-prediction.md) | 2026-09-05 架构评审 Owner 裁决：世界模型强约束（体素 / 实体两种、GAS 是组件）、客户端三态与销毁原因、占段发号、帧内读写规则与 `tick.md`、共享文件普通字段放开、存档记账一本（`Scope.None`）、预测按 GAS 原文只补包级 `appliedInputSequence`、可见性变化补发 / 失效、验收切片改为炸弹人战斗；修订 ADR-058 / 060 | Draft |
+| [ADR-064](ADR-064-gas-slice-contracts.md) | 炸弹人切片的 GAS 契约：切片 GAS 面（八态准入 + 瞬时 Effect + 整数求值 + 两本账 + 预测）、四组件 `Sync` 声明表、技能激活唯一写法、击杀 = 跨零、预测键 = 输入序号、预测世界整体克隆 + 重放、表现键做差保证连续、对账哈希四元组、表现缓冲走 ClientRpc 记录；取代 ADR-050 / 051 | Draft |
+| [ADR-065](ADR-065-dual-transform-discussion.md) | 双 Transform 持续讨论记录：两个基础组件均归 Runtime、已确认原则与移动设计审阅稿；关联 R-00461 / R-00470，尚未开始实现 | Draft |
 
 旧制度的 `DECISIONS_PENDING` 待决台账已随 `docs/` 一并删除（见 git 历史）；Living Architecture 下未定项直接落 ADR 或任务卡，不再另设台账。
 

@@ -33,6 +33,12 @@ jobs:
         with:
           repository: LumioGames/LumioClient
           path: LumioClient
+      # LumioClient modules resolve LumioRuntimeRoot from a sibling ../LumioGameRuntime
+      # (LumioClient/Directory.Build.props); without it Bot/Replica fail at restore.
+      - uses: actions/checkout@v4
+        with:
+          repository: LumioGames/LumioGameRuntime
+          path: LumioGameRuntime
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-dotnet@v4
         with:

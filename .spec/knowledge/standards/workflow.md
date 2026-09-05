@@ -13,7 +13,7 @@ metadata:
 
 ## 分支策略
 
-- `main` 是发布给七个实现仓库的架构基线；Architecture Policy 在 `push` 与 `pull_request` 到 `main` 时执行。
+- `main` 是发布给八个实现仓库（第八仓自 [ADR-061](../../decisions/ADR-061-lumioplatform-repository-and-account-authority.md) 起）的架构基线；Architecture Policy 在 `push` 与 `pull_request` 到 `main` 时执行。
 - 架构与公共契约改动使用短生命周期分支并经 PR 合入 `main`；push/PR 等对外发布动作仍受 [`rules/system.md`](../../rules/system.md) 的确认要求约束。
 - 多文件契约变更按 ADR -> Schema/ID -> 正向/失败 Fixture -> README/基线 -> 实现仓镜像组织，不允许只改镜像或只改生成结果。
 
@@ -27,7 +27,7 @@ metadata:
 
 ## 合并 / PR 流程
 
-- PR 交付说明必须包含 Summary、公共语义变化、兼容/迁移影响、Schema/ID/Fixture 清单、验证命令与关键输出、七仓同步范围和 known gaps。
+- PR 交付说明必须包含 Summary、公共语义变化、兼容/迁移影响、Schema/ID/Fixture 清单、验证命令与关键输出、八仓同步范围和 known gaps。
 - 根 `.github/CODEOWNERS` 将全仓及 `.spec/` 指派给 `@Go1c`；所有架构变化必须由架构所有者审查。
 - 预上线合并前运行 SDK 开发态收口命令，证明 Host 加载最新 BuildId；完整 Contract validate、Baseline 和 reviewer 闭环仅在正式硬化阶段启用。
 
