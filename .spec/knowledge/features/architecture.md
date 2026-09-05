@@ -39,11 +39,13 @@ LumioGame
 | `LumioGameEngine`（本仓） | SDK 组装、Native 聚合、ABI/Binding、共享 Loader、开发启动器、集成验证和 SDK 产物 | 具体玩法、Server/Client Host 业务、Voxel 领域算法 |
 | `LumioNativeCore` | 领域无关 Rust Kernel、Handle、Error、Capability、内存、Job 和空间基础 | Voxel、ECS、Gameplay、网络和 Host |
 | `LumioVoxelEngine` | VoxelWorld、**Section**（数据载体与最小同步单位）、Chunk（存档打包与按列计算的容器）、Block 编码与官方方块目录、Revision、批量读、Mutation、Streaming、Snapshot、Voxel Migration，以及体素派生计算（光照、网格数据、空间与碰撞检测） | Gameplay 权限、Socket、Session、Host 生命周期，以及渲染提交与材质 |
-| `LumioGameRuntime` | ECS、Tick、Coordinator、Replication、GAS、Persistence、Config 和 Determinism | 进程、Socket、玩法内容和 Voxel 内部 |
+| `LumioGameRuntime` | ECS（含 LogicTransform / ModelTransform 基础组件）、Tick、Coordinator、Replication、GAS、Persistence、Config 和 Determinism | 进程、Socket、渲染器资源、玩法内容和 Voxel 内部 |
 | `LumioServer` | Server Host、网络、Session、WorldSlot、CoreCLR Hosting、维护和升级编排、`verify_admission` 离线验票 | Runtime 语义、Native 聚合、玩法规则和账号（账号服已迁入 `LumioPlatform`，ADR-061） |
-| `LumioClient` | Client Connection、Replica、Prediction、Unity/HybridCLR Adapter 和 Headless Bot | Server 权威、Native 聚合和玩法内容 |
+| `LumioClient` | Client Connection、Replica、Prediction、Runtime ModelTransform 的宿主 / 渲染适配、Unity/HybridCLR Adapter 和 Headless Bot | Server 权威、Runtime 基础组件定义、Native 聚合和玩法内容 |
 | `LumioGame` | Gameplay、Mapping、配置、内容、Scenario、Migration，以及 Server/Client 组合 | 通用 ABI、Runtime/Host 生命周期和 Voxel 内部 |
 | `LumioPlatform` | 唯一账号权威（注册 / 登录 / 口令哈希 / 准入凭证签发 / Bot 命名空间设防）、游戏目录与大厅、launch 端口与房间分配器接口、静态游戏页托管、反馈、运营后台、埋点、平台数据库 | 引擎内部语义、Game Server 验票与房间模拟、游戏页协议逻辑、集成验收尺子 |
+
+双 Transform 的仓库归属由 [ADR-065](../../decisions/ADR-065-dual-transform-discussion.md) D29 明确：两个组件都在 Runtime，Model 的客户端运行属性不改变源码归属。移动、稳定样本与平滑接入的工程方案见 [movement.md](movement.md) 设计审阅稿；不据此宣告实现或 wire 已完成。
 
 `LumioCoreEngine` 不再是独立职责或依赖节点；其实现迁入本仓 `engine/native/`。
 
