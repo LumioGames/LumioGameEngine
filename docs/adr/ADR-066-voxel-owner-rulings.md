@@ -1,0 +1,1 @@
+../../.spec/decisions/ADR-066-voxel-owner-rulings.md

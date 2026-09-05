@@ -18,7 +18,7 @@ metadata:
 
 ### 0. 治理原则与红线（先于一切）
 
-1. **公共语义只有一个真值**：`LumioGameEngine/engine/wire/voxel-world-v1.json`（`lumio.voxel-world.v1`，`main` 上 51 错误码 / 56 规则 / 110 用例）。裁决在 [ADR-062](../decisions/ADR-062-voxel-world-public-contract.md)，设计说明在 [`voxel.md`](../knowledge/features/voxel.md)。**契约与文档冲突以契约为准。**
+1. **公共语义只有一个真值**：`LumioGameEngine/engine/wire/voxel-world-v1.json`（`lumio.voxel-world.v1`，当前 52 错误码 / 57 规则 / 110 顶层场景，另有 ADR-066 resolver / row-validation vectors）。裁决在 [ADR-062](../decisions/ADR-062-voxel-world-public-contract.md) 与增量 [ADR-066](../decisions/ADR-066-voxel-owner-rulings.md)，设计说明在 [`voxel.md`](../knowledge/features/voxel.md)。**契约与文档冲突以契约为准。**
 2. **任何人不得在实现仓改写公共语义。** worker 报「契约有缺口 / 自相矛盾」时，你**停下该卡**，回架构仓改契约并递增 ADR，**不得让 worker 本地绕过或自己挑一个**。
 3. **写的人 ≠ 审的人**：每张卡的实现方与 reviewer 必须是不同 agent，且 **reviewer 在独立环境（worktree 或 `git archive` 快照）跑验证**。派审后你**不得在同一环境跑构建**（MSBuild 节点复用 + `obj/` 争用会互锁，两侧假失败）。
 4. **不自标 completed**：卡的完成态由你在 reviewer 通过后回写，worker 无权自标。
@@ -71,7 +71,8 @@ metadata:
 - **`cellOffset` 只有一个算式**：`(worldY & 15) * 256 + (worldZ & 15) * 16 + (worldX & 15)`，stride 固定 y=256/z=16/x=1。**I-1、I-2、I-3、I-5、I-4、A-1 六张卡都碰它**，任何一处自行推导都会造成静默错位读写且无校验会报错。
 - **缺块四态永不塌缩**：`Pending`/`Unavailable`/`Unresolved` 不得物化成空气、不得零填充、不得省略。跨 ABI 同样如此。
 - **`BlockId` 全程无符号 32 位**，房间局部方块最高位为 1，C# 侧必须 `uint`。
-- **契约有 5 处已知缺陷**（见复核报告第六节）：rule 49 `onViolation` 错位、全量编码携带 `baseSectionRevision` 无错误码、pin 预算无常量、3 个错误码无 invalidCase、`verify-wire` 对本契约只做声明完整性不做语义执行。**worker 撞上时按「阻塞与升级」上报，不要本地补一个。**
+- **R-00434 Owner 裁决已落地**：`BlockType=2` 是 ECS occupancy、`3` 是结构占位；`0..3` 是 typed sentinels，`4..255` 不可解析，普通解析只接收已登记官方目录行 / 已映射房间局部行，其他 admitted type 返回 `unregistered_block_type`；目录行结构缺失优先于未知非空 `materialClass`。实现仓必须复用契约 resolver vectors，不得自拟解析域或错误优先级。
+- **复核报告第六节仍列出的其余契约缺陷**（rule 49 错位、全量编码携带 `baseSectionRevision` 无错误码、pin 预算无常量）未在本次授权范围内修订；worker 撞上时按「阻塞与升级」上报，不要本地补一个。
 
 ### 5. 监控节拍与上报
 

@@ -179,8 +179,8 @@
   "voxel": {
     "contractId": "lumio.voxel-world.v1",
     "source": "engine/wire/voxel-world-v1.json",
-    "sourceSha256": "e474907b397627e168acd6dc1ddbba5375a2c5b53f9a8722130dcf6bb7b02869",
-    "sourceCounts": { "errors": 51, "rules": 56, "cases": 110 },
+    "sourceSha256": "56d555fd8ab5a5da2e407bd78f499d0e04208fec267af94b4887f1152da7b0d7",
+    "sourceCounts": { "errors": 52, "rules": 57, "cases": 110 },
     "constants": {
       "blockId": {
         "type": "u32",
@@ -317,7 +317,8 @@
       "pinned_section_evicted",
       "pinned_read_returned_pending",
       "unknown_behavior_template",
-      "cell_read_missing_presence"
+      "cell_read_missing_presence",
+      "unregistered_block_type"
     ],
     "types": {
       "section_key": {

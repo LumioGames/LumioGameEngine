@@ -196,11 +196,20 @@ public sealed class VoxelFacadeTests
     [Fact]
     public void EveryContractStatusHasAStableManagedErrorCode()
     {
-        for (var status = 1000; status <= 1050; status++)
+        for (var status = 1000; status <= 1051; status++)
         {
             Assert.True(Sdk.VoxelErrorCodeMap.TryMap(status, out var code), $"status {status}");
             Assert.Equal(status, Sdk.VoxelErrorCodeMap.ToStatus(code));
         }
+    }
+
+    [Fact]
+    public void UnregisteredBlockTypeUsesStableStatus1051()
+    {
+        Assert.Equal(1051, (int)Sdk.VoxelErrorCode.UnregisteredBlockType);
+        Assert.True(Sdk.VoxelErrorCodeMap.TryMap(1051, out var code));
+        Assert.Equal(Sdk.VoxelErrorCode.UnregisteredBlockType, code);
+        Assert.Equal(1051, Sdk.VoxelErrorCodeMap.ToStatus(code));
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

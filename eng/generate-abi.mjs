@@ -106,8 +106,8 @@ if (wireContract.contractId !== voxel.contractId
 }
 if (!Array.isArray(wireErrorCodes)
   || !Array.isArray(voxel.errorCodes)
-  || wireErrorCodes.length !== 51
-  || voxel.errorCodes.length !== 51
+  || wireErrorCodes.length !== 52
+  || voxel.errorCodes.length !== 52
   || wireErrorCodes.some((code, index) => code !== voxel.errorCodes[index])
   || new Set(wireErrorCodes).size !== wireErrorCodes.length
   || new Set(voxel.errorCodes).size !== voxel.errorCodes.length) {
@@ -132,8 +132,8 @@ if (JSON.stringify(cellOffset) !== JSON.stringify(canonicalCellOffset)) {
 if (typeof wireCellOffset?.range !== 'string' || !wireCellOffset.range.startsWith('0 ~ 4095')) {
   throw new Error('canonical wire cellOffset range must be 0 ~ 4095');
 }
-if (voxel.errorStatusBase !== 1000 || voxel.errorCodes.length !== 51) {
-  throw new Error('voxel ABI must declare all 51 stable contract error statuses from base 1000');
+if (voxel.errorStatusBase !== 1000 || voxel.errorCodes.length !== 52) {
+  throw new Error('voxel ABI must declare all 52 stable contract error statuses from base 1000');
 }
 if (voxel.enums.presence.type !== 'u32') {
   throw new Error('voxel presence must use fixed-width u32 storage');

@@ -84,10 +84,10 @@ test('the C root declaration preserves the validated source field order and sign
   }
 });
 
-test('all 51 voxel error names are unique, ordered, and mapped identically in C, Rust, and C#', () => {
+test('all 52 voxel error names are unique, ordered, and mapped identically in C, Rust, and C#', () => {
   const wireCodes = wireContract.errorCodes;
   const abiCodes = definition.voxel.errorCodes;
-  assert.equal(wireCodes.length, 51);
+  assert.equal(wireCodes.length, 52);
   assert.deepEqual(abiCodes, wireCodes);
   assert.equal(new Set(wireCodes).size, wireCodes.length);
 

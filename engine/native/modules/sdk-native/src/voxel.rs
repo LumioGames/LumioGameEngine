@@ -611,6 +611,9 @@ fn status_for_error(error: &str) -> i32 {
         "cell_read_missing_presence" => {
             crate::abi_generated::VOXEL_ERROR_CELL_READ_MISSING_PRESENCE
         }
+        "unregistered_block_type" => {
+            crate::abi_generated::VOXEL_ERROR_UNREGISTERED_BLOCK_TYPE
+        }
         _ => LumioStatus::InvalidArgument as i32,
     }
 }
@@ -1462,5 +1465,22 @@ impl Default for VoxelWriteReceipt {
             up_to_section_revision: 0,
             world_revision: 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unregistered_block_type_maps_to_stable_contract_status() {
+        assert_eq!(
+            status_for_error("unregistered_block_type"),
+            crate::abi_generated::VOXEL_ERROR_UNREGISTERED_BLOCK_TYPE
+        );
+        assert_eq!(
+            crate::abi_generated::VOXEL_ERROR_UNREGISTERED_BLOCK_TYPE,
+            1051
+        );
     }
 }

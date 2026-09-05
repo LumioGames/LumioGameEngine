@@ -107,6 +107,7 @@ public enum VoxelErrorCode
     PinnedReadReturnedPending = Native.VoxelErrorCodes.PinnedReadReturnedPending,
     UnknownBehaviorTemplate = Native.VoxelErrorCodes.UnknownBehaviorTemplate,
     CellReadMissingPresence = Native.VoxelErrorCodes.CellReadMissingPresence,
+    UnregisteredBlockType = Native.VoxelErrorCodes.UnregisteredBlockType,
 }
 
 public static class VoxelErrorCodeMap
@@ -164,6 +165,7 @@ public static class VoxelErrorCodeMap
         Native.VoxelErrorCodes.PinnedReadReturnedPending,
         Native.VoxelErrorCodes.UnknownBehaviorTemplate,
         Native.VoxelErrorCodes.CellReadMissingPresence,
+        Native.VoxelErrorCodes.UnregisteredBlockType,
     };
 
     public static bool TryMap(int status, out VoxelErrorCode code)
