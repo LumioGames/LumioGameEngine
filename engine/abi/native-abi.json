@@ -108,9 +108,446 @@
         "name": "timer_drain",
         "type": "fn(pointer, pointer, u32, pointer) -> status",
         "doc": "把最近一次 advance/pump 入队、尚未排空的 FiringRecord 写入调用方缓冲。参数：manager；out_records（pointer，40 字节记录数组：u32 handleIndex、u32 handleGeneration、u64 handleContext、u64 due、u64 scheduleSequence、u32 slotDispatchId、u32 pad）；capacity（u32，记录条数）；out_count（pointer，指向 u32：Success 写实际条数，BufferTooSmall 写所需条数）。错误码：BufferTooSmall（不部分写入）；TimerManagerShutdown；InvalidArgument（capacity>0 且 out_records 为 null，或 out_count 为 null，或 manager 为 null）。Native 不调用托管回调；适配层按 slotDispatchId 在自身表分发。线程约束同 create。"
+      },
+      {
+        "name": "block_read_cell",
+        "type": "fn(pointer, pointer, pointer) -> status",
+        "doc": "Read one world coordinate using a caller-owned result. The result always carries presence=Ready|Unchanged|Pending|Unavailable and section_revision; only Ready/Unchanged may set has_block_id=1 and carry a uint32 block_id. Missing states never become zero or air, and a cell read never omits presence."
+      },
+      {
+        "name": "block_read_box",
+        "type": "fn(pointer, pointer, pointer, u32, pointer, pointer, u32, pointer, pointer) -> status",
+        "doc": "Read an inclusive world-coordinate box into caller-owned cell results and SectionSegment results. Results use the sole y/z/x order (strides 256/16/1), return actual counts and an explicit truncated flag, and never silently truncate. More than 262144 cells is rejected as read_budget_exceeded. Native allocates no result memory or releasable handles."
+      },
+      {
+        "name": "block_read_column",
+        "type": "fn(pointer, pointer, pointer, u32, pointer, pointer, u32, pointer, pointer) -> status",
+        "doc": "Read an inclusive x/z column from low y to high y into caller-owned buffers. Every result carries presence and section_revision; Pending/Unavailable never carry a meaningful block_id. The 262144-cell hard request budget, actual counts, and explicit truncated flag match block_read_box."
+      },
+      {
+        "name": "block_write_prepare",
+        "type": "fn(pointer, u64, pointer, u32, pointer) -> status",
+        "doc": "Prepare a structured BlockWriteEntry array with ABI argument order world, uint64 transaction_id, entries, entry_count, out_token. Repeating the same transaction_id is idempotent and must return the original receipt without applying the batch twice. Entries carry SectionKey, cell_offset in 0..4095, uint32 block_id, and uint64 expected_section_revision. All fallible validation happens here; over 65536 entries returns the stable write_batch_too_large contract status and rejects the whole batch."
+      },
+      {
+        "name": "block_write_commit",
+        "type": "fn(pointer, pointer, pointer, u32, pointer) -> status",
+        "doc": "Commit a prepared token into caller-owned WriteReceipt storage. Section payload, dirty state, SectionRevision, and WorldRevision publish at one non-failing commit point. Transaction retries are idempotent; output capacity probing reports required count without partial writes."
+      },
+      {
+        "name": "block_write_abort",
+        "type": "fn(pointer, pointer) -> status",
+        "doc": "Abort a prepared token without publishing any voxel or revision change."
+      },
+      {
+        "name": "section_revision_query",
+        "type": "fn(pointer, pointer, pointer) -> status",
+        "doc": "Query the uint64 SectionRevision for a canonical SectionKey using caller-owned output. Missing or unavailable Sections remain explicit states; zero is not a substitute revision."
+      },
+      {
+        "name": "residency_pin_declare",
+        "type": "fn(pointer, pointer, u32, u32, pointer) -> status",
+        "doc": "Declare a permanently resident Section-key set with a caller-supplied section budget and receive an opaque pin handle. No fixed pin budget is invented: exceeding the supplied budget fails the declaration as residency_pin_exceeds_budget, with no best-effort or partial pin. Once ready, reads and physics in the pin never return Pending or Unavailable."
+      },
+      {
+        "name": "residency_pin_release",
+        "type": "fn(pointer, pointer) -> status",
+        "doc": "Release a pin declaration; only after release may its Sections be evicted under normal residency rules."
+      },
+      {
+        "name": "residency_pin_status",
+        "type": "fn(pointer, pointer, pointer) -> status",
+        "doc": "Query caller-owned explicit pin readiness. Gameplay settlement before ready is the pin_region_not_ready contract case, not a generic transaction error."
+      },
+      {
+        "name": "raycast",
+        "type": "fn(pointer, pointer, pointer) -> status",
+        "doc": "Run one DDA raycast using caller-owned RaycastRequest and RaycastResult. Resolution is an explicit Hit, Miss, or Unresolved value; Unresolved carries the SectionKey that is not ready and is a normal result, never a status failure."
+      },
+      {
+        "name": "sweep",
+        "type": "fn(pointer, pointer, pointer) -> status",
+        "doc": "Run one voxel sweep using caller-owned SweepRequest and SweepResult. Resolution is explicit Hit, Miss, or Unresolved; the result carries collided, travel_fraction in 0..1, collision point, normal, hit cell, BlockId, and unresolved SectionKey when applicable."
+      },
+      {
+        "name": "overlap",
+        "type": "fn(pointer, pointer, pointer, u32, pointer) -> status",
+        "doc": "Run one voxel overlap using caller-owned OverlapRequest, hit buffer, capacity, and OverlapResult. The result carries explicit resolution, unresolved SectionKey, actual_count, and truncated; Native allocates no result memory or releasable handles."
       }
     ]
   },
+  "voxel": {
+    "contractId": "lumio.voxel-world.v1",
+    "source": "engine/wire/voxel-world-v1.json",
+    "sourceSha256": "e474907b397627e168acd6dc1ddbba5375a2c5b53f9a8722130dcf6bb7b02869",
+    "sourceCounts": { "errors": 51, "rules": 56, "cases": 110 },
+    "constants": {
+      "blockId": {
+        "type": "u32",
+        "bits": 32,
+        "unsigned": true,
+        "description": "BlockId = BlockType << 8 | BlockState; BlockType occupies the high 24 bits and BlockState the low 8 bits."
+      },
+      "cellOffset": {
+        "formula": "(worldY & 15) * 256 + (worldZ & 15) * 16 + (worldX & 15)",
+        "strides": { "y": 256, "z": 16, "x": 1 },
+        "min": 0,
+        "max": 4095,
+        "inverse": {
+          "y": "(cellOffset >> 8) & 15",
+          "z": "(cellOffset >> 4) & 15",
+          "x": "cellOffset & 15"
+        }
+      },
+      "maxCellsPerReadRequest": 262144,
+      "maxEntriesPerWriteBatch": 65536
+    },
+    "enums": {
+      "presence": {
+        "type": "u32",
+        "values": { "Ready": 0, "Unchanged": 1, "Pending": 2, "Unavailable": 3 },
+        "missingBlockId": "Pending and Unavailable never carry block_id; they are not air or zero."
+      },
+      "query_resolution": {
+        "type": "u32",
+        "values": { "Hit": 0, "Miss": 1, "Unresolved": 2 },
+        "unresolvedSectionField": "unresolved_section",
+        "unresolvedIsNormalNotAnError": true
+      },
+      "behavior_template": {
+        "type": "u32",
+        "values": { "FullCube": 0, "Liquid": 1 },
+        "exhaustive": true,
+        "unknownValueError": "unknown_behavior_template"
+      }
+    },
+    "layout": {
+      "pointerWidth": 64,
+      "endianness": "little",
+      "rootStructSize": 304,
+      "voxelSlotsStartOffset": 200,
+      "rootSlotOffsets": {
+        "block_read_cell": 200,
+        "block_read_box": 208,
+        "block_read_column": 216,
+        "block_write_prepare": 224,
+        "block_write_commit": 232,
+        "block_write_abort": 240,
+        "section_revision_query": 248,
+        "residency_pin_declare": 256,
+        "residency_pin_release": 264,
+        "residency_pin_status": 272,
+        "raycast": 280,
+        "sweep": 288,
+        "overlap": 296
+      },
+      "physicsSlotsStartOffset": 280,
+      "physicsSlotOffsets": { "raycast": 280, "sweep": 288, "overlap": 296 },
+      "types": {
+        "section_key": { "size": 12, "offsets": { "x": 0, "y": 4, "z": 8 } },
+        "world_coordinate": { "size": 12, "offsets": { "x": 0, "y": 4, "z": 8 } },
+        "box_request": { "size": 24, "offsets": { "min": 0, "max": 12 } },
+        "column_request": { "size": 12, "offsets": { "x": 0, "z": 4, "min_y": 8, "max_y": 9 } },
+        "block_read_cell_result": { "size": 24, "offsets": { "presence": 0, "has_block_id": 4, "block_id": 8, "section_revision": 16 } },
+        "block_read_result": { "size": 24, "offsets": { "presence": 0, "has_block_id": 4, "block_id": 8, "section_revision": 16 } },
+        "section_revision_result": { "size": 16, "offsets": { "presence": 0, "section_revision": 8 } },
+        "section_segment": { "size": 32, "offsets": { "section_key": 0, "presence": 12, "section_revision": 16, "first_result": 24, "result_count": 28 } },
+        "block_write_entry": { "size": 32, "offsets": { "section_key": 0, "cell_offset": 12, "block_id": 16, "expected_section_revision": 24 } },
+        "write_receipt": { "size": 32, "offsets": { "section_key": 0, "up_to_section_revision": 16, "world_revision": 24 } },
+        "pin_status": { "size": 16, "offsets": { "ready": 0, "section_count": 8, "ready_section_count": 12 } },
+        "world_point": { "size": 12, "offsets": { "x": 0, "y": 4, "z": 8 } },
+        "raycast_request": { "size": 32, "offsets": { "origin": 0, "direction": 12, "max_distance": 24, "material_mask": 28 } },
+        "raycast_result": { "size": 60, "offsets": { "resolution": 0, "unresolved_section": 4, "hit_cell": 16, "block_id": 28, "hit_point": 32, "hit_normal": 44, "travel_distance": 56 } },
+        "sweep_request": { "size": 32, "offsets": { "shape": 0, "pose": 8, "displacement": 16, "material_mask": 28 } },
+        "sweep_result": { "size": 64, "offsets": { "resolution": 0, "collided": 4, "travel_fraction": 8, "unresolved_section": 12, "hit_cell": 24, "block_id": 36, "hit_point": 40, "hit_normal": 52 } },
+        "overlap_request": { "size": 24, "offsets": { "shape": 0, "pose": 8, "material_mask": 16 } },
+        "overlap_hit": { "size": 16, "offsets": { "cell": 0, "block_id": 12 } },
+        "overlap_result": { "size": 24, "offsets": { "resolution": 0, "unresolved_section": 4, "actual_count": 16, "truncated": 20 } }
+      }
+    },
+    "errorStatusBase": 1000,
+    "errorCodes": [
+      "unknown_section_key",
+      "unknown_chunk_key",
+      "section_y_out_of_range",
+      "coordinate_out_of_bounds",
+      "section_unavailable",
+      "stale_section_revision",
+      "palette_overflow",
+      "section_encoding_mismatch",
+      "section_digest_mismatch",
+      "dirty_section_not_durable",
+      "lighting_in_payload",
+      "chunk_carries_data",
+      "unknown_material_class",
+      "material_class_not_a_cell_lane",
+      "liquid_auto_propagation_unsupported",
+      "cross_material_face_merge",
+      "entity_binding_missing",
+      "entity_binding_orphan",
+      "entity_binding_type_mismatch",
+      "entity_binding_not_sparse",
+      "business_data_in_payload",
+      "binding_commit_split",
+      "block_type_scope_violation",
+      "system_reserved_type_misuse",
+      "room_local_type_without_mapping",
+      "player_type_declares_behavior",
+      "palette_reclaim_before_escalation",
+      "dead_palette_entry_in_payload",
+      "delta_base_revision_mismatch",
+      "delta_used_for_first_delivery",
+      "unresolved_hit_treated_as_air",
+      "unresolved_hit_treated_as_solid",
+      "query_buffer_overflow",
+      "query_result_divergence",
+      "collision_behavior_not_from_material_table",
+      "query_mutates_world",
+      "world_y_out_of_range",
+      "block_catalog_not_dense",
+      "block_catalog_name_reused",
+      "block_catalog_row_incomplete",
+      "read_budget_exceeded",
+      "read_result_missing_revision",
+      "write_batch_too_large",
+      "unstructured_mutation_entry",
+      "cell_offset_out_of_range",
+      "residency_pin_exceeds_budget",
+      "pin_region_not_ready",
+      "pinned_section_evicted",
+      "pinned_read_returned_pending",
+      "unknown_behavior_template",
+      "cell_read_missing_presence"
+    ],
+    "types": {
+      "section_key": {
+        "kind": "struct",
+        "fields": [
+          { "name": "x", "type": "i32" },
+          { "name": "y", "type": "u8", "range": [0, 15] },
+          { "name": "_reserved", "type": "bytes3" },
+          { "name": "z", "type": "i32" }
+        ],
+        "doc": "Canonical Section key coordinates s:x:y:z; x/z signed int32 and y uint8 0..15."
+      },
+      "world_coordinate": {
+        "kind": "struct",
+        "fields": [
+          { "name": "x", "type": "i32" },
+          { "name": "y", "type": "u8", "range": [0, 255] },
+          { "name": "z", "type": "i32" }
+        ],
+        "doc": "World y is the unsigned vertical axis 0..255; x/z are signed horizontal int32 axes."
+      },
+      "box_request": {
+        "kind": "struct",
+        "fields": [
+          { "name": "min", "type": "world_coordinate" },
+          { "name": "max", "type": "world_coordinate" }
+        ],
+        "doc": "Inclusive axis-aligned bounds expanded in y/z/x order."
+      },
+      "column_request": {
+        "kind": "struct",
+        "fields": [
+          { "name": "x", "type": "i32" },
+          { "name": "z", "type": "i32" },
+          { "name": "min_y", "type": "u8", "range": [0, 255] },
+          { "name": "max_y", "type": "u8", "range": [0, 255] },
+          { "name": "_reserved", "type": "bytes2" }
+        ],
+        "doc": "Inclusive y range, emitted from low y to high y."
+      },
+      "block_read_cell_result": {
+        "kind": "struct",
+        "required": ["presence", "section_revision"],
+        "optional": ["block_id"],
+        "fields": [
+          { "name": "presence", "type": "presence" },
+          { "name": "has_block_id", "type": "u8" },
+          { "name": "_reserved", "type": "bytes3" },
+          { "name": "block_id", "type": "u32", "optionalWhen": "has_block_id = 1" },
+          { "name": "section_revision", "type": "u64" }
+        ],
+        "doc": "Presence is always present; Pending/Unavailable set has_block_id=0 and do not expose a meaningful block_id."
+      },
+      "block_read_result": {
+        "kind": "struct",
+        "fields": [
+          { "name": "presence", "type": "presence" },
+          { "name": "has_block_id", "type": "u8" },
+          { "name": "_reserved", "type": "bytes3" },
+          { "name": "block_id", "type": "u32", "optionalWhen": "has_block_id = 1" },
+          { "name": "section_revision", "type": "u64" }
+        ],
+        "doc": "One caller-owned result per requested cell; partial states are legal and never silently truncated."
+      },
+      "section_revision_result": {
+        "kind": "struct",
+        "required": ["presence", "section_revision"],
+        "fields": [
+          { "name": "presence", "type": "presence" },
+          { "name": "_reserved", "type": "bytes4" },
+          { "name": "section_revision", "type": "u64" }
+        ],
+        "doc": "Revision queries preserve explicit Section presence; Pending/Unavailable never collapse to revision zero."
+      },
+      "section_segment": {
+        "kind": "struct",
+        "fields": [
+          { "name": "section_key", "type": "section_key" },
+          { "name": "presence", "type": "presence" },
+          { "name": "section_revision", "type": "u64" },
+          { "name": "first_result", "type": "u32" },
+          { "name": "result_count", "type": "u32" }
+        ],
+        "doc": "Section-level state and range into the caller-owned cell result buffer."
+      },
+      "block_write_entry": {
+        "kind": "struct",
+        "fields": [
+          { "name": "section_key", "type": "section_key" },
+          { "name": "cell_offset", "type": "u16", "range": [0, 4095] },
+          { "name": "_reserved", "type": "bytes2" },
+          { "name": "block_id", "type": "u32" },
+          { "name": "expected_section_revision", "type": "u64" }
+        ],
+        "doc": "Structured write entry; no string-key map."
+      },
+      "write_receipt": {
+        "kind": "struct",
+        "fields": [
+          { "name": "section_key", "type": "section_key" },
+          { "name": "up_to_section_revision", "type": "u64" },
+          { "name": "world_revision", "type": "u64" }
+        ]
+      },
+      "pin_status": {
+        "kind": "struct",
+        "fields": [
+          { "name": "ready", "type": "u8" },
+          { "name": "_reserved", "type": "bytes7" },
+          { "name": "section_count", "type": "u32" },
+          { "name": "ready_section_count", "type": "u32" }
+        ],
+        "doc": "Readiness is explicit; gameplay must not settle against a pin while ready=0."
+      },
+      "world_point": {
+        "kind": "struct",
+        "fields": [
+          { "name": "x", "type": "f32" },
+          { "name": "y", "type": "f32" },
+          { "name": "z", "type": "f32" }
+        ],
+        "doc": "Continuous query point/vector in world space; cell coordinates remain world_coordinate with unsigned y."
+      },
+      "raycast_request": {
+        "kind": "struct",
+        "fields": [
+          { "name": "origin", "type": "world_point" },
+          { "name": "direction", "type": "world_point" },
+          { "name": "max_distance", "type": "f32" },
+          { "name": "material_mask", "type": "u32" }
+        ],
+        "doc": "Unit direction, maximum travel distance, and material-class filter mask for one DDA ray."
+      },
+      "raycast_result": {
+        "kind": "struct",
+        "fields": [
+          { "name": "resolution", "type": "query_resolution" },
+          { "name": "unresolved_section", "type": "section_key" },
+          { "name": "hit_cell", "type": "world_coordinate" },
+          { "name": "block_id", "type": "u32" },
+          { "name": "hit_point", "type": "world_point" },
+          { "name": "hit_normal", "type": "world_point" },
+          { "name": "travel_distance", "type": "f32" }
+        ],
+        "doc": "Resolution is Hit, Miss, or Unresolved; Unresolved carries the SectionKey that was not ready."
+      },
+      "sweep_request": {
+        "kind": "struct",
+        "fields": [
+          { "name": "shape", "type": "pointer" },
+          { "name": "pose", "type": "pointer" },
+          { "name": "displacement", "type": "world_point" },
+          { "name": "material_mask", "type": "u32" }
+        ],
+        "doc": "Caller-owned shape and pose descriptors, this-frame displacement, and material-class filter mask."
+      },
+      "sweep_result": {
+        "kind": "struct",
+        "fields": [
+          { "name": "resolution", "type": "query_resolution" },
+          { "name": "collided", "type": "u8" },
+          { "name": "_reserved", "type": "bytes3" },
+          { "name": "travel_fraction", "type": "f32", "range": [0, 1] },
+          { "name": "unresolved_section", "type": "section_key" },
+          { "name": "hit_cell", "type": "world_coordinate" },
+          { "name": "block_id", "type": "u32" },
+          { "name": "hit_point", "type": "world_point" },
+          { "name": "hit_normal", "type": "world_point" }
+        ],
+        "doc": "Resolution is explicit; Hit carries collided=1 and a 0..1 travel fraction, Miss carries collided=0, and Unresolved carries SectionKey."
+      },
+      "overlap_request": {
+        "kind": "struct",
+        "fields": [
+          { "name": "shape", "type": "pointer" },
+          { "name": "pose", "type": "pointer" },
+          { "name": "material_mask", "type": "u32" },
+          { "name": "_reserved", "type": "bytes4" }
+        ],
+        "doc": "Caller-owned shape and pose descriptors with a material-class filter mask."
+      },
+      "overlap_hit": {
+        "kind": "struct",
+        "fields": [
+          { "name": "cell", "type": "world_coordinate" },
+          { "name": "block_id", "type": "u32" }
+        ],
+        "doc": "One caller-buffer overlap hit: cell coordinate and unsigned BlockId."
+      },
+      "overlap_result": {
+        "kind": "struct",
+        "fields": [
+          { "name": "resolution", "type": "query_resolution" },
+          { "name": "unresolved_section", "type": "section_key" },
+          { "name": "actual_count", "type": "u32" },
+          { "name": "truncated", "type": "u8" },
+          { "name": "_reserved", "type": "bytes3" }
+        ],
+        "doc": "Caller-owned overlap output metadata. actual_count is the full match count; truncated explicitly reports insufficient capacity."
+      }
+    },
+    "semantics": {
+      "callerOwnedBuffers": true,
+      "nativeAllocatesResults": false,
+      "truncated": "Every batch read writes actual count and an explicit truncated flag; over-budget requests are rejected rather than truncated.",
+      "fullEncodingBaseSectionRevision": "Uniform, Palette, and Raw must not carry baseSectionRevision; reject as section_encoding_mismatch. No separate status is invented.",
+      "pinBudget": "The section budget is supplied by the caller for each pin declaration; this ABI invents no fixed pin budget.",
+      "rule49OnViolation": "Rule 49 remains its declared contract error and is not remapped to a generic transaction error."
+    }
+  },
+  "directAbiTests": [
+    {
+      "name": "block_catalog_row_incomplete",
+      "errorCode": "block_catalog_row_incomplete",
+      "status": "BlockCatalogRowIncomplete",
+      "reason": "Direct ABI validation covers this contract case because voxel-world-v1 invalidCases has no executable case."
+    },
+    {
+      "name": "write_batch_too_large",
+      "errorCode": "write_batch_too_large",
+      "status": "WriteBatchTooLarge",
+      "reason": "Direct ABI validation covers the 65536-entry hard limit."
+    },
+    {
+      "name": "pin_region_not_ready",
+      "errorCode": "pin_region_not_ready",
+      "status": "PinRegionNotReady",
+      "reason": "Direct ABI validation covers gameplay attempting settlement before pin readiness."
+    }
+  ],
   "status": {
     "Success": 0,
     "InvalidArgument": 1,

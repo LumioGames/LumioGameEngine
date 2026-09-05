@@ -2,4 +2,286 @@
 
 pub const ABI_VERSION: u32 = 1;
 pub const ENTRY_SYMBOL: &str = "lumio_engine_get_api_v1";
-pub const DEFINITION_SHA256: &str = "ee2f6c6dc2e73a58561ba82325bc1c7c12fbfee52e94e9466642bd0a38510a41";
+pub const DEFINITION_SHA256: &str = "4f5c8b33fb105ab6aba200da0bd191b4a8a6015e22c97b39e3be4a061883a337";
+pub const VOXEL_MAX_CELLS_PER_READ_REQUEST: u32 = 262144;
+pub const VOXEL_MAX_ENTRIES_PER_WRITE_BATCH: u32 = 65536;
+pub const VOXEL_CELL_OFFSET_Y_STRIDE: u32 = 256;
+pub const VOXEL_CELL_OFFSET_Z_STRIDE: u32 = 16;
+pub const VOXEL_CELL_OFFSET_X_STRIDE: u32 = 1;
+pub const VOXEL_ERROR_UNKNOWN_SECTION_KEY: i32 = 1000;
+pub const VOXEL_ERROR_UNKNOWN_CHUNK_KEY: i32 = 1001;
+pub const VOXEL_ERROR_SECTION_Y_OUT_OF_RANGE: i32 = 1002;
+pub const VOXEL_ERROR_COORDINATE_OUT_OF_BOUNDS: i32 = 1003;
+pub const VOXEL_ERROR_SECTION_UNAVAILABLE: i32 = 1004;
+pub const VOXEL_ERROR_STALE_SECTION_REVISION: i32 = 1005;
+pub const VOXEL_ERROR_PALETTE_OVERFLOW: i32 = 1006;
+pub const VOXEL_ERROR_SECTION_ENCODING_MISMATCH: i32 = 1007;
+pub const VOXEL_ERROR_SECTION_DIGEST_MISMATCH: i32 = 1008;
+pub const VOXEL_ERROR_DIRTY_SECTION_NOT_DURABLE: i32 = 1009;
+pub const VOXEL_ERROR_LIGHTING_IN_PAYLOAD: i32 = 1010;
+pub const VOXEL_ERROR_CHUNK_CARRIES_DATA: i32 = 1011;
+pub const VOXEL_ERROR_UNKNOWN_MATERIAL_CLASS: i32 = 1012;
+pub const VOXEL_ERROR_MATERIAL_CLASS_NOT_A_CELL_LANE: i32 = 1013;
+pub const VOXEL_ERROR_LIQUID_AUTO_PROPAGATION_UNSUPPORTED: i32 = 1014;
+pub const VOXEL_ERROR_CROSS_MATERIAL_FACE_MERGE: i32 = 1015;
+pub const VOXEL_ERROR_ENTITY_BINDING_MISSING: i32 = 1016;
+pub const VOXEL_ERROR_ENTITY_BINDING_ORPHAN: i32 = 1017;
+pub const VOXEL_ERROR_ENTITY_BINDING_TYPE_MISMATCH: i32 = 1018;
+pub const VOXEL_ERROR_ENTITY_BINDING_NOT_SPARSE: i32 = 1019;
+pub const VOXEL_ERROR_BUSINESS_DATA_IN_PAYLOAD: i32 = 1020;
+pub const VOXEL_ERROR_BINDING_COMMIT_SPLIT: i32 = 1021;
+pub const VOXEL_ERROR_BLOCK_TYPE_SCOPE_VIOLATION: i32 = 1022;
+pub const VOXEL_ERROR_SYSTEM_RESERVED_TYPE_MISUSE: i32 = 1023;
+pub const VOXEL_ERROR_ROOM_LOCAL_TYPE_WITHOUT_MAPPING: i32 = 1024;
+pub const VOXEL_ERROR_PLAYER_TYPE_DECLARES_BEHAVIOR: i32 = 1025;
+pub const VOXEL_ERROR_PALETTE_RECLAIM_BEFORE_ESCALATION: i32 = 1026;
+pub const VOXEL_ERROR_DEAD_PALETTE_ENTRY_IN_PAYLOAD: i32 = 1027;
+pub const VOXEL_ERROR_DELTA_BASE_REVISION_MISMATCH: i32 = 1028;
+pub const VOXEL_ERROR_DELTA_USED_FOR_FIRST_DELIVERY: i32 = 1029;
+pub const VOXEL_ERROR_UNRESOLVED_HIT_TREATED_AS_AIR: i32 = 1030;
+pub const VOXEL_ERROR_UNRESOLVED_HIT_TREATED_AS_SOLID: i32 = 1031;
+pub const VOXEL_ERROR_QUERY_BUFFER_OVERFLOW: i32 = 1032;
+pub const VOXEL_ERROR_QUERY_RESULT_DIVERGENCE: i32 = 1033;
+pub const VOXEL_ERROR_COLLISION_BEHAVIOR_NOT_FROM_MATERIAL_TABLE: i32 = 1034;
+pub const VOXEL_ERROR_QUERY_MUTATES_WORLD: i32 = 1035;
+pub const VOXEL_ERROR_WORLD_Y_OUT_OF_RANGE: i32 = 1036;
+pub const VOXEL_ERROR_BLOCK_CATALOG_NOT_DENSE: i32 = 1037;
+pub const VOXEL_ERROR_BLOCK_CATALOG_NAME_REUSED: i32 = 1038;
+pub const VOXEL_ERROR_BLOCK_CATALOG_ROW_INCOMPLETE: i32 = 1039;
+pub const VOXEL_ERROR_READ_BUDGET_EXCEEDED: i32 = 1040;
+pub const VOXEL_ERROR_READ_RESULT_MISSING_REVISION: i32 = 1041;
+pub const VOXEL_ERROR_WRITE_BATCH_TOO_LARGE: i32 = 1042;
+pub const VOXEL_ERROR_UNSTRUCTURED_MUTATION_ENTRY: i32 = 1043;
+pub const VOXEL_ERROR_CELL_OFFSET_OUT_OF_RANGE: i32 = 1044;
+pub const VOXEL_ERROR_RESIDENCY_PIN_EXCEEDS_BUDGET: i32 = 1045;
+pub const VOXEL_ERROR_PIN_REGION_NOT_READY: i32 = 1046;
+pub const VOXEL_ERROR_PINNED_SECTION_EVICTED: i32 = 1047;
+pub const VOXEL_ERROR_PINNED_READ_RETURNED_PENDING: i32 = 1048;
+pub const VOXEL_ERROR_UNKNOWN_BEHAVIOR_TEMPLATE: i32 = 1049;
+pub const VOXEL_ERROR_CELL_READ_MISSING_PRESENCE: i32 = 1050;
+
+#[repr(u32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VoxelPresence {
+    Ready = 0,
+    Unchanged = 1,
+    Pending = 2,
+    Unavailable = 3,
+}
+
+#[repr(u32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VoxelQueryResolution {
+    Hit = 0,
+    Miss = 1,
+    Unresolved = 2,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelSectionKey {
+    pub x: i32,
+    pub y: u8,
+    pub _reserved: [u8; 3],
+    pub z: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelWorldCoordinate {
+    pub x: i32,
+    pub y: u8,
+    pub z: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelBoxRequest {
+    pub min: VoxelWorldCoordinate,
+    pub max: VoxelWorldCoordinate,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelColumnRequest {
+    pub x: i32,
+    pub z: i32,
+    pub min_y: u8,
+    pub max_y: u8,
+    pub _reserved: [u8; 2],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelBlockReadCellResult {
+    pub presence: VoxelPresence,
+    pub has_block_id: u8,
+    pub _reserved: [u8; 3],
+    pub block_id: u32,
+    pub section_revision: u64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelBlockReadResult {
+    pub presence: VoxelPresence,
+    pub has_block_id: u8,
+    pub _reserved: [u8; 3],
+    pub block_id: u32,
+    pub section_revision: u64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelSectionRevisionResult {
+    pub presence: VoxelPresence,
+    pub _reserved: [u8; 4],
+    pub section_revision: u64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelSectionSegment {
+    pub section_key: VoxelSectionKey,
+    pub presence: VoxelPresence,
+    pub section_revision: u64,
+    pub first_result: u32,
+    pub result_count: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelBlockWriteEntry {
+    pub section_key: VoxelSectionKey,
+    pub cell_offset: u16,
+    pub _reserved: [u8; 2],
+    pub block_id: u32,
+    pub expected_section_revision: u64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelWriteReceipt {
+    pub section_key: VoxelSectionKey,
+    pub up_to_section_revision: u64,
+    pub world_revision: u64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelPinStatus {
+    pub ready: u8,
+    pub _reserved: [u8; 7],
+    pub section_count: u32,
+    pub ready_section_count: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelWorldPoint {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelRaycastRequest {
+    pub origin: VoxelWorldPoint,
+    pub direction: VoxelWorldPoint,
+    pub max_distance: f32,
+    pub material_mask: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelRaycastResult {
+    pub resolution: VoxelQueryResolution,
+    pub unresolved_section: VoxelSectionKey,
+    pub hit_cell: VoxelWorldCoordinate,
+    pub block_id: u32,
+    pub hit_point: VoxelWorldPoint,
+    pub hit_normal: VoxelWorldPoint,
+    pub travel_distance: f32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelSweepRequest {
+    pub shape: *mut core::ffi::c_void,
+    pub pose: *mut core::ffi::c_void,
+    pub displacement: VoxelWorldPoint,
+    pub material_mask: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelSweepResult {
+    pub resolution: VoxelQueryResolution,
+    pub collided: u8,
+    pub _reserved: [u8; 3],
+    pub travel_fraction: f32,
+    pub unresolved_section: VoxelSectionKey,
+    pub hit_cell: VoxelWorldCoordinate,
+    pub block_id: u32,
+    pub hit_point: VoxelWorldPoint,
+    pub hit_normal: VoxelWorldPoint,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelOverlapRequest {
+    pub shape: *mut core::ffi::c_void,
+    pub pose: *mut core::ffi::c_void,
+    pub material_mask: u32,
+    pub _reserved: [u8; 4],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelOverlapHit {
+    pub cell: VoxelWorldCoordinate,
+    pub block_id: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelOverlapResult {
+    pub resolution: VoxelQueryResolution,
+    pub unresolved_section: VoxelSectionKey,
+    pub actual_count: u32,
+    pub truncated: u8,
+    pub _reserved: [u8; 3],
+}
+
+pub type VoxelStatus = i32;
+pub type BlockReadCellFn = unsafe extern "C" fn(*mut core::ffi::c_void, *const VoxelWorldCoordinate, *mut VoxelBlockReadCellResult) -> VoxelStatus;
+pub type BlockReadBatchFn = unsafe extern "C" fn(*mut core::ffi::c_void, *const core::ffi::c_void, *mut VoxelBlockReadResult, u32, *mut u32, *mut VoxelSectionSegment, u32, *mut u32, *mut u8) -> VoxelStatus;
+pub type BlockWritePrepareFn = unsafe extern "C" fn(*mut core::ffi::c_void, u64, *const VoxelBlockWriteEntry, u32, *mut *mut core::ffi::c_void) -> VoxelStatus;
+pub type BlockWriteCommitFn = unsafe extern "C" fn(*mut core::ffi::c_void, *mut core::ffi::c_void, *mut VoxelWriteReceipt, u32, *mut u32) -> VoxelStatus;
+pub type BlockWriteAbortFn = unsafe extern "C" fn(*mut core::ffi::c_void, *mut core::ffi::c_void) -> VoxelStatus;
+pub type SectionRevisionQueryFn = unsafe extern "C" fn(*mut core::ffi::c_void, *const VoxelSectionKey, *mut VoxelSectionRevisionResult) -> VoxelStatus;
+pub type ResidencyPinDeclareFn = unsafe extern "C" fn(*mut core::ffi::c_void, *const VoxelSectionKey, u32, u32, *mut *mut core::ffi::c_void) -> VoxelStatus;
+pub type ResidencyPinReleaseFn = unsafe extern "C" fn(*mut core::ffi::c_void, *mut core::ffi::c_void) -> VoxelStatus;
+pub type ResidencyPinStatusFn = unsafe extern "C" fn(*mut core::ffi::c_void, *mut core::ffi::c_void, *mut VoxelPinStatus) -> VoxelStatus;
+pub type RaycastFn = unsafe extern "C" fn(*mut core::ffi::c_void, *const VoxelRaycastRequest, *mut VoxelRaycastResult) -> VoxelStatus;
+pub type SweepFn = unsafe extern "C" fn(*mut core::ffi::c_void, *const VoxelSweepRequest, *mut VoxelSweepResult) -> VoxelStatus;
+pub type OverlapFn = unsafe extern "C" fn(*mut core::ffi::c_void, *const VoxelOverlapRequest, *mut VoxelOverlapHit, u32, *mut VoxelOverlapResult) -> VoxelStatus;
+
+
+#[repr(C)]
+pub struct VoxelRootSlots {
+    pub block_read_cell: Option<BlockReadCellFn>,
+    pub block_read_box: Option<BlockReadBatchFn>,
+    pub block_read_column: Option<BlockReadBatchFn>,
+    pub block_write_prepare: Option<BlockWritePrepareFn>,
+    pub block_write_commit: Option<BlockWriteCommitFn>,
+    pub block_write_abort: Option<BlockWriteAbortFn>,
+    pub section_revision_query: Option<SectionRevisionQueryFn>,
+    pub residency_pin_declare: Option<ResidencyPinDeclareFn>,
+    pub residency_pin_release: Option<ResidencyPinReleaseFn>,
+    pub residency_pin_status: Option<ResidencyPinStatusFn>,
+    pub raycast: Option<RaycastFn>,
+    pub sweep: Option<SweepFn>,
+    pub overlap: Option<OverlapFn>,
+}
