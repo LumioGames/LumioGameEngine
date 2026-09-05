@@ -3,7 +3,7 @@ name: runtime-manager-query-expiry
 description: Runtime owner-thread expiry, binding resolution, and attribute query controls for the R5 host bridge
 metadata:
   type: doc
-  status: implementation planned
+  status: 实施中
 ---
 
 # Runtime Manager Query and Expiry

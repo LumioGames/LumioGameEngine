@@ -1,3 +1,11 @@
+---
+name: 2026-09-05-rm00011-a2-runtime-query-expiry
+description: RM-00011 A2 Runtime owner-thread query and expiry integration plan
+metadata:
+  type: doc
+  status: 实施中
+---
+
 # RM-00011 A2 Runtime Query and Expiry Integration Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use subagent-driven-development to implement this plan task-by-task with a fresh implementer and an independent reviewer for each task.

@@ -1,6 +1,6 @@
 # ADR-061: RM-00011 A2 Runtime Owner-Thread Query and Expiry Controls
 
-Status: Draft
+- **Status**: Draft
 Date: 2026-09-05
 Owners: LumioGameEngineArchitecture, LumioGameRuntime
 Supersedes: None
