@@ -100,3 +100,13 @@ r4 整体复核（`reviews/2026-09-04-rm-00011-r4-overall-review.md`）以读代
 8. **紧凑存储**：建一个 PlayerEntity 的堆分配对象数 = 1 模板 + 组件数；销毁再建同类型零新分配；`Get<T>()` 无循环；实体查找无字典。
 9. **旧世界清零**：全部 `modules/*/src` grep `EcsWorld` / `EcsModule.CreateWorld` / `EcsPersistSnapshotPipeline` 零命中。
 10. **Manager 无连接表**：`WorldManager` 源码无以连接字符串为键的容器；包按观察者 NetEntityId 寻址。
+
+## 修订记录（2026-09-05，ADR-063）
+
+以下各条的措辞由 [ADR-063](ADR-063-architecture-review-owner-rulings-identity-persist-prediction.md) 修订，本文正文不改写：
+
+- 第 5 / 12 条：可见性本身变化也是同步事件——`Claim` / `Owner` 名单新增观察者补发当前值、移除发失效记录；持久名单存 `AccountId`（ADR-063 第 8 条）。
+- 第 7 条：墓碑推导只在服务器成立；客户端不按最大号推导，只有三态（有副本 / 未知 / 收到过已终结）；销毁记录带 `reason ∈ { left_aoi, terminated }`（ADR-063 第 2 条）。「快照只存『下一个号』」被取代：快照存发号器「已占到哪」，崩溃后从已占段之后继续（ADR-063 第 3 条）。
+- 第 11 条 ①：「整块入池复用」保留，「整块内存拷贝」删除——批量创建 = 池化 + 生成的按类型克隆，验收看耗时 / 分配 / GC 三个数（ADR-063 第 9 条）。
+- 第 11 条 ④：「NetEntityId → 实体走密集数组」由必须改为参考做法，查找结构归实现仓（ADR-063 第 3 条）。
+- 「接口 / Schema」C-1″：追加 `WorldChange.destroys[].reason` 与包级 `appliedInputSequence`，随 R5-01 一并落（ADR-063 接口段）。
