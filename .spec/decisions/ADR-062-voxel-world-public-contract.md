@@ -1,6 +1,6 @@
 # ADR-062：体素公共语义改从 `lumio.voxel-world.v1` 取——16³ 数据单元改名 Section，旧制度体素契约作废
 
-状态：Draft（2026-09-04，契约随 `4d05e8c` 落地并在本轮扩至 44 错误码 / 49 规则 / 98 用例；随 M1/M2 实现验证后转 Accepted）
+状态：Draft（2026-09-05，契约当前为 52 错误码 / 57 规则 / 110 场景用例；R-00434 的解析域与目录校验增量见 [ADR-066](ADR-066-voxel-owner-rulings.md)，随 M1/M2 实现验证后转 Accepted）
 取代：作废 [ADR-024](ADR-024-voxel-p0-contract-set.md)、[ADR-035](ADR-035-voxel-snapshot-payload.md)、[ADR-036](ADR-036-voxel-streaming-durability-ack.md) 中「Chunk 是 16³ 数据单元」的分层语义与其 `schemas/` 依赖；三者的事务、Pin 栅栏、耐久回执与 canonical 排序等**技术结论**仍可被引用，但其 Schema/Fixture 链已随旧制度删除，不再是可校验真值
 Owner：`LumioGameEngine`（契约与裁决真值）、`LumioVoxelEngine`（唯一实现）、`LumioGameRuntime` / `LumioGame` / `LumioClient`（消费方）
 
@@ -26,13 +26,14 @@ Owner：`LumioGameEngine`（契约与裁决真值）、`LumioVoxelEngine`（唯�
 - **规范键以元数防呆。** Section `s:<x>:<y>:<z>`（y 限 0~15），Chunk `c:<x>:<z>`。三坐标的 `c:` 键在语法上即非法，必须显式拒绝，且不得被解读为 `c:x:z` 或 `s:x:y:z`。
 - **`BlockId` 是 32 位且引擎解释它**：`BlockType << 8 | BlockState`，高 24 位种类、低 8 位摆法（动态位段）。**一律按无符号处理**——房间局部段的作用域位落在 bit 23，即 `BlockId` 的最高位，用有符号 `int32` 承载会变成负数。**这条取代 `mvp-placevoxel-content-spec.md` §6.2 的「不透明 uint16」。**
 - **段表只靠一个位加一个 256 分界**：作用域位（bit 23）= 0 是全局官方段（`0` 空气 / `1` 错误块 / `2` 被 ECS 实体占用 / `3` 结构占位 / `4–255` 系统预留 / `256+` 官方素材库连号稠密）；= 1 是房间局部段（玩家素材库，局部号 `BlockType & 0x7FFFFF`，映射表随存档走）。旧草案的 `9999 / 10000 / 2000000` 三个魔数作废。
+- **BlockType 解析域按 [ADR-066](ADR-066-voxel-owner-rulings.md) 固定**：`0..3` 是 typed built-in sentinel（其中 `2` 为 ECS occupancy、`3` 为结构占位），`4..255` 预留且不可解析；普通材质 / 行为模板解析只对已登记官方目录行或已映射房间局部行开放，其他 admitted type 返回 `unregistered_block_type`。
 - **材质类是 BlockType 的配表属性，归引擎。** v1 只有 `Solid` / `Liquid` 两类，由**同一张表**声明网格 / 渲染通道 / 碰撞 / 透光四轴；不得在网格器、渲染器、物理、光照里各写一份分支，不得编码进 ID 分段，不得成为第三路逐格数据。新增材质类的唯一判据：这个差异能否只靠贴图表达——能，就不是新类。
 - **载荷四编码，一个信封一个分发点。** `Uniform` / `Palette`（8 位索引，≤256 项）/ `Raw` 是全量编码，`Delta`（每条 6 字节 = 格内偏移 + 新 BlockId）是增量编码。**Delta 必须携带 `baseSectionRevision`**，对不上即 `delta_base_revision_mismatch`，拒收并请求一次全量重发，不许静默打补丁；首次送达与重同步禁用 Delta。
 - **物理查询移进本契约**（原在 `scope.excludes`）：射线 / 重叠 / 扫掠三种，命中最小单位是 Block，结果三态 `Hit / Miss / Unresolved`。**`Unresolved` 既不等于 Miss 也不等于 Hit，且是正常结局不是错误码。** 阻挡与否只能查材质类表。语义在本契约，**C 函数签名属 [`engine/abi/native-abi.json`](../../engine/abi/native-abi.json)**。
 - **光照是派生数据，永不入载荷**、不落盘、不上网（不可变的原始地图预烘焙除外）。
 - **方块与实体的绑定只留一条稀疏引用**（`格内偏移 → NetEntityId`），业务数据挂 ECS 实体；体素侧不得自带第二套稀疏业务存储，业务字段不得随体素派发。
 - **y 是竖直轴，世界 y 无符号 0~255**（`sectionY = worldY >> 4`、`cellY = worldY & 15`）；x 与 z 是水平轴，各自 signed 32 位，负坐标一等公民。**不接受 y-up / z-up 可配置项**——可配置意味着两套理解并存，而按「z 竖直」写下的代码能照过全部正则，错误要漂到渲染和物理才暴露。
-- **官方方块目录是全局段的唯一分配来源**：每行六字段（`blockType` / `name` / `materialClass` / `behaviorTemplate` / `assetRef` / `stateLayout`），从 256 起**连号稠密**分配不留空洞（配表按编号直接下标，空洞会逼出哈希表）；编号与 `name` **永不回收、永不改写、永不重排**；实现仓不得自行铸号。
+- **官方方块目录是全局段的唯一分配来源**：每行六字段（`blockType` / `name` / `materialClass` / `behaviorTemplate` / `assetRef` / `stateLayout`），从 256 起**连号稠密**分配不留空洞（配表按编号直接下标，空洞会逼出哈希表）；编号与 `name` **永不回收、永不改写、永不重排**；实现仓不得自行铸号。目录校验结构优先：任一必填字段缺失 / null / 空值先报 `block_catalog_row_incomplete`，完整行的非空未知 `materialClass` 才报 `unknown_material_class`。
 - **玩法侧批量读是独立于派发的一条路**：三种请求（单格 / 矩形 / 列），**结果必带 `sectionRevision`**，缺块四态与派发面共用一套且**不得把 Pending/Unavailable 填成空气**，预算是声明出来的数字（单次 262144 格 = 64 个 Section）且**超限整条拒绝、不静默截断**，结果写进调用方缓冲。它不是订阅——持续观察一片区域走改动层派发。
 - **写入条目是结构化字段，不是字符串 map**：`sectionKey` + 格内偏移（0~4095）+ 新 `BlockId` + **`expectedSectionRevision`**；一批要么全生效要么全不生效（上限 65536 条），按事务 ID 幂等。字符串键值 map 让字段名、类型与边界全都不可机器校验，即 `unstructured_mutation_entry`。
 - **尺寸与坐标语义一经冻结即不可变更**，改动等于全量转档，没有例外。
@@ -56,7 +57,7 @@ Owner：`LumioGameEngine`（契约与裁决真值）、`LumioVoxelEngine`（唯�
 
 ## 失败语义
 
-契约现有 44 个稳定错误码（`unknown_section_key` / `unknown_chunk_key` / `delta_base_revision_mismatch` / `delta_used_for_first_delivery` / `lighting_in_payload` / `dirty_section_not_durable` / `block_type_scope_violation` / `room_local_type_without_mapping` / `player_type_declares_behavior` / `palette_reclaim_before_escalation` / `dead_palette_entry_in_payload` / `business_data_in_payload` / `binding_commit_split` 等）。三条红线级失败：**把 `Pending`/`Unavailable`/`Unresolved` 物化成空气**、**携带光照或业务字段入载荷**、**未经回执覆盖卸载脏 Section**。
+契约现有 52 个稳定错误码（包括新增 `unregistered_block_type`；`unknown_section_key` / `unknown_chunk_key` / `delta_base_revision_mismatch` / `delta_used_for_first_delivery` / `lighting_in_payload` / `dirty_section_not_durable` / `block_type_scope_violation` / `room_local_type_without_mapping` / `player_type_declares_behavior` / `palette_reclaim_before_escalation` / `dead_palette_entry_in_payload` / `business_data_in_payload` / `binding_commit_split` 等）。三条红线级失败：**把 `Pending`/`Unavailable`/`Unresolved` 物化成空气**、**携带光照或业务字段入载荷**、**未经回执覆盖卸载脏 Section**。
 
 ## 兼容影响与迁移
 
@@ -67,4 +68,4 @@ Owner：`LumioGameEngine`（契约与裁决真值）、`LumioVoxelEngine`（唯�
 
 ## 验证
 
-`node eng/verify-wire.mjs` 覆盖 7 份契约；`voxel-world-v1.json` 现有 98 条声明用例（47 testCases + 51 invalidCases）全绿。`node .spec/tools/spec-lint.mjs` 校验本 ADR 的登记与链接可达。实现侧的一致性由 `LumioVoxelEngine` 解析同一份 JSON 逐条断言常量，并校验其 SHA-256 与仓内 `CONTRACT_SHA256` 相符。
+`node eng/verify-wire.mjs` 覆盖 7 份契约；`voxel-world-v1.json` 现有 110 条顶层声明场景（53 testCases + 57 invalidCases），并额外执行 ADR-066 的 resolver / row-validation vectors。`node .spec/tools/spec-lint.mjs` 校验本 ADR 的登记与链接可达。实现侧的一致性由 `LumioVoxelEngine` 解析同一份 JSON 逐条断言常量，并校验其 SHA-256 与仓内 `CONTRACT_SHA256` 相符。

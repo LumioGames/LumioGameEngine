@@ -8,7 +8,7 @@ metadata:
 
 # 体素需求卡 × 契约漂移复核（2026-09-04）
 
-对线上蓝图 `voxel-impl-2026-09-04` 九张卡（R-00432…R-00440）与 [`voxel-world-v1.json`](../../engine/wire/voxel-world-v1.json) 的一次**只读**复核。产出判定与缺口，**未改动任何线上单据、契约、ADR 或设计文档**——需要改的全部列在第六节等 Owner 裁决。
+对线上蓝图 `voxel-impl-2026-09-04` 九张卡（R-00432…R-00440）与 [`voxel-world-v1.json`](../../engine/wire/voxel-world-v1.json) 的一次**只读**复核。产出判定与缺口；当时**未改动任何线上单据、契约、ADR 或设计文档**，需要改的全部列在第六节等 Owner 裁决。2026-09-05 Owner 已对 R-00434 的 D1/D2/D3 授权，落地结果见本文末尾增量记录与 [ADR-066](../decisions/ADR-066-voxel-owner-rulings.md)。
 
 ## 一、复核口径
 
@@ -311,3 +311,13 @@ $ node eng/verify-wire.mjs
 ```
 
 输出见交回物。本次为纯读复核，除本文件外未改动仓内任何文件，未对 Workflow 执行任何写操作。
+
+## 九、2026-09-05 Owner 裁决增量（R-00434）
+
+本节只记录已授权的 R-00434 变更，不回写前文当日复核事实：
+
+- **D1 已定**：`entity_occupancy_placeholder` 改为 `BlockType=2`（ECS occupancy）；`BlockType=3` 保留为 structure placeholder。
+- **D2 已定**：`0..3` 使用 typed built-in sentinel；`4..255` reserved / non-resolvable；普通材质与行为模板解析仅适用于已登记官方目录行或已映射房间局部行；其他 admitted type 返回新增 `unregistered_block_type`。既有 `room_local_type_without_mapping` 保留在存档映射完整性上下文。
+- **D3 已定**：目录行结构校验优先。任一必需字段缺失 / null / 空值返回 `block_catalog_row_incomplete`；结构完整且非空未知 `materialClass` 才返回 `unknown_material_class`。
+
+契约已增加 resolver / catalog-validation machine vectors，`verify-wire` 对其执行专属断言；ADR-062、`voxel.md` 与 ABI 生成源摘要同步到 52 error codes / 57 rules / 110 顶层场景。原第六节第 5 项（「verify-wire 不做体素语义执行」）已由该专属分支关闭；其余未授权缺陷与排期事项不因本增量自动改变。

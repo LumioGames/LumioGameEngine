@@ -23,7 +23,9 @@
       "权威写入条目的公共形状与整批语义",
       "格内偏移的唯一算式与反解",
       "区域常驻 pin：声明、就绪信号、硬预算与不可淘汰",
-      "行为模板登记表（v1 穷尽：FullCube / Liquid）"
+      "行为模板登记表（v1 穷尽：FullCube / Liquid）",
+      "BlockType resolution domain: typed built-in sentinels, reserved non-resolvable range, and registered ordinary rows",
+      "Catalog row validation precedence for missing, empty, and unknown materialClass"
     ],
     "excludes": [
       "网格顶点格式与零拷贝句柄的 ABI 形状（属 engine/abi/native-abi.json）",
@@ -234,6 +236,177 @@
       },
       "why256": "256 不是新引入的常量——它就是调色板的项数上限，本契约全文只此一个数字。",
       "densityIsThePerformanceProperty": "两段各一张稠密表，解析一个调色板项是一次数组下标；编号散布则只能用哈希表，每次解析多一次哈希与一次随机访存。"
+    },
+    "resolution": {
+      "statement": "BlockType admission is a typed domain: built-in sentinels 0..3 resolve without ordinary catalog lookup; 4..255 are reserved and non-resolvable; ordinary material/template resolution is allowed only for a registered official catalog row or a mapped room-local row.",
+      "builtInSentinels": {
+        "types": {
+          "0": "air",
+          "1": "error-block",
+          "2": "ecs-occupancy",
+          "3": "structure-placeholder"
+        },
+        "resolution": "builtin-sentinel",
+        "ordinaryMaterialAndTemplateLookup": false
+      },
+      "reservedRange": {
+        "min": 4,
+        "max": 255,
+        "resolution": "non-resolvable",
+        "onAdmission": "unregistered_block_type"
+      },
+      "officialGlobal": {
+        "min": 256,
+        "max": 8388607,
+        "resolution": "ordinary",
+        "source": "blockCatalog",
+        "requiresRegisteredRow": true
+      },
+      "roomLocal": {
+        "min": 8388608,
+        "max": 16777215,
+        "resolution": "ordinary",
+        "source": "roomLocalMapping",
+        "requiresMappedRow": true
+      },
+      "testCases": [
+        {
+          "name": "sentinel_air",
+          "blockType": 0,
+          "expected": {
+            "outcome": "builtin-sentinel",
+            "type": "air"
+          }
+        },
+        {
+          "name": "sentinel_error_block",
+          "blockType": 1,
+          "expected": {
+            "outcome": "builtin-sentinel",
+            "type": "error-block"
+          }
+        },
+        {
+          "name": "sentinel_ecs_occupancy",
+          "blockType": 2,
+          "expected": {
+            "outcome": "builtin-sentinel",
+            "type": "ecs-occupancy"
+          }
+        },
+        {
+          "name": "sentinel_structure_placeholder",
+          "blockType": 3,
+          "expected": {
+            "outcome": "builtin-sentinel",
+            "type": "structure-placeholder"
+          }
+        },
+        {
+          "name": "reserved_type_is_not_resolvable",
+          "blockType": 4,
+          "expected": {
+            "outcome": "reject",
+            "errorCode": "unregistered_block_type"
+          }
+        },
+        {
+          "name": "official_registered_row",
+          "blockType": 256,
+          "registered": true,
+          "expected": {
+            "outcome": "ordinary",
+            "source": "official-catalog"
+          }
+        },
+        {
+          "name": "official_unregistered_row",
+          "blockType": 257,
+          "registered": false,
+          "expected": {
+            "outcome": "reject",
+            "errorCode": "unregistered_block_type"
+          }
+        },
+        {
+          "name": "room_local_mapped_row",
+          "blockType": 8388608,
+          "mapped": true,
+          "expected": {
+            "outcome": "ordinary",
+            "source": "room-local-mapping"
+          }
+        },
+        {
+          "name": "room_local_unmapped_row",
+          "blockType": 8388609,
+          "mapped": false,
+          "expected": {
+            "outcome": "reject",
+            "errorCode": "unregistered_block_type"
+          }
+        }
+      ],
+      "catalogValidationCases": [
+        {
+          "name": "missing_material_class_is_structural",
+          "row": {
+            "blockType": 256,
+            "name": "lumio.stone",
+            "behaviorTemplate": "FullCube",
+            "assetRef": "stone",
+            "stateLayout": {}
+          },
+          "expectedError": "block_catalog_row_incomplete"
+        },
+        {
+          "name": "empty_material_class_is_structural",
+          "row": {
+            "blockType": 256,
+            "name": "lumio.stone",
+            "materialClass": "  ",
+            "behaviorTemplate": "FullCube",
+            "assetRef": "stone",
+            "stateLayout": {}
+          },
+          "expectedError": "block_catalog_row_incomplete"
+        },
+        {
+          "name": "unknown_non_empty_material_class_is_semantic",
+          "row": {
+            "blockType": 256,
+            "name": "lumio.stone",
+            "materialClass": "Crystal",
+            "behaviorTemplate": "FullCube",
+            "assetRef": "stone",
+            "stateLayout": {}
+          },
+          "expectedError": "unknown_material_class"
+        },
+        {
+          "name": "other_missing_field_wins_over_unknown_material",
+          "row": {
+            "blockType": 256,
+            "name": "lumio.stone",
+            "materialClass": "Crystal",
+            "behaviorTemplate": "FullCube",
+            "stateLayout": {}
+          },
+          "expectedError": "block_catalog_row_incomplete"
+        },
+        {
+          "name": "complete_known_material_is_valid",
+          "row": {
+            "blockType": 256,
+            "name": "lumio.stone",
+            "materialClass": "Solid",
+            "behaviorTemplate": "FullCube",
+            "assetRef": "stone",
+            "stateLayout": {}
+          },
+          "expectedError": "valid"
+        }
+      ]
     }
   },
   "assetLibraries": {
@@ -596,7 +769,8 @@
     "pinned_section_evicted",
     "pinned_read_returned_pending",
     "unknown_behavior_template",
-    "cell_read_missing_presence"
+    "cell_read_missing_presence",
+    "unregistered_block_type"
   ],
   "rules": [
     {
@@ -772,6 +946,12 @@
       "text": "玩家素材库的方块只能引用一个已声明的官方行为模板，不得定义新行为",
       "enforcedBy": "receiver",
       "onViolation": "player_type_declares_behavior"
+    },
+    {
+      "id": "blockType.resolution-domain",
+      "text": "Only typed built-in sentinels and registered official or mapped room-local rows enter ordinary BlockType resolution; reserved and unregistered types are non-resolvable",
+      "enforcedBy": "receiver",
+      "onViolation": "unregistered_block_type"
     },
     {
       "id": "palette.reclaim-before-escalation",
@@ -991,7 +1171,7 @@
       "class": "blockId",
       "given": "一张床占两格，本体是一个 ECS 实体",
       "when": "写入被占的两格",
-      "then": "两格写 BlockType=3 的占位类型，实体经稀疏引用寻址；不产生逐格的第二路数据"
+      "then": "两格写 BlockType=2 的占位类型，实体经稀疏引用寻址；不产生逐格的第二路数据"
     },
     {
       "name": "unchanged_section_is_zero_bytes",
@@ -1513,11 +1693,11 @@
     {
       "name": "block_type_without_material_class",
       "class": "material",
-      "violates": "material.class-must-be-declared",
+      "violates": "catalog.row-must-be-complete",
       "given": "配表新增一个 BlockType 但未声明材质类",
       "when": "加载配表",
-      "expectedRejection": "unknown_material_class",
-      "then": "拒绝；每个 BlockType 必须解析到一个已声明的类",
+      "expectedRejection": "block_catalog_row_incomplete",
+      "then": "拒绝；目录行结构不完整时，结构错误优先于材质类解析",
       "validatorCheck": false
     },
     {
@@ -1914,7 +2094,7 @@
     "rowShape": {
       "blockType": "uint24，全局段编号；256 起连号稠密分配，不留空洞",
       "name": "稳定标识串（如 lumio.stone），一经登记不得改写——存档与工具按它做人类可读投影",
-      "materialClass": "必须解析到一个已声明的材质类；缺失即 unknown_material_class",
+      "materialClass": "结构完整后必须解析到一个已声明的材质类；缺失、null 或空值先报 block_catalog_row_incomplete，非空未知 token 才报 unknown_material_class",
       "behaviorTemplate": "必须解析到 behaviorTemplates 里已登记的一项；v1 只有 FullCube 与 Liquid，引用未登记的模板即 unknown_behavior_template",
       "assetRef": "素材引用（贴图 / 模型 / 声音），只影响外观，不影响任何四轴行为",
       "stateLayout": "该方块 BlockState 的动态位段声明；不声明即视为无状态位"

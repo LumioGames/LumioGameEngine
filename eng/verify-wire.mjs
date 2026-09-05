@@ -1076,10 +1076,77 @@ function checkGameplayEnvelopeContract(contract, fileName, problems) {
   }
 }
 
+function checkVoxelPublicContract(contract, fileName, problems) {
+  if (contract.contractId !== 'lumio.voxel-world.v1') return;
+  const problem = (msg) => problems.push(`${fileName}: ${msg}`);
+  const occupancyCase = (contract.testCases ?? []).find((item) => item.name === 'entity_occupancy_placeholder');
+  if (!occupancyCase?.then?.includes('BlockType=2')) {
+    problem('testCases.entity_occupancy_placeholder must use BlockType=2 for ECS occupancy');
+  }
+  if (occupancyCase?.then?.includes('BlockType=3')) {
+    problem('testCases.entity_occupancy_placeholder must not use BlockType=3 for ECS occupancy');
+  }
+  const resolution = contract.blockId?.resolution;
+  if (!resolution || resolution.reservedRange?.onAdmission !== 'unregistered_block_type') {
+    problem('blockId.resolution must declare the reserved/non-resolvable admission error');
+    return;
+  }
+
+  const sentinelTypes = {
+    '0': 'air',
+    '1': 'error-block',
+    '2': 'ecs-occupancy',
+    '3': 'structure-placeholder',
+  };
+  if (JSON.stringify(resolution.builtInSentinels?.types) !== JSON.stringify(sentinelTypes)) {
+    problem('blockId.resolution.builtInSentinels.types must freeze the four typed sentinel values');
+  }
+  if (resolution.reservedRange?.min !== 4 || resolution.reservedRange?.max !== 255) {
+    problem('blockId.resolution.reservedRange must be 4..255');
+  }
+  const globalMax = contract.limits?.globalSegmentMax;
+  const roomLocalMin = contract.limits?.roomLocalSegmentMin;
+  for (const vector of resolution.testCases ?? []) {
+    const blockType = vector.blockType;
+    let actual;
+    if (blockType >= 0 && blockType <= 3) {
+      actual = { outcome: 'builtin-sentinel', type: sentinelTypes[String(blockType)] };
+    } else if (blockType >= 4 && blockType <= 255) {
+      actual = { outcome: 'reject', errorCode: 'unregistered_block_type' };
+    } else if (blockType >= 256 && blockType <= globalMax) {
+      actual = vector.registered ? { outcome: 'ordinary', source: 'official-catalog' } : { outcome: 'reject', errorCode: 'unregistered_block_type' };
+    } else if (blockType >= roomLocalMin && blockType <= contract.limits?.blockTypeMax) {
+      actual = vector.mapped ? { outcome: 'ordinary', source: 'room-local-mapping' } : { outcome: 'reject', errorCode: 'unregistered_block_type' };
+    } else {
+      actual = { outcome: 'reject', errorCode: 'unregistered_block_type' };
+    }
+    if (JSON.stringify(actual) !== JSON.stringify(vector.expected)) {
+      problem(`blockId.resolution.testCases.${vector.name ?? '(unnamed)'} expected ${JSON.stringify(vector.expected)}, got ${JSON.stringify(actual)}`);
+    }
+  }
+
+  const requiredRowFields = ['blockType', 'name', 'materialClass', 'behaviorTemplate', 'assetRef', 'stateLayout'];
+  const declaredMaterialClasses = new Set(Object.keys(contract.materialClasses?.classes ?? {}));
+  for (const vector of resolution.catalogValidationCases ?? []) {
+    const row = vector.row ?? {};
+    const missing = requiredRowFields.some((field) => {
+      if (!(field in row) || row[field] === null) return true;
+      return typeof row[field] === 'string' && row[field].trim() === '';
+    });
+    const actual = missing
+      ? 'block_catalog_row_incomplete'
+      : (declaredMaterialClasses.has(row.materialClass) ? 'valid' : 'unknown_material_class');
+    if (actual !== vector.expectedError) {
+      problem(`blockId.resolution.catalogValidationCases.${vector.name ?? '(unnamed)'} expected ${vector.expectedError}, got ${actual}`);
+    }
+  }
+}
+
 function validateContract(contract, fileName, abiDefinition) {
   const problems = [];
   const caseCount = checkStructure(contract, fileName, problems);
   checkGameplayEnvelopeContract(contract, fileName, problems);
+  checkVoxelPublicContract(contract, fileName, problems);
   checkNativeTimerContract(contract, fileName, problems);
   checkEntityBindingContract(contract, fileName, problems);
   if (abiDefinition) checkTimerAbiAlignment(contract, abiDefinition, problems, fileName);
