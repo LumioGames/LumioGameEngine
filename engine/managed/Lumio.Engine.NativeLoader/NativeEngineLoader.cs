@@ -85,6 +85,8 @@ public sealed class NativeEngineLease : IDisposable
     public string AbiHash { get; }
     public string BinarySha256 { get; }
 
+    internal NativeEngineLoader.RootApi Api => _api;
+
     public Lumio.Engine.SDK.NativeVoxelWorld CreateVoxelWorld(nint world)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -188,6 +190,28 @@ public static class NativeEngineLoader
         public nint Raycast;
         public nint Sweep;
         public nint Overlap;
+    }
+
+    internal static void ValidateTimerSlots(in RootApi api)
+    {
+        if (api.StructSize < (uint)Marshal.SizeOf<RootApi>()
+            || api.TimerCreateManager == 0
+            || api.TimerDestroyManager == 0
+            || api.TimerRegisterDispatch == 0
+            || api.TimerRegisterScope == 0
+            || api.TimerTeardownScope == 0
+            || api.TimerCreateSlot == 0
+            || api.TimerBindSlot == 0
+            || api.TimerCloseSlot == 0
+            || api.TimerScheduleOneShot == 0
+            || api.TimerScheduleRepeating == 0
+            || api.TimerCancel == 0
+            || api.TimerAdvance == 0
+            || api.TimerPump == 0
+            || api.TimerDrain == 0)
+        {
+            throw new InvalidOperationException("Native root table is missing timer_* slots.");
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
