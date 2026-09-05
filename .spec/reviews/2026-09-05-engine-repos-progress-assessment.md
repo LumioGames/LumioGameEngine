@@ -106,11 +106,11 @@ metadata:
 
 | # | 卡 | 性质 | 内容要点 | 前置 |
 | --- | --- | --- | --- | --- |
-| N-W0 | 退役制度残留清理（**新建**） | 小卡，纯本仓 | 删 `docs/architecture/` 镜像与 `.baseline.sha256`；删 CI `readme` job 基线断言；`lumio-contract-types` 去掉 Root ABI bundle golden / 漂移门，改锚 `native-abi.json` 或只保留本仓内部类型；删 `lumio-native-ffi` 退役 provider 表（保留 panic 边界 / 句柄校验若仍有用，否则整 crate 删）；README、`.spec` 与模块 README 去掉 `LGE-V1.4` / `LumioGameEngineArchitecture` / CoreEngine 口径；timer 三处文档统一 | 无；D1 裁决 |
-| N-GAS | R-00302 / R-00308 / R-00309 | 既有 3 张 | **挂起**并补评论说明原因（ADR-064 阶段 2）；重启前先裁 D2，再重写卡面并修编码 | D2 裁决 |
+| N-W0 | 退出旧合同制清理（**已建：R-00473**，8 条验收项） | 小卡，纯本仓 | 删 `docs/architecture/` 镜像与 `.baseline.sha256`；删 CI `readme` job 基线断言；`lumio-contract-types` 去掉 Root ABI bundle golden / 漂移门，改锚 `native-abi.json` 或只保留本仓内部类型；删 `lumio-native-ffi` 退役 provider 表（保留 panic 边界 / 句柄校验若仍有用，否则整 crate 删）；README、`.spec` 与模块 README 去掉 `LGE-V1.4` / `LumioGameEngineArchitecture` / CoreEngine 口径；timer 三处文档统一 | 无；D1 裁决 |
+| N-GAS | R-00302 / R-00308 / R-00309 | 既有 3 张 | **已作废（已否决）并各补一条评论**：前提失效、重开条件 = GAS 阶段 2 且 benchmark 证明需要下沉 | D2 已裁 |
 | N-M5 | 空间粗筛内核契约卡 + 实现卡（**新建，暂不派**） | 契约先行 | 契约：`(viewer, target, enter|leave)` 有序清单、排序键、双半径、确定性义务、在第 6 相收回、根表槽位形状；实现：`lumio-spatial` 改形 + `lumio-job` 运载 | DS 视野排期；ECS 视野表真值就位 |
 | N-ACC | R-00007 / R-00083 验收项补记 | 写操作 | 9 条 `not_started` → 按 PR #3 / #4 证据补跑或补记 | 写授权 |
-| — | 分支清理 | 卫生 | 删 5 本地 + 3 远端已合入分支 | 确认 |
+| — | 分支清理 | 卫生 | **已完成**：远端 3 条 `feat/*` 删除（`git push origin --delete`）；本地 `claude/*` 与 `.claude/worktrees` 复核时已不存在，读回只剩 `main` / `origin/main` 与单一 worktree | 已确认执行 |
 
 不开的卡及原因：Production Hardening（§6 推到正式硬化）；wasm32 目标（等 D3）；codec / diagnostics 转正（等架构源批准公共语义）。
 
@@ -156,6 +156,8 @@ metadata:
 
 ## 7. 本次已执行动作 / 待授权事项
 
-- 已执行：NativeCore 全量事实采集（git / gh / cargo 实跑）；RM-00002 全量只读拉取与 68 张 done 卡的机器复核；合并 Codex 会话的两份文档并删除原文件；本文 §2.1 落盘。
-- 未执行：任何 Workflow 写入（验收项补记、挂起评论、新卡）；任何分支删除；开工提示词（等 D1 / D2 裁决后按 `td-progress-audit` 第 5 步成文，沿用 Codex 版的守门优先与公共纪律格式）。
-- 待授权：① N-W0 新建卡；② R-00302 / 308 / 309 挂起评论；③ R-00007 / R-00083 验收项补记；④ 删除已合入的 5 本地 + 3 远端分支。
+- 已执行（2026-09-05，Owner 授权后逐笔读回）：
+  - Workflow：新建 R-00473（RM-00002，8 条原生验收项，全部 not_started）；R-00302 / R-00308 / R-00309 流转「已否决」并各补 1 条作废评论；R-00007 5 条与 R-00083 4 条验收项改为 passed（读回 5/5、4/4）。共 1 建单 + 8 验收项 + 3 流转 + 3 评论 + 9 验收项更新。
+  - NativeCore 仓：远端 `feat/r-00352-timer-manager` / `feat/r-00372-timer-abi` / `feat/r-00386-r4-07-timer-ffi-delete` 已删除；本地只剩 `main`，worktree 只剩主工作区。
+  - 架构仓文档：本报告、`plans/2026-09-05-nativecore-w0-card-and-kickoff.md`（含 R-00473 开工提示词）、gas.md M9 改归 Runtime、ADR-064 修订记录；首批已由 Owner 提交（`4a5f596`），本轮补写卡号与执行记录待再提交。
+- 未执行：R-00473 的实现（另开窗口按 plans 文件 §二 提示词派工）；其余七仓盘点（§2.2 ~ §2.8）。
