@@ -18,7 +18,7 @@ public sealed class RootApiLayoutTests
             return;
         }
 
-        Assert.Equal(280, Marshal.SizeOf<NativeEngineLoader.RootApi>());
+        Assert.Equal(304, Marshal.SizeOf<NativeEngineLoader.RootApi>());
 
         Assert.Equal(0L, Offset(nameof(NativeEngineLoader.RootApi.AbiVersion)));
         Assert.Equal(4L, Offset(nameof(NativeEngineLoader.RootApi.StructSize)));
@@ -40,6 +40,9 @@ public sealed class RootApiLayoutTests
         Assert.Equal(256L, Offset(nameof(NativeEngineLoader.RootApi.ResidencyPinDeclare)));
         Assert.Equal(264L, Offset(nameof(NativeEngineLoader.RootApi.ResidencyPinRelease)));
         Assert.Equal(272L, Offset(nameof(NativeEngineLoader.RootApi.ResidencyPinStatus)));
+        Assert.Equal(280L, Offset(nameof(NativeEngineLoader.RootApi.Raycast)));
+        Assert.Equal(288L, Offset(nameof(NativeEngineLoader.RootApi.Sweep)));
+        Assert.Equal(296L, Offset(nameof(NativeEngineLoader.RootApi.Overlap)));
     }
 
     private static long Offset(string field)

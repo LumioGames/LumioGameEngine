@@ -185,6 +185,9 @@ public static class NativeEngineLoader
         public nint ResidencyPinDeclare;
         public nint ResidencyPinRelease;
         public nint ResidencyPinStatus;
+        public nint Raycast;
+        public nint Sweep;
+        public nint Overlap;
     }
 
     [StructLayout(LayoutKind.Sequential)]

@@ -110,7 +110,7 @@ public sealed class VoxelFacadeTests
         => new()
         {
             AbiVersion = AbiConstants.AbiVersion,
-            StructSize = 280,
+            StructSize = 304,
             AbiHash = new byte[32],
             BuildId = new byte[16],
             Ping = 1,
