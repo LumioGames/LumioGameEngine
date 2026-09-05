@@ -1,6 +1,10 @@
 use std::ffi::c_void;
 
-use lumio_engine_native::{lumio_engine_get_api_v1, LumioEngineRootApiV1, LumioStatus};
+use lumio_engine_native::{
+    lumio_engine_get_api_v1, LumioEngineRootApiV1, LumioStatus, NativeVoxelProvider,
+    VoxelBlockReadCellResult, VoxelBlockReadResult, VoxelBoxRequest, VoxelPresence,
+    VoxelSectionKey, VoxelSectionRevisionResult, VoxelWorldCoordinate, VoxelWriteReceipt,
+};
 
 #[test]
 fn root_entry_returns_a_callable_table_with_build_identity() {
@@ -131,10 +135,7 @@ fn live_root_table_covers_c4_timer_slots() {
         size >= 200,
         "CLR-only root is 88 bytes; C-4 timer_* slots require size_of >= 200, got {size}"
     );
-    assert_eq!(
-        size, 200,
-        "x64 layout is 56-byte identity header + 18 function pointers"
-    );
+    assert_eq!(size, 304, "A-1 voxel slots extend the C-4 root table");
     assert_ne!(
         size, 88,
         "loaded struct_size 88 is the CLR-only layout that blocked R-00374/R-00376"
@@ -208,5 +209,300 @@ fn live_root_table_covers_c4_timer_slots() {
         unsafe { destroy(manager) },
         LumioStatus::TimerManagerShutdown as i32,
         "shutdown-tombstone must return TimerManagerShutdown (status 17)"
+    );
+}
+
+#[test]
+fn live_root_table_wires_a1_voxel_slots_and_leaves_physics_unfilled() {
+    let mut table = std::ptr::null();
+    assert_eq!(
+        unsafe { lumio_engine_get_api_v1(1, &mut table) },
+        LumioStatus::Success as i32
+    );
+    let table = unsafe { &*table };
+    assert_eq!(table.struct_size as usize, 304);
+    assert!(table.block_read_cell.is_some());
+    assert!(table.block_read_box.is_some());
+    assert!(table.block_read_column.is_some());
+    assert!(table.block_write_prepare.is_some());
+    assert!(table.block_write_commit.is_some());
+    assert!(table.block_write_abort.is_some());
+    assert!(table.section_revision_query.is_some());
+    assert!(table.residency_pin_declare.is_some());
+    assert!(table.residency_pin_release.is_some());
+    assert!(table.residency_pin_status.is_some());
+    assert!(table.raycast.is_none());
+    assert!(table.sweep.is_none());
+    assert!(table.overlap.is_none());
+}
+
+#[test]
+fn voxel_root_round_trip_preserves_unsigned_block_id_and_revision() {
+    let mut provider = NativeVoxelProvider::new();
+    provider.seed_ready_section(VoxelSectionKey::new(0, 0, 0), 12, 0x8000_0102);
+    let mut table = std::ptr::null();
+    assert_eq!(
+        unsafe { lumio_engine_get_api_v1(1, &mut table) },
+        LumioStatus::Success as i32
+    );
+    let table = unsafe { &*table };
+    let mut result = VoxelBlockReadCellResult::default();
+    let coordinate = VoxelWorldCoordinate::new(0, 1, 0);
+    assert_eq!(
+        unsafe {
+            (table.block_read_cell.unwrap())(provider.as_opaque_ptr(), &coordinate, &mut result)
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(result.presence, VoxelPresence::Ready);
+    assert_eq!(result.has_block_id, 1);
+    assert_eq!(result.block_id, 0x8000_0102);
+    assert_eq!(result.section_revision, 12);
+}
+
+#[test]
+fn voxel_pending_batch_read_remains_explicit_and_prepare_commit_is_atomic() {
+    let mut provider = NativeVoxelProvider::new();
+    provider.seed_ready_section(VoxelSectionKey::new(0, 0, 0), 12, 0x8000_0102);
+    provider.seed_pending_section(VoxelSectionKey::new(1, 0, 0), 99);
+    let mut table = std::ptr::null();
+    assert_eq!(
+        unsafe { lumio_engine_get_api_v1(1, &mut table) },
+        LumioStatus::Success as i32
+    );
+    let table = unsafe { &*table };
+
+    let request = VoxelBoxRequest::new(
+        VoxelWorldCoordinate::new(0, 1, 0),
+        VoxelWorldCoordinate::new(16, 1, 0),
+    );
+    let mut cells = [VoxelBlockReadResult::default(); 17];
+    let mut cell_count = 0;
+    let mut segments = [Default::default(); 2];
+    let mut segment_count = 0;
+    let mut truncated = 0;
+    assert_eq!(
+        unsafe {
+            (table.block_read_box.unwrap())(
+                provider.as_opaque_ptr(),
+                (&request as *const VoxelBoxRequest).cast(),
+                cells.as_mut_ptr(),
+                cells.len() as u32,
+                &mut cell_count,
+                segments.as_mut_ptr(),
+                segments.len() as u32,
+                &mut segment_count,
+                &mut truncated,
+            )
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(cell_count, 17);
+    assert_eq!(cells[0].presence, VoxelPresence::Ready);
+    assert_eq!(cells[16].presence, VoxelPresence::Pending);
+    assert_eq!(cells[16].has_block_id, 0);
+    assert_eq!(segment_count, 2);
+    assert_eq!(segments[0].section_key.x, 0);
+    assert_eq!(segments[0].section_key.y, 0);
+    assert_eq!(segments[0].section_key.z, 0);
+    assert_eq!(segments[0].presence, VoxelPresence::Ready);
+    assert_eq!(segments[0].first_result, 0);
+    assert_eq!(segments[0].result_count, 16);
+    assert_eq!(segments[1].section_key.x, 1);
+    assert_eq!(segments[1].section_key.y, 0);
+    assert_eq!(segments[1].section_key.z, 0);
+    assert_eq!(segments[1].presence, VoxelPresence::Pending);
+    assert_eq!(segments[1].first_result, 16);
+    assert_eq!(segments[1].result_count, 1);
+    assert_eq!(truncated, 0);
+
+    let entry = lumio_engine_native::VoxelBlockWriteEntry::new(
+        VoxelSectionKey::new(0, 0, 0),
+        256,
+        0x8000_0103,
+        12,
+    );
+    let mut token = std::ptr::null_mut();
+    assert_eq!(
+        unsafe {
+            (table.block_write_prepare.unwrap())(provider.as_opaque_ptr(), 7, &entry, 1, &mut token)
+        },
+        LumioStatus::Success as i32
+    );
+    let mut receipts = [VoxelWriteReceipt::default(); 1];
+    let mut receipt_count = 0;
+    assert_eq!(
+        unsafe {
+            (table.block_write_commit.unwrap())(
+                provider.as_opaque_ptr(),
+                token,
+                receipts.as_mut_ptr(),
+                1,
+                &mut receipt_count,
+            )
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(receipt_count, 1);
+    assert_eq!(receipts[0].up_to_section_revision, 13);
+
+    let mut after = VoxelBlockReadCellResult::default();
+    assert_eq!(
+        unsafe {
+            (table.block_read_cell.unwrap())(
+                provider.as_opaque_ptr(),
+                &VoxelWorldCoordinate::new(0, 1, 0),
+                &mut after,
+            )
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(after.presence, VoxelPresence::Ready);
+    assert_eq!(after.block_id, 0x8000_0103);
+    assert_eq!(after.section_revision, 13);
+
+    let mut untouched = VoxelBlockReadCellResult::default();
+    assert_eq!(
+        unsafe {
+            (table.block_read_cell.unwrap())(
+                provider.as_opaque_ptr(),
+                &VoxelWorldCoordinate::new(1, 1, 0),
+                &mut untouched,
+            )
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(untouched.presence, VoxelPresence::Ready);
+    assert_eq!(untouched.block_id, 0x8000_0102);
+    assert_eq!(untouched.section_revision, 13);
+
+    let mut revision = VoxelSectionRevisionResult::default();
+    assert_eq!(
+        unsafe {
+            (table.section_revision_query.unwrap())(
+                provider.as_opaque_ptr(),
+                &VoxelSectionKey::new(0, 0, 0),
+                &mut revision,
+            )
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(revision.presence, VoxelPresence::Ready);
+    assert_eq!(revision.section_revision, 13);
+}
+
+#[test]
+fn voxel_revision_and_null_arguments_return_stable_statuses_without_panicking() {
+    let mut provider = NativeVoxelProvider::new();
+    provider.seed_ready_section(VoxelSectionKey::new(0, 0, 0), 12, 1);
+    let mut table = std::ptr::null();
+    assert_eq!(
+        unsafe { lumio_engine_get_api_v1(1, &mut table) },
+        LumioStatus::Success as i32
+    );
+    let table = unsafe { &*table };
+    let key = VoxelSectionKey::new(0, 0, 0);
+    let mut revision = VoxelSectionRevisionResult::default();
+    assert_eq!(
+        unsafe {
+            (table.section_revision_query.unwrap())(provider.as_opaque_ptr(), &key, &mut revision)
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(revision.presence, VoxelPresence::Ready);
+    assert_eq!(revision.section_revision, 12);
+    assert_eq!(
+        unsafe {
+            (table.block_read_cell.unwrap())(
+                provider.as_opaque_ptr(),
+                std::ptr::null(),
+                &mut Default::default(),
+            )
+        },
+        LumioStatus::InvalidArgument as i32
+    );
+}
+
+#[test]
+fn native_provider_is_backed_by_a_running_voxel_world() {
+    let provider = NativeVoxelProvider::new();
+    assert_eq!(provider.world_state().lifecycle(), "Running");
+    assert_eq!(provider.world_state().role(), "Authority");
+}
+
+#[test]
+fn residency_slots_route_to_the_paired_pin_manager() {
+    let mut provider = NativeVoxelProvider::new();
+    provider.seed_ready_section(VoxelSectionKey::new(0, 0, 0), 12, 1);
+    let mut table = std::ptr::null();
+    assert_eq!(
+        unsafe { lumio_engine_get_api_v1(1, &mut table) },
+        LumioStatus::Success as i32
+    );
+    let table = unsafe { &*table };
+    let key = VoxelSectionKey::new(0, 0, 0);
+    let mut pin = std::ptr::null_mut();
+    assert_eq!(
+        unsafe {
+            (table.residency_pin_declare.unwrap())(provider.as_opaque_ptr(), &key, 1, 1, &mut pin)
+        },
+        LumioStatus::Success as i32
+    );
+    let mut status = lumio_engine_native::VoxelPinStatus {
+        ready: 0,
+        _reserved: [0; 7],
+        section_count: 0,
+        ready_section_count: 0,
+    };
+    assert_eq!(
+        unsafe {
+            (table.residency_pin_status.unwrap())(provider.as_opaque_ptr(), pin, &mut status)
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(status.ready, 1);
+    assert_eq!(status.section_count, 1);
+    assert_eq!(status.ready_section_count, 1);
+    assert_eq!(
+        unsafe { (table.residency_pin_release.unwrap())(provider.as_opaque_ptr(), pin) },
+        LumioStatus::Success as i32
+    );
+}
+
+#[test]
+fn block_write_abort_releases_the_paired_mutation_reservation() {
+    let mut provider = NativeVoxelProvider::new();
+    provider.seed_ready_section(VoxelSectionKey::new(0, 0, 0), 12, 1);
+    let mut table = std::ptr::null();
+    assert_eq!(
+        unsafe { lumio_engine_get_api_v1(1, &mut table) },
+        LumioStatus::Success as i32
+    );
+    let table = unsafe { &*table };
+    let entry =
+        lumio_engine_native::VoxelBlockWriteEntry::new(VoxelSectionKey::new(0, 0, 0), 256, 2, 12);
+    let mut token = std::ptr::null_mut();
+    assert_eq!(
+        unsafe {
+            (table.block_write_prepare.unwrap())(provider.as_opaque_ptr(), 8, &entry, 1, &mut token)
+        },
+        LumioStatus::Success as i32
+    );
+    assert_eq!(
+        unsafe { (table.block_write_abort.unwrap())(provider.as_opaque_ptr(), token) },
+        LumioStatus::Success as i32
+    );
+    let mut replacement = std::ptr::null_mut();
+    assert_eq!(
+        unsafe {
+            (table.block_write_prepare.unwrap())(
+                provider.as_opaque_ptr(),
+                8,
+                &entry,
+                1,
+                &mut replacement,
+            )
+        },
+        LumioStatus::Success as i32
     );
 }

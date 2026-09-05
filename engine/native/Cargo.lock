@@ -267,6 +267,9 @@ dependencies = [
  "lumio-clr-host",
  "lumio-kernel",
  "lumio-timer",
+ "lumio-voxel-contracts",
+ "lumio-voxel-domain",
+ "lumio-voxel-ops",
  "lumio-voxel-world",
 ]
 

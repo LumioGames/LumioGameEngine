@@ -143,7 +143,55 @@ fn rename_no_replace(from: &Path, to: &Path) -> Result<(), CompositionError> {
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(windows)]
+fn rename_no_replace(from: &Path, to: &Path) -> Result<(), CompositionError> {
+    use std::os::windows::ffi::OsStrExt;
+
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn MoveFileExW(from: *const u16, to: *const u16, flags: u32) -> i32;
+    }
+
+    const ERROR_FILE_EXISTS: i32 = 80;
+    const ERROR_ALREADY_EXISTS: i32 = 183;
+    let from_wide: Vec<u16> = from
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let to_wide: Vec<u16> = to
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    // A zero flag deliberately omits MOVEFILE_REPLACE_EXISTING. MoveFileExW
+    // then performs the destination existence check as part of the rename,
+    // keeping the no-replace guarantee atomic for both files and directories.
+    let moved = unsafe { MoveFileExW(from_wide.as_ptr(), to_wide.as_ptr(), 0) } != 0;
+    if moved {
+        return Ok(());
+    }
+    let os_error = std::io::Error::last_os_error();
+    if matches!(
+        os_error.raw_os_error(),
+        Some(ERROR_FILE_EXISTS | ERROR_ALREADY_EXISTS)
+    ) {
+        return Err(err(
+            CompositionErrorKind::OutputAlreadyExists,
+            format!(
+                "计划目录 {} 已存在；已发布计划不可覆盖（{os_error}）",
+                to.display()
+            ),
+        ));
+    }
+    Err(atomic_failed(format!(
+        "原子发布到 {} 失败：{os_error}",
+        to.display()
+    )))
+}
+
+#[cfg(all(not(target_os = "linux"), not(target_os = "macos"), not(windows)))]
 fn rename_no_replace(from: &Path, to: &Path) -> Result<(), CompositionError> {
     match std::fs::rename(from, to) {
         Ok(()) => Ok(()),
